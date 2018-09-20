@@ -1,0 +1,29 @@
+// [START declaration]
+syntax = "proto3";
+package Elementary;
+// [END declaration]
+
+message Msg_Measurements {
+    float position = 1;
+    float velocity = 2;
+    float acceleration = 3;
+    float control_data = 4;
+    int32 current = 5;
+    int32 flags = 6;
+    float accel_x = 7;
+    float accel_y = 8;
+    float accel_z = 9;
+    float gyro_x = 10;
+    float gyro_y = 11;
+    float gyro_z = 12;
+    int32 accel_temp = 13;
+    int32 mcu_temp = 14;
+  }
+
+
+message Device_Measurement {
+    string name = 15;
+    bool stale = 16;
+    double timestamp = 17;
+    Msg_Measurements measurements = 18;
+}
