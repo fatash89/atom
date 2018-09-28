@@ -13,7 +13,7 @@ class Skill(Client):
         All Skills have a command and response stream with optional streams for publishing droplets.
 
         Args:
-            name (str): The name of this client.
+            name (str): The name of this Skill.
             host (str, optional): The ip address of the Redis server to connect to.
             port (int, optional): The port of the Redis server to connect to.
             socket_path (str, optional): Path to Redis Unix socket.
