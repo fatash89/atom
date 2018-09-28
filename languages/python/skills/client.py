@@ -4,9 +4,19 @@ from skills.messages import Cmd, Response, StreamHandler
 
 
 class Client:
-    def __init__(self, name, host="localhost", port=6379, db=0, socket_path="/tmp/redis.sock"):
+    def __init__(self, name, host="localhost", port=6379, socket_path="/tmp/redis.sock"):
+        """
+        A Client has the purpose of interacting with Skills by getting data from their streams
+        or sending commands and receiving responses. All Clients have a response stream.
+
+        Args:
+            name (str): The name of this Client.
+            host (str, optional): The ip address of the Redis server to connect to.
+            port (int, optional): The port of the Redis server to connect to.
+            socket_path (str, optional): Path to Redis Unix socket.
+        """
         self.name = name
-        self._rclient = redis.StrictRedis(host=host, port=port, db=db, unix_socket_path=socket_path)
+        self._rclient = redis.StrictRedis(host=host, port=port, unix_socket_path=socket_path)
         self._pipe = self._rclient.pipeline()
 
         self._pipe.xadd(self._make_client_id(self.name), maxlen=STREAM_LEN, **{"language": LANG, "version": VERSION})
@@ -18,42 +28,93 @@ class Client:
 
     def __del__(self):
         """
-        Removes all clients and skills with the same name.
+        Removes all Clients and Skills with the same name.
         """
         self._rclient.delete(self._make_client_id(self.name))
         self._rclient.delete(self._make_skill_id(self.name))
 
     def _make_client_id(self, client_name):
+        """
+        Creates the string representation for a Client's response stream id.
+
+        Args:
+            client_name (str): Name of the Client to generate the id for.
+        """
         return f"client:{client_name}"
 
     def _make_skill_id(self, skill_name):
+        """
+        Creates the string representation for a Skill's command stream id.
+
+        Args:
+            skill_name (str): Name of the Skill to generate the id for.
+        """
         return f"skill:{skill_name}"
 
     def _make_stream_id(self, skill_name, stream_name):
+        """
+        Creates the string representation of a Skill's stream id.
+
+        Args:
+            skill_name (str): Name of the Skill to generate the id for.
+            stream_name (str): Name of skill_name's stream to generate the id for.
+        """
         return f"stream:{skill_name}:{stream_name}"
 
     def _get_redis_timestamp(self):
+        """
+        Gets the current timestamp from Redis.
+        """
         secs, msecs = self._rclient.time()
         timestamp = str(secs) + str(msecs)[:3]
         return timestamp
 
     def get_all_clients(self):
+        """
+        Gets the names of all the Clients connected to the Redis server.
+
+        Returns:
+            List of Client ids connected to the Redis server.
+        """
         clients = self._rclient.keys(self._make_client_id("*"))
         return clients
 
     def get_all_skills(self):
+        """
+        Gets the names of all the Skills connected to the Redis server.
+
+        Returns:
+            List of Skill ids connected to the Redis server.
+        """
         skills = self._rclient.keys(self._make_skill_id("*"))
         return skills
 
     def get_all_streams(self, skill_name="*"):
+        """
+        Gets the names of all the streams of the specified Skill (all by default).
+
+        Args:
+            skill_name (str): Name of the Skill of which to get the streams from.
+        
+        Returns:
+            List of Stream ids belonging to skill_name
+        """
         streams = self._rclient.keys(self._make_stream_id(skill_name, "*"))
         return streams
 
     def send_command(self, skill_name, cmd_name, data, block=True):
         """
         Sends command to skill and waits for acknowledge.
-        When acknowledge is received, waits for time from acknowledge or until response is received.
-        Returns response with unnecessary data stripped away.
+        When acknowledge is received, waits for timeout from acknowledge or until response is received.
+
+        Args:
+            skill_name (str): Name of the Skill to send the command to.
+            cmd_name (str): Name of the command to execute of skill_name.
+            data: Data to be passed to the function specified by cmd_name.
+            block (bool): Wait for the response before returning from the function.
+
+        Returns:
+            messages.Response
         """
         # Send command to skill's command stream
         cmd = Cmd(self.name, cmd_name, data)
@@ -90,10 +151,12 @@ class Client:
 
     def listen_on_streams(self, stream_handlers, n_loops=None, timeout=MAX_BLOCK):
         """
-        Listen to streams from stream handler map and pass any received data to corresponding handler.
+        Listens to streams and pass any received data to corresponding handler.
         
         Args:
-            stream_handlers: List of messages.stream_handler
+            stream_handlers (list of messages.StreamHandler): 
+            n_loops (int): Number of times to send the stream data to the handlers.
+            timeout (int): How long to block on the stream. If surpassed, the function returns.
         """
         if n_loops is None:
             # Create an infinite loop
@@ -118,8 +181,19 @@ class Client:
                     streams[stream] = uid
                     stream_handler_map[stream](droplet)
 
-    def get_n_most_recent(self, skill, stream, n):
-        uid_droplets = self._rclient.xrevrange(self._make_stream_id(skill, stream), count=n)
+    def get_n_most_recent(self, skill_name, stream_name, n):
+        """
+        Gets the n most recent droplets from the specified stream.
+
+        Args:
+            skill_name (str): Name of the Skill to get the droplets from.
+            stream_name (str): Name of the stream to get the droplets from.
+            n (int): Number of droplets to get.
+
+        Returns:
+            List of dicts containing the data of the droplets.
+        """
+        uid_droplets = self._rclient.xrevrange(self._make_stream_id(skill_name, stream_name), count=n)
         droplets = []
         # Convert the bytestring fields of the droplet to string
         for _, droplet in uid_droplets:

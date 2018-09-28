@@ -5,8 +5,19 @@ from skills.messages import Acknowledge, Droplet, Response
 
 
 class Skill(Client):
-    def __init__(self, name, host="localhost", port=6379, db=0, socket_path="/tmp/redis.sock"):
-        super().__init__(name, host, port, db, socket_path)
+    def __init__(self, name, host="localhost", port=6379, socket_path="/tmp/redis.sock"):
+        """
+        A Skill contains all the functionality of a Client in addition to accepting commands,
+        delivering responses to commands, and publishing droplets on streams.
+        All Skills have a command and response stream with optional streams for publishing droplets.
+
+        Args:
+            name (str): The name of this client.
+            host (str, optional): The ip address of the Redis server to connect to.
+            port (int, optional): The port of the Redis server to connect to.
+            socket_path (str, optional): Path to Redis Unix socket.
+        """
+        super().__init__(name, host, port, socket_path)
         self.handler_map = {}
         self.timeouts = {}
         self.streams = set()
@@ -17,20 +28,34 @@ class Skill(Client):
 
     def __del__(self):
         """
-        Deletes all streams belonging to this skill and
-        removes all clients and skills with the same name.
+        Deletes all streams belonging to this Skill and
+        removes all Clients and Skills with the same name.
         """
         for stream in self.streams.copy():
             self.clean_up_stream(stream)
         super().__del__()
 
     def clean_up_stream(self, stream):
+        """
+        Deletes the specified stream.
+
+        Args:
+            stream (string): The stream to delete.
+        """
         if stream not in self.streams:
             raise Exception(f"Stream {stream} does not exist!")
         self._rclient.delete(self._make_stream_id(self.name, stream))
         self.streams.remove(stream)
 
     def add_command(self, name, handler, timeout=RESPONSE_TIMEOUT):
+        """
+        Adds a command to the Skill for a Client to call.
+
+        Args:
+            name (str): Name of the command.
+            handler (callable): Function to call given the command name.
+            timeout (int, optional): Time for the Client to wait for the command to finish.
+        """
         if not callable(handler):
             raise TypeError("Passed in handler is not a function!")
         self.handler_map[name] = handler
@@ -38,7 +63,7 @@ class Skill(Client):
 
     def run_command_loop(self):
         """
-        Waits for command to be added to skill's command stream.
+        Waits for command to be put in Skill's command stream.
         Sends acknowledge to client and then runs command.
         Returns response with processed data to client.
         """
@@ -88,12 +113,18 @@ class Skill(Client):
             self._pipe.xadd(self._make_client_id(client), **vars(response))
             self._pipe.execute()
 
-    def add_droplet(self, stream, field_data_map, timestamp=None, maxlen=STREAM_LEN):
+    def add_droplet(self, stream_name, field_data_map, timestamp=None, maxlen=STREAM_LEN):
         """
-        Creates skill's stream if it does not exist.
-        Adds the the data to a Droplet and adds it to the skill's stream.
+        Creates Skill's stream if it does not exist.
+        Adds the fields and data to a Droplet and puts it in the Skill's stream.
+
+        Args:
+            stream_name (str): The stream to add the droplet to.
+            field_data_map (dict): Dict which creates the Droplet. See messages.Droplet for more usage.
+            timestamp (str, optional): Timestamp of when the data was created.
+            maxlen (int, optional): The maximum number of droplets to keep in the stream.
         """
-        self.streams.add(stream)
+        self.streams.add(stream_name)
         droplet = Droplet(field_data_map, timestamp)
-        self._pipe.xadd(self._make_stream_id(self.name, stream), maxlen=maxlen, **vars(droplet))
+        self._pipe.xadd(self._make_stream_id(self.name, stream_name), maxlen=maxlen, **vars(droplet))
         self._pipe.execute()
