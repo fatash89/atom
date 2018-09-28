@@ -1,5 +1,6 @@
 import redis
 from skills.config import LANG, VERSION, ACK_TIMEOUT, STREAM_LEN, MAX_BLOCK
+from skills.config import SKILLS_COMMAND_NO_ACK, SKILLS_COMMAND_NO_RESPONSE
 from skills.messages import Cmd, Response, StreamHandler
 
 
@@ -19,7 +20,10 @@ class Client:
         self._rclient = redis.StrictRedis(host=host, port=port, unix_socket_path=socket_path)
         self._pipe = self._rclient.pipeline()
 
-        self._pipe.xadd(self._make_client_id(self.name), maxlen=STREAM_LEN, **{"language": LANG, "version": VERSION})
+        self._pipe.xadd(
+            self._make_client_id(self.name),
+            maxlen=STREAM_LEN,
+            **{"language": LANG, "version": VERSION})
         # Keep track of response_last_id to know last time the client's response stream was read from
         self.response_last_id = self._pipe.execute()[-1].decode()
 
@@ -123,9 +127,13 @@ class Client:
         timeout = None
 
         # Receive acknowledge from skill
-        responses = self._rclient.xread(block=ACK_TIMEOUT, **{self._make_client_id(self.name): self.response_last_id})
+        responses = self._rclient.xread(
+            block=ACK_TIMEOUT, 
+            **{self._make_client_id(self.name): self.response_last_id})
         if responses is None:
-            return vars(Response(err_code=2, err_str="Did not receive acknowledge from skill."))
+            return vars(Response(
+                err_code=SKILLS_COMMAND_NO_ACK,
+                err_str="Did not receive acknowledge from skill."))
         for self.response_last_id, response in responses[self._make_client_id(self.name)]:
             if response[b"skill"].decode() == skill_name and \
             response[b"cmd_id"].decode() == cmd_id and b"timeout" in response:
@@ -133,12 +141,17 @@ class Client:
                 break
 
         if timeout is None:
-            return vars(Response(err_code=2, err_str="Did not receive acknowledge from skill."))
+            return vars(Response(
+                err_code=SKILLS_COMMAND_NO_ACK,
+                err_str="Did not receive acknowledge from skill."))
 
         # Receive response from skill
-        responses = self._rclient.xread(block=timeout, **{self._make_client_id(self.name): self.response_last_id})
+        responses = self._rclient.xread(
+            block=timeout, **{self._make_client_id(self.name): self.response_last_id})
         if responses is None:
-            return vars(Response(err_code=3, err_str="Did not receive response from skill."))
+            return vars(Response(
+                err_code=SKILLS_COMMAND_NO_RESPONSE,
+                err_str="Did not receive response from skill."))
         for self.response_last_id, response in responses[self._make_client_id(self.name)]:
             if response[b"skill"].decode() == skill_name and \
             response[b"cmd_id"].decode() == cmd_id and b"data" in response:
@@ -147,7 +160,10 @@ class Client:
                 return vars(Response(data=response[b"data"], err_code=err_code, err_str=err_str))
 
         # Proper response was not in responses
-        return vars(Response(err_code=3, err_str="Did not receive response from skill."))
+        return vars(
+            Response(
+                err_code=SKILLS_COMMAND_NO_RESPONSE,
+                err_str="Did not receive response from skill."))
 
     def listen_on_streams(self, stream_handlers, n_loops=None, timeout=MAX_BLOCK):
         """
@@ -193,7 +209,8 @@ class Client:
         Returns:
             List of dicts containing the data of the droplets.
         """
-        uid_droplets = self._rclient.xrevrange(self._make_stream_id(skill_name, stream_name), count=n)
+        uid_droplets = self._rclient.xrevrange(
+            self._make_stream_id(skill_name, stream_name), count=n)
         droplets = []
         # Convert the bytestring fields of the droplet to string
         for _, droplet in uid_droplets:

@@ -1,6 +1,7 @@
 import redis
 from skills import Client
-from skills.config import LANG, VERSION, ACK_TIMEOUT, RESPONSE_TIMEOUT, STREAM_LEN, SKILL_ERROR_OFFSET, MAX_BLOCK
+from skills.config import LANG, VERSION, ACK_TIMEOUT, RESPONSE_TIMEOUT, STREAM_LEN, MAX_BLOCK
+from skills.config import SKILLS_COMMAND_UNSUPPORTED, SKILLS_CALLBACK_FAILED, SKILLS_USER_ERRORS_BEGIN
 from skills.messages import Acknowledge, Droplet, Response
 
 
@@ -22,7 +23,13 @@ class Skill(Client):
         self.timeouts = {}
         self.streams = set()
 
-        self._pipe.xadd(self._make_skill_id(self.name), maxlen=STREAM_LEN, **{"language": LANG, "version": VERSION})
+        self._pipe.xadd(
+            self._make_skill_id(self.name),
+            maxlen=STREAM_LEN,
+            **{
+                "language": LANG,
+                "version": VERSION
+            })
         # Keep track of cmd_last_id to know last time the skill's command stream was read from
         self.cmd_last_id = self._pipe.execute()[-1].decode()
 
@@ -97,17 +104,21 @@ class Skill(Client):
 
             # Send response to client
             if cmd_name not in self.handler_map.keys():
-                response = Response(err_code=6, err_msg="Unsupported command.")
+                response = Response(
+                    err_code=SKILLS_COMMAND_UNSUPPORTED, 
+                    err_msg="Unsupported command.")
             else:
                 try:
                     response = self.handler_map[cmd_name](data)
                     if not isinstance(response, Response):
                         raise TypeError(f"Return type of {cmd_name} is not of type Response")
-                    # Add SKILL_ERROR_OFFSET to err_code to map to skill error range
+                    # Add SKILLS_USER_ERRORS_BEGIN to err_code to map to skill error range
                     if response.err_code != 0:
-                        response.err_code += SKILL_ERROR_OFFSET
+                        response.err_code += SKILLS_USER_ERRORS_BEGIN
                 except Exception as e:
-                    response = Response(err_code=7, err_msg=f"{str(type(e))} {str(e)}")
+                    response = Response(
+                        err_code=SKILLS_CALLBACK_FAILED, 
+                        err_msg=f"{str(type(e))} {str(e)}")
 
             response = response.to_internal(self.name, cmd_name, cmd_id)
             self._pipe.xadd(self._make_client_id(client), **vars(response))
@@ -126,5 +137,7 @@ class Skill(Client):
         """
         self.streams.add(stream_name)
         droplet = Droplet(field_data_map, timestamp)
-        self._pipe.xadd(self._make_stream_id(self.name, stream_name), maxlen=maxlen, **vars(droplet))
+        self._pipe.xadd(
+            self._make_stream_id(self.name, stream_name), 
+            maxlen=maxlen, **vars(droplet))
         self._pipe.execute()
