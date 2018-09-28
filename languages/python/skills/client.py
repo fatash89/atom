@@ -1,9 +1,6 @@
 import redis
-import sys
-import time
-from skills.config import LANG, VERSION, ACK_TIMEOUT, STREAM_LEN, SLEEP_TIME
-from collections import namedtuple
-from skills.messages import Cmd, Response
+from skills.config import LANG, VERSION, ACK_TIMEOUT, STREAM_LEN, MAX_BLOCK
+from skills.messages import Cmd, Response, StreamHandler
 
 
 class Client:
@@ -91,24 +88,31 @@ class Client:
         # Proper response was not in responses
         return vars(Response(err_code=3, err_str="Did not receive response from skill."))
 
-    def listen_on_streams(self, stream_handlers):
+    def listen_on_streams(self, stream_handlers, n_loops=None, timeout=MAX_BLOCK):
         """
         Listen to streams from stream handler map and pass any received data to corresponding handler.
         
         Args:
             stream_handlers: List of messages.stream_handler
         """
+        if n_loops is None:
+            # Create an infinite loop
+            n_loops = iter(int, 1)
+        else:
+            n_loops = range(n_loops)
+
         streams = {}
         stream_handler_map = {}
         for stream_handler in stream_handlers:
+            if not isinstance(stream_handler, StreamHandler):
+                raise TypeError(f"{stream_handler} is not a StreamHandler!")
             stream_id = self._make_stream_id(stream_handler.skill, stream_handler.stream)
             streams[stream_id] = self._get_redis_timestamp()
             stream_handler_map[stream_id] = stream_handler.handler
-        while True:
-            stream_droplets = self._rclient.xread(block=sys.maxsize, **streams)
+        for _ in n_loops:
+            stream_droplets = self._rclient.xread(block=timeout, **streams)
             if stream_droplets is None:
-                time.sleep(SLEEP_TIME)
-                continue
+                return
             for stream, droplets in stream_droplets.items():
                 for uid, droplet in droplets:
                     streams[stream] = uid
@@ -119,8 +123,12 @@ class Client:
         droplets = []
         # Convert the bytestring fields of the droplet to string
         for _, droplet in uid_droplets:
-            droplets.append({
-                "timestamp": droplet[b"timestamp"].decode(),
-                "data": droplet[b"data"],
-            })
+            for k in list(droplet.keys()).copy():
+                k_str = k.decode()
+                if k_str == "timestamp":
+                    droplet[k_str] = droplet[k].decode()
+                else:
+                    droplet[k_str] = droplet[k]
+                del droplet[k]
+            droplets.append(droplet)
         return droplets

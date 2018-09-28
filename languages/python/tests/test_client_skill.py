@@ -64,7 +64,7 @@ class TestClientSkill:
         proper values are returned from get_n_most_recent.
         """
         for i in range(10):
-            skill.add_droplet("test_stream", i)
+            skill.add_droplet("test_stream", {"data": i})
         data = client.get_n_most_recent("test_skill", "test_stream", 5)
         assert len(data) == 5
         assert data[0]["data"] == b"9"
@@ -82,7 +82,7 @@ class TestClientSkill:
         """
         Ensures that a stream can be removed from Redis and removed from skill's streams set.
         """
-        skill.add_droplet("clean_me", 0)
+        skill.add_droplet("clean_me", {"data": 0})
         assert b"stream:test_skill:clean_me" in skill.get_all_streams()
         skill.clean_up_stream("clean_me")
         assert b"stream:test_skill:clean_me" not in skill.get_all_streams()
@@ -123,7 +123,7 @@ class TestClientSkill:
 
         def add_droplet_loop(skill, stream_name, data):
             for i in range(10):
-                skill.add_droplet(stream_name, data)
+                skill.add_droplet(stream_name, {"data": data})
                 data += 2
 
         def add_to_redis(data):

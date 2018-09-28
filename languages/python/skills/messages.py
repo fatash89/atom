@@ -1,3 +1,4 @@
+import time
 from collections import namedtuple
 
 
@@ -44,12 +45,18 @@ class InternalResponse(Response):
 
 
 class Droplet:
-    def __init__(self, timestamp, data):
+    def __init__(self, field_data_map, timestamp=None):
+        if timestamp is None:
+            timestamp = str(time.time())
         if not isinstance(timestamp, str):
             raise TypeError("timestamp must be a str")
         self.timestamp = timestamp
-        self.data = data
 
+        for field, data in field_data_map.items():
+            if not isinstance(field, str):
+                raise TypeError(f"field {field} must be a str")
+            setattr(self, field, data)
+            
 
 class Acknowledge:
     def __init__(self, skill, cmd_id, timeout):

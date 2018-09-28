@@ -1,8 +1,6 @@
 import redis
-import sys
-import time
 from skills import Client
-from skills.config import LANG, VERSION, ACK_TIMEOUT, RESPONSE_TIMEOUT, STREAM_LEN, SLEEP_TIME, SKILL_ERROR_OFFSET
+from skills.config import LANG, VERSION, ACK_TIMEOUT, RESPONSE_TIMEOUT, STREAM_LEN, SKILL_ERROR_OFFSET, MAX_BLOCK
 from skills.messages import Acknowledge, Droplet, Response
 
 
@@ -47,9 +45,8 @@ class Skill(Client):
         while True:
             # Get oldest new command from skill's command stream
             stream = {self._make_skill_id(self.name): self.cmd_last_id}
-            cmd_response = self._rclient.xread(block=sys.maxsize, count=1, **stream)
+            cmd_response = self._rclient.xread(block=MAX_BLOCK, count=1, **stream)
             if cmd_response is None:
-                time.sleep(SLEEP_TIME)
                 continue
 
             # Set the cmd_last_id to this command's id to keep track of our last read
@@ -91,14 +88,12 @@ class Skill(Client):
             self._pipe.xadd(self._make_client_id(client), **vars(response))
             self._pipe.execute()
 
-    def add_droplet(self, stream, data, timestamp=None, maxlen=STREAM_LEN):
+    def add_droplet(self, stream, field_data_map, timestamp=None, maxlen=STREAM_LEN):
         """
         Creates skill's stream if it does not exist.
         Adds the the data to a Droplet and adds it to the skill's stream.
         """
-        if timestamp is None:
-            timestamp = str(time.time())
         self.streams.add(stream)
-        droplet = Droplet(timestamp, data)
+        droplet = Droplet(field_data_map, timestamp)
         self._pipe.xadd(self._make_stream_id(self.name, stream), maxlen=maxlen, **vars(droplet))
         self._pipe.execute()
