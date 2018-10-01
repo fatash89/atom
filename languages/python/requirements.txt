@@ -1,0 +1,2 @@
+git+git://github.com/nicois/redis-py@master
+pytest==3.8.1
