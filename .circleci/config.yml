@@ -56,4 +56,4 @@ jobs:
       - run:
           name: test python skills
           working_directory: languages/python
-          command: pytest
+          command: source ENV/bin/activate && pytest
