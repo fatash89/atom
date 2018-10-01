@@ -24,7 +24,8 @@ jobs:
           command: make && make install
       - run:
           name: launch redis
-          command: third-party/redis/build/bin/redis-server redis.conf &
+          command: third-party/redis/build/bin/redis-server redis.conf
+          background: true
 
       #
       # Build and test C implementation
