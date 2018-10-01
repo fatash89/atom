@@ -160,10 +160,9 @@ class Client:
                 return vars(Response(data=response[b"data"], err_code=err_code, err_str=err_str))
 
         # Proper response was not in responses
-        return vars(
-            Response(
-                err_code=SKILLS_COMMAND_NO_RESPONSE,
-                err_str="Did not receive response from skill."))
+        return vars(Response(
+            err_code=SKILLS_COMMAND_NO_RESPONSE,
+            err_str="Did not receive response from skill."))
 
     def listen_on_streams(self, stream_handlers, n_loops=None, timeout=MAX_BLOCK):
         """

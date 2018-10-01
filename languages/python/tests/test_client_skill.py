@@ -2,9 +2,10 @@ import pytest
 import time
 from skills.client import Client
 from multiprocessing import Process
+from skills.config import SKILLS_NO_ERROR, SKILLS_COMMAND_NO_ACK, SKILLS_COMMAND_UNSUPPORTED
+from skills.config import SKILLS_COMMAND_NO_RESPONSE, SKILLS_CALLBACK_FAILED
 from skills.skill import Skill
 from skills.messages import Response, StreamHandler
-
 
 class TestClientSkill:
 
@@ -102,13 +103,13 @@ class TestClientSkill:
         Client sends command and skill returns response.
         Tests expected use case of command response.
         """
-        skill.add_command("add_1", lambda x: Response(int(x)+1))
+        skill.add_command("add_1", add_1)
         proc = Process(target=skill.run_command_loop)
         proc.start()
         response = client.send_command("test_skill", "add_1", 0)
         proc.terminate()
         proc.join()
-        assert response["err_code"] == 0
+        assert response["err_code"] == SKILLS_NO_ERROR
         assert response["data"] == b"1"
 
     def test_listen_on_streams(self, client):
@@ -155,3 +156,55 @@ class TestClientSkill:
         client._rclient.delete("stream:skill_1:stream_1")
         client._rclient.delete(test_stream_id)
         assert len(droplets) == 20
+
+    def test_no_ack(self, client, skill):
+        """
+        Client sends command and skill does not acknowledge.
+        """
+        skill.add_command("add_1", add_1)
+        response = client.send_command("test_skill", "add_1", 0)
+        assert response["err_code"] == SKILLS_COMMAND_NO_ACK
+
+    def test_unsupported_command(self, client, skill):
+        """
+        Client sends command that skill does not have.
+        """
+        proc = Process(target=skill.run_command_loop)
+        proc.start()
+        response = client.send_command("test_skill", "add_1", 0)
+        proc.terminate()
+        proc.join()
+        assert response["err_code"] == SKILLS_COMMAND_UNSUPPORTED
+
+    def test_command_timeout(self, client, skill):
+        """
+        Client sends command to skill that does not return data within the timeout.
+        """
+        # Set a timeout of 10 ms
+        skill.add_command("loop", loop, 10)
+        proc = Process(target=skill.run_command_loop)
+        proc.start()
+        response = client.send_command("test_skill", "loop", None)
+        proc.terminate()
+        proc.join()
+        assert response["err_code"] == SKILLS_COMMAND_NO_RESPONSE
+
+    def test_handler_returns_not_response(self, client, skill):
+        """
+        Client calls command from skill that does not return an object of type Response.
+        """
+        skill.add_command("ret_not_response", lambda x: 0)
+        proc = Process(target=skill.run_command_loop)
+        proc.start()
+        response = client.send_command("test_skill", "ret_not_response", None)
+        proc.terminate()
+        proc.join()
+        assert response["err_code"] == SKILLS_CALLBACK_FAILED
+
+
+def add_1(x):
+    return Response(int(x)+1)
+
+def loop(x):
+    while True:
+        time.sleep(0.1)

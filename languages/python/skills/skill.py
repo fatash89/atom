@@ -26,10 +26,7 @@ class Skill(Client):
         self._pipe.xadd(
             self._make_skill_id(self.name),
             maxlen=STREAM_LEN,
-            **{
-                "language": LANG,
-                "version": VERSION
-            })
+            **{"language": LANG, "version": VERSION})
         # Keep track of cmd_last_id to know last time the skill's command stream was read from
         self.cmd_last_id = self._pipe.execute()[-1].decode()
 
@@ -106,7 +103,7 @@ class Skill(Client):
             if cmd_name not in self.handler_map.keys():
                 response = Response(
                     err_code=SKILLS_COMMAND_UNSUPPORTED, 
-                    err_msg="Unsupported command.")
+                    err_str="Unsupported command.")
             else:
                 try:
                     response = self.handler_map[cmd_name](data)
@@ -118,7 +115,7 @@ class Skill(Client):
                 except Exception as e:
                     response = Response(
                         err_code=SKILLS_CALLBACK_FAILED, 
-                        err_msg=f"{str(type(e))} {str(e)}")
+                        err_str=f"{str(type(e))} {str(e)}")
 
             response = response.to_internal(self.name, cmd_name, cmd_id)
             self._pipe.xadd(self._make_client_id(client), **vars(response))
