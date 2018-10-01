@@ -1,0 +1,59 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: elementaryrobotics/sdk-base
+        auth:
+          username: dpipemazo
+          password: $DOCKERHUB_PASSWORD
+
+    steps:
+      - checkout
+
+      # Need to update submodules
+      - run:
+          name: update submodules
+          command: git submodule update --init --recursive
+
+      #
+      # Build and launch redis
+      #
+      - run:
+          name: build redis
+          working_directory: third-party/redis
+          command: make && make install
+      - run:
+          name: launch redis
+          command: third-party/redis/build/bin/redis-server redis.conf &
+
+      #
+      # Build and test C implementation
+      #
+      - run:
+          name: build hiredis
+          working_directory: languages/c/third-party/hiredis
+          command: make && make install
+      - run:
+          name: build C skills
+          working_directory: languages/c
+          command: make && make install
+
+      #
+      # Build and test python implementation
+      #
+      - run:
+          name: set up virtual environment
+          working_directory: languages/python
+          command: virtualenv ENV --python=python3.6
+      - run:
+          name: install python skills requirements
+          working_directory: languages/python
+          command: source ENV/bin/activate && pip install -r requirements.txt
+      - run:
+          name: install python skills
+          working_directory: languages/python
+          command: source ENV/bin/activate && python setup.py install
+      - run:
+          name: test python skills
+          working_directory: languages/python
+          command: pytest
