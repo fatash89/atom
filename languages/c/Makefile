@@ -22,7 +22,7 @@ INCLUDE_DIR:=inc
 
 BUILD_DIR:=build
 THIRDPARTY_DIR:=third-party
-HIREDIS_BUILD_DIR:=${THIRDPARTY_DIR}/hiredis/build/
+HIREDIS_BUILD_DIR:=/usr/local
 
 C_SRCS := $(wildcard $(SOURCE_DIR)/*.c)
 C_OBJS = $(addprefix $(BUILD_DIR)/lib/,$(notdir $(C_SRCS:.c=.o)))
