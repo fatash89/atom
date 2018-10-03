@@ -26,7 +26,7 @@ all:
 .PHONY: install
 install:
 	mkdir -p ${INSTALL_DIR}
-	cd ${LIB_DIR} && make PREFIX=${INSTALL_DIR} install
+	cd ${LIB_DIR} && make install
 
 .PHONY: clean
 clean:
