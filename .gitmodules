@@ -1,9 +1,3 @@
-[submodule "third-party/redis/redis"]
-	path = third-party/redis/redis
-	url = https://github.com/antirez/redis
-[submodule "third-party/protobuf/protobuf"]
-	path = third-party/protobuf/protobuf
-	url = https://github.com/protocolbuffers/protobuf
 [submodule "languages/c/third-party/hiredis/hiredis"]
 	path = languages/c/third-party/hiredis/hiredis
 	url = https://github.com/redis/hiredis

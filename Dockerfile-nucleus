@@ -1,0 +1,11 @@
+FROM redis:alpine
+
+# Want to copy over the contents of this repo to the code
+#	section so that we have the source
+ADD ./launch_nucleus.sh /nucleus/launch.sh
+ADD ./redis.conf /nucleus/redis.conf
+
+# Change directory to nucleus and chown the launch script
+WORKDIR /nucleus
+RUN chmod +x launch.sh
+CMD ["./launch.sh"]

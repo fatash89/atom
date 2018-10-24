@@ -1,0 +1,37 @@
+FROM ubuntu:18.04
+
+# Noninteractive frontend
+ARG DEBIAN_FRONTEND=noninteractive
+
+#
+# Install anything needed in the system
+#
+RUN apt-get update -y
+RUN apt-get install -y --no-install-recommends apt-utils
+RUN apt-get install -y git python3-minimal python3-pip autoconf libtool
+
+#
+# Clone and install protobuf
+#
+WORKDIR /tmp
+RUN git clone https://github.com/protocolbuffers/protobuf.git
+WORKDIR /tmp/protobuf
+RUN git checkout v3.6.1
+RUN git submodule update --init --recursive
+
+#
+# Install protobuf compiler and libraries
+#
+RUN ./autogen.sh && ./configure && make -j16 && make install
+WORKDIR /tmp/protobuf/python
+RUN python3 setup.py build --cpp_implementation && python3 setup.py install --cpp_implementation
+
+#
+# Install googletest
+#
+RUN apt-get install -y libgtest-dev cmake
+WORKDIR /usr/src/gtest
+RUN cmake CMakeLists.txt && make -j16 && cp *.a /usr/lib
+
+# Set the working directory back to the root home folder
+WORKDIR /root

@@ -1,13 +1,13 @@
 ################################################################################
 #
-# Makefile for libskillz.so
+# Makefile for libatom.so
 #
 ################################################################################
 
 # Set the default target for just 'make' to all
 .DEFAULT_GOAL := all
 
-OUTPUT_NAME := libskillz.so
+OUTPUT_NAME := libatom.so
 
 # Check the install prefix
 ifeq ($(PREFIX),)
@@ -15,7 +15,7 @@ ifeq ($(PREFIX),)
 endif
 
 # Install directory name
-INSTALL_DIR:=skillz
+INSTALL_DIR:=atom
 
 SOURCE_DIR:=src
 INCLUDE_DIR:=inc
@@ -33,10 +33,15 @@ HEADER_OBJS = $(addprefix $(BUILD_DIR)/inc/,$(notdir $(HEADER_SRCS)))
 vpath %.h $(sort $(dir $(HEADER_SRCS)))
 
 TEST_DIR:=test
-TEST_BINARY:=test_skill
-TEST_SRCS := $(wildcard $(TEST_DIR)/*.c)
-TEST_OBJS = $(addprefix $(TEST_DIR)/$(BUILD_DIR)/,$(notdir $(TEST_SRCS:.c=.o)))
-vpath %.c $(sort $(dir $(TEST_SRCS)))
+TEST_BINARY:=test_atom
+TEST_SRCS := $(wildcard $(TEST_DIR)/*.cc)
+TEST_OBJS = $(addprefix $(TEST_DIR)/$(BUILD_DIR)/,$(notdir $(TEST_SRCS:.cc=.o)))
+vpath %.cc $(sort $(dir $(TEST_SRCS)))
+
+# Check to see if we got a test filter
+ifeq ($(TEST_FILTER),)
+	TEST_FILTER:="*"
+endif
 
 # CFLAGS
 CFLAGS := -Wall -Werror -fPIC -I${INCLUDE_DIR} -I${HIREDIS_BUILD_DIR}/include/ -g
@@ -44,7 +49,7 @@ CFLAGS := -Wall -Werror -fPIC -I${INCLUDE_DIR} -I${HIREDIS_BUILD_DIR}/include/ -
 #LDFLAGS
 LDFLAGS := -L${HIREDIS_BUILD_DIR}/lib -Wl,-rpath,${HIREDIS_BUILD_DIR}/lib -lhiredis -lpthread
 
-$(BUILD_DIR)/lib/%.o: %.c $(HEADER_OBJS) | $(BUILD_DIR)/lib
+$(BUILD_DIR)/lib/%.o: src/%.c $(HEADER_OBJS) | $(BUILD_DIR)/lib
 	@ echo "Compiling $<"
 	@ $(CC) -c $(CFLAGS) -o $@ $(filter %.c,$^)
 
@@ -72,13 +77,17 @@ $(TEST_DIR)/$(BUILD_DIR):
 	@ echo "Creating $@"
 	@ mkdir $@
 
-$(TEST_DIR)/$(BUILD_DIR)/%.o: %.c $(HEADER_OBJS) | $(TEST_DIR)/$(BUILD_DIR)
+$(TEST_DIR)/$(BUILD_DIR)/%.o: test/%.cc $(HEADER_OBJS) | $(TEST_DIR)/$(BUILD_DIR)
+	@ echo "Compiling $<"
+	@ $(CXX) -c $(CFLAGS) -o $@ $(filter %.cc,$^)
+
+$(TEST_DIR)/$(BUILD_DIR)/%.o: src/%.c $(HEADER_OBJS) | $(TEST_DIR)/$(BUILD_DIR)
 	@ echo "Compiling $<"
 	@ $(CC) -c $(CFLAGS) -o $@ $(filter %.c,$^)
 
 $(TEST_DIR)/$(BUILD_DIR)/$(TEST_BINARY): $(TEST_OBJS) $(HEADER_OBJS) $(BUILD_DIR)/lib/$(OUTPUT_NAME) | $(TEST_DIR)/$(BUILD_DIR)
 	@ echo "Linking $@"
-	@ $(CC) $(filter %.o,$^) -L${BUILD_DIR}/lib -Wl,-rpath,${BUILD_DIR}/lib -lskillz $(LDFLAGS) -o $@
+	@ $(CXX) $(filter %.o,$^) -L${BUILD_DIR}/lib -Wl,-rpath,${BUILD_DIR}/lib -latom -lgtest_main -lgtest $(LDFLAGS) -o $@
 
 .PHONY: all
 all: $(BUILD_DIR)/lib/$(OUTPUT_NAME)
@@ -92,7 +101,7 @@ install: $(BUILD_DIR)/lib/$(OUTPUT_NAME)
 
 .PHONY: test
 test: $(TEST_DIR)/$(BUILD_DIR)/$(TEST_BINARY)
-	./$(TEST_DIR)/$(BUILD_DIR)/$(TEST_BINARY)
+	./$(TEST_DIR)/$(BUILD_DIR)/$(TEST_BINARY) --gtest_filter=$(TEST_FILTER)
 
 .PHONY: clean
 clean:
