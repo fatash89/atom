@@ -9,13 +9,9 @@
 
 OUTPUT_NAME := libatom.so
 
-# Check the install prefix
-ifeq ($(PREFIX),)
-	PREFIX:=/usr/lib
-endif
-
 # Install directory name
-INSTALL_DIR:=atom
+HEADER_INSTALL_DIR:=/usr/local/include/atom
+LIB_INSTALL_DIR:=/usr/local/lib
 
 SOURCE_DIR:=src
 INCLUDE_DIR:=inc
@@ -94,10 +90,9 @@ all: $(BUILD_DIR)/lib/$(OUTPUT_NAME)
 
 .PHONY: install
 install: $(BUILD_DIR)/lib/$(OUTPUT_NAME)
-	mkdir -p $(PREFIX)/$(INSTALL_DIR)/inc
-	mkdir -p $(PREFIX)/$(INSTALL_DIR)/lib
-	cp -r $(BUILD_DIR)/inc/*.h $(PREFIX)/$(INSTALL_DIR)/inc
-	cp -r $(BUILD_DIR)/lib/*.so $(PREFIX)/$(INSTALL_DIR)/lib
+	mkdir ${HEADER_INSTALL_DIR}
+	cp -r $(BUILD_DIR)/inc/*.h ${HEADER_INSTALL_DIR}
+	cp -r $(BUILD_DIR)/lib/*.so ${LIB_INSTALL_DIR}
 
 .PHONY: test
 test: $(TEST_DIR)/$(BUILD_DIR)/$(TEST_BINARY)
