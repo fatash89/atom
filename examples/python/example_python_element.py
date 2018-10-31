@@ -21,8 +21,8 @@ if __name__ == '__main__':
 	atom = Atom("example_element")
 
 	# Register a few commands
-	atom.add_command("hello_world", hello_world_handler)
-	atom.add_command("foo_bar", foo_bar_handler)
+	atom.command_add("hello_world", hello_world_handler)
+	atom.command_add("foo_bar", foo_bar_handler)
 
 	# In a loop, publish a monotonic increasing number on a stream
 	i = 0
