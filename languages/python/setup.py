@@ -1,8 +1,8 @@
 import setuptools
-from skills import __version__
+from atom import __version__
 
 setuptools.setup(
-    name="skills",
-    packages=["skills"],
+    name="atom",
+    packages=["atom"],
     version=__version__,
 )
