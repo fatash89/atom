@@ -3,9 +3,12 @@ from skills.config import LANG, VERSION, ACK_TIMEOUT, STREAM_LEN, MAX_BLOCK
 from skills.config import SKILLS_COMMAND_NO_ACK, SKILLS_COMMAND_NO_RESPONSE
 from skills.messages import Cmd, Response, StreamHandler
 
+# Default redis socket and port
+DEFAULT_REDIS_PORT = 6379
+DEFAULT_REDIS_SOCKET = "/shared/redis.sock"
 
 class Client:
-    def __init__(self, name, host="localhost", port=6379, socket_path="/tmp/redis.sock"):
+    def __init__(self, name, host=None, port=DEFAULT_REDIS_PORT, socket_path=DEFAULT_REDIS_SOCKET):
         """
         A Client has the purpose of interacting with Skills by getting data from their streams
         or sending commands and receiving responses. All Clients have a response stream.
@@ -17,7 +20,10 @@ class Client:
             socket_path (str, optional): Path to Redis Unix socket.
         """
         self.name = name
-        self._rclient = redis.StrictRedis(host=host, port=port, unix_socket_path=socket_path)
+        if (host is not None):
+            self._rclient = redis.StrictRedis(host=host, port=port)
+        else:
+            self._rclient = redis.StrictRedis(unix_socket_path=socket_path)
         self._pipe = self._rclient.pipeline()
 
         self._pipe.xadd(
@@ -99,7 +105,7 @@ class Client:
 
         Args:
             skill_name (str): Name of the Skill of which to get the streams from.
-        
+
         Returns:
             List of Stream ids belonging to skill_name
         """
@@ -128,7 +134,7 @@ class Client:
 
         # Receive acknowledge from skill
         responses = self._rclient.xread(
-            block=ACK_TIMEOUT, 
+            block=ACK_TIMEOUT,
             **{self._make_client_id(self.name): self.response_last_id})
         if responses is None:
             return vars(Response(
@@ -167,9 +173,9 @@ class Client:
     def listen_on_streams(self, stream_handlers, n_loops=None, timeout=MAX_BLOCK):
         """
         Listens to streams and pass any received data to corresponding handler.
-        
+
         Args:
-            stream_handlers (list of messages.StreamHandler): 
+            stream_handlers (list of messages.StreamHandler):
             n_loops (int): Number of times to send the stream data to the handlers.
             timeout (int): How long to block on the stream. If surpassed, the function returns.
         """

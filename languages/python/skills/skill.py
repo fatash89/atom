@@ -1,12 +1,13 @@
 import redis
 from skills import Client
+from skills.client import DEFAULT_REDIS_SOCKET, DEFAULT_REDIS_PORT
 from skills.config import LANG, VERSION, ACK_TIMEOUT, RESPONSE_TIMEOUT, STREAM_LEN, MAX_BLOCK
 from skills.config import SKILLS_COMMAND_UNSUPPORTED, SKILLS_CALLBACK_FAILED, SKILLS_USER_ERRORS_BEGIN
 from skills.messages import Acknowledge, Droplet, Response
 
 
 class Skill(Client):
-    def __init__(self, name, host="localhost", port=6379, socket_path="/tmp/redis.sock"):
+    def __init__(self, name, host=None, port=DEFAULT_REDIS_PORT, socket_path=DEFAULT_REDIS_SOCKET):
         """
         A Skill contains all the functionality of a Client in addition to accepting commands,
         delivering responses to commands, and publishing droplets on streams.
@@ -102,7 +103,7 @@ class Skill(Client):
             # Send response to client
             if cmd_name not in self.handler_map.keys():
                 response = Response(
-                    err_code=SKILLS_COMMAND_UNSUPPORTED, 
+                    err_code=SKILLS_COMMAND_UNSUPPORTED,
                     err_str="Unsupported command.")
             else:
                 try:
@@ -114,7 +115,7 @@ class Skill(Client):
                         response.err_code += SKILLS_USER_ERRORS_BEGIN
                 except Exception as e:
                     response = Response(
-                        err_code=SKILLS_CALLBACK_FAILED, 
+                        err_code=SKILLS_CALLBACK_FAILED,
                         err_str=f"{str(type(e))} {str(e)}")
 
             response = response.to_internal(self.name, cmd_name, cmd_id)
@@ -135,6 +136,6 @@ class Skill(Client):
         self.streams.add(stream_name)
         droplet = Droplet(field_data_map, timestamp)
         self._pipe.xadd(
-            self._make_stream_id(self.name, stream_name), 
+            self._make_stream_id(self.name, stream_name),
             maxlen=maxlen, **vars(droplet))
         self._pipe.execute()

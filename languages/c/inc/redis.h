@@ -18,9 +18,12 @@
 #include <hiredis/hiredis.h>
 #include <stdbool.h>
 
-// Address and port of the redis server
-#define REDIS_ADDR "127.0.0.1"
-#define REDIS_PORT 6379
+// Default address and port of the local redis server
+#define REDIS_DEFAULT_LOCAL_SOCKET "/shared/redis.sock"
+
+// Default address and port of the remote redis server
+#define REDIS_DEFAULT_REMOTE_ADDR "127.0.0.1"
+#define REDIS_DEFAULT_REMOTE_PORT 6379
 
 // Maximum length for a stream ID buffer. This should be roughly the number of
 //	digits in a milliseond unix timestamp + a dash + 4 trailing values

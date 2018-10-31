@@ -61,7 +61,7 @@ class TestClientSkill:
 
     def test_add_droplet_and_get_n_most_recent(self, client, skill):
         """
-        Adds 10 droplets to the skill's stream and makes sure that the 
+        Adds 10 droplets to the skill's stream and makes sure that the
         proper values are returned from get_n_most_recent.
         """
         for i in range(10):

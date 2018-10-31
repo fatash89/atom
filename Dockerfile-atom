@@ -1,0 +1,24 @@
+FROM elementaryrobotics/atom-base:a4011b24f9e34729ba39de07f1c06e63e0ddd68b
+
+# Want to copy over the contents of this repo to the code
+#	section so that we have the source
+ADD . /atom
+
+#
+# Build and install the python library
+#
+WORKDIR /atom/languages/python
+RUN pip3 install -r requirements.txt
+RUN python3 setup.py install
+
+#
+# Build and install the c library
+#
+
+# Need to first build hiredis
+WORKDIR /atom/languages/c/third-party/hiredis
+RUN make clean && make && make install
+
+# And build the C library
+WORKDIR /atom/languages/c
+RUN make clean && make && make install

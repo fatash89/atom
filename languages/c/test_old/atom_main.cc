@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include <stdio.h>
 #include <pthread.h>
 #include <stdbool.h>
@@ -8,6 +7,7 @@
 #include "skills.h"
 #include "client.h"
 #include "skill.h"
+#include <gtest/gtest.h>
 
 
 #define N_TESTS 10
@@ -40,7 +40,7 @@ bool stream1_cb(const char *id, const struct redisReply *reply, void *data) {
 // stream2 callback
 bool stream2_cb(const char *id, const struct redisReply *reply, void *data) {
 	++stream2_count;
-	fprintf(stderr, STREAM2_NAME": id: %s, count: %d\n",
+	fprintf(stderr, STREAM2_NAME ": id: %s, count: %d\n",
 		id, stream2_count);
 	return true;
 }
@@ -48,7 +48,7 @@ bool stream2_cb(const char *id, const struct redisReply *reply, void *data) {
 // stream1 callback
 bool stream1_xrevrange_cb(const char *id, const struct redisReply *reply, void *data) {
 	++stream1_xrevrange_count;
-	fprintf(stderr, "XREVRANGE "STREAM1_NAME ": id: %s, count: %d\n",
+	fprintf(stderr, "XREVRANGE " STREAM1_NAME ": id: %s, count: %d\n",
 		id, stream1_xrevrange_count);
 	return true;
 }
@@ -56,7 +56,7 @@ bool stream1_xrevrange_cb(const char *id, const struct redisReply *reply, void *
 // stream2 callback
 bool stream2_xrevrange_cb(const char *id, const struct redisReply *reply, void *data) {
 	++stream2_xrevrange_count;
-	fprintf(stderr, "XREVRANGE "STREAM2_NAME": id: %s, count: %d\n",
+	fprintf(stderr, "XREVRANGE " STREAM2_NAME ": id: %s, count: %d\n",
 		id, stream2_xrevrange_count);
 	return true;
 }
@@ -458,15 +458,7 @@ void test_stream(
 	// skill_cleanup(ctx, skill);
 }
 
-int main(int argc, char **argv) {
-	redisContext *ctx;
-
-	// Connect to redis
-	ctx = redis_context_init();
-
-	test_stream(ctx);
-
-	redis_context_cleanup(ctx);
-
-	return 0;
+TEST(basic_test, boolean)
+{
+	ASSERT_EQ(1, 1);
 }
