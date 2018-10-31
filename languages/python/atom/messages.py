@@ -9,8 +9,8 @@ class Cmd:
 
         Args:
             element (str): The element from which the command came from.
-            cmd (str): The name of the command to run on the Skill.
-            data: The data to be passed into the Skill's command.
+            cmd (str): The name of the command to run on the element.
+            data: The data to be passed into the element's command.
         """
         if not isinstance(element, str):
             raise TypeError("element must be a str")
@@ -27,7 +27,7 @@ class Response:
         Specifies the format of a response that an element returns from a command.
 
         Args:
-            data (optional): The data returned from the Skill's command.
+            data (optional): The data returned from the element's command.
             err_code (int, optional): The error code if error, otherwise 0.
             err_str (str, optional): The error message, if any.
         """
@@ -45,7 +45,7 @@ class Response:
 
         Args:
             element (str): The element from which the Response came from.
-            cmd (str): The command of the Skill that was called.
+            cmd (str): The command of the element that was called.
             cmd_id (bytes): The Redis ID of the command that generated this response.
 
         Returns:
@@ -62,11 +62,11 @@ class InternalResponse(Response):
 
         Args:
             element (str): The element from which the Response came from.
-            cmd (str): The command of the Skill that was called.
+            cmd (str): The command of the element that was called.
             cmd_id (bytes): The Redis ID of the command that generated this response.
             err_code (int, optional): The error code if error, otherwise 0.
             err_str (str, optional): The error message, if any.
-            data (optional): The data returned from the Skill's command.
+            data (optional): The data returned from the element's command.
         """
         if not isinstance(element, str):
             raise TypeError("element must be a str")
@@ -111,12 +111,12 @@ class Entry:
 class Acknowledge:
     def __init__(self, element, cmd_id, timeout):
         """
-        Formats the acknowledge that a Skill sends to a Client upon receiving a command.
+        Formats the acknowledge that a element sends to a caller upon receiving a command.
 
         Args:
             element (str): The element from which this acknowledge comes from.
             cmd_id (bytes): The Redis ID of the command that generated this acknowledge.
-            timeout (int): Time for the Client to wait for the command to finish.
+            timeout (int): Time for the caller to wait for the command to finish.
         """
         if not isinstance(element, str):
             raise TypeError("element must be a str")
@@ -132,10 +132,10 @@ class Acknowledge:
 class StreamHandler:
     def __init__(self, element, stream, handler):
         """
-        Formats the association with a Skill's stream and Client's handler of the stream's data.
+        Formats the association with a stream and handler of the stream's data.
 
         Args:
-            element (str): Name of the Skill that owns the stream of interest.
+            element (str): Name of the element that owns the stream of interest.
             stream (str): Name of the stream to listen to.
             handler (callable): Function to call on the data received from the stream.
         """
