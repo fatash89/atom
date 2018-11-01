@@ -5,6 +5,7 @@ from atom.config import ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESPONSE
 from atom.config import ATOM_COMMAND_UNSUPPORTED, ATOM_CALLBACK_FAILED, ATOM_USER_ERRORS_BEGIN
 from atom.messages import Cmd, Response, StreamHandler
 from atom.messages import Acknowledge, Entry, Response
+from sys import exit
 
 
 class Element:
@@ -17,34 +18,37 @@ class Element:
             socket_path (str, optional): Path to Redis Unix socket.
         """
         self.name = name
-        if (host is not None):
-            self._rclient = redis.StrictRedis(host=host, port=port)
-        else:
-            self._rclient = redis.StrictRedis(unix_socket_path=socket_path)
-        self._pipe = self._rclient.pipeline()
         self.handler_map = {}
         self.timeouts = {}
         self.streams = set()
+        self._rclient = None
+        try:
+            if host is not None:
+                self._rclient = redis.StrictRedis(host=host, port=port)
+            else:
+                self._rclient = redis.StrictRedis(unix_socket_path=socket_path)
+            self._pipe = self._rclient.pipeline()
+            self._pipe.xadd(
+                self._make_response_id(self.name),
+                maxlen=STREAM_LEN,
+                **{
+                    "language": LANG,
+                    "version": VERSION
+                })
+            # Keep track of response_last_id to know last time the client's response stream was read from
+            self.response_last_id = self._pipe.execute()[-1].decode()
 
-        self._pipe.xadd(
-            self._make_response_id(self.name),
-            maxlen=STREAM_LEN,
-            **{
-                "language": LANG,
-                "version": VERSION
-            })
-        # Keep track of response_last_id to know last time the client's response stream was read from
-        self.response_last_id = self._pipe.execute()[-1].decode()
-
-        self._pipe.xadd(
-            self._make_command_id(self.name),
-            maxlen=STREAM_LEN,
-            **{
-                "language": LANG,
-                "version": VERSION
-            })
-        # Keep track of command_last_id to know last time the element's command stream was read from
-        self.command_last_id = self._pipe.execute()[-1].decode()
+            self._pipe.xadd(
+                self._make_command_id(self.name),
+                maxlen=STREAM_LEN,
+                **{
+                    "language": LANG,
+                    "version": VERSION
+                })
+            # Keep track of command_last_id to know last time the element's command stream was read from
+            self.command_last_id = self._pipe.execute()[-1].decode()
+        except redis.exceptions.RedisError:
+            raise Exception("Could not connect to nucleus!")
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"
@@ -67,8 +71,11 @@ class Element:
         """
         for stream in self.streams.copy():
             self.clean_up_stream(stream)
-        self._rclient.delete(self._make_response_id(self.name))
-        self._rclient.delete(self._make_command_id(self.name))
+        try:
+            self._rclient.delete(self._make_response_id(self.name))
+            self._rclient.delete(self._make_command_id(self.name))
+        except redis.exceptions.RedisError:
+            raise Exception("Could not connect to nucleus!")
 
     def _make_response_id(self, element_name):
         """
