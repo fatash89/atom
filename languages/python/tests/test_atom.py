@@ -1,6 +1,6 @@
 import pytest
 import time
-from atom import Atom
+from atom import Element
 from multiprocessing import Process
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_UNSUPPORTED
 from atom.config import ATOM_COMMAND_NO_RESPONSE, ATOM_CALLBACK_FAILED
@@ -15,7 +15,7 @@ class TestAtom:
         Sets up the caller before each test function is run.
         Tears down the caller after each test is run.
         """
-        caller = Atom("test_caller")
+        caller = Element("test_caller")
         yield caller
         del caller
 
@@ -25,7 +25,7 @@ class TestAtom:
         Sets up the responder before each test function is run.
         Tears down the responder after each test is run.
         """
-        responder = Atom("test_responder")
+        responder = Element("test_responder")
         yield responder
         del responder
 
@@ -94,7 +94,7 @@ class TestAtom:
         """
         Ensures that a responder can be removed from Redis
         """
-        new_responder = Atom("new_responder")
+        new_responder = Element("new_responder")
         assert "new_responder" in responder.get_all_elements()
         del new_responder
         assert "new_responder" not in responder.get_all_elements()
@@ -120,8 +120,8 @@ class TestAtom:
         This test ensures that the new stream contains all the data from the responders.
         """
         test_stream_id = caller._make_stream_id("test_stream", "test_stream")
-        responder_0 = Atom("responder_0")
-        responder_1 = Atom("responder_1")
+        responder_0 = Element("responder_0")
+        responder_1 = Element("responder_1")
 
         def entry_write_loop(responder, stream_name, data):
             for i in range(10):

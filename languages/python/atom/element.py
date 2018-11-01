@@ -7,7 +7,7 @@ from atom.messages import Cmd, Response, StreamHandler
 from atom.messages import Acknowledge, Entry, Response
 
 
-class Atom:
+class Element:
     def __init__(self, name, host=None, port=DEFAULT_REDIS_PORT, socket_path=DEFAULT_REDIS_SOCKET):
         """
         Args:
