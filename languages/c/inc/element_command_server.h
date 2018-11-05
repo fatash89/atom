@@ -28,9 +28,9 @@ struct element;
  	#error "ELEMENT_COMMAND_HASH_N_BINS is not a power of 2!"
 #endif
 
-// Skill command. Mapping between command name
+// Element command. Mapping between command name
 //	and a function pointer to call with the data when the
-//	command is passed to the skill. Needs to be a linked list
+//	command is passed to the element. Needs to be a linked list
 //	since it will be part of a hashtable used to map incoming
 //	commands to their proper callbacks.
 struct element_command {

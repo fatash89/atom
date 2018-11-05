@@ -35,7 +35,8 @@ struct element_entry_read_info {
 		int n_kv_items,
 		void *user_data);
 };
-// Allows a client to listen for all data on streams
+
+// Allows an element to listen for all data on streams
 enum atom_error_t element_entry_read_loop(
 	redisContext *ctx,
 	struct element *elem,

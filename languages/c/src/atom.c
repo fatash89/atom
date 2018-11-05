@@ -19,7 +19,7 @@
 #include "redis.h"
 #include "atom.h"
 
-// User data callback to send to the redis helper for finding skills
+// User data callback to send to the redis helper for finding elements
 struct atom_get_element_cb_info {
 	bool (*user_cb)(const char *key, void *user_data);
 	void *user_data;
@@ -47,7 +47,8 @@ static bool atom_get_element_cb(
 	// Get the info
 	info = (struct atom_get_element_cb_info*)user_data;
 
-	// Want to pass only the skill name along to the user callback
+	// Want to pass only the element name along to the user callback
+	//	along with the user data
 	return info->user_cb(
 		&key[CONST_STRLEN(ATOM_COMMAND_STREAM_PREFIX)],
 		info->user_data);
@@ -61,7 +62,7 @@ static bool atom_get_element_cb(
 ////////////////////////////////////////////////////////////////////////////////
 enum atom_error_t atom_get_all_elements_cb(
 	redisContext *ctx,
-	bool (*data_cb)(const char *skill, void *user_data),
+	bool (*data_cb)(const char *element, void *user_data),
 	void *user_data)
 {
 	struct atom_get_element_cb_info info;
@@ -72,7 +73,7 @@ enum atom_error_t atom_get_all_elements_cb(
 	info.user_cb = data_cb;
 	info.user_data = user_data;
 
-	// Want to get all matching keys for the skill command stream prefix.
+	// Want to get all matching keys for the element command stream prefix.
 	//
 	if (redis_get_matching_keys(ctx,
 		ATOM_COMMAND_STREAM_PREFIX "*",
@@ -106,7 +107,7 @@ static bool atom_get_data_stream_cb(
 	// Get the info
 	info = (struct atom_get_data_stream_cb_info*)user_data;
 
-	// Want to pass only the skill name along to the user callback
+	// Want to pass only the element name along to the user callback
 	return info->user_cb(&key[info->offset], info->user_data);
 }
 
@@ -144,7 +145,7 @@ enum atom_error_t atom_get_all_data_streams_cb(
 		info.offset = CONST_STRLEN(ATOM_DATA_STREAM_PREFIX);
 	}
 
-	// Want to get all matching keys for the skill command stream prefix.
+	// Want to get all matching keys for the element command stream prefix.
 	if (redis_get_matching_keys(ctx,
 		stream_prefix_buffer,
 		atom_get_data_stream_cb,

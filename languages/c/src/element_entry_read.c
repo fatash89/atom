@@ -35,7 +35,7 @@ static bool element_entry_read_cb(
 	bool ret_val = false;
 	struct element_entry_read_info *info;
 
-	// Cast the user data to a client listen stream info
+	// Cast the user data
 	info = (struct element_entry_read_info *)user_data;
 
 	// Now, we want to parse the reply into the kv items

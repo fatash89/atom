@@ -2,7 +2,7 @@
 //
 //  @file element_command_send.h
 //
-//  @brief Header for the element command send (client) implementation
+//  @brief Header for the implementation of elements sending commands.
 //
 //  @copy 2018 Elementary Robotics. All rights reserved.
 //
