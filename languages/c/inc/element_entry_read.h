@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
-//  @file element_data_read.h
+//  @file element_entry_read.h
 //
 //  @brief Header for the element read data implementation
 //
@@ -24,7 +24,7 @@ struct element;
 // Struct that defines all information for processing a data stream:
 //	This struct is used both for the data loop and for getting the N
 //	most recent pieces of data.
-struct element_data_read_info {
+struct element_entry_read_info {
 	const char *element;
 	const char *stream;
 	struct redis_xread_kv_item *kv_items;
@@ -36,19 +36,19 @@ struct element_data_read_info {
 		void *user_data);
 };
 // Allows a client to listen for all data on streams
-enum atom_error_t element_data_read_loop(
+enum atom_error_t element_entry_read_loop(
 	redisContext *ctx,
 	struct element *elem,
-	struct element_data_read_info *infos,
+	struct element_entry_read_info *infos,
 	size_t n_infos,
 	bool loop,
 	int timeout);
 
 // Allows an element to get the N most recent items on a stream
-enum atom_error_t element_data_read_n(
+enum atom_error_t element_entry_read_n(
 	redisContext *ctx,
 	struct element *elem,
-	struct element_data_read_info *info,
+	struct element_entry_read_info *info,
 	size_t n);
 
 #ifdef __cplusplus

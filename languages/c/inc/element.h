@@ -19,8 +19,8 @@
 #include "redis.h"
 #include "element_command_send.h"
 #include "element_command_server.h"
-#include "element_data_read.h"
-#include "element_data_write.h"
+#include "element_entry_read.h"
+#include "element_entry_write.h"
 
 // Skill itself. Skill consists of a client, a command stream
 //	and an ID for the command stream. Since the client

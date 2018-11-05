@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
-//  @file element_data_read.c
+//  @file element_entry_read.c
 //
 //  @brief Implements data read functionality for an element
 //
@@ -27,16 +27,16 @@
 //			and then call the user callback with the kv items
 //
 ////////////////////////////////////////////////////////////////////////////////
-static bool element_data_read_cb(
+static bool element_entry_read_cb(
 	const char *id,
 	const struct redisReply *reply,
 	void *user_data)
 {
 	bool ret_val = false;
-	struct element_data_read_info *info;
+	struct element_entry_read_info *info;
 
 	// Cast the user data to a client listen stream info
-	info = (struct element_data_read_info *)user_data;
+	info = (struct element_entry_read_info *)user_data;
 
 	// Now, we want to parse the reply into the kv items
 	if (!redis_xread_parse_kv(reply, info->kv_items, info->n_kv_items)) {
@@ -67,10 +67,10 @@ done:
 //			item in the response
 //
 ////////////////////////////////////////////////////////////////////////////////
-enum atom_error_t element_data_read_loop(
+enum atom_error_t element_entry_read_loop(
 	redisContext *ctx,
 	struct element *elem,
-	struct element_data_read_info *infos,
+	struct element_entry_read_info *infos,
 	size_t n_infos,
 	bool loop,
 	int timeout)
@@ -103,7 +103,7 @@ enum atom_error_t element_data_read_loop(
 			ctx,
 			&stream_info[i],
 			stream_name,
-			element_data_read_cb,
+			element_entry_read_cb,
 			NULL,
 			&infos[i]);
 	}
@@ -141,10 +141,10 @@ done:
 //  @brief Get the N most recent items on a stream
 //
 ////////////////////////////////////////////////////////////////////////////////
-enum atom_error_t element_data_read_n(
+enum atom_error_t element_entry_read_n(
 	redisContext *ctx,
 	struct element *elem,
-	struct element_data_read_info *info,
+	struct element_entry_read_info *info,
 	size_t n)
 {
 	int ret = ATOM_INTERNAL_ERROR;
@@ -154,7 +154,7 @@ enum atom_error_t element_data_read_n(
 	atom_get_data_stream_str(info->element, info->stream, stream_name);
 
 	// Want to initialize the stream info
-	if (!redis_xrevrange(ctx, stream_name, element_data_read_cb, n, info)) {
+	if (!redis_xrevrange(ctx, stream_name, element_entry_read_cb, n, info)) {
 		fprintf(stderr, "Failed to call XREVRANGE\n");
 		ret = ATOM_REDIS_ERROR;
 		goto done;
