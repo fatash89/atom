@@ -53,7 +53,7 @@ enum atom_error_t {
 #define ATOM_NAME_MAXLEN 128
 
 //
-// Keys for sending a command to a skill
+// Keys for sending a command to an element
 //
 
 #define COMMAND_KEY_ELEMENT_STR "element"
@@ -68,7 +68,7 @@ enum cmd_keys_t {
 };
 
 //
-// Keys shared in each response from the skill
+// Keys shared in each response from the element
 //
 
 #define STREAM_KEY_ELEMENT_STR "element"

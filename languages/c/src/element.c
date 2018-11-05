@@ -54,12 +54,12 @@ struct element *element_init(
 	assert(elem->command.stream != NULL);
 	memset(elem->command.last_id, 0, sizeof(elem->command.last_id));
 
-	// Clear out the hashtable for the skill. This initializes
+	// Clear out the hashtable for the element. This initializes
 	//	all of the bins to empty
 	memset(elem->command.hash, 0, sizeof(elem->command.hash));
 
-	// Finally, make the redis context for responses for the client to
-	//	commands. This is done since the context for receiving the command
+	// Finally, make the redis context for the element to send responses
+	//	to commands on. This is done since the context for receiving the command
 	//	is in use
 	elem->command.ctx = redis_context_init();
 	if (elem->command.ctx == NULL) {
@@ -67,7 +67,7 @@ struct element *element_init(
 		goto err_cleanup;
 	}
 
-	// We want to initialize the client information and call an XADD
+	// We want to initialize the element information and call an XADD
 	//	to both the command stream and the response stream
 	element_info[0].key = ATOM_LANGUAGE_KEY;
 	element_info[0].key_len = CONST_STRLEN(ATOM_LANGUAGE_KEY);
@@ -132,7 +132,7 @@ static void element_free_command(
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-//  @brief Frees a hashtable associated with a skill
+//  @brief Frees a hashtable associated with a element
 //
 ////////////////////////////////////////////////////////////////////////////////
 static void element_free_command_hash(

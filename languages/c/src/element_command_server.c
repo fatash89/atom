@@ -20,7 +20,7 @@
 #include "atom.h"
 #include "element.h"
 
-// This value is returned to the client/caller when the command they
+// This value is returned to the caller when the command they
 //	request is not supported. It tells them how long to wait for our
 //	error response
 #define ELEMENT_NO_COMMAND_TIMEOUT_MS 1000
@@ -39,9 +39,9 @@ struct element_command_cb_data {
 //  @brief Element command hash function. For now just djb2.
 //			See: http://www.cse.yorku.ca/~oz/hash.html
 //
-//			Note: this does modulate around the number of bins in the skill
+//			Note: this does modulate around the number of bins in the element
 //			hashtable. It is assumed that the output of this function is
-//			a valid index into the skill hashtable
+//			a valid index into the element hashtable
 //
 ////////////////////////////////////////////////////////////////////////////////
 static uint32_t element_command_hash_fn(
@@ -89,7 +89,7 @@ static struct element_command *element_command_get(
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-//  @brief Initializes the shared aspects of the skill command data
+//  @brief Initializes the shared aspects of the element command data
 //
 ////////////////////////////////////////////////////////////////////////////////
 static void element_command_init_shared_data(
@@ -144,7 +144,7 @@ static bool element_command_send_ack(
 	ack_info[ACK_KEY_TIMEOUT].data = (uint8_t*)timeout_buffer;
 	ack_info[ACK_KEY_TIMEOUT].data_len = timeout_len;
 
-	// And want to call the XADD to send the info back to the client
+	// And want to call the XADD to send the info back to the caller
 	if (!redis_xadd(
 		ctx, req_elem_stream, ack_info, ACK_N_KEYS,
 		ATOM_DEFAULT_MAXLEN, ATOM_DEFAULT_APPROX_MAXLEN, NULL))
@@ -226,7 +226,7 @@ static bool element_command_send_response(
 		++response_idx;
 	}
 
-	// And want to call the XADD to send the info back to the client
+	// And want to call the XADD to send the info back to the caller
 	if (!redis_xadd(
 		ctx, req_elem_stream, response_info, response_idx,
 		ATOM_DEFAULT_MAXLEN, ATOM_DEFAULT_APPROX_MAXLEN, NULL))
@@ -293,7 +293,7 @@ static bool element_cmd_rep_xread_cb(
 		NULL;
 	timeout = (cmd != NULL) ? cmd->timeout : ELEMENT_NO_COMMAND_TIMEOUT_MS;
 
-	// At this point we know that we got a message and have a client
+	// At this point we know that we got a message and have a caller
 	//	to respond back to, so we need to send an ACK
 	if (!element_command_send_ack(
 		data->elem->command.ctx,
@@ -336,7 +336,7 @@ static bool element_cmd_rep_xread_cb(
 			&error_str);
 
 		// If the return is an error, we want to append it atop the internal
-		//	skill errors
+		//	element errors
 		if (ret != 0) {
 			data->err_code = ATOM_USER_ERRORS_BEGIN + ret;
 		} else {
@@ -376,7 +376,7 @@ done:
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-//  @brief Runs the skill command monitoring loop. Will handle commands
+//  @brief Runs the element command monitoring loop. Will handle commands
 //			and call the command callbacks in the hashtable if/when
 //			a command comes. Loop == false causes the XREAD for commands
 //			only to be run once, else infinitely. If timeout is nonzero
@@ -450,14 +450,14 @@ done:
 //
 //  @brief Adds a command to an element. This will create a node in
 //			the element's command hashtable for the command and set all of the
-//			values properly. The callback is called each time a client calls the
+//			values properly. The callback is called each time a caller calls the
 //			command and the timeout is sent in the initial ACK packet back
-//			to the client to let them know how long to wait for a response
+//			to the caller to let them know how long to wait for a response
 //			before timing out.
 //
-//			NOTE: this is thread-safe for a single skill adder and
-//					multiple skill readers. It is not thread-safe for multiple
-//					skill adder threads.
+//			NOTE: this is thread-safe for a single element adder and
+//					multiple element readers. It is not thread-safe for multiple
+//					element adder threads.
 //
 ////////////////////////////////////////////////////////////////////////////////
 bool element_cmd_rep_register(
@@ -487,7 +487,7 @@ bool element_cmd_rep_register(
 	cmd->cb = cb;
 	cmd->timeout = timeout;
 
-	// Get the hash for the skill
+	// Get the hash for the element
 	hash = element_command_hash_fn(cmd->name);
 
 	// Now, we want to insert the node into the hashtable. We'll

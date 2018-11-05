@@ -8,8 +8,8 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifndef __SKILLS_REDIS_H
-#define __SKILLS_REDIS_H
+#ifndef __ATOM_REDIS_H
+#define __ATOM_REDIS_H
 
 #ifdef __cplusplus
  extern "C" {
@@ -164,4 +164,4 @@ void redis_context_cleanup(redisContext *ctx);
  }
 #endif
 
-#endif // __SKILLS_REDIS_H
+#endif // __ATOM_REDIS_H

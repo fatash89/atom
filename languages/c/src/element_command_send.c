@@ -54,7 +54,7 @@ struct element_command_response_data {
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-//  @brief Callback for all XREADS from the client's response stream
+//  @brief Callback for all XREADS from the element's response stream
 //
 ////////////////////////////////////////////////////////////////////////////////
 static bool element_response_stream_callback(
@@ -65,10 +65,10 @@ static bool element_response_stream_callback(
 	struct element_response_stream_data *data;
 	bool ret_val = false;
 
-	// Cast the user data to the client_send_command_data
+	// Cast the user data
 	data = (struct element_response_stream_data*)user_data;
 
-	// Update the most recent ID that we've seen for the client's
+	// Update the most recent ID that we've seen for the element's
 	//	tracking buffer
 	strncpy(data->elem->response.last_id, id,
 		sizeof(data->elem->response.last_id));
@@ -90,7 +90,7 @@ static bool element_response_stream_callback(
 			(data->kv_items[STREAM_KEY_ID].reply->type == REDIS_REPLY_STRING) &&
 			!strcmp(data->kv_items[STREAM_KEY_ID].reply->str, data->cmd_id))
 		{
-			// If we're here then we know that the skill matches and
+			// If we're here then we know that the element matches and
 			//	the command ID matches. At this point we should call the
 			//	user callback s.t. it can check the rest of the data
 			if (!data->user_cb(data->kv_items, data->user_data)) {
@@ -168,7 +168,7 @@ static bool element_command_ack_callback(
 {
 	struct element_command_ack_data *data;
 
-	// Cast the user data to the client_send_command_data
+	// Cast the user data
 	data = (struct element_command_ack_data*)user_data;
 
 	// Now, make sure the timestamp was found and copy it over
@@ -196,7 +196,7 @@ static bool element_command_response_callback(
 	struct element_command_response_data *data;
 	int atom_err;
 
-	// Cast the user data to the client_send_command_data
+	// Cast the user data
 	data = (struct element_command_response_data*)user_data;
 
 	// Now, want to make sure all necessary fields were found,
@@ -209,10 +209,10 @@ static bool element_command_response_callback(
 		// Note that we found the response
 		data->found_response = true;
 
-		// Get the error code from the skill
+		// Get the error code from the element
 		atom_err = atoi(kv_items[RESPONSE_KEY_ERR_CODE].reply->str);
 
-		// If we had a successful response from the skill
+		// If we had a successful response from the element
 		if (atom_err == ATOM_NO_ERROR) {
 
 			// Note that there's no error, for now

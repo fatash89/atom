@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
-//  @file element_data_write.c
+//  @file element_entry_write.c
 //
 //  @brief Implements data write functionality for an element
 //
@@ -26,16 +26,16 @@
 //			info and get the name of the stream
 //
 ////////////////////////////////////////////////////////////////////////////////
-struct element_data_write_info *element_data_write_init(
+struct element_entry_write_info *element_entry_write_init(
 	redisContext *ctx,
 	struct element *elem,
 	const char *name,
 	int n_items)
 {
-	struct element_data_write_info *info = NULL;
+	struct element_entry_write_info *info = NULL;
 
 	// Allocate the memory for the stream
-	info = malloc(sizeof(struct element_data_write_info));
+	info = malloc(sizeof(struct element_entry_write_info));
 	assert(info != NULL);
 
 	// Allocate the memory for the infos for the droplets
@@ -59,9 +59,9 @@ struct element_data_write_info *element_data_write_init(
 //  @brief Cleans up a data write info
 //
 ////////////////////////////////////////////////////////////////////////////////
-void element_data_write_cleanup(
+void element_entry_write_cleanup(
 	redisContext *ctx,
-	struct element_data_write_info *info)
+	struct element_entry_write_info *info)
 {
 	if (info != NULL) {
 
@@ -85,9 +85,9 @@ void element_data_write_cleanup(
 //			info that's been initialized.
 //
 ////////////////////////////////////////////////////////////////////////////////
-enum atom_error_t element_data_write(
+enum atom_error_t element_entry_write(
 	redisContext *ctx,
-	struct element_data_write_info *info,
+	struct element_entry_write_info *info,
 	int timestamp,
 	int maxlen)
 {
