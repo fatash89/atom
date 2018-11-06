@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
-//  @file atom_test_keys.cc
+//  @file atom_test_redis.cc
 //
-//  @brief Redis tests for atom-level functionality
+//  @brief Basic redis tests for atom-level functionality
 //
 //  @copy 2018 Elementary Robotics. All rights reserved.
 //
