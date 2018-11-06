@@ -207,8 +207,8 @@ static bool redis_xread_process_response(
 			//	second should be an array of data that we'll pass to the
 			//	callback handler. Want to note that we saw this point, since
 			//	even if the handler fails we did process the data
-			if (data_point->element[0]->type != REDIS_REPLY_STATUS) {
-				fprintf(stderr, "Item ID is not status!\n");
+			if (data_point->element[0]->type != REDIS_REPLY_STRING) {
+				fprintf(stderr, "Item ID is not string!\n");
 				goto done;
 			}
 			// Update the last seen ID for the stream
@@ -468,7 +468,7 @@ bool redis_xrevrange(
 
 		// Make sure the first value in the item is a status (ID) and the second
 		//	is an array
-		if ((reply_item->element[0]->type != REDIS_REPLY_STATUS) ||
+		if ((reply_item->element[0]->type != REDIS_REPLY_STRING) ||
 			(reply_item->element[1]->type != REDIS_REPLY_ARRAY))
 		{
 			fprintf(stderr, "Reply item doesn't have proper data!\n");
