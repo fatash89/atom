@@ -586,8 +586,8 @@ bool redis_xadd(
 
 	// Make sure the reply is a status type with the ID for the value that
 	//	we inserted
-	if (reply->type != REDIS_REPLY_STATUS) {
-		fprintf(stderr, "Reply was not status!\n");
+	if (reply->type != REDIS_REPLY_STRING) {
+		fprintf(stderr, "Reply was not string!\n");
 		goto free_reply;
 	}
 
