@@ -173,9 +173,13 @@ class Element:
             cmd_id, cmd = cmd_response[self._make_command_id(self.name)][0]
             self.command_last_id = cmd_id
 
-            caller = cmd[b"element"].decode()
-            cmd_name = cmd[b"cmd"].decode()
-            data = cmd[b"data"]
+            try:
+                caller = cmd[b"element"].decode()
+                cmd_name = cmd[b"cmd"].decode()
+                data = cmd[b"data"]
+            except KeyError:
+                # Ignore non-commands
+                continue
 
             if not caller:
                 print("No caller name present in command!")
