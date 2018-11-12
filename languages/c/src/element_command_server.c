@@ -384,7 +384,7 @@ done:
 //			gettin a command.
 //
 ////////////////////////////////////////////////////////////////////////////////
-enum atom_error_t element_cmd_rep_loop(
+enum atom_error_t element_command_loop(
 	redisContext *ctx,
 	struct element *elem,
 	bool loop,
@@ -460,7 +460,7 @@ done:
 //					element adder threads.
 //
 ////////////////////////////////////////////////////////////////////////////////
-bool element_cmd_rep_register(
+bool element_command_add(
 	struct element *elem,
 	const char *command,
 	int (*cb)(
