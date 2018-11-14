@@ -48,6 +48,7 @@ struct redis_stream_info {
 		void *user_data);
 	char last_id[STREAM_ID_BUFFLEN];
 	void *user_data;
+	size_t items_read;
 };
 
 // Struct that contains info for data to be written. Each piece of data

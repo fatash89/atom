@@ -193,6 +193,9 @@ static bool redis_xread_process_response(
 			goto done;
 		}
 
+		// Note how many elements we read
+		found_info->items_read = data_array->elements;
+
 		// Now, we want to loop over the datapoints in the data array
 		for (point = 0; point < data_array->elements; ++point) {
 
