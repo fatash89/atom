@@ -110,6 +110,7 @@ enum atom_error_t element_entry_read_loop(
 
 		// Note that we haven't read any items yet
 		infos[i].items_read = 0;
+		infos[i].xreads = 0;
 	}
 
 	// If we want to loop forever
@@ -144,6 +145,8 @@ enum atom_error_t element_entry_read_loop(
 				if (infos[i].items_read < infos[i].items_to_read) {
 					done = false;
 				}
+
+				infos[i].xreads += 1;
 			}
 
 			// If we're done, then break

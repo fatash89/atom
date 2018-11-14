@@ -38,6 +38,7 @@ struct element_entry_read_info {
 		void *user_data);
 	size_t items_to_read;
 	size_t items_read;
+	size_t xreads;
 };
 
 // Allows an element to listen for all data on streams
