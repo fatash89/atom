@@ -48,8 +48,12 @@ struct element_command_ack_data {
 // Data we want to obtain from the response
 struct element_command_response_data {
 	bool found_response;
-	bool (*response_cb)(const uint8_t *response, size_t response_len);
+	bool (*response_cb)(
+		const uint8_t *response,
+		size_t response_len,
+		void *user_data);
 	int error_code;
+	void *user_data;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -229,7 +233,8 @@ static bool element_command_response_callback(
 				// Call the callback. If it fails, note the error
 				if (!data->response_cb(
 					(uint8_t*)kv_items[RESPONSE_KEY_DATA].reply->str,
-					kv_items[RESPONSE_KEY_DATA].reply->len))
+					kv_items[RESPONSE_KEY_DATA].reply->len,
+					data->user_data))
 				{
 					data->error_code = ATOM_CALLBACK_FAILED;
 				}
@@ -312,7 +317,11 @@ static void element_command_init_ack_data(
 static void element_command_init_response_data(
 	struct element_command_response_data *response_data,
 	struct redis_xread_kv_item response_items[STREAM_N_KEYS],
-	bool (*response_cb)(const uint8_t *response, size_t response_len))
+	bool (*response_cb)(
+		const uint8_t *response,
+		size_t response_len,
+		void *user_data),
+	void *user_data)
 {
 	// Note that we haven't found the ack
 	response_data->found_response = false;
@@ -322,6 +331,9 @@ static void element_command_init_response_data(
 
 	// Initialize the error code to an internal error
 	response_data->error_code = ATOM_INTERNAL_ERROR;
+
+	// Note the user data
+	response_data->user_data = user_data;
 
 	// We also want to fill in the non-shared parts of the ack items
 	response_items[RESPONSE_KEY_CMD].key = RESPONSE_KEY_CMD_STR;
@@ -350,7 +362,11 @@ enum atom_error_t element_command_send(
 	uint8_t *data,
 	size_t data_len,
 	bool block,
-	bool (*response_cb)(const uint8_t *response, size_t response_len))
+	bool (*response_cb)(
+		const uint8_t *response,
+		size_t response_len,
+		void *user_data),
+	void *user_data)
 {
 	int ret;
 	struct redis_stream_info stream_info;
@@ -417,7 +433,7 @@ enum atom_error_t element_command_send(
 	// Need to set up the response. This will initialize our user data
 	//	and set up the keys we're looking for in the ack
 	element_command_init_response_data(
-		&response_data, response_items, response_cb);
+		&response_data, response_items, response_cb, user_data);
 	// Need to set up the general response callback
 	element_response_stream_init_data(
 		&stream_info, &stream_data, elem, cmd_elem, cmd_id, response_items,
