@@ -309,6 +309,7 @@ bool redis_xread(
 
 	// Now we should have a properly written XREAD buffer which we
 	//	can send to redis and then attempt to get the reply
+	fprintf(stderr, "%s\n", xread_cmd_buffer);
 	reply = redisCommand(ctx, xread_cmd_buffer);
 	if (reply == NULL) {
 		fprintf(stderr, "NULL from redisCommand\n");
