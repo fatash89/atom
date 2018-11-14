@@ -69,9 +69,6 @@ static bool element_response_stream_callback(
 	struct element_response_stream_data *data;
 	bool ret_val = false;
 
-	fprintf(stderr, "in response stream cb\n");
-	redis_print_reply(0, 0, reply);
-
 	// Cast the user data
 	data = (struct element_response_stream_data*)user_data;
 
@@ -179,8 +176,6 @@ static bool element_command_ack_callback(
 {
 	struct element_command_ack_data *data;
 
-	fprintf(stderr, "in ACK callback\n");
-
 	// Cast the user data
 	data = (struct element_command_ack_data*)user_data;
 
@@ -190,9 +185,6 @@ static bool element_command_ack_callback(
 	{
 		data->timeout = atoi(kv_items[ACK_KEY_TIMEOUT].reply->str);
 		data->found_ack = true;
-		fprintf(stderr, "Found ACK\n");
-	} else {
-		fprintf(stderr, "Got response, no ACK\n");
 	}
 
 	return true;
@@ -414,8 +406,6 @@ enum atom_error_t element_command_send(
 		goto done;
 	}
 
-	fprintf(stderr, "added command to stream\n");
-
 	// Need to set up the ack. This will initialize our user data
 	//	and set up the keys we're looking for in the ack
 	element_command_init_ack_data(&ack_data, ack_items);
@@ -435,8 +425,6 @@ enum atom_error_t element_command_send(
 			goto done;
 		}
 	}
-
-	fprintf(stderr, "got ACK");
 
 	// Now, if we're not blocking then we're all done! We can just return
 	//	out noting the success. Else we need to again do an XREAD on the
@@ -467,8 +455,6 @@ enum atom_error_t element_command_send(
 			goto done;
 		}
 	}
-
-	fprintf(stderr, "Got response\n");
 
 	// If we got here then we got the response. We can set our status
 	//	to that returned by the response

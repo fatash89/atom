@@ -268,7 +268,7 @@ bool redis_xread(
 	// Print the beginning of the command into the
 	//	command buffer
 	ret = snprintf(xread_cmd_buffer, REDIS_CMD_BUFFER_LEN,
-		"XREAD BLOCK %d STREAMS ", block);
+		"XREAD BLOCK %d COUNT 1 STREAMS ", block);
 	if ((ret < 0) || ((ret + bytes_written) >= REDIS_CMD_BUFFER_LEN)) {
 		fprintf(stderr, "snprintf!\n");
 		goto done;
@@ -309,7 +309,6 @@ bool redis_xread(
 
 	// Now we should have a properly written XREAD buffer which we
 	//	can send to redis and then attempt to get the reply
-	fprintf(stderr, "%s\n", xread_cmd_buffer);
 	reply = redisCommand(ctx, xread_cmd_buffer);
 	if (reply == NULL) {
 		fprintf(stderr, "NULL from redisCommand\n");
