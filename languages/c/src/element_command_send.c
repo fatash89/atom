@@ -363,7 +363,7 @@ enum atom_error_t element_command_send(
 	struct element *elem,
 	const char *cmd_elem,
 	const char *cmd,
-	uint8_t *data,
+	const uint8_t *data,
 	size_t data_len,
 	bool block,
 	bool (*response_cb)(
