@@ -333,7 +333,8 @@ static bool element_cmd_rep_xread_cb(
 				data->kv_items[CMD_KEY_DATA].reply->len : 0,
 			&response,
 			&response_len,
-			&error_str);
+			&error_str,
+			cmd->user_data);
 
 		// If the return is an error, we want to append it atop the internal
 		//	element errors
@@ -468,7 +469,9 @@ bool element_command_add(
 		size_t data_len,
 		uint8_t **response,
 		size_t *response_len,
-		char **error_str),
+		char **error_str,
+		void *user_data),
+	void *user_data,
 	int timeout)
 {
 	struct element_command *cmd = NULL;
@@ -483,9 +486,10 @@ bool element_command_add(
 	cmd->name = strdup(command);
 	assert(cmd->name != NULL);
 
-	// Now fill in the callback and the timeout
+	// Now fill in the callback, user data and the timeout
 	cmd->cb = cb;
 	cmd->timeout = timeout;
+	cmd->user_data = user_data;
 
 	// Get the hash for the element
 	hash = element_command_hash_fn(cmd->name);

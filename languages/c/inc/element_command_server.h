@@ -40,8 +40,10 @@ struct element_command {
 		size_t data_len,
 		uint8_t **response,
 		size_t *response_len,
-		char **err_str);
+		char **err_str,
+		void *user_data);
 	int timeout;
+	void *user_data;
 	struct element_command *next;
 };
 
@@ -57,7 +59,9 @@ bool element_command_add(
 		size_t data_len,
 		uint8_t **response,
 		size_t *response_len,
-		char **error_str),
+		char **error_str,
+		void *user_data),
+	void *user_data,
 	int timeout);
 
 // Runs the command monitoring loop. Will perform XREADs on the command
