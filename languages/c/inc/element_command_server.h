@@ -28,6 +28,8 @@ struct element;
  	#error "ELEMENT_COMMAND_HASH_N_BINS is not a power of 2!"
 #endif
 
+#define ELEMENT_COMMAND_LOOP_NO_TIMEOUT 0
+
 // Element command. Mapping between command name
 //	and a function pointer to call with the data when the
 //	command is passed to the element. Needs to be a linked list
