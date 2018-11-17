@@ -90,7 +90,7 @@ all: $(BUILD_DIR)/lib/$(OUTPUT_NAME)
 
 .PHONY: install
 install: $(BUILD_DIR)/lib/$(OUTPUT_NAME)
-	mkdir ${HEADER_INSTALL_DIR}
+	mkdir -p ${HEADER_INSTALL_DIR}
 	cp -r $(BUILD_DIR)/inc/*.h ${HEADER_INSTALL_DIR}
 	cp -r $(BUILD_DIR)/lib/*.so ${LIB_INSTALL_DIR}
 
