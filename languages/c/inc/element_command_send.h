@@ -28,8 +28,8 @@ struct element;
 enum atom_error_t element_command_send(
 	redisContext *ctx,
 	struct element *elem,
-	const char *stream,
-	const char *command,
+	const char *cmd_elem,
+	const char *cmd,
 	uint8_t *data,
 	size_t data_len,
 	bool block,
