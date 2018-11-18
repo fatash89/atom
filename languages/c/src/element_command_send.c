@@ -25,6 +25,9 @@
 // How long to wait for a response if the command is not supported
 #define ELEMENT_NO_COMMAND_TIMEOUT_MS 1000
 
+// Maximum length of the command stream before redis trims it
+#define ELEMENT_COMMAND_STREAM_MAXLEN 10
+
 // Struct for handling a response on the command stream. Will be passed
 //	to the XREAD as the user data.
 struct element_response_stream_data {
@@ -399,7 +402,7 @@ enum atom_error_t element_command_send(
 	// Now, call the XADD to send the data over to the element. We want to
 	//	note the command ID since we'll expect it back in the ACK and response
 	if (!redis_xadd(ctx, cmd_elem_stream, cmd_data, CMD_N_KEYS,
-		10, ATOM_DEFAULT_APPROX_MAXLEN, cmd_id))
+		ELEMENT_COMMAND_STREAM_MAXLEN, ATOM_DEFAULT_APPROX_MAXLEN, cmd_id))
 	{
 		fprintf(stderr, "Failed to XADD command data to stream\n");
 		ret = ATOM_REDIS_ERROR;
