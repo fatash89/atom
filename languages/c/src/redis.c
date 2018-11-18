@@ -193,6 +193,9 @@ static bool redis_xread_process_response(
 			goto done;
 		}
 
+		// Note how many elements we read
+		found_info->items_read = data_array->elements;
+
 		// Now, we want to loop over the datapoints in the data array
 		for (point = 0; point < data_array->elements; ++point) {
 
@@ -265,7 +268,7 @@ bool redis_xread(
 	// Print the beginning of the command into the
 	//	command buffer
 	ret = snprintf(xread_cmd_buffer, REDIS_CMD_BUFFER_LEN,
-		"XREAD BLOCK %d STREAMS ", block);
+		"XREAD BLOCK %d COUNT 1 STREAMS ", block);
 	if ((ret < 0) || ((ret + bytes_written) >= REDIS_CMD_BUFFER_LEN)) {
 		fprintf(stderr, "snprintf!\n");
 		goto done;

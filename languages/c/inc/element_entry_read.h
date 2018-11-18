@@ -18,6 +18,8 @@
 #include "atom.h"
 #include "redis.h"
 
+#define ELEMENT_ENTRY_READ_LOOP_FOREVER 0
+
 // Forward declaration of the element struct
 struct element;
 
@@ -34,6 +36,9 @@ struct element_entry_read_info {
 		const struct redis_xread_kv_item *kv_items,
 		int n_kv_items,
 		void *user_data);
+	size_t items_to_read;
+	size_t items_read;
+	size_t xreads;
 };
 
 // Allows an element to listen for all data on streams
@@ -42,7 +47,7 @@ enum atom_error_t element_entry_read_loop(
 	struct element *elem,
 	struct element_entry_read_info *infos,
 	size_t n_infos,
-	bool loop,
+	bool loop_forever,
 	int timeout);
 
 // Allows an element to get the N most recent items on a stream

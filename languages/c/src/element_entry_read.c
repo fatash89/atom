@@ -72,13 +72,14 @@ enum atom_error_t element_entry_read_loop(
 	struct element *elem,
 	struct element_entry_read_info *infos,
 	size_t n_infos,
-	bool loop,
+	bool loop_forever,
 	int timeout)
 {
 	int ret;
 	struct redis_stream_info *stream_info = NULL;
 	int i;
 	char *stream_name;
+	bool done;
 
 	// Initialize the return to an internal error
 	ret = ATOM_INTERNAL_ERROR;
@@ -106,22 +107,52 @@ enum atom_error_t element_entry_read_loop(
 			element_entry_read_cb,
 			NULL,
 			&infos[i]);
+
+		// Note that we haven't read any items yet
+		infos[i].items_read = 0;
+		infos[i].xreads = 0;
 	}
 
-	// Now that we've initialized the stream info, we want to go ahead and
-	//	call the XREAD! Pretty simple.
-	while (true) {
+	// If we want to loop forever
+	if (loop_forever) {
 
-		// Do the xread
-		if (!redis_xread(ctx, stream_info, n_infos, timeout)) {
-			fprintf(stderr, "Redis issue/timeout\n");
-			ret = ATOM_REDIS_ERROR;
-			goto done;
+		// Loop forever, XREADing
+		while (true) {
+			if (!redis_xread(ctx, stream_info, n_infos, timeout)) {
+				fprintf(stderr, "Redis issue/timeout\n");
+				ret = ATOM_REDIS_ERROR;
+				goto done;
+			}
 		}
 
-		// And if we shouldn't be looping then break out
-		if (!loop) {
-			break;
+	// Otherwise we loop until we've read the min items
+	//	on each stream
+	} else {
+
+		while (true) {
+			// Do the XREAD
+			if (!redis_xread(ctx, stream_info, n_infos, timeout)) {
+				fprintf(stderr, "Redis issue/timeout\n");
+				ret = ATOM_REDIS_ERROR;
+				goto done;
+			}
+
+			// For each stream, note the number of items that
+			//	we read
+			done = true;
+			for (i = 0; i < n_infos; ++i) {
+				infos[i].items_read += stream_info[i].items_read;
+				if (infos[i].items_read < infos[i].items_to_read) {
+					done = false;
+				}
+
+				infos[i].xreads += 1;
+			}
+
+			// If we're done, then break
+			if (done) {
+				break;
+			}
 		}
 	}
 

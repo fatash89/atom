@@ -28,6 +28,8 @@ struct element;
  	#error "ELEMENT_COMMAND_HASH_N_BINS is not a power of 2!"
 #endif
 
+#define ELEMENT_COMMAND_LOOP_NO_TIMEOUT 0
+
 // Element command. Mapping between command name
 //	and a function pointer to call with the data when the
 //	command is passed to the element. Needs to be a linked list
@@ -40,8 +42,10 @@ struct element_command {
 		size_t data_len,
 		uint8_t **response,
 		size_t *response_len,
-		char **err_str);
+		char **err_str,
+		void *user_data);
 	int timeout;
+	void *user_data;
 	struct element_command *next;
 };
 
@@ -57,7 +61,9 @@ bool element_command_add(
 		size_t data_len,
 		uint8_t **response,
 		size_t *response_len,
-		char **error_str),
+		char **error_str,
+		void *user_data),
+	void *user_data,
 	int timeout);
 
 // Runs the command monitoring loop. Will perform XREADs on the command
