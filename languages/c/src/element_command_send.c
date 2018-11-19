@@ -234,8 +234,7 @@ static bool element_command_response_callback(
 			if ((data->response_cb != NULL) &&
 				(kv_items[RESPONSE_KEY_DATA].found) &&
 				(kv_items[RESPONSE_KEY_DATA].reply->type ==
-					REDIS_REPLY_STRING) &&
-				(kv_items[RESPONSE_KEY_DATA].reply->len > 0))
+					REDIS_REPLY_STRING))
 			{
 				// Call the callback. If it fails, note the error
 				if (!data->response_cb(
@@ -245,6 +244,8 @@ static bool element_command_response_callback(
 				{
 					data->error_code = ATOM_CALLBACK_FAILED;
 				}
+			} else {
+				fprintf(stderr, "Couldn't find data in response!\n");
 			}
 
 		// Process the error code and error string
