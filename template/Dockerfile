@@ -14,4 +14,4 @@ ADD . /code
 # Finally, specify the command we should run when the app is launched
 WORKDIR /code
 RUN chmod +x launch.sh
-CMD ["/bin/bash", launch.sh"]
+CMD ["/bin/bash", "launch.sh"]
