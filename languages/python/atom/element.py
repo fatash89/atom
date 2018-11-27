@@ -266,7 +266,10 @@ class Element:
             if response[b"element"].decode() == element_name and \
             response[b"cmd_id"].decode() == cmd_id and b"data" in response:
                 err_code = int(response[b"err_code"].decode())
-                err_str = response[b"err_str"].decode()
+                if b"err_str" in response:
+                    err_str = response[b"err_str"].decode()
+                else:
+                    err_str = ""
                 return vars(Response(data=response[b"data"], err_code=err_code, err_str=err_str))
 
         # Proper response was not in responses
