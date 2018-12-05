@@ -18,6 +18,7 @@
 
 #include "redis.h"
 #include "atom.h"
+#include "element.h"
 
 // User data callback to send to the redis helper for finding elements
 struct atom_get_element_cb_info {
@@ -447,4 +448,66 @@ char *atom_get_data_stream_str(
 	}
 
 	return ret;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  @brief Logs a message to the global log stream
+//
+////////////////////////////////////////////////////////////////////////////////
+enum atom_error_t atom_log(
+	redisContext *ctx,
+	struct element *element,
+	int level,
+	const char *msg,
+	size_t msg_len)
+{
+	struct redis_xadd_info infos[LOG_N_KEYS];
+	char level_str[2];
+	enum atom_error_t err = ATOM_INTERNAL_ERROR;
+
+	// Check the level
+	if ((level < LOG_CRIT) || (level > LOG_DEBUG)) {
+		fprintf(stderr, "Invalid log level %d\n", level);
+		err = ATOM_COMMAND_INVALID_DATA;
+		goto done;
+	}
+
+	// Make the level string
+	level_str[0] = '0' + level;
+	level_str[1] = '\0';
+
+	// Fill in the infos
+	infos[LOG_KEY_LEVEL].key = LOG_KEY_LEVEL_STR;
+	infos[LOG_KEY_LEVEL].key_len = sizeof(LOG_KEY_LEVEL_STR) - 1;
+	infos[LOG_KEY_LEVEL].data = (const uint8_t*)level_str;
+	infos[LOG_KEY_LEVEL].data_len = 1;
+
+	infos[LOG_KEY_ELEMENT].key = LOG_KEY_ELEMENT_STR;
+	infos[LOG_KEY_ELEMENT].key_len = sizeof(LOG_KEY_ELEMENT_STR) - 1;
+	infos[LOG_KEY_ELEMENT].data = (const uint8_t*)element->name.str;
+	infos[LOG_KEY_ELEMENT].data_len = element->name.len;
+
+	infos[LOG_KEY_MESSAGE].key = LOG_KEY_MESSAGE_STR;
+	infos[LOG_KEY_MESSAGE].key_len = sizeof(LOG_KEY_MESSAGE_STR) - 1;
+	infos[LOG_KEY_MESSAGE].data = (const uint8_t*)msg;
+	infos[LOG_KEY_MESSAGE].key_len = msg_len;
+
+	if (!redis_xadd(
+		ctx,
+		ATOM_LOG_STREAM_NAME,
+		infos,
+		LOG_N_KEYS,
+		ATOM_DEFAULT_MAXLEN,
+		true,
+		NULL))
+	{
+		err = ATOM_REDIS_ERROR;
+		goto done;
+	}
+
+	err = ATOM_NO_ERROR;
+
+done:
+	return err;
 }
