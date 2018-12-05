@@ -4,7 +4,7 @@ from atom import Element
 from multiprocessing import Process
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_UNSUPPORTED
 from atom.config import ATOM_COMMAND_NO_RESPONSE, ATOM_CALLBACK_FAILED
-from atom.messages import Response, StreamHandler
+from atom.messages import Response, StreamHandler, LogLevel
 
 
 class TestAtom:
@@ -202,6 +202,18 @@ class TestAtom:
         proc.join()
         assert response["err_code"] == ATOM_CALLBACK_FAILED
 
+    def test_log(self, caller):
+        ts = caller._get_redis_timestamp()
+        time.sleep(0.1)
+        for i, severity in enumerate(LogLevel):
+            caller.log(severity, f"severity {i}")
+        time.sleep(0.1)
+        logs = caller._rclient.xread(
+            **{caller._make_log_id(caller.name): ts})[caller._make_log_id(caller.name)]
+        assert len(logs) == 8
+        for i in range(8):
+            assert logs[i][1][b"msg"].decode() == f"severity {i}"
+            
 
 def add_1(x):
     return Response(int(x)+1)

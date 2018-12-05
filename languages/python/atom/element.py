@@ -4,7 +4,7 @@ from atom.config import LANG, VERSION, ACK_TIMEOUT, RESPONSE_TIMEOUT, STREAM_LEN
 from atom.config import ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESPONSE
 from atom.config import ATOM_COMMAND_UNSUPPORTED, ATOM_CALLBACK_FAILED, ATOM_USER_ERRORS_BEGIN
 from atom.messages import Cmd, Response, StreamHandler
-from atom.messages import Acknowledge, Entry, Response
+from atom.messages import Acknowledge, Entry, Response, Log, LogLevel
 from sys import exit
 
 
@@ -47,6 +47,8 @@ class Element:
                 })
             # Keep track of command_last_id to know last time the element's command stream was read from
             self.command_last_id = self._pipe.execute()[-1].decode()
+
+            self.log(LogLevel.INFO, "Element initialized.", stdout=False)
         except redis.exceptions.RedisError:
             raise Exception("Could not connect to nucleus!")
 
@@ -97,13 +99,22 @@ class Element:
 
     def _make_stream_id(self, element_name, stream_name):
         """
-        Creates the string representation of a element's stream id.
+        Creates the string representation of an element's stream id.
 
         Args:
             element_name (str): Name of the element to generate the id for.
             stream_name (str): Name of element_name's stream to generate the id for.
         """
         return f"stream:{element_name}:{stream_name}"
+
+    def _make_log_id(self, element_name):
+        """
+        Creates the string representation of an element's log id.
+
+        Args:
+            element_name (str): Name of the element to generate the id for.
+        """
+        return f"log:{element_name}"
 
     def _get_redis_timestamp(self):
         """
@@ -191,7 +202,7 @@ class Element:
             else:
                 timeout = self.timeouts[cmd_name]
             acknowledge = Acknowledge(self.name, cmd_id, timeout)
-            self._pipe.xadd(self._make_response_id(caller), **vars(acknowledge))
+            self._pipe.xadd(self._make_response_id(caller), maxlen=STREAM_LEN, **vars(acknowledge))
             self._pipe.execute()
 
             # Send response to caller
@@ -211,7 +222,7 @@ class Element:
                         err_code=ATOM_CALLBACK_FAILED, err_str=f"{str(type(e))} {str(e)}")
 
             response = response.to_internal(self.name, cmd_name, cmd_id)
-            self._pipe.xadd(self._make_response_id(caller), **vars(response))
+            self._pipe.xadd(self._make_response_id(caller), maxlen=STREAM_LEN, **vars(response))
             self._pipe.execute()
 
     def command_send(self, element_name, cmd_name, data, block=True):
@@ -353,3 +364,12 @@ class Element:
         self._pipe.xadd(
             self._make_stream_id(self.name, stream_name), maxlen=maxlen, **vars(entry))
         self._pipe.execute()
+
+    def log(self, level, msg, stdout=True):
+        """
+        """
+        log = Log(level, msg)
+        self._pipe.xadd(self._make_log_id(self.name), maxlen=STREAM_LEN, **vars(log))
+        self._pipe.execute()
+        if stdout:
+            print(msg)
