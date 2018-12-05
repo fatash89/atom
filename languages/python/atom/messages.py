@@ -170,6 +170,9 @@ class Log:
 
 
 class LogLevel(Enum):
+    """
+    An enum for the Unix syslog severity levels.
+    """
     EMERG = 0
     ALERT = 1
     CRIT = 2

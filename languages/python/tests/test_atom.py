@@ -203,6 +203,9 @@ class TestAtom:
         assert response["err_code"] == ATOM_CALLBACK_FAILED
 
     def test_log(self, caller):
+        """
+        Writes a log with each severity level and ensures that all the logs exist.
+        """
         ts = caller._get_redis_timestamp()
         time.sleep(0.1)
         for i, severity in enumerate(LogLevel):

@@ -1,7 +1,7 @@
 import redis
 from atom.config import DEFAULT_REDIS_PORT, DEFAULT_REDIS_SOCKET
 from atom.config import LANG, VERSION, ACK_TIMEOUT, RESPONSE_TIMEOUT, STREAM_LEN, MAX_BLOCK
-from atom.config import ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESPONSE
+from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESPONSE
 from atom.config import ATOM_COMMAND_UNSUPPORTED, ATOM_CALLBACK_FAILED, ATOM_USER_ERRORS_BEGIN
 from atom.messages import Cmd, Response, StreamHandler
 from atom.messages import Acknowledge, Entry, Response, Log, LogLevel
@@ -207,6 +207,7 @@ class Element:
 
             # Send response to caller
             if cmd_name not in self.handler_map.keys():
+                self.log(LogLevel.ERR, "Received unsupported command.")
                 response = Response(
                     err_code=ATOM_COMMAND_UNSUPPORTED, err_str="Unsupported command.")
             else:
@@ -218,8 +219,9 @@ class Element:
                     if response.err_code != 0:
                         response.err_code += ATOM_USER_ERRORS_BEGIN
                 except Exception as e:
-                    response = Response(
-                        err_code=ATOM_CALLBACK_FAILED, err_str=f"{str(type(e))} {str(e)}")
+                    err_str = f"{str(type(e))} {str(e)}"
+                    self.log(LogLevel.ERR, err_str)
+                    response = Response(err_code=ATOM_CALLBACK_FAILED, err_str=err_str)
 
             response = response.to_internal(self.name, cmd_name, cmd_id)
             self._pipe.xadd(self._make_response_id(caller), maxlen=STREAM_LEN, **vars(response))
@@ -249,10 +251,9 @@ class Element:
         responses = self._rclient.xread(
             block=ACK_TIMEOUT, **{self._make_response_id(self.name): self.response_last_id})
         if responses is None:
-            return vars(
-                Response(
-                    err_code=ATOM_COMMAND_NO_ACK,
-                    err_str="Did not receive acknowledge from element."))
+            err_str = f"Did not receive acknowledge from {element_name}."
+            self.log(LogLevel.ERR, err_str)
+            return vars(Response(err_code=ATOM_COMMAND_NO_ACK, err_str=err_str))
         for self.response_last_id, response in responses[self._make_response_id(self.name)]:
             if response[b"element"].decode() == element_name and \
             response[b"cmd_id"].decode() == cmd_id and b"timeout" in response:
@@ -260,34 +261,30 @@ class Element:
                 break
 
         if timeout is None:
-            return vars(
-                Response(
-                    err_code=ATOM_COMMAND_NO_ACK,
-                    err_str="Did not receive acknowledge from element."))
+            err_str = f"Did not receive acknowledge from {element_name}."
+            self.log(LogLevel.ERR, err_str)
+            return vars(Response(err_code=ATOM_COMMAND_NO_ACK, err_str=err_str))
 
         # Receive response from element
         responses = self._rclient.xread(
             block=timeout, **{self._make_response_id(self.name): self.response_last_id})
         if responses is None:
-            return vars(
-                Response(
-                    err_code=ATOM_COMMAND_NO_RESPONSE,
-                    err_str="Did not receive response from element."))
+            err_str = f"Did not receive response from {element_name}."
+            self.log(LogLevel.ERR, err_str)
+            return vars(Response(err_code=ATOM_COMMAND_NO_RESPONSE, err_str=err_str))
         for self.response_last_id, response in responses[self._make_response_id(self.name)]:
             if response[b"element"].decode() == element_name and \
             response[b"cmd_id"].decode() == cmd_id and b"data" in response:
                 err_code = int(response[b"err_code"].decode())
-                if b"err_str" in response:
-                    err_str = response[b"err_str"].decode()
-                else:
-                    err_str = ""
+                err_str = response[b"err_str"].decode() if b"err_str" in response else ""
+                if err_code != ATOM_NO_ERROR:
+                    self.log(LogLevel.ERR, err_str)
                 return vars(Response(data=response[b"data"], err_code=err_code, err_str=err_str))
 
         # Proper response was not in responses
-        return vars(
-            Response(
-                err_code=ATOM_COMMAND_NO_RESPONSE,
-                err_str="Did not receive response from element."))
+        err_str = f"Did not receive response from {element_name}."
+        self.log(LogLevel.ERR, err_str)
+        return vars(Response(err_code=ATOM_COMMAND_NO_RESPONSE, err_str=err_str))
 
     def entry_read_loop(self, stream_handlers, n_loops=None, timeout=MAX_BLOCK):
         """
@@ -367,6 +364,12 @@ class Element:
 
     def log(self, level, msg, stdout=True):
         """
+        Writes a message to log stream with loglevel.
+        
+        Args:
+            level (messages.LogLevel): Unix syslog severity of message.
+            message (str): The message to write for the log.
+            stdout (bool, optional): Whether to write to stdout or only write to log stream.
         """
         log = Log(level, msg)
         self._pipe.xadd(self._make_log_id(self.name), maxlen=STREAM_LEN, **vars(log))
