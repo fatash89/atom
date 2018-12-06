@@ -212,7 +212,7 @@ class TestAtom:
             caller.log(severity, f"severity {i}")
         time.sleep(0.1)
         logs = caller._rclient.xread(
-            **{caller._make_log_id(caller.name): ts})[caller._make_log_id(caller.name)]
+            **{"log": ts})["log"]
         assert len(logs) == 8
         for i in range(8):
             assert logs[i][1][b"msg"].decode() == f"severity {i}"
