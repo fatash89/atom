@@ -22,3 +22,7 @@ RUN make clean && make && make install
 # And build the C library
 WORKDIR /atom/languages/c
 RUN make clean && make && make install
+
+
+WORKDIR /atom/tools/cli
+RUN pip3 install -r requirements.txt
