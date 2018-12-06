@@ -1,5 +1,6 @@
 import time
 from collections import namedtuple
+from enum import Enum
 
 
 class Cmd:
@@ -148,3 +149,43 @@ class StreamHandler:
         self.element = element
         self.stream = stream
         self.handler = handler
+
+
+class Log:
+    def __init__(self, element, level, msg):
+        """
+        Formats the log published on the element's log stream
+
+        Args:
+            element (str): Name of the element writing the log.
+            level (LogLevel or int): Syslog severity level.
+            msg (str): Message for log.
+        """
+        if not isinstance(element, str):
+            raise TypeError("element must be a str")
+        if not isinstance(level, LogLevel) and not isinstance(level, int):
+            raise TypeError("level must be of type LogLevel or int")
+        if not isinstance(msg, str):
+            raise TypeError("message must be a str")
+        if isinstance(level, LogLevel):
+            self.level = level.value
+        else:
+            if level < 0 or level > 7:
+                raise ValueError("level must be in range [0, 7]")
+            self.level = level
+        self.element = element
+        self.msg = msg
+
+
+class LogLevel(Enum):
+    """
+    An enum for the Unix syslog severity levels.
+    """
+    EMERG = 0
+    ALERT = 1
+    CRIT = 2
+    ERR = 3
+    WARNING = 4
+    NOTICE = 5
+    INFO = 6
+    DEBUG = 7
