@@ -107,15 +107,6 @@ class Element:
         """
         return f"stream:{element_name}:{stream_name}"
 
-    def _make_log_id(self, element_name):
-        """
-        Creates the string representation of an element's log id.
-
-        Args:
-            element_name (str): Name of the element to generate the id for.
-        """
-        return f"log:{element_name}"
-
     def _get_redis_timestamp(self):
         """
         Gets the current timestamp from Redis.
@@ -371,8 +362,8 @@ class Element:
             message (str): The message to write for the log.
             stdout (bool, optional): Whether to write to stdout or only write to log stream.
         """
-        log = Log(level, msg)
-        self._pipe.xadd(self._make_log_id(self.name), maxlen=STREAM_LEN, **vars(log))
+        log = Log(self.name, level, msg)
+        self._pipe.xadd("log", maxlen=STREAM_LEN, **vars(log))
         self._pipe.execute()
         if stdout:
             print(msg)
