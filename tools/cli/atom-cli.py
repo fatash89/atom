@@ -19,10 +19,10 @@ class AtomCLI:
         self.indent = 2
         self.style = Style.from_dict({
             "logo_color": "#6039C8",
-            'completion-menu.completion': 'bg:#000000 #ffffff',
-            'completion-menu.completion.current': 'bg:#555555 #ffffff',
-            'scrollbar.background': 'bg:#000000',
-            'scrollbar.button': 'bg:#000000',
+            "completion-menu.completion": "bg:#000000 #ffffff",
+            "completion-menu.completion.current": "bg:#555555 #ffffff",
+            "scrollbar.background": "bg:#000000",
+            "scrollbar.button": "bg:#000000",
         })
 
         self.session = PromptSession(style=self.style)
