@@ -24,7 +24,7 @@ struct element;
 // Sends a command with the given data to the given stream. If
 //	block is true, will wait until the response is completed. If response_cb
 //	is also non-null then will call response_cb with the data in the response
-//	s.t. the user can handle it.
+//	s.t. the user can handle it. error_str can be NULL to not catch errors
 enum atom_error_t element_command_send(
 	redisContext *ctx,
 	struct element *elem,
@@ -37,7 +37,8 @@ enum atom_error_t element_command_send(
 		const uint8_t *response,
 		size_t response_len,
 		void *user_data),
-	void *user_data);
+	void *user_data,
+	char **error_str);
 
 #ifdef __cplusplus
  }

@@ -17,6 +17,9 @@
 
 #include <stdbool.h>
 #include <hiredis/hiredis.h>
+#include <syslog.h>
+
+struct element;
 
 //
 // Error codes. Need to provide the final
@@ -40,6 +43,8 @@ enum atom_error_t {
 #define ATOM_COMMAND_STREAM_PREFIX "command:"
 #define ATOM_DATA_STREAM_PREFIX "stream:"
 
+#define ATOM_LOG_STREAM_NAME "log"
+
 #define ATOM_VERSION_KEY "version"
 #define ATOM_LANGUAGE_KEY "language"
 
@@ -51,6 +56,9 @@ enum atom_error_t {
 
 // Maximum length of a stream name
 #define ATOM_NAME_MAXLEN 128
+
+// Max length of a log string
+#define ATOM_LOG_MAXLEN 1024
 
 //
 // Keys for sending a command to an element
@@ -107,6 +115,18 @@ enum command_keys_t {
 	RESPONSE_KEY_ERR_STR,
 	RESPONSE_KEY_DATA,
 	RESPONSE_N_KEYS,
+};
+
+// Log keys
+#define LOG_KEY_LEVEL_STR "level"
+#define LOG_KEY_ELEMENT_STR "element"
+#define LOG_KEY_MESSAGE_STR "msg"
+
+enum atom_log_keys_t {
+	LOG_KEY_LEVEL,
+	LOG_KEY_ELEMENT,
+	LOG_KEY_MESSAGE,
+	LOG_N_KEYS
 };
 
 //
@@ -189,6 +209,31 @@ char *atom_get_data_stream_str(
 	const char *name,
 	char buffer[ATOM_NAME_MAXLEN]);
 
+// Logs a message to the standard log stream
+enum atom_error_t atom_log(
+	redisContext *ctx,
+	struct element *element,
+	int level,
+	const char *msg,
+	size_t msg_len);
+
+// Logs a message to the standard log stream using variadic
+//	args
+enum atom_error_t atom_vlogf(
+	redisContext *ctx,
+	struct element *element,
+	int level,
+	const char *fmt,
+	va_list args);
+
+// Logs a message to the standard log stream using printf
+//	style args
+enum atom_error_t atom_logf(
+	redisContext *ctx,
+	struct element *element,
+	int level,
+	const char *fmt,
+	...);
 
 #ifdef __cplusplus
  }

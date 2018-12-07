@@ -262,6 +262,7 @@ static bool element_cmd_rep_xread_cb(
 	uint8_t *response = NULL;
 	size_t response_len = 0;
 	char *error_str = NULL;
+	void *cleanup_ptr = NULL;
 
 	// Want to cast the user data to our expected data struct
 	data = (struct element_command_cb_data *)user_data;
@@ -334,7 +335,8 @@ static bool element_cmd_rep_xread_cb(
 			&response,
 			&response_len,
 			&error_str,
-			cmd->user_data);
+			cmd->user_data,
+			&cleanup_ptr);
 
 		// If the return is an error, we want to append it atop the internal
 		//	element errors
@@ -365,12 +367,19 @@ static bool element_cmd_rep_xread_cb(
 	ret_val = true;
 
 done:
-	// If the user allocated any memory, we need to free it up here
-	if (response != NULL) {
-		free(response);
-	}
-	if (error_str != NULL) {
-		free(error_str);
+	if (cleanup_ptr != NULL) {
+		if (cmd->cleanup != NULL) {
+			cmd->cleanup(cleanup_ptr);
+		} else {
+			fprintf(stderr, "Cleanup ptr non-null but no cleanup fn!\n");
+		}
+	} else {
+		if (response != NULL) {
+			free(response);
+		}
+		if (error_str != NULL) {
+			free(error_str);
+		}
 	}
 	return ret_val;
 }
@@ -470,7 +479,9 @@ bool element_command_add(
 		uint8_t **response,
 		size_t *response_len,
 		char **error_str,
-		void *user_data),
+		void *user_data,
+		void **cleanup_ptr),
+	void (*cleanup)(void *cleanup_ptr),
 	void *user_data,
 	int timeout)
 {
@@ -488,6 +499,7 @@ bool element_command_add(
 
 	// Now fill in the callback, user data and the timeout
 	cmd->cb = cb;
+	cmd->cleanup = cleanup;
 	cmd->timeout = timeout;
 	cmd->user_data = user_data;
 

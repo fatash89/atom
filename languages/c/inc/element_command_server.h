@@ -43,7 +43,9 @@ struct element_command {
 		uint8_t **response,
 		size_t *response_len,
 		char **err_str,
-		void *user_data);
+		void *user_data,
+		void **cleanup_ptr);
+	void (*cleanup)(void *cleanup_ptr);
 	int timeout;
 	void *user_data;
 	struct element_command *next;
@@ -53,6 +55,9 @@ struct element_command {
 //	has a name, a callback, and a timeout. The timeout is sent back to the
 //	caller in the ACK packet initially after receiving the command
 //	s.t. they know how long to wait for the response before timing out
+// Cleanup is an optional argument that will be passed the pointer
+//	returned from cb if set. By default this is NULL and the default cleanup
+//	of just freeing the response and error string will be performed.
 bool element_command_add(
 	struct element *elem,
 	const char *command,
@@ -62,7 +67,9 @@ bool element_command_add(
 		uint8_t **response,
 		size_t *response_len,
 		char **error_str,
-		void *user_data),
+		void *user_data,
+		void **cleanup_ptr),
+	void (*cleanup)(void *cleanup_ptr),
 	void *user_data,
 	int timeout);
 

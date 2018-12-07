@@ -56,6 +56,7 @@ struct element_command_response_data {
 		size_t response_len,
 		void *user_data);
 	int error_code;
+	char *error_str;
 	void *user_data;
 };
 
@@ -260,7 +261,8 @@ static bool element_command_response_callback(
 				(kv_items[RESPONSE_KEY_ERR_STR].reply->type ==
 					REDIS_REPLY_STRING))
 			{
-				fprintf(stderr, "%s\n", kv_items[RESPONSE_KEY_ERR_STR].reply->str);
+				data->error_str = strdup(kv_items[RESPONSE_KEY_ERR_STR].reply->str);
+				assert(data->error_str != NULL);
 			}
 		}
 	}
@@ -343,6 +345,9 @@ static void element_command_init_response_data(
 	// Note the user data
 	response_data->user_data = user_data;
 
+	// Note the error string
+	response_data->error_str = NULL;
+
 	// We also want to fill in the non-shared parts of the ack items
 	response_items[RESPONSE_KEY_CMD].key = RESPONSE_KEY_CMD_STR;
 	response_items[RESPONSE_KEY_CMD].key_len = CONST_STRLEN(RESPONSE_KEY_CMD_STR);
@@ -374,7 +379,8 @@ enum atom_error_t element_command_send(
 		const uint8_t *response,
 		size_t response_len,
 		void *user_data),
-	void *user_data)
+	void *user_data,
+	char **error_str)
 {
 	int ret;
 	struct redis_stream_info stream_info;
@@ -390,8 +396,11 @@ enum atom_error_t element_command_send(
 	struct element_command_response_data response_data;
 	struct redis_xread_kv_item response_items[RESPONSE_N_KEYS];
 
-	// Initialize the error code
+	// Initialize the error code and error string
 	ret = ATOM_INTERNAL_ERROR;
+	if (error_str != NULL) {
+		*error_str = NULL;
+	}
 
 	// Want to set up the data for the command
 	element_command_init_data(
@@ -463,6 +472,13 @@ enum atom_error_t element_command_send(
 	// If we got here then we got the response. We can set our status
 	//	to that returned by the response
 	ret = response_data.error_code;
+	if (response_data.error_str != NULL) {
+		if (error_str != NULL) {
+			*error_str = response_data.error_str;
+		} else {
+			free(response_data.error_str);
+		}
+	}
 
 done:
 	return ret;

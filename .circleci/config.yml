@@ -50,7 +50,7 @@ jobs:
           command: docker-compose -p ${DOCKER_COMPOSE_PROJECT_NAME} up -d
 
       #
-      # Run unit tests
+      # Run tests
       #
       - run:
           name: Python tests
@@ -58,8 +58,22 @@ jobs:
       - run:
           name: C tests
           command:  docker exec -it -w /atom/languages/c ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_ATOM_SERVICE_NAME}_1 make test
+      - run:
+          name: C++ tests
+          command:  docker exec -it -w /atom/languages/cpp ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_ATOM_SERVICE_NAME}_1 make test
+      - run:
+          name: C++ valgrind check
+          command: docker exec -it -w /atom/languages/cpp ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_ATOM_SERVICE_NAME}_1 valgrind -v --tool=memcheck --leak-check=full --num-callers=40 --log-file=valgrind.log --error-exitcode=1 test/build/test_atom_cpp
+          environment:
+            G_SLICE: always-malloc
+            G_DEBUG: gc-friendly
+      - run:
+          name: C++ copy valgrind log
+          command: docker cp ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_ATOM_SERVICE_NAME}_1:/atom/languages/cpp/valgrind.log /tmp/valgrind.log
+      - store_artifacts:
+          path: /tmp/valgrind.log
+          destination: valgrind.log
 
-      #
       # Push the image back to DockerHub, either under a "development" tag
       # or under a master tag
       #
