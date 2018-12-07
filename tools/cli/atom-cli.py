@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 import json
 import shlex
+import time
+import sys
 from atom import Element
 from prompt_toolkit import prompt, HTML, PromptSession
 from prompt_toolkit import print_formatted_text as print
@@ -20,22 +22,29 @@ class AtomCLI:
             "list": self.cmd_list,
             "logs": self.cmd_logs,
             "command": self.cmd_command,
+            "read": self.cmd_read,
+            "exit": self.cmd_exit,
         }
         self.command_completer = WordCompleter(self.cmd_map.keys())
         self.indent = 2
 
     def run(self):
         while True:
-            inp = shlex.split(self.session.prompt(
-                "\n> ", auto_suggest=AutoSuggestFromHistory(),
-                completer=self.command_completer))
-            if not inp:
-                continue
-            command, args = inp[0], inp[1:]
-            if command not in self.cmd_map.keys():
-                print("Invalid command. Type 'help' for valid commands.")
-            else:
-                self.cmd_map[command](*args)
+            try:
+                inp = shlex.split(self.session.prompt(
+                    "\n> ", auto_suggest=AutoSuggestFromHistory(),
+                    completer=self.command_completer))
+                if not inp:
+                    continue
+                command, args = inp[0], inp[1:]
+                if command not in self.cmd_map.keys():
+                    print("Invalid command. Type 'help' for valid commands.")
+                else:
+                    self.cmd_map[command](*args)
+            except KeyboardInterrupt:
+                pass
+            except EOFError:
+                self.cmd_exit()
 
     def print_atom_os_logo(self):
         f = Figlet(font="slant")
@@ -129,17 +138,71 @@ class AtomCLI:
         }, indent=self.indent)
         print(formatted_resp)
 
+    def cmd_read(self, *args):
+        if len(args) < 1:
+            print("Too few arguments.")
+            return
+        if len(args) > 2:
+            print("Too many arguments.")
+            return
+        element_name, stream_name = args[0].split(":")
+        if len(args) == 2:
+            try:
+                rate = int(args[1])
+                if rate < 1:
+                    raise ValueError()
+            except ValueError:
+                print("rate must be an integer greater than 1.")
+                return
+        else:
+            rate = None
+
+        last_timestamp = None
+        while True:
+            start_time = time.time()
+            entries = self.element.entry_read_n(element_name, stream_name, 1)
+            if not entries:
+                print(f"No data from {element_name}:{stream_name}.")
+                return
+            entry = entries[0]
+            timestamp = entry["timestamp"]
+            if timestamp != last_timestamp:
+                last_timestamp = timestamp
+                entry_formatted = {"timestamp": entry["timestamp"]}
+                for k, v in entry.items():
+                    if type(v) is bytes:
+                        entry_formatted[k] = str(v)
+                    else:
+                        entry_formatted[k] = v
+                print(json.dumps(entry_formatted, indent=self.indent))
+            if rate:
+                time.sleep(max(1 / rate - (time.time() - start_time), 0))
+
+    def cmd_exit(*args):
+        print("Exiting.")
+        sys.exit()
+
+
 
 if __name__ == "__main__":
     # TODO REMOVE TESTING STUFF
     import threading
     from atom.messages import Response
-    def add_1(x):
-        return Response(int(x)+1)
+    # def add_1(x):
+        # return Response(int(x)+1)
+
 
     elem1 = Element("element1")
-    elem1.command_add("add_1", add_1)
-    t = threading.Thread(target=elem1.command_loop, daemon=True)
+    # elem1.command_add("add_1", add_1)
+
+    def loop():
+        i = 0
+        while True:
+            elem1.entry_write("stream1", {"data": i})
+            i += 1
+            time.sleep(1)
+
+    t = threading.Thread(target=loop, daemon=True)
     t.start()
     # elem1.log(7, "element1 log 1", stdout=False)
     # elem1.log(7, "element1 log 2", stdout=False)
