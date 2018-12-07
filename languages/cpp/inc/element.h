@@ -25,7 +25,39 @@
 #define ELEMENT_INFINITE_COMMAND_LOOPS 0
 
 // Entry value
-typedef std::map<std::string, std::string> entry_t;
+typedef std::map<std::string, std::string> entry_data_t;
+
+// Entry Class
+class Entry {
+	std::string id;
+	entry_data_t data;
+
+public:
+
+	// Constructor/Destructor
+	Entry(
+		const char *xread_id);
+	~Entry();
+
+	// Add data to the entry
+	void addData(
+		const char *key,
+		const char *data,
+		size_t data_len);
+
+	// Get the ID of the entry
+	const std::string &getID();
+
+	// Get the data of the entry
+	const entry_data_t &getData();
+
+	// Get the size of the entry
+	size_t size();
+
+	// Get a key in the entry
+	const std::string &getKey(
+		const std::string &key);
+};
 
 // Command Handler function
 typedef bool (*element_command_handler_t)(
@@ -137,12 +169,12 @@ public:
 		std::string stream,
 		std::vector<std::string> &keys,
 		size_t n,
-		std::vector<entry_t> &ret);
+		std::vector<Entry> &ret);
 
 	// Writes an entry to a data stream
 	enum atom_error_t entryWrite(
 		std::string stream,
-		entry_t &data,
+		entry_data_t &data,
 		int timestamp = ELEMENT_DATA_WRITE_DEFAULT_TIMESTAMP,
 		int maxlen = ELEMENT_DATA_WRITE_DEFAULT_MAXLEN);
 

@@ -79,14 +79,14 @@ TEST_F(ElementTest, get_all_elements) {
 TEST_F(ElementTest, single_entry_single_key) {
 
 	// Make the data to write
-	entry_t data;
+	entry_data_t data;
 	data["hello"] = "world";
 
 	// Do the write
 	ASSERT_EQ(element->entryWrite("foobar", data), ATOM_NO_ERROR);
 
 	// Do the read back
-	std::vector<entry_t> ret;
+	std::vector<Entry> ret;
 	std::vector<std::string> keys = {"hello"};
 	ASSERT_EQ(element->entryReadN(
 		"testing",
@@ -101,7 +101,7 @@ TEST_F(ElementTest, single_entry_single_key) {
 	// Within that value make sure there's one key
 	ASSERT_EQ(ret[0].size(), data.size());
 
-	for (auto const &x : ret[0]) {
+	for (auto const &x : ret[0].getData()) {
 		ASSERT_NE(data.find(x.first), data.end()) << "Read back key " << x.first << " which was not data";
 		ASSERT_EQ(data[x.first], x.second);
 	}
@@ -112,7 +112,7 @@ TEST_F(ElementTest, single_entry_single_key) {
 TEST_F(ElementTest, single_entry_multiple_keys) {
 
 	// Make the data to write
-	entry_t data;
+	entry_data_t data;
 	data["hello"] = "world";
 	data["foo"] = "bar";
 	data["elementary"] = "robotics";
@@ -121,7 +121,7 @@ TEST_F(ElementTest, single_entry_multiple_keys) {
 	ASSERT_EQ(element->entryWrite("foobar", data), ATOM_NO_ERROR);
 
 	// Do the read back
-	std::vector<entry_t> ret;
+	std::vector<Entry> ret;
 	std::vector<std::string> keys = {"hello", "foo", "elementary"};
 	ASSERT_EQ(element->entryReadN(
 		"testing",
@@ -134,7 +134,7 @@ TEST_F(ElementTest, single_entry_multiple_keys) {
 	ASSERT_EQ(ret.size(), 1);
 	ASSERT_EQ(ret[0].size(), data.size());
 
-	for (auto const &x : ret[0]) {
+	for (auto const &x : ret[0].getData()) {
 		ASSERT_NE(data.find(x.first), data.end()) << "Read back key " << x.first << " which was not data";
 		ASSERT_EQ(data[x.first], x.second);
 	}
@@ -144,7 +144,7 @@ TEST_F(ElementTest, single_entry_multiple_keys) {
 TEST_F(ElementTest, multiple_entry_multiple_keys) {
 
 	// Make the data to write
-	entry_t data;
+	entry_data_t data;
 
 	// Write the three keys 5 times each
 	for (int i = 0; i < 5; ++i) {
@@ -158,7 +158,7 @@ TEST_F(ElementTest, multiple_entry_multiple_keys) {
 
 
 	// Do the read back
-	std::vector<entry_t> ret;
+	std::vector<Entry> ret;
 	std::vector<std::string> keys = {"hello", "foo", "elementary"};
 	ASSERT_EQ(element->entryReadN(
 		"testing",
@@ -174,7 +174,7 @@ TEST_F(ElementTest, multiple_entry_multiple_keys) {
 	for (int i = 0; i < 5; ++i) {
 
 		// Get the value
-		auto val = ret.at(i);
+		auto val = ret.at(i).getData();
 
 		// Make sure the keys have the right data
 		data["hello"] = "world" + std::to_string(4 - i);
@@ -195,8 +195,8 @@ TEST_F(ElementTest, multiple_entry_multiple_keys) {
 TEST_F(ElementTest, multiple_streams) {
 
 	// Make the data to write
-	entry_t data1;
-	entry_t data2;
+	entry_data_t data1;
+	entry_data_t data2;
 
 	data1["hello"] = "world";
 	data2["foo"] = "bar";
@@ -207,7 +207,7 @@ TEST_F(ElementTest, multiple_streams) {
 	ASSERT_EQ(element->entryWrite("robotics", data2), ATOM_NO_ERROR);
 
 	// Now, do the reads back
-	std::vector<entry_t> ret1;
+	std::vector<Entry> ret1;
 	std::vector<std::string> keys1 = {"hello"};
 	ASSERT_EQ(element->entryReadN(
 		"testing",
@@ -216,7 +216,7 @@ TEST_F(ElementTest, multiple_streams) {
 		1,
 		ret1), ATOM_NO_ERROR);
 
-	std::vector<entry_t> ret2;
+	std::vector<Entry> ret2;
 	std::vector<std::string> keys2 = {"foo"};
 	ASSERT_EQ(element->entryReadN(
 		"testing",
@@ -228,18 +228,18 @@ TEST_F(ElementTest, multiple_streams) {
 	// And make sure everything worked as expected
 	ASSERT_EQ(ret1.size(), 1);
 	ASSERT_EQ(ret1[0].size(), 1);
-	ASSERT_EQ(ret1[0]["hello"], "world");
+	ASSERT_EQ(ret1[0].getKey("hello"), "world");
 
 	ASSERT_EQ(ret2.size(), 1);
 	ASSERT_EQ(ret2[0].size(), 1);
-	ASSERT_EQ(ret2[0]["foo"], "bar");
+	ASSERT_EQ(ret2[0].getKey("foo"), "bar");
 }
 
 // Tests getAllStreams
 TEST_F(ElementTest, get_all_streams_single_element_all_streams) {
 
 	// Make the data to write
-	entry_t data;
+	entry_data_t data;
 	data["hello"] = "world";
 
 	// List of streams to write
@@ -275,7 +275,7 @@ TEST_F(ElementTest, get_all_streams_single_element_all_streams) {
 TEST_F(ElementTest, get_all_streams_single_element_all_filtered_valid) {
 
 	// Make the data to write
-	entry_t data;
+	entry_data_t data;
 	data["hello"] = "world";
 
 	// List of streams to write
@@ -311,7 +311,7 @@ TEST_F(ElementTest, get_all_streams_single_element_all_filtered_valid) {
 TEST_F(ElementTest, get_all_streams_single_element_all_filtered_invalid) {
 
 	// Make the data to write
-	entry_t data;
+	entry_data_t data;
 	data["hello"] = "world";
 
 	// List of streams to write
@@ -337,7 +337,7 @@ TEST_F(ElementTest, get_all_streams_single_element_all_filtered_invalid) {
 TEST_F(ElementTest, get_all_streams_multiple_elements_all_streams) {
 
 	// Make the data to write
-	entry_t data;
+	entry_data_t data;
 	data["hello"] = "world";
 
 	// List of streams to write
