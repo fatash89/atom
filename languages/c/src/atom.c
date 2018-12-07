@@ -467,7 +467,7 @@ enum atom_error_t atom_log(
 	enum atom_error_t err = ATOM_INTERNAL_ERROR;
 
 	// Check the level
-	if ((level < LOG_CRIT) || (level > LOG_DEBUG)) {
+	if ((level < LOG_EMERG) || (level > LOG_DEBUG)) {
 		fprintf(stderr, "Invalid log level %d\n", level);
 		err = ATOM_COMMAND_INVALID_DATA;
 		goto done;
