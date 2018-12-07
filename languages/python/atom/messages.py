@@ -152,7 +152,7 @@ class StreamHandler:
 
 
 class Log:
-    def __init__(self, element, level, msg):
+    def __init__(self, element, host, level, msg):
         """
         Formats the log published on the element's log stream
 
@@ -163,6 +163,8 @@ class Log:
         """
         if not isinstance(element, str):
             raise TypeError("element must be a str")
+        if not isinstance(host, str):
+            raise TypeError("host must be a str")
         if not isinstance(level, LogLevel) and not isinstance(level, int):
             raise TypeError("level must be of type LogLevel or int")
         if not isinstance(msg, str):
@@ -174,6 +176,7 @@ class Log:
                 raise ValueError("level must be in range [0, 7]")
             self.level = level
         self.element = element
+        self.host = host
         self.msg = msg
 
 

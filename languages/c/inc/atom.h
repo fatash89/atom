@@ -19,6 +19,11 @@
 #include <hiredis/hiredis.h>
 #include <syslog.h>
 
+// This will determine whether we'll print logs
+//	to stdout/stderr or just log them to the atom system.
+//	this should be turned off in releases eventually
+#define ATOM_PRINT_LOGS
+
 struct element;
 
 //
@@ -121,11 +126,13 @@ enum command_keys_t {
 #define LOG_KEY_LEVEL_STR "level"
 #define LOG_KEY_ELEMENT_STR "element"
 #define LOG_KEY_MESSAGE_STR "msg"
+#define LOG_KEY_HOST_STR "host"
 
 enum atom_log_keys_t {
 	LOG_KEY_LEVEL,
 	LOG_KEY_ELEMENT,
 	LOG_KEY_MESSAGE,
+	LOG_KEY_HOST,
 	LOG_N_KEYS
 };
 

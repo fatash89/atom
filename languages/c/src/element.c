@@ -39,7 +39,8 @@ struct element *element_init(
 	elem = malloc(sizeof(struct element));
 	assert(elem != NULL);
 
-	// Put in the name of the element
+	// Put in the name of the element. This needs to be done before
+	//	any calls to atom_log are called
 	elem->name.str = strdup(name);
 	assert(elem->name.str != NULL);
 	elem->name.len = strlen(elem->name.str);
@@ -63,7 +64,8 @@ struct element *element_init(
 	//	is in use
 	elem->command.ctx = redis_context_init();
 	if (elem->command.ctx == NULL) {
-		fprintf(stderr, "Failed to create command response context!\n");
+		atom_logf(ctx, elem, LOG_ERR,
+			"Failed to create command response context!");
 		goto err_cleanup;
 	}
 
@@ -86,8 +88,8 @@ struct element *element_init(
 		ATOM_DEFAULT_MAXLEN, ATOM_DEFAULT_APPROX_MAXLEN,
 		elem->response.last_id))
 	{
-		fprintf(stderr,
-			"Failed to add initial element info to response stream\n");
+		atom_logf(ctx, elem, LOG_ERR,
+			"Failed to add initial element info to response stream");
 		goto err_cleanup;
 	}
 
@@ -99,8 +101,8 @@ struct element *element_init(
 		ATOM_DEFAULT_MAXLEN, ATOM_DEFAULT_APPROX_MAXLEN,
 		elem->command.last_id))
 	{
-		fprintf(stderr,
-			"Failed to add initial element info to command stream\n");
+		atom_logf(ctx, elem, LOG_ERR,
+			"Failed to add initial element info to command stream");
 		goto err_cleanup;
 	}
 

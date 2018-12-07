@@ -149,7 +149,7 @@ static bool element_command_send_ack(
 		ctx, req_elem_stream, ack_info, ACK_N_KEYS,
 		ATOM_DEFAULT_MAXLEN, ATOM_DEFAULT_APPROX_MAXLEN, NULL))
 	{
-		fprintf(stderr, "Failed to send ACK\n");
+		atom_logf(ctx, elem, LOG_ERR, "Failed to send ACK");
 		goto done;
 	}
 
@@ -231,7 +231,7 @@ static bool element_command_send_response(
 		ctx, req_elem_stream, response_info, response_idx,
 		ATOM_DEFAULT_MAXLEN, ATOM_DEFAULT_APPROX_MAXLEN, NULL))
 	{
-		fprintf(stderr, "Failed to send response\n");
+		atom_logf(ctx, elem, LOG_ERR, "Failed to send response");
 		goto done;
 	}
 
@@ -274,7 +274,8 @@ static bool element_cmd_rep_xread_cb(
 
 	// Now, we want to parse out the reply array using our kv items
 	if (!redis_xread_parse_kv(reply, data->kv_items, data->n_kv_items)) {
-		fprintf(stderr, "Failed to parse reply!\n");
+		atom_logf(data->elem->command.ctx, data->elem, LOG_ERR,
+			"Failed to parse reply!");
 		goto done;
 	}
 
@@ -282,7 +283,8 @@ static bool element_cmd_rep_xread_cb(
 	//	on this message is for the element key to exist in the
 	//	message. Make sure that's there
 	if (!data->kv_items[CMD_KEY_ELEMENT].found) {
-		fprintf(stderr, "Didn't get element in message!\n");
+		atom_logf(data->elem->command.ctx, data->elem, LOG_ERR,
+			"Didn't get element in message!");
 		goto done;
 	}
 
@@ -303,7 +305,8 @@ static bool element_cmd_rep_xread_cb(
 		data->kv_items[CMD_KEY_ELEMENT].reply->str,
 		timeout))
 	{
-		fprintf(stderr, "Failed to send ACK to caller\n");
+		atom_logf(data->elem->command.ctx, data->elem, LOG_ERR,
+			"Failed to send ACK to caller");
 		goto done;
 	}
 
@@ -312,10 +315,12 @@ static bool element_cmd_rep_xread_cb(
 	//	Find the proper error and then send the user a response.
 	if (cmd == NULL) {
 		if (data->kv_items[CMD_KEY_CMD].found) {
-			fprintf(stderr, "Unsupported command!\n");
+			atom_logf(data->elem->command.ctx, data->elem, LOG_ERR,
+				"Unsupported command!");
 			data->err_code = ATOM_COMMAND_UNSUPPORTED;
 		} else {
-			fprintf(stderr, "Missing command!\n");
+			atom_logf(data->elem->command.ctx, data->elem, LOG_ERR,
+				"Missing command!");
 			data->err_code = ATOM_COMMAND_INVALID_DATA;
 		}
 
@@ -359,7 +364,8 @@ static bool element_cmd_rep_xread_cb(
 		data->err_code,
 		error_str))
 	{
-		fprintf(stderr, "Failed to send response to caller\n");
+		atom_logf(data->elem->command.ctx, data->elem, LOG_ERR,
+			"Failed to send response to caller");
 		goto done;
 	}
 
@@ -371,7 +377,8 @@ done:
 		if (cmd->cleanup != NULL) {
 			cmd->cleanup(cleanup_ptr);
 		} else {
-			fprintf(stderr, "Cleanup ptr non-null but no cleanup fn!\n");
+			atom_logf(data->elem->command.ctx, data->elem, LOG_ERR,
+				"Cleanup ptr non-null but no cleanup fn!");
 		}
 	} else {
 		if (response != NULL) {
@@ -429,7 +436,7 @@ enum atom_error_t element_command_loop(
 		elem->command.last_id,
 		&cmd_data))
 	{
-		fprintf(stderr, "Failed to initialize stream info\n");
+		atom_logf(ctx, elem, LOG_ERR, "Failed to initialize stream info");
 		goto done;
 	}
 
@@ -439,7 +446,7 @@ enum atom_error_t element_command_loop(
 
 		// Do the xread
 		if (!redis_xread(ctx, &stream_info, 1, timeout)) {
-			fprintf(stderr, "Redis issue/timeout\n");
+			atom_logf(ctx, elem, LOG_ERR, "Redis issue/timeout");
 			ret = ATOM_REDIS_ERROR;
 		}
 

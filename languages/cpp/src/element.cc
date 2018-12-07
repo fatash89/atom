@@ -170,6 +170,26 @@ Element::~Element()
 	cleanupContextPool();
 }
 
+////////////////////////////////////////////////////////////////////////////////
+//
+//  @brief Handles throwing errors and making sure that they're logged to
+//			the atom system if log_atom is true. Mainly need this s.t. in the
+//			log functions we don't go into a recursive loop
+//
+////////////////////////////////////////////////////////////////////////////////
+void Element::error(
+	std::string str,
+	bool log_atom)
+{
+	// Log it to atom
+	if (log_atom) {
+		log(LOG_ERR, str);
+	}
+
+	// Throw the error
+	throw std::runtime_error(str);
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -271,7 +291,7 @@ enum atom_error_t Element::getAllStreams(
 		// Find the delimiter
 		auto delim = x.find(":");
 		if (delim == std::string::npos) {
-			throw std::runtime_error("Invalid stream");
+			error("Invalid stream");
 		}
 
 		// Get the element and stream
@@ -340,7 +360,7 @@ int commandCB(
 	// Make the response and then call the command handler
 	ElementResponse *r = new ElementResponse();
 	if (!udata->first(data, data_len, r, udata->second)) {
-		throw std::runtime_error("User callback failed");
+		atom_logf(NULL, NULL, LOG_ERR, "User callback failed");
 	}
 
 	// Copy over response data, if any
@@ -384,7 +404,7 @@ void Element::addCommand(
 		(void*)&(commands.find(name)->second),
 		timeout))
 	{
-		throw std::runtime_error("Failed to add command");
+		error("Failed to add command");
 	}
 }
 
@@ -491,13 +511,13 @@ bool entryReadResponseCB(
 			std::string new_str(kv_items[i].reply->str, kv_items[i].reply->len);
 			data.emplace(kv_items[i].key, std::move(new_str));
 		} else {
-			throw std::runtime_error("Couldn't find key");
+			atom_logf(NULL, NULL, LOG_ERR, "Couldn't find key");
 		}
 	}
 
 	// Now, we want to call the user callback
 	if (!udata->fn(data, udata->data)) {
-		throw std::runtime_error("User callback failed");
+		atom_logf(NULL, NULL, LOG_ERR, "User callback failed");
 	}
 
 	return true;
@@ -772,7 +792,7 @@ void Element::log(
 	enum atom_error_t err = atom_log(ctx, elem, level, msg.c_str(), msg.size());
 	releaseContext(ctx);
 	if (err != ATOM_NO_ERROR) {
-		throw std::runtime_error("Failed to log");
+		error("Failed to log", false);
 	}
 }
 
@@ -793,6 +813,6 @@ void Element::log(
 	enum atom_error_t err = atom_vlogf(ctx, elem, level, fmt, args);
 	releaseContext(ctx);
 	if (err != ATOM_NO_ERROR) {
-		throw std::runtime_error("Failed to log");
+		error("Failed to log", false);
 	}
 }
