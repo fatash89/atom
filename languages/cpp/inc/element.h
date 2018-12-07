@@ -69,6 +69,12 @@ class Element {
 		struct element_entry_read_info *info,
 		size_t n_infos);
 
+	// Throws a std::runtime_error and also logs it to atom s.t. we can
+	//	see in the logs why it happened
+	void error(
+		std::string str = "",
+		bool log_atom = true);
+
 public:
 
 	// Constructors
