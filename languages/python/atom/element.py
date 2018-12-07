@@ -5,6 +5,7 @@ from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESP
 from atom.config import ATOM_COMMAND_UNSUPPORTED, ATOM_CALLBACK_FAILED, ATOM_USER_ERRORS_BEGIN
 from atom.messages import Cmd, Response, StreamHandler
 from atom.messages import Acknowledge, Entry, Response, Log, LogLevel
+from os import uname
 from sys import exit
 
 
@@ -18,6 +19,7 @@ class Element:
             socket_path (str, optional): Path to Redis Unix socket.
         """
         self.name = name
+        self.host = uname().nodename
         self.handler_map = {}
         self.timeouts = {}
         self.streams = set()
@@ -184,7 +186,7 @@ class Element:
                 continue
 
             if not caller:
-                print("No caller name present in command!")
+                self.log(LogLevel.ERR, "No caller name present in command!")
                 continue
 
             # Send acknowledge to caller
@@ -362,7 +364,7 @@ class Element:
             message (str): The message to write for the log.
             stdout (bool, optional): Whether to write to stdout or only write to log stream.
         """
-        log = Log(self.name, level, msg)
+        log = Log(self.name, self.host, level, msg)
         self._pipe.xadd("log", maxlen=STREAM_LEN, **vars(log))
         self._pipe.execute()
         if stdout:
