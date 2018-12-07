@@ -15,10 +15,14 @@
 #include <string.h>
 #include <malloc.h>
 #include <assert.h>
+#include <unistd.h>
+#include <limits.h>
 
 #include "redis.h"
 #include "atom.h"
 #include "element.h"
+
+#define ATOM_LOG_DEFAULT_ELEMENT_NAME "none"
 
 // User data callback to send to the redis helper for finding elements
 struct atom_get_element_cb_info {
@@ -81,7 +85,7 @@ enum atom_error_t atom_get_all_elements_cb(
 		atom_get_element_cb,
 		&info) < 0)
 	{
-		fprintf(stderr, "Failed to check for elements\n");
+		atom_logf(ctx, NULL, LOG_ERR, "Failed to check for elements");
 		err = ATOM_REDIS_ERROR;
 		goto done;
 	}
@@ -152,7 +156,7 @@ enum atom_error_t atom_get_all_data_streams_cb(
 		atom_get_data_stream_cb,
 		&info) < 0)
 	{
-		fprintf(stderr, "Failed to check for streams\n");
+		atom_logf(ctx, NULL, LOG_ERR, "Failed to check for streams");
 		err = ATOM_REDIS_ERROR;
 		goto done;
 	}
@@ -319,7 +323,7 @@ char *atom_get_response_stream_str(
 			ATOM_RESPONSE_STREAM_PREFIX "%s",
 			element) >= ATOM_NAME_MAXLEN)
 		{
-			fprintf(stderr, "Stream name too long!\n");
+			atom_logf(NULL, NULL, LOG_ERR, "Stream name too long!");
 		} else {
 			ret = buffer;
 		}
@@ -357,7 +361,7 @@ char *atom_get_command_stream_str(
 			ATOM_COMMAND_STREAM_PREFIX "%s",
 			element) >= ATOM_NAME_MAXLEN)
 		{
-			fprintf(stderr, "Stream name too long!\n");
+			atom_logf(NULL, NULL, LOG_ERR, "Stream name too long!");
 		} else {
 			ret = buffer;
 		}
@@ -395,7 +399,7 @@ char *atom_get_data_stream_prefix_str(
 			ATOM_DATA_STREAM_PREFIX "%s:",
 			element) >= ATOM_NAME_MAXLEN)
 		{
-			fprintf(stderr, "Stream name too long!\n");
+			atom_logf(NULL, NULL, LOG_ERR, "Stream name too long!");
 		} else {
 			ret = buffer;
 		}
@@ -435,7 +439,7 @@ char *atom_get_data_stream_str(
 			element,
 			name) >= ATOM_NAME_MAXLEN)
 		{
-			fprintf(stderr, "Stream name too long!\n");
+			atom_logf(NULL, NULL, LOG_ERR, "Stream name too long!");
 		} else {
 			ret = buffer;
 		}
@@ -452,7 +456,11 @@ char *atom_get_data_stream_str(
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-//  @brief Logs a message to the global log stream
+//  @brief Logs a message to the global log stream.
+//			- ctx can be NULL, but this is not recommended if it can be avoided
+//			as it's a performance hit to make the context.
+//			- element can be NULL as well, and if so the default element
+//			name will be logged
 //
 ////////////////////////////////////////////////////////////////////////////////
 enum atom_error_t atom_log(
@@ -462,15 +470,34 @@ enum atom_error_t atom_log(
 	const char *msg,
 	size_t msg_len)
 {
+	// Hostname, only need to get it once
+	static char hostname[HOST_NAME_MAX + 1];
+	static size_t hostname_len = 0;
+
 	struct redis_xadd_info infos[LOG_N_KEYS];
 	char level_str[2];
 	enum atom_error_t err = ATOM_INTERNAL_ERROR;
+	bool made_context = false;
+	FILE *f;
 
 	// Check the level
 	if ((level < LOG_EMERG) || (level > LOG_DEBUG)) {
-		fprintf(stderr, "Invalid log level %d\n", level);
 		err = ATOM_COMMAND_INVALID_DATA;
 		goto done;
+	}
+
+	// If we haven't gotten the hostname, we need to do so
+	if (hostname_len == 0) {
+		assert(gethostname(hostname, sizeof(hostname)) == 0);
+		hostname[HOST_NAME_MAX] = '\0';
+		hostname_len = strnlen(hostname, HOST_NAME_MAX);
+	}
+
+	// If we weren't passed a context then we'll make one
+	if (ctx == NULL) {
+		ctx = redis_context_init();
+		assert(ctx != NULL);
+		made_context = true;
 	}
 
 	// Make the level string
@@ -485,13 +512,24 @@ enum atom_error_t atom_log(
 
 	infos[LOG_KEY_ELEMENT].key = LOG_KEY_ELEMENT_STR;
 	infos[LOG_KEY_ELEMENT].key_len = sizeof(LOG_KEY_ELEMENT_STR) - 1;
-	infos[LOG_KEY_ELEMENT].data = (const uint8_t*)element->name.str;
-	infos[LOG_KEY_ELEMENT].data_len = element->name.len;
+
+	if (element != NULL) {
+		infos[LOG_KEY_ELEMENT].data = (const uint8_t*)element->name.str;
+		infos[LOG_KEY_ELEMENT].data_len = element->name.len;
+	} else {
+		infos[LOG_KEY_ELEMENT].data = (const uint8_t*)ATOM_LOG_DEFAULT_ELEMENT_NAME;
+		infos[LOG_KEY_ELEMENT].data_len = sizeof(ATOM_LOG_DEFAULT_ELEMENT_NAME) - 1;
+	}
 
 	infos[LOG_KEY_MESSAGE].key = LOG_KEY_MESSAGE_STR;
 	infos[LOG_KEY_MESSAGE].key_len = sizeof(LOG_KEY_MESSAGE_STR) - 1;
 	infos[LOG_KEY_MESSAGE].data = (const uint8_t*)msg;
 	infos[LOG_KEY_MESSAGE].data_len = msg_len;
+
+	infos[LOG_KEY_HOST].key = LOG_KEY_HOST_STR;
+	infos[LOG_KEY_HOST].key_len = sizeof(LOG_KEY_HOST_STR) - 1;
+	infos[LOG_KEY_HOST].data = (const uint8_t*)hostname;
+	infos[LOG_KEY_HOST].data_len = hostname_len;
 
 	if (!redis_xadd(
 		ctx,
@@ -505,6 +543,21 @@ enum atom_error_t atom_log(
 		err = ATOM_REDIS_ERROR;
 		goto done;
 	}
+
+	// If we made our context then we need to free it
+	if (made_context) {
+		redis_context_cleanup(ctx);
+	}
+
+	// And if we're printing logs to stdout we should do so
+	#ifdef ATOM_PRINT_LOGS
+		f = (level <= LOG_ERR) ? stderr : stdout;
+		fprintf(f, "Host: %s, Element: %s, Msg: %s\n",
+			hostname,
+			(element != NULL) ?
+				element->name.str : ATOM_LOG_DEFAULT_ELEMENT_NAME,
+			msg);
+	#endif
 
 	err = ATOM_NO_ERROR;
 

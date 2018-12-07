@@ -134,7 +134,7 @@ enum atom_error_t element_entry_write(
 		ATOM_DEFAULT_APPROX_MAXLEN,
 		NULL))
 	{
-		fprintf(stderr, "Failed to XADD data to stream\n");
+		atom_logf(ctx, NULL, LOG_ERR, "Failed to XADD data to stream");
 		ret = ATOM_REDIS_ERROR;
 		goto done;
 	}

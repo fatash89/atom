@@ -40,13 +40,14 @@ static bool element_entry_read_cb(
 
 	// Now, we want to parse the reply into the kv items
 	if (!redis_xread_parse_kv(reply, info->kv_items, info->n_kv_items)) {
-		fprintf(stderr, "Failed to parse reply!\n");
+		atom_logf(NULL, NULL, LOG_ERR, "Failed to parse reply!");
 		goto done;
 	}
 
 	// Send the kv items along to the user response
 	if (!info->response_cb(info->kv_items, info->n_kv_items, info->user_data)) {
-		fprintf(stderr, "Failed to call user response callback with kv items\n");
+		atom_logf(NULL, NULL, LOG_ERR,
+			"Failed to call user response callback with kv items");
 		goto done;
 	}
 
@@ -119,7 +120,7 @@ enum atom_error_t element_entry_read_loop(
 		// Loop forever, XREADing
 		while (true) {
 			if (!redis_xread(ctx, stream_info, n_infos, timeout)) {
-				fprintf(stderr, "Redis issue/timeout\n");
+				atom_logf(ctx, elem, LOG_ERR, "Redis issue/timeout");
 				ret = ATOM_REDIS_ERROR;
 				goto done;
 			}
@@ -132,7 +133,7 @@ enum atom_error_t element_entry_read_loop(
 		while (true) {
 			// Do the XREAD
 			if (!redis_xread(ctx, stream_info, n_infos, timeout)) {
-				fprintf(stderr, "Redis issue/timeout\n");
+				atom_logf(ctx, elem, LOG_ERR, "Redis issue/timeout");
 				ret = ATOM_REDIS_ERROR;
 				goto done;
 			}
@@ -186,7 +187,7 @@ enum atom_error_t element_entry_read_n(
 
 	// Want to initialize the stream info
 	if (!redis_xrevrange(ctx, stream_name, element_entry_read_cb, n, info)) {
-		fprintf(stderr, "Failed to call XREVRANGE\n");
+		atom_logf(ctx, elem, LOG_ERR, "Failed to call XREVRANGE");
 		ret = ATOM_REDIS_ERROR;
 		goto done;
 	}

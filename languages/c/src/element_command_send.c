@@ -83,7 +83,7 @@ static bool element_response_stream_callback(
 
 	// Now, we want to parse out the reply array using our kv items
 	if (!redis_xread_parse_kv(reply, data->kv_items, data->n_kv_items)) {
-		fprintf(stderr, "Failed to parse reply!\n");
+		atom_logf(NULL, NULL, LOG_ERR, "Failed to parse reply!");
 		goto done;
 	}
 
@@ -102,15 +102,15 @@ static bool element_response_stream_callback(
 			//	the command ID matches. At this point we should call the
 			//	user callback s.t. it can check the rest of the data
 			if (!data->user_cb(data->kv_items, data->user_data)) {
-				fprintf(stderr, "Failed to call user callback!\n");
+				atom_logf(NULL, NULL, LOG_ERR, "Failed to call user callback!");
 				goto done;
 			}
 
 		} else {
-			fprintf(stderr, "couldn't find id\n");
+			atom_logf(NULL, NULL, LOG_ERR, "couldn't find id");
 		}
 	} else {
-		fprintf(stderr, "couldn't find element\n");
+		atom_logf(NULL, NULL, LOG_ERR, "couldn't find element");
 	}
 
 	// Note the success
@@ -246,7 +246,7 @@ static bool element_command_response_callback(
 					data->error_code = ATOM_CALLBACK_FAILED;
 				}
 			} else {
-				fprintf(stderr, "Couldn't find data in response!\n");
+				atom_logf(NULL, NULL, LOG_ERR, "Couldn't find data in response!");
 			}
 
 		// Process the error code and error string
@@ -414,7 +414,7 @@ enum atom_error_t element_command_send(
 	if (!redis_xadd(ctx, cmd_elem_stream, cmd_data, CMD_N_KEYS,
 		ELEMENT_COMMAND_STREAM_MAXLEN, ATOM_DEFAULT_APPROX_MAXLEN, cmd_id))
 	{
-		fprintf(stderr, "Failed to XADD command data to stream\n");
+		atom_logf(ctx, elem, LOG_ERR, "Failed to XADD command data to stream");
 		ret = ATOM_REDIS_ERROR;
 		goto done;
 	}
@@ -434,7 +434,7 @@ enum atom_error_t element_command_send(
 		// XREAD with a default timeout since the ACK should come quickly
 		if (!redis_xread(ctx, &stream_info, 1, ELEMENT_COMMAND_ACK_TIMEOUT)) {
 			ret = ATOM_COMMAND_NO_ACK;
-			fprintf(stderr, "Failed to get ACK\n");
+			atom_logf(ctx, elem, LOG_ERR, "Failed to get ACK");
 			goto done;
 		}
 	}
@@ -464,7 +464,7 @@ enum atom_error_t element_command_send(
 		// XREAD with the timeout returned from the ACK
 		if (!redis_xread(ctx, &stream_info, 1, ack_data.timeout)) {
 			ret = ATOM_COMMAND_NO_RESPONSE;
-			fprintf(stderr, "Failed to get response\n");
+			atom_logf(ctx, elem, LOG_ERR, "Failed to get response");
 			goto done;
 		}
 	}
