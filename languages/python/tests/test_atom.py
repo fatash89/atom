@@ -2,6 +2,7 @@ import pytest
 import time
 from atom import Element
 from multiprocessing import Process
+from threading import Thread, Lock
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_UNSUPPORTED
 from atom.config import ATOM_COMMAND_NO_RESPONSE, ATOM_CALLBACK_FAILED
 from atom.messages import Response, StreamHandler, LogLevel
@@ -119,44 +120,40 @@ class TestAtom:
         a caller listening on those streams and publishing data to a new stream.
         This test ensures that the new stream contains all the data from the responders.
         """
-        test_stream_id = caller._make_stream_id("test_stream", "test_stream")
         responder_0 = Element("responder_0")
         responder_1 = Element("responder_1")
+        entries = set()
 
         def entry_write_loop(responder, stream_name, data):
+            # Wait until both responders and the caller are ready
+            while -1 not in entries or -2 not in entries:
+                responder.entry_write(stream_name, {"data": data-2})
             for i in range(10):
                 responder.entry_write(stream_name, {"data": data})
                 data += 2
 
-        def add_to_redis(data):
-            data = {"data": data[b"data"], "timestamp": data[b"timestamp"]}
-            caller._pipe.xadd(test_stream_id, maxlen=50, **data)
-            caller._pipe.execute()
+        def add_entries(data):
+            entries.add(int(data[b"data"].decode()))
 
-        proc_responder_0 = Process(target=entry_write_loop, args=(responder_0, "stream_0", 0,))
-        proc_responder_1 = Process(target=entry_write_loop, args=(responder_1, "stream_1", 1,))
+        proc_responder_0 = Thread(target=entry_write_loop, args=(responder_0, "stream_0", 0,))
+        proc_responder_1 = Thread(target=entry_write_loop, args=(responder_1, "stream_1", 1,))
 
         stream_handlers = [
-            StreamHandler("responder_0", "stream_0", add_to_redis),
-            StreamHandler("responder_1", "stream_1", add_to_redis),
+            StreamHandler("responder_0", "stream_0", add_entries),
+            StreamHandler("responder_1", "stream_1", add_entries),
         ]
-        proc_caller = Process(target=caller.entry_read_loop, args=(stream_handlers,))
-        proc_caller.start()
-        # Sleep so the caller can start listening to the streams before data is published
-        time.sleep(0.5)
+        thread_caller = Thread(target=caller.entry_read_loop, args=(stream_handlers,), daemon=True)
+        thread_caller.start()
         proc_responder_0.start()
         proc_responder_1.start()
         proc_responder_0.join()
         proc_responder_1.join()
-        # Sleep to give the caller time to handle all the data from the streams
-        time.sleep(0.5)
-        proc_caller.terminate()
-        proc_caller.join()
-        entries = caller.entry_read_n("test_stream", "test_stream", 50)
+        # Wait to give the caller time to handle all the data from the streams
+        thread_caller.join(0.5)
         caller._rclient.delete("stream:responder_0:stream_0")
         caller._rclient.delete("stream:responder_1:stream_1")
-        caller._rclient.delete(test_stream_id)
-        assert len(entries) == 20
+        for i in range(20):
+            assert i in entries
 
     def test_no_ack(self, caller, responder):
         """
@@ -206,14 +203,11 @@ class TestAtom:
         """
         Writes a log with each severity level and ensures that all the logs exist.
         """
-        ts = caller._get_redis_timestamp()
-        time.sleep(0.1)
         for i, severity in enumerate(LogLevel):
-            caller.log(severity, f"severity {i}")
-        time.sleep(0.1)
+            caller.log(severity, f"severity {i}", stdout=False)
         logs = caller._rclient.xread(
-            **{"log": ts})["log"]
-        assert len(logs) == 8
+            **{"log": 0})["log"]
+        logs = logs[-8:]
         for i in range(8):
             assert logs[i][1][b"msg"].decode() == f"severity {i}"
             
