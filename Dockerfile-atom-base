@@ -35,3 +35,6 @@ RUN cmake CMakeLists.txt && make -j16 && cp *.a /usr/lib
 
 # Set the working directory back to the root home folder
 WORKDIR /root
+
+# Install valgrind
+RUN apt-get install -y valgrind
