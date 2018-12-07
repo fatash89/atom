@@ -507,3 +507,9 @@ TEST_F(ElementTest, err_string) {
 	void *ret;
 	ASSERT_EQ(pthread_join(cmd_thread, &ret), 0);
 }
+
+// Tests sending a log. We'll read it back with a redis XREVRANGE command
+//	 on the log stream
+TEST_F(ElementTest, basic_log) {
+	element->log(LOG_DEBUG, "testing: 1, 2, 3");
+}

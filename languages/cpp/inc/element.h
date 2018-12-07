@@ -143,7 +143,7 @@ public:
 	// Writes an entry to the logs
 	void log(
 		int level,
-		std::string &msg);
+		std::string msg);
 
 };
 

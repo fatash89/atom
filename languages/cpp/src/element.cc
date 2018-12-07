@@ -766,10 +766,11 @@ enum atom_error_t Element::entryWrite(
 ////////////////////////////////////////////////////////////////////////////////
 void Element::log(
 	int level,
-	std::string &msg)
+	std::string msg)
 {
 	redisContext *ctx = getContext();
 	if (atom_log(ctx, elem, level, msg.c_str(), msg.size()) != ATOM_NO_ERROR) {
 		throw std::runtime_error("Failed to log");
 	}
+	releaseContext(ctx);
 }

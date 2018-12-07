@@ -491,7 +491,7 @@ enum atom_error_t atom_log(
 	infos[LOG_KEY_MESSAGE].key = LOG_KEY_MESSAGE_STR;
 	infos[LOG_KEY_MESSAGE].key_len = sizeof(LOG_KEY_MESSAGE_STR) - 1;
 	infos[LOG_KEY_MESSAGE].data = (const uint8_t*)msg;
-	infos[LOG_KEY_MESSAGE].key_len = msg_len;
+	infos[LOG_KEY_MESSAGE].data_len = msg_len;
 
 	if (!redis_xadd(
 		ctx,
