@@ -521,3 +521,11 @@ TEST_F(ElementTest, variadic_log) {
 		element->log(i, "testing: level %d\n", i);
 	}
 }
+
+// Tests to make sure only the proper log levels are allower
+TEST_F(ElementTest, invalid_logs) {
+	ASSERT_THROW(element->log(LOG_EMERG - 1, "testing: 1, 2, 3"), std::runtime_error);
+	ASSERT_THROW(element->log(-1, "testing: 1, 2, 3"), std::runtime_error);
+	ASSERT_THROW(element->log(LOG_DEBUG + 1, "testing: 1, 2, 3"), std::runtime_error);
+	ASSERT_THROW(element->log(8, "testing: 1, 2, 3"), std::runtime_error);
+}

@@ -769,10 +769,11 @@ void Element::log(
 	std::string msg)
 {
 	redisContext *ctx = getContext();
-	if (atom_log(ctx, elem, level, msg.c_str(), msg.size()) != ATOM_NO_ERROR) {
+	enum atom_error_t err = atom_log(ctx, elem, level, msg.c_str(), msg.size());
+	releaseContext(ctx);
+	if (err != ATOM_NO_ERROR) {
 		throw std::runtime_error("Failed to log");
 	}
-	releaseContext(ctx);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -789,8 +790,9 @@ void Element::log(
 	va_start(args, fmt);
 
 	redisContext *ctx = getContext();
-	if (atom_vlogf(ctx, elem, level, fmt, args) != ATOM_NO_ERROR) {
+	enum atom_error_t err = atom_vlogf(ctx, elem, level, fmt, args);
+	releaseContext(ctx);
+	if (err != ATOM_NO_ERROR) {
 		throw std::runtime_error("Failed to log");
 	}
-	releaseContext(ctx);
 }
