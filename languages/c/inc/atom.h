@@ -57,6 +57,9 @@ enum atom_error_t {
 // Maximum length of a stream name
 #define ATOM_NAME_MAXLEN 128
 
+// Max length of a log string
+#define ATOM_LOG_MAXLEN 1024
+
 //
 // Keys for sending a command to an element
 //
@@ -213,6 +216,24 @@ enum atom_error_t atom_log(
 	int level,
 	const char *msg,
 	size_t msg_len);
+
+// Logs a message to the standard log stream using variadic
+//	args
+enum atom_error_t atom_vlogf(
+	redisContext *ctx,
+	struct element *element,
+	int level,
+	const char *fmt,
+	va_list args);
+
+// Logs a message to the standard log stream using printf
+//	style args
+enum atom_error_t atom_logf(
+	redisContext *ctx,
+	struct element *element,
+	int level,
+	const char *fmt,
+	...);
 
 #ifdef __cplusplus
  }

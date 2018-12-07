@@ -511,3 +511,45 @@ enum atom_error_t atom_log(
 done:
 	return err;
 }
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  @brief Logs a message to the global log stream using variadic args
+//
+////////////////////////////////////////////////////////////////////////////////
+enum atom_error_t atom_vlogf(
+	redisContext *ctx,
+	struct element *element,
+	int level,
+	const char *fmt,
+	va_list args)
+{
+    char log_buffer[ATOM_LOG_MAXLEN];
+    size_t len;
+
+    // Use the variadic version of snprintf
+    len = vsnprintf(log_buffer, sizeof(log_buffer), fmt, args);
+
+   	return atom_log(ctx, element, level, log_buffer, len);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  @brief Logs a message to the global log stream using printf-style formats
+//
+////////////////////////////////////////////////////////////////////////////////
+enum atom_error_t atom_logf(
+	redisContext *ctx,
+	struct element *element,
+	int level,
+	const char *fmt,
+	...)
+{
+    va_list args;
+
+    // Start the variadic list
+    va_start(args, fmt);
+
+    // Call the variadic version
+    return atom_vlogf(ctx, element, level, fmt, args);
+}
