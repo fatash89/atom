@@ -33,6 +33,7 @@ struct element_entry_read_info {
 	size_t n_kv_items;
 	void *user_data;
 	bool (*response_cb)(
+		const char *id,
 		const struct redis_xread_kv_item *kv_items,
 		int n_kv_items,
 		void *user_data);
@@ -56,6 +57,16 @@ enum atom_error_t element_entry_read_n(
 	struct element *elem,
 	struct element_entry_read_info *info,
 	size_t n);
+
+// Reads at most N items that have happened since the passed
+//	last_seen_id
+enum atom_error_t element_entry_read_since(
+	redisContext *ctx,
+	struct element *elem,
+	struct element_entry_read_info *info,
+	const char *last_id,
+	int timeout,
+	size_t maxcount);
 
 #ifdef __cplusplus
  }

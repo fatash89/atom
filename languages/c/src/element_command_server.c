@@ -445,7 +445,13 @@ enum atom_error_t element_command_loop(
 	while (true) {
 
 		// Do the xread
-		if (!redis_xread(ctx, &stream_info, 1, timeout)) {
+		if (!redis_xread(
+			ctx,
+			&stream_info,
+			1,
+			timeout,
+			REDIS_XREAD_NOMAXCOUNT))
+		{
 			atom_logf(ctx, elem, LOG_ERR, "Redis issue/timeout");
 			ret = ATOM_REDIS_ERROR;
 		}
