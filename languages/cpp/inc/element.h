@@ -144,6 +144,10 @@ public:
 	void log(
 		int level,
 		std::string msg);
+	void log(
+		int level,
+		const char *fmt,
+		...);
 
 };
 

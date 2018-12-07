@@ -26,18 +26,19 @@ protected:
 	Element *element;
 
 	virtual void SetUp() {
-		element = new Element("testing");
-	};
-
-	virtual void TearDown() {
-		delete element;
-
 		// Get a context and send a flushAll to remove all existing keys
 		redisContext *ctx = redis_context_init();
 		redisReply *reply = (redisReply *)redisCommand(ctx, "FLUSHALL");
 		ASSERT_NE(reply, (redisReply*)NULL);
 		freeReplyObject(reply);
 		redis_context_cleanup(ctx);
+
+		// Set up the new element
+		element = new Element("testing");
+	};
+
+	virtual void TearDown() {
+		delete element;
 	};
 };
 
@@ -512,4 +513,11 @@ TEST_F(ElementTest, err_string) {
 //	 on the log stream
 TEST_F(ElementTest, basic_log) {
 	element->log(LOG_DEBUG, "testing: 1, 2, 3");
+}
+
+// Tests sending a variadic log
+TEST_F(ElementTest, variadic_log) {
+	for (int i = LOG_EMERG; i <= LOG_DEBUG; ++i) {
+		element->log(i, "testing: level %d\n", i);
+	}
 }

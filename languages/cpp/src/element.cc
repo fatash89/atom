@@ -774,3 +774,23 @@ void Element::log(
 	}
 	releaseContext(ctx);
 }
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  @brief Writes a log message using variadic format
+//
+////////////////////////////////////////////////////////////////////////////////
+void Element::log(
+	int level,
+	const char *fmt,
+	...)
+{
+	va_list args;
+	va_start(args, fmt);
+
+	redisContext *ctx = getContext();
+	if (atom_vlogf(ctx, elem, level, fmt, args) != ATOM_NO_ERROR) {
+		throw std::runtime_error("Failed to log");
+	}
+	releaseContext(ctx);
+}
