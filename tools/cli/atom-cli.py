@@ -9,14 +9,23 @@ from prompt_toolkit import print_formatted_text as print
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.history import InMemoryHistory
+from prompt_toolkit.styles import Style
 from pyfiglet import Figlet
 
 
 class AtomCLI:
     def __init__(self):
         self.element = Element("atom-cli")
-        self.print_atom_os_logo()
-        self.session = PromptSession()
+        self.indent = 2
+        self.style = Style.from_dict({
+            "logo_color": "#6039C8",
+            'completion-menu.completion': 'bg:#000000 #ffffff',
+            'completion-menu.completion.current': 'bg:#555555 #ffffff',
+            'scrollbar.background': 'bg:#000000',
+            'scrollbar.button': 'bg:#000000',
+        })
+
+        self.session = PromptSession(style=self.style)
         self.cmd_map = {
             "help": self.cmd_help,
             "list": self.cmd_list,
@@ -26,7 +35,7 @@ class AtomCLI:
             "exit": self.cmd_exit,
         }
         self.command_completer = WordCompleter(self.cmd_map.keys())
-        self.indent = 2
+        self.print_atom_os_logo()
 
     def run(self):
         while True:
@@ -49,7 +58,7 @@ class AtomCLI:
     def print_atom_os_logo(self):
         f = Figlet(font="slant")
         logo = f.renderText("ATOM OS")
-        print(HTML(f"<purple>{logo}</purple>"))
+        print(HTML(f"<logo_color>{logo}</logo_color>"), style=self.style)
 
     def cmd_help(self, *args):
         print("Available commands")
