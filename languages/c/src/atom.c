@@ -377,44 +377,6 @@ char *atom_get_command_stream_str(
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-//  @brief Gets data stream prefix. If buffer is non-NULL
-//			will write the output into the buffer, else will allocate
-//			the string and return it.
-//
-////////////////////////////////////////////////////////////////////////////////
-char *atom_get_data_stream_prefix_str(
-	const char *element,
-	char buffer[ATOM_NAME_MAXLEN])
-{
-	char *ret = NULL;
-
-	if (!atom_element_name_is_valid(element)) {
-		return NULL;
-	}
-
-	if (buffer != NULL) {
-		if (snprintf(
-			buffer,
-			ATOM_NAME_MAXLEN,
-			ATOM_DATA_STREAM_PREFIX "%s:",
-			element) >= ATOM_NAME_MAXLEN)
-		{
-			atom_logf(NULL, NULL, LOG_ERR, "Stream name too long!");
-		} else {
-			ret = buffer;
-		}
-	} else {
-		asprintf(
-			&ret,
-			ATOM_DATA_STREAM_PREFIX "%s:",
-			element);
-	}
-
-	return ret;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-//
 //  @brief Gets data stream. If buffer is non-NULL
 //			will write the output into the buffer, else will allocate
 //			the string and return it.
@@ -427,10 +389,24 @@ char *atom_get_data_stream_str(
 {
 	char *ret = NULL;
 
+	// If the element is NULL, then we just want to use the stream
+	//	name
+	if (element == NULL) {
+		if (buffer != NULL) {
+			snprintf(buffer, ATOM_NAME_MAXLEN, "%s", name);
+			ret = buffer;
+		} else {
+			asprintf(&ret, "%s", name);
+		}
+		return ret;
+	}
+
+	// Otherwise if not a valid name then we want to return NULL
 	if (!atom_element_name_is_valid(element)) {
 		return NULL;
 	}
 
+	// Otherwise print it in there
 	if (buffer != NULL) {
 		if (snprintf(
 			buffer,
@@ -552,7 +528,8 @@ enum atom_error_t atom_log(
 	// And if we're printing logs to stdout we should do so
 	#ifdef ATOM_PRINT_LOGS
 		f = (level <= LOG_ERR) ? stderr : stdout;
-		fprintf(f, "Host: %s, Element: %s, Msg: %s\n",
+		fprintf(f, "Level: %d, Host: %s, Element: %s, Msg: %s\n",
+			level,
 			hostname,
 			(element != NULL) ?
 				element->name.str : ATOM_LOG_DEFAULT_ELEMENT_NAME,

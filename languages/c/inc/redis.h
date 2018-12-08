@@ -90,11 +90,14 @@ bool redis_init_stream_info(
 //	for each piece of data received. Will block for at most block milliseconds
 //	while waiting for data, with 0 being blocking indefinitely
 #define REDIS_XREAD_BLOCK_INDEFINITE 0
+#define REDIS_XREAD_DONTBLOCK -1
+#define REDIS_XREAD_NOMAXCOUNT 0
 bool redis_xread(
 	redisContext *ctx,
 	struct redis_stream_info *infos,
 	int n_infos,
-	int block);
+	int block,
+	size_t maxcount);
 
 // Analyzes the key, value array returned in XREAD
 bool redis_xread_parse_kv(

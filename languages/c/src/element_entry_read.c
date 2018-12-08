@@ -45,7 +45,7 @@ static bool element_entry_read_cb(
 	}
 
 	// Send the kv items along to the user response
-	if (!info->response_cb(info->kv_items, info->n_kv_items, info->user_data)) {
+	if (!info->response_cb(id, info->kv_items, info->n_kv_items, info->user_data)) {
 		atom_logf(NULL, NULL, LOG_ERR,
 			"Failed to call user response callback with kv items");
 		goto done;
@@ -119,7 +119,13 @@ enum atom_error_t element_entry_read_loop(
 
 		// Loop forever, XREADing
 		while (true) {
-			if (!redis_xread(ctx, stream_info, n_infos, timeout)) {
+			if (!redis_xread(
+				ctx,
+				stream_info,
+				n_infos,
+				timeout,
+				REDIS_XREAD_NOMAXCOUNT))
+			{
 				atom_logf(ctx, elem, LOG_ERR, "Redis issue/timeout");
 				ret = ATOM_REDIS_ERROR;
 				goto done;
@@ -132,7 +138,13 @@ enum atom_error_t element_entry_read_loop(
 
 		while (true) {
 			// Do the XREAD
-			if (!redis_xread(ctx, stream_info, n_infos, timeout)) {
+			if (!redis_xread(
+				ctx,
+				stream_info,
+				n_infos,
+				timeout,
+				REDIS_XREAD_NOMAXCOUNT))
+			{
 				atom_logf(ctx, elem, LOG_ERR, "Redis issue/timeout");
 				ret = ATOM_REDIS_ERROR;
 				goto done;
@@ -188,6 +200,57 @@ enum atom_error_t element_entry_read_n(
 	// Want to initialize the stream info
 	if (!redis_xrevrange(ctx, stream_name, element_entry_read_cb, n, info)) {
 		atom_logf(ctx, elem, LOG_ERR, "Failed to call XREVRANGE");
+		ret = ATOM_REDIS_ERROR;
+		goto done;
+	}
+
+	// Note the success
+	ret = ATOM_NO_ERROR;
+
+done:
+	return ret;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  @brief Allows the element to listen for data on a set of streams.
+//			Each info specifies the stream to listen on as well as the expected
+//			keys for each stream. The given data callback will then be called
+//			with the redis_xread_kv_items indicating whether each item
+//			was found and if so pointing to the base redisReply for the
+//			item in the response
+//
+////////////////////////////////////////////////////////////////////////////////
+enum atom_error_t element_entry_read_since(
+	redisContext *ctx,
+	struct element *elem,
+	struct element_entry_read_info *info,
+	const char *last_id,
+	int timeout,
+	size_t maxcount)
+{
+	int ret;
+	struct redis_stream_info stream_info;
+	char stream_name[ATOM_NAME_MAXLEN];
+
+	// Initialize the return to an internal error
+	ret = ATOM_INTERNAL_ERROR;
+
+	// Get the full stream name for the data stream
+	atom_get_data_stream_str(info->element, info->stream, stream_name);
+
+	// And initialize the stream info for the stream
+	redis_init_stream_info(
+		ctx,
+		&stream_info,
+		stream_name,
+		element_entry_read_cb,
+		(last_id != NULL) ? last_id : "$",
+		info);
+
+	// Do the XREAD
+	if (!redis_xread(ctx, &stream_info, 1, timeout, maxcount)) {
+		atom_logf(ctx, elem, LOG_ERR, "Redis issue/timeout");
 		ret = ATOM_REDIS_ERROR;
 		goto done;
 	}

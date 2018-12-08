@@ -29,6 +29,12 @@
 #define REDIS_XADD_MAXLEN_APPROX_STR "~"
 #define REDIS_XADD_MAXLEN_BUFFLEN 32
 
+#define REDIS_XREAD_MAX_ARGS 64
+#define REDIS_XREAD_CMD_STR "XREAD"
+#define REDIS_XREAD_BLOCK_STR "BLOCK"
+#define REDIS_XREAD_COUNT_STR "COUNT"
+#define REDIS_XREAD_STREAMS_STR "STREAMS"
+
 #define REDIS_SCAN_BEGIN_ITERATOR "0"
 #define REDIS_SCAN_ITERATOR_BUFFLEN 32
 #define REDIS_SCAN_N_ARGS 4
@@ -257,68 +263,80 @@ bool redis_xread(
 	redisContext *ctx,
 	struct redis_stream_info *infos,
 	int n_infos,
-	int block)
+	int block,
+	size_t maxcount)
 {
-	char xread_cmd_buffer[REDIS_CMD_BUFFER_LEN];
-	int bytes_written = 0;
-	int ret, i;
+	const char *argv[REDIS_XREAD_MAX_ARGS];
+	size_t argvlen[REDIS_XREAD_MAX_ARGS];
+	char block_buffer[32];
+	char count_buffer[32];
+	size_t len;
+	int argc = 0;
 	bool ret_val = false;
+	int i;
 	struct redisReply *reply;
 
-	// Print the beginning of the command into the
-	//	command buffer
-	ret = snprintf(xread_cmd_buffer, REDIS_CMD_BUFFER_LEN,
-		"XREAD BLOCK %d COUNT 1 STREAMS ", block);
-	if ((ret < 0) || ((ret + bytes_written) >= REDIS_CMD_BUFFER_LEN)) {
-		fprintf(stderr, "snprintf!\n");
-		goto done;
-	}
-	bytes_written += ret;
+	// Put in the XREAD command
+	argv[argc] = REDIS_XREAD_CMD_STR;
+	argvlen[argc++] = CONST_STRLEN(REDIS_XREAD_CMD_STR);
 
-	// Now, for each stream we want to monitor, we want to add it to
-	//	the list of streams to monitor
-	for (i = 0; i < n_infos; ++i) {
-		ret = snprintf(xread_cmd_buffer + bytes_written,
-			REDIS_CMD_BUFFER_LEN - bytes_written,
-			"%s ", infos[i].name);
-		if ((ret < 0) || ((ret + bytes_written) >= REDIS_CMD_BUFFER_LEN)) {
-			fprintf(stderr, "snprintf!\n");
+	// If we're blocking, add in the BLOCK command
+	if (block != REDIS_XREAD_DONTBLOCK) {
+		if (block < 0) {
+			fprintf(stderr, "Invalid block!\n");
 			goto done;
 		}
-		bytes_written += ret;
+
+		argv[argc] = REDIS_XREAD_BLOCK_STR;
+		argvlen[argc++] = CONST_STRLEN(REDIS_XREAD_BLOCK_STR);
+
+		// Need to add in the block number
+		len = snprintf(block_buffer, sizeof(block_buffer), "%d", block);
+		argv[argc] = block_buffer;
+		argvlen[argc++] = len;
 	}
 
-	// Now, for each stream we want to monitor we want to put in the
-	//	last ID which we saw. This ID will be in a constant-allocated
-	//	buffer and we assume that the user wrote "$" to it if we're
-	//	monitoring a new stream
+	// If we have a maxcount, add that in as well
+	if (maxcount != REDIS_XREAD_NOMAXCOUNT) {
+		argv[argc] = REDIS_XREAD_COUNT_STR;
+		argvlen[argc++] = CONST_STRLEN(REDIS_XREAD_COUNT_STR);
+
+		// Need to add in the count number
+		len = snprintf(count_buffer, sizeof(count_buffer), "%lu", maxcount);
+		argv[argc] = count_buffer;
+		argvlen[argc++] = len;
+	}
+
+	// Add in the streams key
+	argv[argc] = REDIS_XREAD_STREAMS_STR;
+	argvlen[argc++] = CONST_STRLEN(REDIS_XREAD_STREAMS_STR);
+
+	// Now, for each of the streams, need to add in the stream name.
+	//	The good news is that we can just reuse their buffers
 	for (i = 0; i < n_infos; ++i) {
-		ret = snprintf(xread_cmd_buffer + bytes_written,
-			REDIS_CMD_BUFFER_LEN - bytes_written,
-			"%s ", infos[i].last_id);
-		if ((ret < 0) || ((ret + bytes_written) >= REDIS_CMD_BUFFER_LEN)) {
-			fprintf(stderr, "snprintf!\n");
-			goto done;
-		}
-		bytes_written += ret;
+		argv[argc] = infos[i].name;
+		argvlen[argc++] = strlen(infos[i].name);
 	}
 
-	#if DEBUG_COMMANDS
-		fprintf(stderr, "Command: %s\n", xread_cmd_buffer);
-	#endif
+	// And we need to add in the last seen ID for each stream
+	for (i = 0; i < n_infos; ++i) {
+		argv[argc] = infos[i].last_id;
+		argvlen[argc++] = strlen(infos[i].last_id);
+	}
 
-	// Now we should have a properly written XREAD buffer which we
+	// Now we should have a constructed XREAD command which we
 	//	can send to redis and then attempt to get the reply
-	reply = redisCommand(ctx, xread_cmd_buffer);
+	reply = redisCommandArgv(ctx, argc, argv, argvlen);
 	if (reply == NULL) {
 		fprintf(stderr, "NULL from redisCommand\n");
 		goto done;
 	}
 
 	// Otherwise we have a reply. If we timed out then there are no
-	//	callbacks to call so we can just note that
+	//	callbacks to call so we can just note that. This is an acceptable
+	//	outcome.
 	if (reply->type == REDIS_REPLY_NIL) {
-		fprintf(stderr, "timed out!\n");
+		ret_val = true;
 		goto free_reply;
 	}
 

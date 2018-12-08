@@ -16,8 +16,13 @@
 #include "element_response.h"
 #include <map>
 
-// Typedef the handler type
-typedef bool (*readHandlerFn)(std::map<std::string, std::string> &keys, void *user_data);
+// Forward declaration for the entry class
+class Entry;
+
+// Read handler function
+typedef bool (*readHandlerFn)(
+	Entry &e,
+	void *user_data);
 
 // Typedef the tuple
 typedef std::tuple<std::string, std::string, std::vector<std::string>, readHandlerFn, void*> handler_t;
