@@ -437,7 +437,7 @@ enum atom_error_t element_command_send(
 			&stream_info,
 			1,
 			ELEMENT_COMMAND_ACK_TIMEOUT,
-			REDIS_XREAD_NOMAXCOUNT))
+			1))
 		{
 			ret = ATOM_COMMAND_NO_ACK;
 			atom_logf(ctx, elem, LOG_ERR, "Failed to get ACK");
@@ -473,7 +473,7 @@ enum atom_error_t element_command_send(
 			&stream_info,
 			1,
 			ack_data.timeout,
-			REDIS_XREAD_NOMAXCOUNT))
+			1))
 		{
 			ret = ATOM_COMMAND_NO_RESPONSE;
 			atom_logf(ctx, elem, LOG_ERR, "Failed to get response");
