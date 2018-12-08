@@ -60,6 +60,8 @@ enum atom_error_t element_entry_read_n(
 
 // Reads at most N items that have happened since the passed
 //	last_seen_id
+#define ENTRY_READ_SINCE_BEGIN_BLOCKING_WITH_NEWEST_ID "$"
+#define ENTRY_READ_SINCE_BEGIN_WITH_OLDEST_ID "0"
 enum atom_error_t element_entry_read_since(
 	redisContext *ctx,
 	struct element *elem,

@@ -201,13 +201,6 @@ char *atom_get_command_stream_str(
 	const char *element,
 	char buffer[ATOM_NAME_MAXLEN]);
 
-// Helper for getting the element data stream prefix. If buffer
-//	is non-NULL will write the name into the buffer,
-//	else will allocate a string and return it.
-char *atom_get_data_stream_prefix_str(
-	const char *element,
-	char buffer[ATOM_NAME_MAXLEN]);
-
 // Helper for getting a data stream. If buffer
 //	is non-NULL will write the name into the buffer,
 //	else will allocate a string and return it.
