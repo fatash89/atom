@@ -17,6 +17,9 @@
 #include "atom/atom.h"
 #include "atom/redis.h"
 #include "atom/element_entry_write.h"
+#include "atom/element_entry_read.h"
+#include "atom/element_command_server.h"
+#include "atom/element_command_send.h"
 #include "element_response.h"
 #include "element_read_map.h"
 
@@ -170,6 +173,18 @@ public:
 		std::vector<std::string> &keys,
 		size_t n,
 		std::vector<Entry> &ret);
+
+	// Reads at most N entries from the stream since the passed ID
+	//	Default nonblocking. Pass 0 for timeout to block indefinitely,
+	//	else a value in milliseconds
+	enum atom_error_t entryReadSince(
+		std::string element,
+		std::string stream,
+		std::vector<std::string> &keys,
+		size_t n,
+		std::vector<Entry> &ret,
+		std::string last_id = "",
+		int timeout=REDIS_XREAD_DONTBLOCK);
 
 	// Writes an entry to a data stream
 	enum atom_error_t entryWrite(

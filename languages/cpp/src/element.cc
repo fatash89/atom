@@ -622,7 +622,8 @@ struct element_entry_read_info *Element::readMapToEntryInfo(
 		auto handler = m.getHandler(i);
 
 		// First is element, second is stream, third
-		read_infos[i].element = std::get<0>(handler).c_str();
+		std::string &element = std::get<0>(handler);
+		read_infos[i].element = (element.size() > 0) ? element.c_str() : NULL;
 		read_infos[i].stream = std::get<1>(handler).c_str();
 
 		// Get the keys
@@ -735,7 +736,7 @@ enum atom_error_t Element::entryReadN(
 	struct element_entry_read_info read_info;
 
 	// Fill in the read info
-	read_info.element = element.c_str();
+	read_info.element = (element.size() > 0) ? element.c_str() : NULL;
 	read_info.stream = stream.c_str();
 
 	// Get the keys
@@ -763,6 +764,66 @@ enum atom_error_t Element::entryReadN(
 		ctx,
 		elem,
 		&read_info,
+		n);
+
+	// Put the context back
+	releaseContext(ctx);
+
+	// And clean up the memory we allocated
+	delete (EntryReadInfo *)read_info.user_data;
+	free(read_info.kv_items);
+
+	return err;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  @brief Reads at most N entries from the stream since the passed ID.
+//			Default nonblocking
+//
+////////////////////////////////////////////////////////////////////////////////
+enum atom_error_t Element::entryReadSince(
+	std::string element,
+	std::string stream,
+	std::vector<std::string> &keys,
+	size_t n,
+	std::vector<Entry> &ret,
+	std::string last_id,
+	int timeout)
+{
+	struct element_entry_read_info read_info;
+
+	// Fill in the read info
+	read_info.element = (element.size() > 0) ? element.c_str() : NULL;
+	read_info.stream = stream.c_str();
+
+	// Get the keys
+	size_t n_keys = keys.size();
+
+	// Make the KV items
+	read_info.kv_items = (struct redis_xread_kv_item *)
+		malloc(n_keys * sizeof(struct redis_xread_kv_item));
+	assert(read_info.kv_items != NULL);
+	read_info.n_kv_items = n_keys;
+
+	// Fill in the kv items
+	for (size_t j = 0; j < n_keys; ++j) {
+		read_info.kv_items[j].key = keys[j].c_str();
+		read_info.kv_items[j].key_len = keys[j].size();
+	}
+
+	// Fill in the handler and response callback
+	read_info.user_data = (void*)new EntryReadInfo(entryCopyCB, (void*)&ret);
+	read_info.response_cb = entryReadResponseCB;
+
+	// And now call element_entry_read_since
+	redisContext *ctx = getContext();
+	enum atom_error_t err = element_entry_read_since(
+		ctx,
+		elem,
+		&read_info,
+		(last_id.size() > 0) ? last_id.c_str() : NULL,
+		timeout,
 		n);
 
 	// Put the context back

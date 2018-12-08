@@ -12,6 +12,8 @@
 #include <list>
 #include <hiredis/hiredis.h>
 #include <thread>
+#include <unistd.h>
+#include <limits.h>
 #include "atom/atom.h"
 #include "atom/redis.h"
 #include "element.h"
@@ -518,7 +520,7 @@ TEST_F(ElementTest, basic_log) {
 // Tests sending a variadic log
 TEST_F(ElementTest, variadic_log) {
 	for (int i = LOG_EMERG; i <= LOG_DEBUG; ++i) {
-		element->log(i, "testing: level %d\n", i);
+		element->log(i, "testing: level %d", i);
 	}
 }
 
@@ -528,4 +530,189 @@ TEST_F(ElementTest, invalid_logs) {
 	ASSERT_THROW(element->log(-1, "testing: 1, 2, 3"), std::runtime_error);
 	ASSERT_THROW(element->log(LOG_DEBUG + 1, "testing: 1, 2, 3"), std::runtime_error);
 	ASSERT_THROW(element->log(8, "testing: 1, 2, 3"), std::runtime_error);
+}
+
+// Tests readSince API
+TEST_F(ElementTest, readSinceLog) {
+	char hostname[HOST_NAME_MAX + 1];
+
+	// Get the hostname
+	ASSERT_EQ(gethostname(hostname, sizeof(hostname)), 0);
+
+	for (int i = 0; i < 10; ++i) {
+		element->log(0, "%d", i);
+	}
+
+	// Do the read back
+	std::vector<Entry> ret;
+	std::vector<std::string> keys = {"level", "element", "msg", "host"};
+	ASSERT_EQ(element->entryReadSince(
+		"",
+		"log",
+		keys,
+		2,
+		ret,
+		ENTRY_READ_SINCE_BEGIN_WITH_OLDEST_ID), ATOM_NO_ERROR);
+
+	// Make sure we got 2 pieces of data
+	ASSERT_EQ(ret.size(), 2);
+
+	// For each piece of data make sure there's 4 keys
+	for (int i = 0; i < 2; ++i) {
+		Entry &x = ret.at(i);
+
+		// Make sure that we have the right number of keys
+		ASSERT_EQ(x.size(), keys.size());
+
+		// Make sure that the keys are correct
+		ASSERT_EQ(x.getKey("level"), "0");
+		ASSERT_EQ(x.getKey("host"), std::string(hostname));
+		ASSERT_EQ(x.getKey("element"), "testing");
+		ASSERT_EQ(x.getKey("msg"), std::to_string(i));
+	}
+
+	// Clear the response and start again
+	std::string last = std::string(ret[1].getID());
+	ret.clear();
+	ASSERT_EQ(element->entryReadSince(
+		"",
+		"log",
+		keys,
+		3,
+		ret,
+		last), ATOM_NO_ERROR);
+
+	// Make sure we got 3 pieces of data
+	ASSERT_EQ(ret.size(), 3);
+
+	// For each piece of data make sure there's 4 keys
+	for (int i = 0; i < 3; ++i) {
+		Entry &x = ret.at(i);
+
+		// Make sure that we have the right number of keys
+		ASSERT_EQ(x.size(), keys.size());
+
+		// Make sure that the keys are correct
+		ASSERT_EQ(x.getKey("level"), "0");
+		ASSERT_EQ(x.getKey("host"), std::string(hostname));
+		ASSERT_EQ(x.getKey("element"), "testing");
+		ASSERT_EQ(x.getKey("msg"), std::to_string(2 + i));
+	}
+
+	// Do the final chunk
+	last = std::string(ret[2].getID());
+	ret.clear();
+	ASSERT_EQ(element->entryReadSince(
+		"",
+		"log",
+		keys,
+		5,
+		ret,
+		last), ATOM_NO_ERROR);
+
+	// Make sure we got 5 pieces of data
+	ASSERT_EQ(ret.size(), 5);
+
+	// For each piece of data make sure there's 4 keys
+	for (int i = 0; i < 5; ++i) {
+		Entry &x = ret.at(i);
+
+		// Make sure that we have the right number of keys
+		ASSERT_EQ(x.size(), keys.size());
+
+		// Make sure that the keys are correct
+		ASSERT_EQ(x.getKey("level"), "0");
+		ASSERT_EQ(x.getKey("host"), std::string(hostname));
+		ASSERT_EQ(x.getKey("element"), "testing");
+		ASSERT_EQ(x.getKey("msg"), std::to_string(5 + i));
+	}
+}
+
+// Tests readSince API with element
+TEST_F(ElementTest, readSinceElement) {
+
+	// Make the data to write
+	entry_data_t data;
+
+	// Write 10 pieces of data to the element stream
+	for (int i = 0; i < 10; ++i) {
+		data["world"] = std::to_string(i);
+
+		ASSERT_EQ(element->entryWrite("hello", data), ATOM_NO_ERROR);
+	}
+
+	// Do the read back
+	std::vector<Entry> ret;
+	std::vector<std::string> keys = {"world"};
+	ASSERT_EQ(element->entryReadSince(
+		"testing",
+		"hello",
+		keys,
+		4,
+		ret,
+		ENTRY_READ_SINCE_BEGIN_WITH_OLDEST_ID), ATOM_NO_ERROR);
+
+	// Make sure we got 2 pieces of data
+	ASSERT_EQ(ret.size(), 4);
+
+	// For each piece of data make sure there's 4 keys
+	for (int i = 0; i < 4; ++i) {
+		Entry &x = ret.at(i);
+
+		// Make sure that we have the right number of keys
+		ASSERT_EQ(x.size(), keys.size());
+
+		// Make sure that the keys are correct
+		ASSERT_EQ(x.getKey("world"), std::to_string(i));
+	}
+
+	// Clear the response and start again
+	std::string last = std::string(ret[3].getID());
+	ret.clear();
+	ASSERT_EQ(element->entryReadSince(
+		"testing",
+		"hello",
+		keys,
+		1,
+		ret,
+		last), ATOM_NO_ERROR);
+
+	// Make sure we got 3 pieces of data
+	ASSERT_EQ(ret.size(), 1);
+
+	// For each piece of data make sure there's 4 keys
+	for (int i = 0; i < 1; ++i) {
+		Entry &x = ret.at(i);
+
+		// Make sure that we have the right number of keys
+		ASSERT_EQ(x.size(), keys.size());
+
+		// Make sure that the keys are correct
+		ASSERT_EQ(x.getKey("world"), std::to_string(4 + i));
+	}
+
+	// Do the final chunk
+	last = std::string(ret[0].getID());
+	ret.clear();
+	ASSERT_EQ(element->entryReadSince(
+		"testing",
+		"hello",
+		keys,
+		5,
+		ret,
+		last), ATOM_NO_ERROR);
+
+	// Make sure we got 5 pieces of data
+	ASSERT_EQ(ret.size(), 5);
+
+	// For each piece of data make sure there's 4 keys
+	for (int i = 0; i < 5; ++i) {
+		Entry &x = ret.at(i);
+
+		// Make sure that we have the right number of keys
+		ASSERT_EQ(x.size(), keys.size());
+
+		// Make sure that the keys are correct
+		ASSERT_EQ(x.getKey("world"), std::to_string(5 + i));
+	}
 }
