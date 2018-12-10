@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 import json
-import shlex
 import time
+import shlex
 import sys
 from atom import Element
 from inspect import cleandoc
@@ -21,8 +21,8 @@ class AtomCLI:
         self.style = Style.from_dict({
             "logo_color": "#6039C8",
         })
-
         self.session = PromptSession(style=self.style)
+        self.print_atom_os_logo()
         self.cmd_map = {
             "help": self.cmd_help,
             "list": self.cmd_list,
@@ -31,8 +31,6 @@ class AtomCLI:
             "read": self.cmd_read,
             "exit": self.cmd_exit,
         }
-        self.print_atom_os_logo()
-
         self.usage = {
             "cmd_help": cleandoc("""
                 Displays available commands and shows usage for commands.
@@ -71,12 +69,17 @@ class AtomCLI:
 
             "cmd_exit": cleandoc("""
                 Exits the atom-cli tool.
+                Can also use the shortcut CTRL+D.
 
                 Usage: 
                   exit"""),
         }
 
     def run(self):
+        """
+        The main loop of the CLI.
+        Reads the user input, verifies the command exists and calls the command.
+        """
         while True:
             try:
                 inp = shlex.split(
@@ -88,8 +91,10 @@ class AtomCLI:
                     print("Invalid command. Type 'help' for valid commands.")
                 else:
                     self.cmd_map[command](*args)
+            # Handle CTRL+C so user can break loops without exiting
             except KeyboardInterrupt:
                 pass
+            # Exit on CTRL+D
             except EOFError:
                 self.cmd_exit()
 
@@ -99,6 +104,10 @@ class AtomCLI:
         print(HTML(f"<logo_color>{logo}</logo_color>"), style=self.style)
     
     def format_record(self, record):
+        """
+        Takes a record out of Redis, decodes the keys and values (if possible)
+        and returns a formatted json string sorted by keys.
+        """
         formatted_record = {}
         for k, v in record.items():
             if type(k) is bytes:
@@ -118,11 +127,13 @@ class AtomCLI:
             print("\nToo many arguments to 'help'.")
             return
         if args:
+            # Prints the usage of the command
             if args[0] in self.cmd_map.keys():
                 print(self.usage[f"cmd_{args[0]}"])
             else:
                 print(f"Command {args[0]} does not exist.")
         else:
+            print("Try 'help <command>' for usage on a command")
             print("Available commands:")
             for command in self.cmd_map.keys():
                 print(f"  {command}")
@@ -170,8 +181,8 @@ class AtomCLI:
             ms = int(args[1]) * 1000
             start_time = str(int(self.element._get_redis_timestamp()) - ms)
             elements = set(args[2:])
+        # If no start time, go from the very beginning
         else:
-            # If no start time, go from the very beginning
             start_time = "-"
             elements = set(args[1:])
 
@@ -195,6 +206,13 @@ class AtomCLI:
             print(self.format_record(record))
 
     def mode_log(self, start_time, elements):
+        """
+        Reads the logs from Atom's log stream.
+
+        Args:
+            start_time (str): The time from which to start reading logs.
+            elements (list): The elements on which to filter the logs for.
+        """
         records = []
         all_records = self.element._rclient.xrange("log", start=start_time)
         for timestamp, content in all_records:
@@ -204,6 +222,13 @@ class AtomCLI:
         return records
 
     def mode_cmdres(self, start_time, elements):
+        """
+        Reads the command and response records from the provided elements.
+
+        Args:
+            start_time (str): The time from which to start reading logs.
+            elements (list): The elements to get the command and response records from.
+        """
         streams, records = [], []
         for element in elements:
             streams.append(self.element._make_response_id(element))
@@ -239,18 +264,17 @@ class AtomCLI:
 
     def cmd_read(self, *args):
         usage = self.usage["cmd_read"]
-        if len(args) < 1:
+        if len(args) < 2:
             print(usage)
             print("\nToo few arguments.")
             return
-        if len(args) > 2:
+        if len(args) > 3:
             print(usage)
             print("\nToo many arguments.")
             return
-        element_name, stream_name = args[0].split(":")
-        if len(args) == 2:
+        if len(args) == 3:
             try:
-                rate = float(args[1])
+                rate = float(args[2])
                 if rate < 0:
                     raise ValueError()
             except ValueError:
@@ -258,16 +282,18 @@ class AtomCLI:
                 return
         else:
             rate = None
+        element_name, stream_name = args[:2]
 
         last_timestamp = None
         while True:
             start_time = time.time()
             entries = self.element.entry_read_n(element_name, stream_name, 1)
             if not entries:
-                print(f"No data from {element_name}:{stream_name}.")
+                print(f"No data from {element_name} {stream_name}.")
                 return
             entry = entries[0]
             timestamp = entry["timestamp"]
+            # Only print the entry if it is different from the previous one
             if timestamp != last_timestamp:
                 last_timestamp = timestamp
                 print(self.format_record(entry))
@@ -280,34 +306,5 @@ class AtomCLI:
 
 
 if __name__ == "__main__":
-    # TODO REMOVE TESTING STUFF
-    import threading
-    from atom.messages import Response
-
-    def add_1(x):
-        return Response(int(x) + 1)
-
-    elem1 = Element("element1")
-    elem1.command_add("add_1", add_1)
-
-    def loop():
-        i = 0
-        while True:
-            elem1.entry_write("stream1", {"data": i})
-            i += 1
-            time.sleep(1)
-
-    t = threading.Thread(target=loop, daemon=True)
-    t.start()
-    t1 = threading.Thread(target=elem1.command_loop, daemon=True)
-    t1.start()
-    # elem1.log(7, "element1 log 1", stdout=False)
-    # elem1.log(7, "element1 log 2", stdout=False)
-
-    elem2 = Element("element2")
-    # elem2.log(7, "element2 log 1", stdout=False)
-    # elem2.log(7, "element2 log 2", stdout=False)
-    ############################
-
     atom_cli = AtomCLI()
     atom_cli.run()
