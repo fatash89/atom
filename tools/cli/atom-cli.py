@@ -20,10 +20,6 @@ class AtomCLI:
         self.indent = 2
         self.style = Style.from_dict({
             "logo_color": "#6039C8",
-            "completion-menu.completion": "bg:#000000 #ffffff",
-            "completion-menu.completion.current": "bg:#555555 #ffffff",
-            "scrollbar.background": "bg:#000000",
-            "scrollbar.button": "bg:#000000",
         })
 
         self.session = PromptSession(style=self.style)
@@ -39,28 +35,43 @@ class AtomCLI:
 
         self.usage = {
             "cmd_help": cleandoc("""
+                Displays available commands and shows usage for commands.
+
                 Usage: 
                   help [<command>]"""),
 
             "cmd_list": cleandoc("""
+                Displays available elements or streams.
+                Can filter streams based on element.
+
                 Usage: 
                   list elements
-                  list streams [<stream_name>]"""),
+                  list streams [<element>]"""),
 
             "cmd_records": cleandoc("""
+                Displays log records or command and response records.
+                Can filter records from the last N seconds or from certain elements.
+
                 Usage: 
                   records log [<last_N_seconds>] [<element>...]
                   records cmdres [<last_N_seconds>] <element>..."""),
 
             "cmd_command": cleandoc("""
+                Sends a command to an element and displays the response.
+
                 Usage: 
                   command <element> <element_command> [<data>]"""),
 
             "cmd_read": cleandoc("""
+                Displays the entries of an element's stream.
+                Can provide a rate to print the entries for ease of reading.
+
                 Usage: 
                   read <element> <stream> [<rate_hz>]"""),
 
             "cmd_exit": cleandoc("""
+                Exits the atom-cli tool.
+
                 Usage: 
                   exit"""),
         }
@@ -86,6 +97,19 @@ class AtomCLI:
         f = Figlet(font="slant")
         logo = f.renderText("ATOM OS")
         print(HTML(f"<logo_color>{logo}</logo_color>"), style=self.style)
+    
+    def format_record(self, record):
+        formatted_record = {}
+        for k, v in record.items():
+            if type(k) is bytes:
+                k = k.decode()
+            try:
+                v = v.decode()
+            except:
+                v = str(v)
+            formatted_record[k] = v
+        sorted_record = {k: v for k, v in sorted(formatted_record.items(), key=lambda x: x[0])}
+        return json.dumps(sorted_record, indent=self.indent)
 
     def cmd_help(self, *args):
         usage = self.usage["cmd_help"]
@@ -101,7 +125,7 @@ class AtomCLI:
         else:
             print("Available commands:")
             for command in self.cmd_map.keys():
-                print(command)
+                print(f"  {command}")
 
     def cmd_list(self, *args):
         usage = self.usage["cmd_list"]
@@ -193,19 +217,6 @@ class AtomCLI:
         # Sort records by timestamp
         # If the timestamps are the same, put commands before responses
         return [record[1] for record in sorted(records, key=lambda x: (x[0], x[1]["type"]))]
-
-    def format_record(self, record):
-        formatted_record = {}
-        for k, v in record.items():
-            if type(k) is bytes:
-                k = k.decode()
-            try:
-                v = v.decode()
-            except:
-                v = str(v)
-            formatted_record[k] = v
-        sorted_record = {k: v for k, v in sorted(formatted_record.items(), key=lambda x: x[0])}
-        return json.dumps(sorted_record, indent=self.indent)
 
     def cmd_command(self, *args):
         usage = self.usage["cmd_read"]
