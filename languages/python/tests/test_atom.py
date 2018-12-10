@@ -161,6 +161,9 @@ class TestAtom:
         Ensures that we can get 5 entries since the last id using entry_read_since.
         """
         responder.entry_write("test_stream", {"data": None})
+
+        # Sleep so that last_id is later than the first entry
+        time.sleep(0.01)
         last_id = responder._get_redis_timestamp()
 
         # Sleep so that the entries are later than last_id
