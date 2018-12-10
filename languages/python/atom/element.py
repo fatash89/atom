@@ -107,15 +107,37 @@ class Element:
             element_name (str): Name of the element to generate the id for.
             stream_name (str): Name of element_name's stream to generate the id for.
         """
-        return f"stream:{element_name}:{stream_name}"
+        if element_name is None:
+            return stream_name
+        else:
+            return f"stream:{element_name}:{stream_name}"
 
     def _get_redis_timestamp(self):
         """
         Gets the current timestamp from Redis.
         """
         secs, msecs = self._rclient.time()
-        timestamp = str(secs) + str(msecs)[:3]
+        timestamp = str(secs) + str(msecs).zfill(6)[:3]
         return timestamp
+
+    def _decode_entry(self, entry):
+        """
+        Decodes the binary keys of an entry and the binary timestamp.
+        Leaves the values of non-timestamp fields untouched as they may be intentionally binary.
+
+        Args:
+            entry (dict): The entry in dictionary form to decode.
+        Returns:
+            The decoded entry as a dictionary.
+        """
+        decoded_entry = {}
+        for k in list(entry.keys()):
+            k_str = k.decode()
+            if k_str == "timestamp":
+                decoded_entry[k_str] = entry[k].decode()
+            else:
+                decoded_entry[k_str] = entry[k]
+        return decoded_entry
 
     def get_all_elements(self):
         """
@@ -325,17 +347,27 @@ class Element:
         """
         uid_entries = self._rclient.xrevrange(
             self._make_stream_id(element_name, stream_name), count=n)
-        entries = []
-        # Convert the bytestring fields of the entry to string
-        for _, entry in uid_entries:
-            for k in list(entry.keys()).copy():
-                k_str = k.decode()
-                if k_str == "timestamp":
-                    entry[k_str] = entry[k].decode()
-                else:
-                    entry[k_str] = entry[k]
-                del entry[k]
-            entries.append(entry)
+        entries = [self._decode_entry(entry) for _, entry in uid_entries]
+        return entries
+
+    def entry_read_since(self, element_name, stream_name, last_id="0", n=None, block=None):
+        """
+        Read entries from a stream since the last_id.
+
+        Args:
+            element_name (str): Name of the element to get the entry from.
+            stream_name (str): Name of the stream to get the entry from.
+            last_id (str, optional): Time from which to start get entries from. If '0', get all entries.
+            n (int, optional): Number of entries to get. If None, get all.
+            block (int, optional): Time (ms) to block on the read. If None, don't block.
+        """
+        streams = {}
+        stream_id = self._make_stream_id(element_name, stream_name)
+        streams[stream_id] = last_id
+        stream_entries = self._rclient.xread(count=n, block=block, **streams)
+        if not stream_entries:
+            return []
+        entries = [self._decode_entry(entry) for _, entry in stream_entries[stream_id]]
         return entries
 
     def entry_write(self, stream_name, field_data_map, timestamp=None, maxlen=STREAM_LEN):
@@ -349,6 +381,8 @@ class Element:
             timestamp (str, optional): Timestamp of when the data was created.
             maxlen (int, optional): The maximum number of data to keep in the stream.
         """
+        if timestamp is None:
+            timestamp = self._get_redis_timestamp()
         self.streams.add(stream_name)
         entry = Entry(field_data_map, timestamp)
         self._pipe.xadd(

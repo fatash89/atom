@@ -155,6 +155,36 @@ class TestAtom:
         for i in range(20):
             assert i in entries
 
+    def test_read_since(self, caller, responder):
+        """
+        Sets the current timestamp as last_id and writes 5 entries to a stream.
+        Ensures that we can get 5 entries since the last id using entry_read_since.
+        """
+        responder.entry_write("test_stream", {"data": None})
+
+        # Sleep so that last_id is later than the first entry
+        time.sleep(0.01)
+        last_id = responder._get_redis_timestamp()
+
+        # Sleep so that the entries are later than last_id
+        time.sleep(0.01)
+
+        for i in range(5):
+            responder.entry_write("test_stream", {"data": i})
+
+        # Ensure this gets all entries
+        entries = caller.entry_read_since("test_responder", "test_stream")
+        assert(len(entries) == 6)
+
+        # Ensure we get the correct number of entries since the last_id
+        entries = caller.entry_read_since("test_responder", "test_stream", last_id)
+        assert(len(entries) == 5)
+
+        # Ensure that if we pass n, we get the n earliest entries since last_id
+        entries = caller.entry_read_since("test_responder", "test_stream", last_id, 2)
+        assert(len(entries) == 2)
+        assert entries[-1]["data"] == b"1"
+        
     def test_no_ack(self, caller, responder):
         """
         Element sends command and responder does not acknowledge.
