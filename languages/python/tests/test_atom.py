@@ -160,6 +160,7 @@ class TestAtom:
         Sets the current timestamp as last_id and writes 5 entries to a stream.
         Ensures that we can get 5 entries since the last id using entry_read_since.
         """
+        responder.entry_write("test_stream", {"data": None})
         last_id = responder._get_redis_timestamp()
 
         # Sleep so that the entries are later than last_id
@@ -167,6 +168,10 @@ class TestAtom:
 
         for i in range(5):
             responder.entry_write("test_stream", {"data": i})
+
+        # Ensure this gets all entries
+        entries = caller.entry_read_since("test_responder", "test_stream")
+        assert(len(entries) == 6)
 
         # Ensure we get the correct number of entries since the last_id
         entries = caller.entry_read_since("test_responder", "test_stream", last_id)
