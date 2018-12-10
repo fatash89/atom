@@ -33,6 +33,7 @@ extern "C" {
 		void *user_data);
 
 	bool entryReadResponseCB(
+		const char *id,
 		const struct redis_xread_kv_item *kv_items,
 		int n_kv_items,
 		void *user_data);
@@ -67,6 +68,83 @@ public:
 
 	}
 };
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  @brief Entry constructor. Make it with an ID and then add data for each
+//			key we receive
+//
+////////////////////////////////////////////////////////////////////////////////
+Entry::Entry(
+	const char *xread_id)
+{
+	id = std::string(xread_id);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  @brief Entry destructor. Not much to do
+//
+////////////////////////////////////////////////////////////////////////////////
+Entry::~Entry()
+{
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  @brief Add data to an entry
+//
+////////////////////////////////////////////////////////////////////////////////
+void Entry::addData(
+	const char *k,
+	const char *d,
+	size_t l)
+{
+	std::string new_str(d, l);
+	data.emplace(k, std::move(new_str));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  @brief Get ID of an entry
+//
+////////////////////////////////////////////////////////////////////////////////
+const std::string &Entry::getID()
+{
+	return id;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  @brief Get data of an entry
+//
+////////////////////////////////////////////////////////////////////////////////
+const entry_data_t &Entry::getData()
+{
+	return data;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  @brief Get key in data
+//
+////////////////////////////////////////////////////////////////////////////////
+const std::string &Entry::getKey(
+	const std::string &key)
+{
+	return data.at(key);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  @brief Get size
+//
+////////////////////////////////////////////////////////////////////////////////
+size_t Entry::size()
+{
+	return data.size();
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -497,6 +575,7 @@ enum atom_error_t Element::sendCommand(
 //
 ////////////////////////////////////////////////////////////////////////////////
 bool entryReadResponseCB(
+	const char *id,
 	const struct redis_xread_kv_item *kv_items,
 	int n_kv_items,
 	void *user_data)
@@ -505,18 +584,17 @@ bool entryReadResponseCB(
 	EntryReadInfo *udata = (EntryReadInfo *)user_data;
 
 	// Convert the kv items into the ElementReadData
-	entry_t data;
+	Entry e(id);
 	for (int i = 0; i < n_kv_items; ++i) {
 		if (kv_items[i].found) {
-			std::string new_str(kv_items[i].reply->str, kv_items[i].reply->len);
-			data.emplace(kv_items[i].key, std::move(new_str));
+			e.addData(kv_items[i].key, kv_items[i].reply->str, kv_items[i].reply->len);
 		} else {
 			atom_logf(NULL, NULL, LOG_ERR, "Couldn't find key");
 		}
 	}
 
 	// Now, we want to call the user callback
-	if (!udata->fn(data, udata->data)) {
+	if (!udata->fn(e, udata->data)) {
 		atom_logf(NULL, NULL, LOG_ERR, "User callback failed");
 	}
 
@@ -544,7 +622,8 @@ struct element_entry_read_info *Element::readMapToEntryInfo(
 		auto handler = m.getHandler(i);
 
 		// First is element, second is stream, third
-		read_infos[i].element = std::get<0>(handler).c_str();
+		std::string &element = std::get<0>(handler);
+		read_infos[i].element = (element.size() > 0) ? element.c_str() : NULL;
 		read_infos[i].stream = std::get<1>(handler).c_str();
 
 		// Get the keys
@@ -631,13 +710,13 @@ enum atom_error_t Element::entryReadLoop(
 //
 ////////////////////////////////////////////////////////////////////////////////
 bool entryCopyCB(
-	entry_t &keys,
+	Entry &e,
 	void *user_data)
 {
-	std::vector<entry_t> *user_vector =
-		(std::vector<entry_t>*)user_data;
+	std::vector<Entry> *user_vector =
+		(std::vector<Entry>*)user_data;
 
-	user_vector->emplace_back(std::move(keys));
+	user_vector->emplace_back(std::move(e));
 
 	return true;
 }
@@ -652,12 +731,12 @@ enum atom_error_t Element::entryReadN(
 	std::string stream,
 	std::vector<std::string> &keys,
 	size_t n,
-	std::vector<entry_t> &ret)
+	std::vector<Entry> &ret)
 {
 	struct element_entry_read_info read_info;
 
 	// Fill in the read info
-	read_info.element = element.c_str();
+	read_info.element = (element.size() > 0) ? element.c_str() : NULL;
 	read_info.stream = stream.c_str();
 
 	// Get the keys
@@ -699,12 +778,72 @@ enum atom_error_t Element::entryReadN(
 
 ////////////////////////////////////////////////////////////////////////////////
 //
+//  @brief Reads at most N entries from the stream since the passed ID.
+//			Default nonblocking
+//
+////////////////////////////////////////////////////////////////////////////////
+enum atom_error_t Element::entryReadSince(
+	std::string element,
+	std::string stream,
+	std::vector<std::string> &keys,
+	size_t n,
+	std::vector<Entry> &ret,
+	std::string last_id,
+	int timeout)
+{
+	struct element_entry_read_info read_info;
+
+	// Fill in the read info
+	read_info.element = (element.size() > 0) ? element.c_str() : NULL;
+	read_info.stream = stream.c_str();
+
+	// Get the keys
+	size_t n_keys = keys.size();
+
+	// Make the KV items
+	read_info.kv_items = (struct redis_xread_kv_item *)
+		malloc(n_keys * sizeof(struct redis_xread_kv_item));
+	assert(read_info.kv_items != NULL);
+	read_info.n_kv_items = n_keys;
+
+	// Fill in the kv items
+	for (size_t j = 0; j < n_keys; ++j) {
+		read_info.kv_items[j].key = keys[j].c_str();
+		read_info.kv_items[j].key_len = keys[j].size();
+	}
+
+	// Fill in the handler and response callback
+	read_info.user_data = (void*)new EntryReadInfo(entryCopyCB, (void*)&ret);
+	read_info.response_cb = entryReadResponseCB;
+
+	// And now call element_entry_read_since
+	redisContext *ctx = getContext();
+	enum atom_error_t err = element_entry_read_since(
+		ctx,
+		elem,
+		&read_info,
+		(last_id.size() > 0) ? last_id.c_str() : NULL,
+		timeout,
+		n);
+
+	// Put the context back
+	releaseContext(ctx);
+
+	// And clean up the memory we allocated
+	delete (EntryReadInfo *)read_info.user_data;
+	free(read_info.kv_items);
+
+	return err;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
 //  @brief Writes an entry to a stream
 //
 ////////////////////////////////////////////////////////////////////////////////
 enum atom_error_t Element::entryWrite(
 	std::string stream,
-	entry_t &data,
+	entry_data_t &data,
 	int timestamp,
 	int maxlen)
 {

@@ -35,14 +35,6 @@ protected:
 		EXPECT_EQ(std::string(test_result), expected_name);
 	}
 
-	void check_data_stream_prefix(
-		const char *name,
-		const char *test_result)
-	{
-		std::string expected_name = "stream:" + std::string(name) + ":";
-		EXPECT_EQ(std::string(test_result), expected_name);
-	}
-
 	void check_data_stream(
 		const char *name,
 		const char *data,
@@ -69,14 +61,6 @@ TEST_P(AtomStreamStrValidTest, command_static_alloc)
 	check_command_stream(GetParam(), buffer);
 }
 
-// Test creation of data stream prefix with static buffer
-TEST_P(AtomStreamStrValidTest, data_prefix_static_alloc)
-{
-	char buffer[ATOM_NAME_MAXLEN];
-	EXPECT_EQ(atom_get_data_stream_prefix_str(GetParam(), buffer), buffer);
-	check_data_stream_prefix(GetParam(), buffer);
-}
-
 // Test creation of data stream with static buffer
 TEST_P(AtomStreamStrValidTest, data_static_alloc)
 {
@@ -101,15 +85,6 @@ TEST_P(AtomStreamStrValidTest, command_dynamic_alloc)
 	stream = atom_get_command_stream_str(GetParam(), NULL);
 	EXPECT_NE(stream, (char*)NULL);
 	check_command_stream(GetParam(), stream);
-}
-
-// Test creation of data stream prefix with dynamic buffer
-TEST_P(AtomStreamStrValidTest, data_prefix_dynamic_alloc)
-{
-	char *stream;
-	stream = atom_get_data_stream_prefix_str(GetParam(), NULL);
-	EXPECT_NE(stream, (char*)NULL);
-	check_data_stream_prefix(GetParam(), stream);
 }
 
 // Test creation of data stream with dynamic buffer
@@ -162,13 +137,6 @@ TEST_P(AtomStreamStrInvalidTest, command_static_alloc)
 	EXPECT_EQ(atom_get_command_stream_str(GetParam(), buffer), (char*)NULL);
 }
 
-// Test creation of data stream prefix with static buffer
-TEST_P(AtomStreamStrInvalidTest, data_prefix_static_alloc)
-{
-	char buffer[ATOM_NAME_MAXLEN];
-	EXPECT_EQ(atom_get_data_stream_prefix_str(GetParam(), buffer), (char*)NULL);
-}
-
 // Test creation of data stream with static buffer
 TEST_P(AtomStreamStrInvalidTest, data_static_alloc)
 {
@@ -192,14 +160,6 @@ TEST_P(AtomStreamStrInvalidTest, command_dynamic_alloc)
 	EXPECT_EQ(stream, (char*)NULL);
 }
 
-// Test creation of data stream prefix with dynamic buffer
-TEST_P(AtomStreamStrInvalidTest, data_prefix_dynamic_alloc)
-{
-	char *stream;
-	stream = atom_get_data_stream_prefix_str(GetParam(), NULL);
-	EXPECT_EQ(stream, (char*)NULL);
-}
-
 // Test creation of data stream with dynamic buffer
 TEST_P(AtomStreamStrInvalidTest, data_dynamic_alloc)
 {
@@ -213,7 +173,6 @@ const char *invalid_element_names[] =
 {
 	"",
 	"\0",
-	NULL,
 };
 
 INSTANTIATE_TEST_CASE_P(
