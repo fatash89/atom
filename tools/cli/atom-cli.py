@@ -4,6 +4,7 @@ import shlex
 import time
 import sys
 from atom import Element
+from inspect import cleandoc
 from prompt_toolkit import prompt, HTML, PromptSession
 from prompt_toolkit import print_formatted_text as print
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
@@ -34,15 +35,41 @@ class AtomCLI:
             "read": self.cmd_read,
             "exit": self.cmd_exit,
         }
-        self.command_completer = WordCompleter(self.cmd_map.keys())
         self.print_atom_os_logo()
+
+        self.usage = {
+            "cmd_help": cleandoc("""
+                Usage: 
+                  help [<command>]"""),
+
+            "cmd_list": cleandoc("""
+                Usage: 
+                  list elements
+                  list streams [<stream_name>]"""),
+
+            "cmd_records": cleandoc("""
+                Usage: 
+                  records log [<last_N_seconds>] [<element>...]
+                  records cmdres [<last_N_seconds>] <element>..."""),
+
+            "cmd_command": cleandoc("""
+                Usage: 
+                  command <element> <element_command> [<data>]"""),
+
+            "cmd_read": cleandoc("""
+                Usage: 
+                  read <element> <stream> [<rate_hz>]"""),
+
+            "cmd_exit": cleandoc("""
+                Usage: 
+                  exit"""),
+        }
 
     def run(self):
         while True:
             try:
-                inp = shlex.split(self.session.prompt(
-                    "\n> ", auto_suggest=AutoSuggestFromHistory(),
-                    completer=self.command_completer))
+                inp = shlex.split(
+                    self.session.prompt("\n> ", auto_suggest=AutoSuggestFromHistory()))
                 if not inp:
                     continue
                 command, args = inp[0], inp[1:]
@@ -61,27 +88,43 @@ class AtomCLI:
         print(HTML(f"<logo_color>{logo}</logo_color>"), style=self.style)
 
     def cmd_help(self, *args):
-        print("Available commands")
-        for command in self.cmd_map.keys():
-            print(command)
+        usage = self.usage["cmd_help"]
+        if len(args) > 1:
+            print(usage)
+            print("\nToo many arguments to 'help'.")
+            return
+        if args:
+            if args[0] in self.cmd_map.keys():
+                print(self.usage[f"cmd_{args[0]}"])
+            else:
+                print(f"Command {args[0]} does not exist.")
+        else:
+            print("Available commands:")
+            for command in self.cmd_map.keys():
+                print(command)
 
     def cmd_list(self, *args):
+        usage = self.usage["cmd_list"]
         mode_map = {
             "elements": self.element.get_all_elements,
             "streams": self.element.get_all_streams,
         }
         if not args:
-            print("'list' must have an argument.")
+            print(usage)
+            print("\n'list' must have an argument.")
             return
         mode = args[0]
         if mode not in mode_map.keys():
-            print("Invalid argument to 'list'.")
+            print(usage)
+            print("\nInvalid argument to 'list'.")
             return
         if len(args) > 1 and mode != "streams":
-            print(f"Invalid number of arguments for command 'list {mode}'.")
+            print(usage)
+            print(f"\nInvalid number of arguments for command 'list {mode}'.")
             return
         if len(args) > 2:
-            print("'list' takes at most 2 arguments.")
+            print(usage)
+            print("\n'list' takes at most 2 arguments.")
             return
         items = mode_map[mode](*args[1:])
         if not items:
@@ -91,8 +134,10 @@ class AtomCLI:
             print(item)
 
     def cmd_records(self, *args):
+        usage = self.usage["cmd_records"]
         if not args:
-            print("'records' must have an argument.")
+            print(usage)
+            print("\n'records' must have an argument.")
             return
         mode = args[0]
 
@@ -110,11 +155,13 @@ class AtomCLI:
             records = self.mode_log(start_time, elements)
         elif mode == "cmdres":
             if not elements:
-                print("Must provide elements from which to get command response streams from.")
+                print(usage)
+                print("\nMust provide elements from which to get command response streams from.")
                 return
             records = self.mode_cmdres(start_time, elements)
         else:
-            print("Invalid argument to 'records'.")
+            print(usage)
+            print("\nInvalid argument to 'records'.")
             return
 
         if not records:
@@ -157,15 +204,18 @@ class AtomCLI:
             except:
                 v = str(v)
             formatted_record[k] = v
-        sorted_record = {k:v for k, v in sorted(formatted_record.items(), key=lambda x: x[0])}
+        sorted_record = {k: v for k, v in sorted(formatted_record.items(), key=lambda x: x[0])}
         return json.dumps(sorted_record, indent=self.indent)
-            
+
     def cmd_command(self, *args):
+        usage = self.usage["cmd_read"]
         if len(args) < 2:
-            print("Too few arguments.")
+            print(usage)
+            print("\nToo few arguments.")
             return
         if len(args) > 3:
-            print("Too many arguments.")
+            print(usage)
+            print("\nToo many arguments.")
             return
         element_name = args[0]
         command_name = args[1]
@@ -177,11 +227,14 @@ class AtomCLI:
         print(self.format_record(resp))
 
     def cmd_read(self, *args):
+        usage = self.usage["cmd_read"]
         if len(args) < 1:
-            print("Too few arguments.")
+            print(usage)
+            print("\nToo few arguments.")
             return
         if len(args) > 2:
-            print("Too many arguments.")
+            print(usage)
+            print("\nToo many arguments.")
             return
         element_name, stream_name = args[0].split(":")
         if len(args) == 2:
@@ -215,14 +268,13 @@ class AtomCLI:
         sys.exit()
 
 
-
 if __name__ == "__main__":
     # TODO REMOVE TESTING STUFF
     import threading
     from atom.messages import Response
-    def add_1(x):
-        return Response(int(x)+1)
 
+    def add_1(x):
+        return Response(int(x) + 1)
 
     elem1 = Element("element1")
     elem1.command_add("add_1", add_1)
