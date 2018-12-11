@@ -132,7 +132,10 @@ class Element:
         """
         decoded_entry = {}
         for k in list(entry.keys()):
-            k_str = k.decode()
+            if type(k) is bytes:
+                k_str = k.decode()
+            else:
+                k_str = k
             if k_str == "timestamp":
                 decoded_entry[k_str] = entry[k].decode()
             else:
@@ -345,9 +348,14 @@ class Element:
         Returns:
             List of dicts containing the data of the entries
         """
-        uid_entries = self._rclient.xrevrange(
-            self._make_stream_id(element_name, stream_name), count=n)
-        entries = [self._decode_entry(entry) for _, entry in uid_entries]
+        entries = []
+        stream_id = self._make_stream_id(element_name, stream_name)
+        uid_entries = self._rclient.xrevrange(stream_id, count=n)
+        for uid, entry in uid_entries:
+            entry = self._decode_entry(entry)
+            if "timestamp" not in entry or not entry["timestamp"]:
+                entry["timestamp"] = uid
+            entries.append(entry)
         return entries
 
     def entry_read_since(self, element_name, stream_name, last_id="0", n=None, block=None):
@@ -361,16 +369,20 @@ class Element:
             n (int, optional): Number of entries to get. If None, get all.
             block (int, optional): Time (ms) to block on the read. If None, don't block.
         """
-        streams = {}
+        streams, entries = {}, []
         stream_id = self._make_stream_id(element_name, stream_name)
         streams[stream_id] = last_id
         stream_entries = self._rclient.xread(count=n, block=block, **streams)
-        if not stream_entries:
-            return []
-        entries = [self._decode_entry(entry) for _, entry in stream_entries[stream_id]]
+        if not stream_entries or stream_id not in stream_entries:
+            return entries
+        for uid, entry in stream_entries[stream_id]:
+            entry = self._decode_entry(entry)
+            if "timestamp" not in entry or not entry["timestamp"]:
+                entry["timestamp"] = uid
+            entries.append(entry)
         return entries
 
-    def entry_write(self, stream_name, field_data_map, timestamp=None, maxlen=STREAM_LEN):
+    def entry_write(self, stream_name, field_data_map, timestamp="", maxlen=STREAM_LEN):
         """
         Creates element's stream if it does not exist.
         Adds the fields and data to a Entry and puts it in the element's stream.
@@ -381,8 +393,6 @@ class Element:
             timestamp (str, optional): Timestamp of when the data was created.
             maxlen (int, optional): The maximum number of data to keep in the stream.
         """
-        if timestamp is None:
-            timestamp = self._get_redis_timestamp()
         self.streams.add(stream_name)
         entry = Entry(field_data_map, timestamp)
         self._pipe.xadd(

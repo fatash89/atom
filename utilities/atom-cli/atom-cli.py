@@ -5,6 +5,7 @@ import shlex
 import sys
 from atom import Element
 from inspect import cleandoc
+from os import uname
 from prompt_toolkit import prompt, HTML, PromptSession
 from prompt_toolkit import print_formatted_text as print
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
@@ -16,7 +17,7 @@ from pyfiglet import Figlet
 
 class AtomCLI:
     def __init__(self):
-        self.element = Element("atom-cli")
+        self.element = Element(f"atom-cli_{uname().nodename}")
         self.indent = 2
         self.style = Style.from_dict({
             "logo_color": "#6039C8",
@@ -183,7 +184,7 @@ class AtomCLI:
             elements = set(args[2:])
         # If no start time, go from the very beginning
         else:
-            start_time = "-"
+            start_time = "0"
             elements = set(args[1:])
 
         if mode == "log":
@@ -214,11 +215,10 @@ class AtomCLI:
             elements (list): The elements on which to filter the logs for.
         """
         records = []
-        all_records = self.element._rclient.xrange("log", start=start_time)
-        for timestamp, content in all_records:
-            if not elements or content[b"element"].decode() in elements:
-                content["timestamp"] = timestamp.decode()
-                records.append(content)
+        all_records = self.element.entry_read_since(None, "log", start_time)
+        for record in all_records:
+            if not elements or record["element"].decode() in elements:
+                records.append(record)
         return records
 
     def mode_cmdres(self, start_time, elements):
@@ -234,17 +234,15 @@ class AtomCLI:
             streams.append(self.element._make_response_id(element))
             streams.append(self.element._make_command_id(element))
         for stream in streams:
-            cur_records = self.element._rclient.xrange(stream, start=start_time)
-            for timestamp, content in cur_records:
-                content["type"], content["element"] = stream.split(":")
-                content["timestamp"] = timestamp.decode()
-                records.append((timestamp.decode(), content))
-        # Sort records by timestamp
-        # If the timestamps are the same, put commands before responses
-        return [record[1] for record in sorted(records, key=lambda x: (x[0], x[1]["type"]))]
+            cur_records = self.element.entry_read_since(None, stream, start_time)
+            for record in cur_records:
+                record["type"], record["element"] = stream.split(":")
+                records.append(record)
+        # Sort records by timestamp. If same timestamp, put commands before responses
+        return sorted(records, key=lambda x: (x["timestamp"], x["type"]))
 
     def cmd_command(self, *args):
-        usage = self.usage["cmd_read"]
+        usage = self.usage["cmd_command"]
         if len(args) < 2:
             print(usage)
             print("\nToo few arguments.")
