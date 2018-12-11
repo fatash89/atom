@@ -29,3 +29,11 @@ RUN make clean && make && make install
 
 WORKDIR /atom/languages/cpp
 RUN make clean && make && make install
+
+#
+# Install dependencies for atom-cli
+# 
+WORKDIR /atom/utilities/atom-cli
+RUN pip3 install -r requirements.txt
+RUN cp atom-cli.py /usr/bin/atom-cli
+RUN chmod +x /usr/bin/atom-cli
