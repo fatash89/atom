@@ -1,4 +1,4 @@
-FROM elementaryrobotics/atom-base:901fa88c40f1638d3961a8e6c33dbb028b74fa6e
+FROM elementaryrobotics/atom-base:c3b43d5004c1a21bfed9cdefef73fc2902d8893a
 
 # Want to copy over the contents of this repo to the code
 #	section so that we have the source
@@ -32,7 +32,7 @@ RUN make clean && make && make install
 
 #
 # Install dependencies for atom-cli
-# 
+#
 WORKDIR /atom/utilities/atom-cli
 RUN pip3 install -r requirements.txt
 RUN cp atom-cli.py /usr/bin/atom-cli
