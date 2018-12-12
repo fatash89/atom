@@ -38,3 +38,10 @@ WORKDIR /root
 
 # Install valgrind
 RUN apt-get install -y valgrind
+
+# Install msgpack
+RUN pip3 install msgpack
+WORKDIR /usr/src
+RUN git clone https://github.com/msgpack/msgpack-c.git
+WORKDIR /usr/src/msgpack-c
+RUN cmake -DMSGPACK_CXX11=ON . && make install
