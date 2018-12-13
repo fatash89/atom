@@ -292,12 +292,12 @@ class Element:
             return vars(Response(err_code=ATOM_COMMAND_NO_RESPONSE, err_str=err_str))
         for self.response_last_id, response in responses[self._make_response_id(self.name)]:
             if response[b"element"].decode() == element_name and \
-            response[b"cmd_id"].decode() == cmd_id and b"data" in response:
+            response[b"cmd_id"].decode() == cmd_id:
                 err_code = int(response[b"err_code"].decode())
                 err_str = response[b"err_str"].decode() if b"err_str" in response else ""
                 if err_code != ATOM_NO_ERROR:
                     self.log(LogLevel.ERR, err_str)
-                return vars(Response(data=response[b"data"], err_code=err_code, err_str=err_str))
+                return vars(Response(data=response.get(b"data", ""), err_code=err_code, err_str=err_str))
 
         # Proper response was not in responses
         err_str = f"Did not receive response from {element_name}."
@@ -402,7 +402,7 @@ class Element:
     def log(self, level, msg, stdout=True):
         """
         Writes a message to log stream with loglevel.
-        
+
         Args:
             level (messages.LogLevel): Unix syslog severity of message.
             message (str): The message to write for the log.
