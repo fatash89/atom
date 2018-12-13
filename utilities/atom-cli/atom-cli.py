@@ -13,7 +13,7 @@ from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.styles import Style
 from pyfiglet import Figlet
-
+import msgpack
 
 class AtomCLI:
     def __init__(self):
@@ -36,14 +36,14 @@ class AtomCLI:
             "cmd_help": cleandoc("""
                 Displays available commands and shows usage for commands.
 
-                Usage: 
+                Usage:
                   help [<command>]"""),
 
             "cmd_list": cleandoc("""
                 Displays available elements or streams.
                 Can filter streams based on element.
 
-                Usage: 
+                Usage:
                   list elements
                   list streams [<element>]"""),
 
@@ -51,28 +51,28 @@ class AtomCLI:
                 Displays log records or command and response records.
                 Can filter records from the last N seconds or from certain elements.
 
-                Usage: 
+                Usage:
                   records log [<last_N_seconds>] [<element>...]
                   records cmdres [<last_N_seconds>] <element>..."""),
 
             "cmd_command": cleandoc("""
                 Sends a command to an element and displays the response.
 
-                Usage: 
+                Usage:
                   command <element> <element_command> [<data>]"""),
 
             "cmd_read": cleandoc("""
                 Displays the entries of an element's stream.
                 Can provide a rate to print the entries for ease of reading.
 
-                Usage: 
+                Usage:
                   read <element> <stream> [<rate_hz>]"""),
 
             "cmd_exit": cleandoc("""
                 Exits the atom-cli tool.
                 Can also use the shortcut CTRL+D.
 
-                Usage: 
+                Usage:
                   exit"""),
         }
 
@@ -103,7 +103,7 @@ class AtomCLI:
         f = Figlet(font="slant")
         logo = f.renderText("ATOM OS")
         print(HTML(f"<logo_color>{logo}</logo_color>"), style=self.style)
-    
+
     def format_record(self, record):
         """
         Takes a record out of Redis, decodes the keys and values (if possible)
@@ -114,7 +114,7 @@ class AtomCLI:
             if type(k) is bytes:
                 k = k.decode()
             try:
-                v = v.decode()
+                v = str(msgpack.unpackb(v, use_list=False))
             except:
                 v = str(v)
             formatted_record[k] = v
@@ -254,7 +254,13 @@ class AtomCLI:
         element_name = args[0]
         command_name = args[1]
         if len(args) == 3:
-            data = args[2]
+            try:
+                json_data = json.loads(args[2])
+            except:
+                print("\nCould not load user data to JSON.")
+                return
+
+            data = msgpack.packb(json_data, use_bin_type=True)
         else:
             data = ""
         resp = self.element.command_send(element_name, command_name, data)
