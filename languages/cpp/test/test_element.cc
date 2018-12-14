@@ -17,6 +17,10 @@
 #include "atom/atom.h"
 #include "atom/redis.h"
 #include "element.h"
+#include "element_response.h"
+
+// Need to use the atom namespace
+using namespace atom;
 
 //
 // Tests for valid element names
@@ -418,9 +422,9 @@ bool test_err_str_callback_fn(
 void* command_element(void *data)
 {
 	Element elem("test_cmd");
-	elem.addCommand("hello", hello_callback_fn, NULL, 1000);
-	elem.addCommand("test_err", test_err_callback_fn, NULL, 1000);
-	elem.addCommand("test_err_str", test_err_str_callback_fn, NULL, 1000);
+	elem.addCommand("hello", "hello, world", hello_callback_fn, NULL, 1000);
+	elem.addCommand("test_err", "tests an error", test_err_callback_fn, NULL, 1000);
+	elem.addCommand("test_err_str", "tests an error string", test_err_str_callback_fn, NULL, 1000);
 	elem.commandLoop(1);
 	return NULL;
 }

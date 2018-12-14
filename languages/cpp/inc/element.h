@@ -22,10 +22,13 @@
 #include "atom/element_command_send.h"
 #include "element_response.h"
 #include "element_read_map.h"
+#include "command.h"
 
 #define ELEMENT_DEFAULT_N_CONTEXTS 20
 
 #define ELEMENT_INFINITE_COMMAND_LOOPS 0
+
+namespace atom {
 
 // Entry value
 typedef std::map<std::string, std::string> entry_data_t;
@@ -62,13 +65,6 @@ public:
 		const std::string &key);
 };
 
-// Command Handler function
-typedef bool (*element_command_handler_t)(
-	const uint8_t *data,
-	size_t data_len,
-	ElementResponse *resp,
-	void *user_data);
-
 // Element class itself
 class Element {
 
@@ -82,11 +78,11 @@ class Element {
 	std::queue<redisContext *>context_pool;
 	mutable std::mutex context_mutex;
 
-	// Commands that the element supports
-	std::map<std::string, std::pair<element_command_handler_t, void*>> commands;
-
 	// Streams that we're currently publishing on
 	std::map<std::string, struct element_entry_write_info *> streams;
+
+	// List of commands we currently have support for
+	std::map<std::string, Command *> commands;
 
 	// Functions for getting redis contexts
 	void initContextPool(
@@ -135,14 +131,20 @@ public:
 		std::vector<std::string> &stream_list,
 		std::string element);
 
-	// Adds support for a command. Takes a command name,
+	// Adds support for a barebones command. Takes a command name,
 	//	handler function and timeout to be returned to callers of this
 	//	command
 	void addCommand(
 		std::string name,
-		element_command_handler_t fn,
+		std::string description,
+		command_handler_t fn,
 		void *user_data,
 		int timeout);
+
+	// Adds support for a command class. Takes a reference
+	//	to the class and does the rest internally
+	void addCommand(
+		Command *cmd);
 
 	// Processes incoming commands per the command
 	//	handler table. If no args passed, then will loop indefinitely,
@@ -203,5 +205,7 @@ public:
 		...);
 
 };
+
+} // namespace atom
 
 #endif // __ATOM_CPP_ELEMENT_H

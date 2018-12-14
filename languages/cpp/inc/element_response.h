@@ -17,6 +17,8 @@
 #include <queue>
 #include <mutex>
 
+namespace atom {
+
 // Response class
 class ElementResponse {
 	std::string data;
@@ -26,10 +28,10 @@ class ElementResponse {
 public:
 
 	// Constructor
-	ElementResponse();
+	ElementResponse() : data(""), err(0), err_str("") {}
 
 	// Destructor
-	~ElementResponse();
+	~ElementResponse() {}
 
 	// Sets the data
 	void setData(
@@ -65,10 +67,12 @@ public:
 	bool isError();
 
 	// Gets a pointer to the error string
-	const uint8_t *getErrorStrPtr();
+	const char *getErrorStrPtr();
 
 	// Gets the error string
 	const std::string &getErrorStr();
 };
+
+} // namespace atom
 
 #endif // __ATOM_CPP_ELEMENT_RESPONSE_H

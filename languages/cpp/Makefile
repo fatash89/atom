@@ -30,7 +30,7 @@ vpath %.h $(sort $(dir $(HEADER_SRCS)))
 
 TEST_DIR:=test
 TEST_BINARY:=test_atom_cpp
-TEST_SRCS := $(wildcard $(TEST_DIR)/*.cc)
+TEST_SRCS := $(wildcard $(TEST_DIR)/*.cc) $(wildcard $(SOURCE_DIR)/*.cc)
 TEST_OBJS = $(addprefix $(TEST_DIR)/$(BUILD_DIR)/,$(notdir $(TEST_SRCS:.cc=.o)))
 vpath %.cc $(sort $(dir $(TEST_SRCS)))
 
@@ -81,9 +81,9 @@ $(TEST_DIR)/$(BUILD_DIR)/%.o: src/%.cc $(HEADER_OBJS) | $(TEST_DIR)/$(BUILD_DIR)
 	@ echo "Compiling $<"
 	@ $(CXX) -c $(CFLAGS) -o $@ $(filter %.cc,$^)
 
-$(TEST_DIR)/$(BUILD_DIR)/$(TEST_BINARY): $(TEST_OBJS) $(HEADER_OBJS) $(BUILD_DIR)/lib/$(OUTPUT_NAME) | $(TEST_DIR)/$(BUILD_DIR)
+$(TEST_DIR)/$(BUILD_DIR)/$(TEST_BINARY): $(TEST_OBJS) $(HEADER_OBJS) | $(TEST_DIR)/$(BUILD_DIR)
 	@ echo "Linking $@"
-	@ $(CXX) $(filter %.o,$^) -L${BUILD_DIR}/lib -Wl,-rpath,${BUILD_DIR}/lib -latomcpp -latom -lgtest_main -lgtest $(LDFLAGS) -o $@
+	@ $(CXX) $(filter %.o,$^) -L${BUILD_DIR}/lib -Wl,-rpath,${BUILD_DIR}/lib -latom -lgtest_main -lgtest $(LDFLAGS) -o $@
 
 .PHONY: all
 all: $(BUILD_DIR)/lib/$(OUTPUT_NAME)

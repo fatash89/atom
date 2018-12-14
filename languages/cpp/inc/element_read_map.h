@@ -16,6 +16,8 @@
 #include "element_response.h"
 #include <map>
 
+namespace atom {
+
 // Forward declaration for the entry class
 class Entry;
 
@@ -58,5 +60,7 @@ public:
 	// Gets the info for a particular handler
 	handler_t &getHandler(int n);
 };
+
+} // namespace atom
 
 #endif // __ATOM_CPP_ELEMENT_READ_MAP
