@@ -24,6 +24,7 @@ class AtomCLI:
         })
         self.session = PromptSession(style=self.style)
         self.print_atom_os_logo()
+        self.use_msgpack = False
         self.cmd_map = {
             "help": self.cmd_help,
             "list": self.cmd_list,
@@ -31,6 +32,7 @@ class AtomCLI:
             "command": self.cmd_command,
             "read": self.cmd_read,
             "exit": self.cmd_exit,
+            "msgpack" : self.cmd_msgpack,
         }
         self.usage = {
             "cmd_help": cleandoc("""
@@ -74,6 +76,13 @@ class AtomCLI:
 
                 Usage:
                   exit"""),
+
+            "cmd_msgpack": cleandoc("""
+                Turns on/off msgpack serialization and deserialization.
+                Pass True to use msgpack, False to turn off. Default False.
+
+                Usage:
+                  msgpack True/False"""),
         }
 
     def run(self):
@@ -114,7 +123,10 @@ class AtomCLI:
             if type(k) is bytes:
                 k = k.decode()
             try:
-                v = str(msgpack.unpackb(v, use_list=False))
+                if self.use_msgpack:
+                    v = str(msgpack.unpackb(v, use_list=False))
+                else:
+                    v = v.decode()
             except:
                 v = str(v)
             formatted_record[k] = v
@@ -254,13 +266,16 @@ class AtomCLI:
         element_name = args[0]
         command_name = args[1]
         if len(args) == 3:
-            try:
-                json_data = json.loads(args[2])
-            except:
-                print("\nCould not load user data to JSON.")
-                return
+            if self.use_msgpack:
+                try:
+                    json_data = json.loads(args[2])
+                except:
+                    print("\nCould not load user data to JSON.")
+                    return
 
-            data = msgpack.packb(json_data, use_bin_type=True)
+                data = msgpack.packb(json_data, use_bin_type=True)
+            else:
+                data = args[2]
         else:
             data = ""
         resp = self.element.command_send(element_name, command_name, data)
@@ -303,6 +318,24 @@ class AtomCLI:
                 print(self.format_record(entry))
             if rate:
                 time.sleep(max(1 / rate - (time.time() - start_time), 0))
+
+    def cmd_msgpack(self, *args):
+        usage = self.usage["cmd_msgpack"]
+        if (len(args) != 1):
+            print(usage)
+            print("\nPass one argument: True or False to turn on/off msgpack.")
+            return
+
+        # Otherwise try to get the new msgpack valud
+        if (args[0].lower() == "true"):
+            self.use_msgpack = True
+        elif (args[0].lower() == "false"):
+            self.use_msgpack = False
+        else:
+            print ("\nArgument must be True or False.")
+
+        print("Current msgpack status is {}".format(self.use_msgpack))
+
 
     def cmd_exit(*args):
         print("Exiting.")
