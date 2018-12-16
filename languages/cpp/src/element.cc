@@ -420,7 +420,11 @@ bool sendCommandResponseCB(
 void commandCleanup(
 	void *cleanup_ptr)
 {
-	return;
+	// Cast the user data into a command
+	Command *cmd = (Command *)cleanup_ptr;
+
+	// Clean up anything the command allocated
+    cmd->_cleanup();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -444,16 +448,15 @@ int commandCB(
 	const char *runError = "Failed to run";
 	const char *serializeError = "Failed to serialize";
 
-	// Set the cleanup ptr so something nonzero s.t. we get into
-	//	our custom cleanup function, but in reality there's nothing
-	//	to clean up
-	*cleanup_ptr = (void*)1;
+	// We'll need to call the _cleanup function for the
+	//	command after it's done
+	*cleanup_ptr = user_data;
 
 	// Cast the user data into a command
 	Command *cmd = (Command *)user_data;
 
 	// Initialize the command
-	cmd->init();
+	cmd->_init();
 
 	// Run through the command functions
     if (!cmd->deserialize(data, data_len)) {
@@ -476,9 +479,6 @@ int commandCB(
         error = 104;
         goto done;
     }
-
-    // Clean up anything the command allocated
-    cmd->cleanup();
 
 	// If we had a successful handler call
 	if (!cmd->response->isError()) {
