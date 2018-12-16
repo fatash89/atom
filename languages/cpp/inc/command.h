@@ -54,11 +54,21 @@ public:
 		desc(d),
 		timeout_ms(t),
 		elem(NULL),
-		response(NULL) {}
+		response(NULL)
+	{
+		// Call the _init() function so that we, by default
+		//	have request and response data
+		_init();
+	}
 
 	// Virtual destructor. This is s.t. the derived classes
 	//	can be properly destroyed
-	virtual ~Command() {}
+	virtual ~Command()
+	{
+		// Call the _cleanup() function since we created
+		//	memory in the _init() function
+		_cleanup();
+	}
 
 	// Add an element to the command
 	void addElement(Element *element) {
@@ -73,6 +83,7 @@ public:
 	//	a callback. Will call the inherited
 	//	class's setup as well
 	void _init() {
+		_cleanup();
 		response = new ElementResponse();
 		init();
 	}
@@ -84,7 +95,10 @@ public:
 	// Cleanup function for each time we finish a callback.
 	//	Will call the inherited class's cleanup as well
 	void _cleanup() {
-		delete response;
+		if (response != NULL) {
+			delete response;
+			response = NULL;
+		}
 		cleanup();
 	}
 
@@ -165,14 +179,21 @@ public:
 
 	// Init function. Allocate the request and response
 	virtual void init() {
+		cleanup();
 		req_data = new Req;
 		res_data = new Res;
 	}
 
 	// Cleanup function. Free the request and response
 	virtual void cleanup() {
-		delete req_data;
-		delete res_data;
+		if (req_data != NULL) {
+			delete req_data;
+			req_data = NULL;
+		}
+		if (res_data != NULL) {
+			delete res_data;
+			res_data = NULL;
+		}
 	}
 
 	// Deserialization function into req_data.
@@ -226,12 +247,16 @@ public:
 
 	// Init function. Allocate the request and response
 	virtual void init() {
+		cleanup();
 		res_data = new Res;
 	}
 
 	// Cleanup function. Free the request and response
 	virtual void cleanup() {
-		delete res_data;
+		if (res_data != NULL) {
+			delete res_data;
+			res_data = NULL;
+		}
 	}
 
 	// Deserialization function into req_data.
@@ -280,12 +305,16 @@ public:
 
 	// Init function. Allocate the request and response
 	virtual void init() {
+		cleanup();
 		req_data = new Req;
 	}
 
 	// Cleanup function. Free the request and response
 	virtual void cleanup() {
-		delete req_data;
+		if (req_data != NULL) {
+			delete req_data;
+			req_data = NULL;
+		}
 	}
 
 	// Deserialization function into req_data.
