@@ -175,7 +175,15 @@ public:
 		int t = COMMAND_DEFAULT_TIMEOUT_MS) :
 		Command(n, d, t),
 		req_data(NULL),
-		res_data(NULL) {}
+		res_data(NULL)
+	{
+		init();
+	}
+
+	virtual ~CommandMsgpack()
+	{
+		cleanup();
+	}
 
 	// Init function. Allocate the request and response
 	virtual void init() {
@@ -243,7 +251,15 @@ public:
 		std::string d,
 		int t = COMMAND_DEFAULT_TIMEOUT_MS) :
 		Command(n, d, t),
-		res_data(NULL) {}
+		res_data(NULL)
+	{
+		init();
+	}
+
+	virtual ~CommandMsgpack()
+	{
+		cleanup();
+	}
 
 	// Init function. Allocate the request and response
 	virtual void init() {
@@ -301,7 +317,15 @@ public:
 		std::string d,
 		int t = COMMAND_DEFAULT_TIMEOUT_MS) :
 		Command(n, d, t),
-		req_data(NULL) {}
+		req_data(NULL)
+	{
+		init();
+	}
+
+	virtual ~CommandMsgpack()
+	{
+		cleanup();
+	}
 
 	// Init function. Allocate the request and response
 	virtual void init() {
