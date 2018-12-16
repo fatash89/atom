@@ -13,7 +13,7 @@ from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.styles import Style
 from pyfiglet import Figlet
-
+import msgpack
 
 class AtomCLI:
     def __init__(self):
@@ -24,6 +24,7 @@ class AtomCLI:
         })
         self.session = PromptSession(style=self.style)
         self.print_atom_os_logo()
+        self.use_msgpack = False
         self.cmd_map = {
             "help": self.cmd_help,
             "list": self.cmd_list,
@@ -31,19 +32,20 @@ class AtomCLI:
             "command": self.cmd_command,
             "read": self.cmd_read,
             "exit": self.cmd_exit,
+            "msgpack" : self.cmd_msgpack,
         }
         self.usage = {
             "cmd_help": cleandoc("""
                 Displays available commands and shows usage for commands.
 
-                Usage: 
+                Usage:
                   help [<command>]"""),
 
             "cmd_list": cleandoc("""
                 Displays available elements or streams.
                 Can filter streams based on element.
 
-                Usage: 
+                Usage:
                   list elements
                   list streams [<element>]"""),
 
@@ -51,29 +53,36 @@ class AtomCLI:
                 Displays log records or command and response records.
                 Can filter records from the last N seconds or from certain elements.
 
-                Usage: 
+                Usage:
                   records log [<last_N_seconds>] [<element>...]
                   records cmdres [<last_N_seconds>] <element>..."""),
 
             "cmd_command": cleandoc("""
                 Sends a command to an element and displays the response.
 
-                Usage: 
+                Usage:
                   command <element> <element_command> [<data>]"""),
 
             "cmd_read": cleandoc("""
                 Displays the entries of an element's stream.
                 Can provide a rate to print the entries for ease of reading.
 
-                Usage: 
+                Usage:
                   read <element> <stream> [<rate_hz>]"""),
 
             "cmd_exit": cleandoc("""
                 Exits the atom-cli tool.
                 Can also use the shortcut CTRL+D.
 
-                Usage: 
+                Usage:
                   exit"""),
+
+            "cmd_msgpack": cleandoc("""
+                Turns on/off msgpack serialization and deserialization.
+                Pass True to use msgpack, False to turn off. Default False.
+
+                Usage:
+                  msgpack True/False"""),
         }
 
     def run(self):
@@ -103,7 +112,7 @@ class AtomCLI:
         f = Figlet(font="slant")
         logo = f.renderText("ATOM OS")
         print(HTML(f"<logo_color>{logo}</logo_color>"), style=self.style)
-    
+
     def format_record(self, record):
         """
         Takes a record out of Redis, decodes the keys and values (if possible)
@@ -114,7 +123,10 @@ class AtomCLI:
             if type(k) is bytes:
                 k = k.decode()
             try:
-                v = v.decode()
+                if self.use_msgpack:
+                    v = str(msgpack.unpackb(v, use_list=False))
+                else:
+                    v = v.decode()
             except:
                 v = str(v)
             formatted_record[k] = v
@@ -254,7 +266,16 @@ class AtomCLI:
         element_name = args[0]
         command_name = args[1]
         if len(args) == 3:
-            data = args[2]
+            if self.use_msgpack:
+                try:
+                    json_data = json.loads(args[2])
+                except:
+                    print("\nCould not load user data to JSON.")
+                    return
+
+                data = msgpack.packb(json_data, use_bin_type=True)
+            else:
+                data = args[2]
         else:
             data = ""
         resp = self.element.command_send(element_name, command_name, data)
@@ -297,6 +318,24 @@ class AtomCLI:
                 print(self.format_record(entry))
             if rate:
                 time.sleep(max(1 / rate - (time.time() - start_time), 0))
+
+    def cmd_msgpack(self, *args):
+        usage = self.usage["cmd_msgpack"]
+        if (len(args) != 1):
+            print(usage)
+            print("\nPass one argument: True or False to turn on/off msgpack.")
+            return
+
+        # Otherwise try to get the new msgpack valud
+        if (args[0].lower() == "true"):
+            self.use_msgpack = True
+        elif (args[0].lower() == "false"):
+            self.use_msgpack = False
+        else:
+            print ("\nArgument must be True or False.")
+
+        print("Current msgpack status is {}".format(self.use_msgpack))
+
 
     def cmd_exit(*args):
         print("Exiting.")

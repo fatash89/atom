@@ -17,6 +17,10 @@
 #include "atom/atom.h"
 #include "atom/redis.h"
 #include "element.h"
+#include "element_response.h"
+
+// Need to use the atom namespace
+using namespace atom;
 
 //
 // Tests for valid element names
@@ -414,13 +418,80 @@ bool test_err_str_callback_fn(
 	return true;
 }
 
+class MsgpackHello : public CommandMsgpack<std::string, std::string> {
+public:
+	using CommandMsgpack<std::string, std::string>::CommandMsgpack;
+
+	virtual bool validate() {
+		if (*req_data != "hello") {
+			return false;
+		}
+		return true;
+	}
+
+	virtual bool run() {
+		*res_data = "world";
+		return true;
+	}
+};
+
+class MsgpackNoReq : public CommandMsgpack<std::nullptr_t, std::string> {
+public:
+	using CommandMsgpack<std::nullptr_t, std::string>::CommandMsgpack;
+
+	virtual bool run() {
+		*res_data = "noreq";
+		return true;
+	}
+};
+
+class MsgpackNoRes : public CommandMsgpack<std::string, std::nullptr_t> {
+public:
+	using CommandMsgpack<std::string, std::nullptr_t>::CommandMsgpack;
+
+	virtual bool validate() {
+		if (*req_data != "nores") {
+			return false;
+		}
+		return true;
+	}
+
+	virtual bool run() {
+		return true;
+	}
+};
+
+class MsgpackNoReqNoRes : public CommandMsgpack<std::nullptr_t, std::nullptr_t> {
+public:
+	using CommandMsgpack<std::nullptr_t, std::nullptr_t>::CommandMsgpack;
+
+	virtual bool run() {
+		return true;
+	}
+};
+
+
 // Thread that creates a command element
 void* command_element(void *data)
 {
 	Element elem("test_cmd");
-	elem.addCommand("hello", hello_callback_fn, NULL, 1000);
-	elem.addCommand("test_err", test_err_callback_fn, NULL, 1000);
-	elem.addCommand("test_err_str", test_err_str_callback_fn, NULL, 1000);
+	elem.addCommand("hello", "hello, world", hello_callback_fn, NULL, 1000);
+	elem.addCommand("test_err", "tests an error", test_err_callback_fn, NULL, 1000);
+	elem.addCommand("test_err_str", "tests an error string", test_err_str_callback_fn, NULL, 1000);
+
+	// Add a class-based command with msgapck. This will test msgpack
+	//	as well as any memory allocations associated with it
+	elem.addCommand(
+		new MsgpackHello("hello_msgpack", "tests msgpack hello world", 1000));
+
+	// Test variants of no request and no response
+	elem.addCommand(
+		new MsgpackNoReq("noreq", "Tests msgpack with no request", 1000));
+	elem.addCommand(
+		new MsgpackNoRes("nores", "Tests msgpack with no response", 1000));
+	elem.addCommand(
+		new MsgpackNoReqNoRes("noreqnores", "Tests msgpack no request or response", 1000));
+
 	elem.commandLoop(1);
 	return NULL;
 }
@@ -453,6 +524,118 @@ TEST_F(ElementTest, basic_commands) {
 	void *ret;
 	ASSERT_EQ(pthread_join(cmd_thread, &ret), 0);
 }
+
+// Tests messagepack command
+TEST_F(ElementTest, msgpack_command) {
+	ElementResponse resp;
+
+	// Start the command thread
+	pthread_t cmd_thread;
+	ASSERT_EQ(pthread_create(&cmd_thread, NULL, command_element, NULL), 0);
+
+	// Wait until the command element is alive
+	while (true) {
+		std::vector<std::string> elements;
+		ASSERT_EQ(element->getAllElements(elements), ATOM_NO_ERROR);
+		if (std::find(elements.begin(), elements.end(), "test_cmd") != elements.end()) {
+			break;
+		}
+		usleep(100000);
+	}
+
+	std::string req = "hello";
+	std::string res;
+	enum atom_error_t err = element->sendCommand<std::string, std::string>(resp, "test_cmd", "hello_msgpack", req, res);
+	ASSERT_EQ(err, ATOM_NO_ERROR);
+	ASSERT_EQ(res, "world");
+
+	// Wait for the command thread to finish
+	void *ret;
+	ASSERT_EQ(pthread_join(cmd_thread, &ret), 0);
+}
+
+// Tests no request
+TEST_F(ElementTest, msgpack_noreq) {
+	ElementResponse resp;
+
+	// Start the command thread
+	pthread_t cmd_thread;
+	ASSERT_EQ(pthread_create(&cmd_thread, NULL, command_element, NULL), 0);
+
+	// Wait until the command element is alive
+	while (true) {
+		std::vector<std::string> elements;
+		ASSERT_EQ(element->getAllElements(elements), ATOM_NO_ERROR);
+		if (std::find(elements.begin(), elements.end(), "test_cmd") != elements.end()) {
+			break;
+		}
+		usleep(100000);
+	}
+
+	std::string res;
+	enum atom_error_t err = element->sendCommandNoReq<std::string>(resp, "test_cmd", "noreq", res);
+	ASSERT_EQ(err, ATOM_NO_ERROR);
+	ASSERT_EQ(res, "noreq");
+
+	// Wait for the command thread to finish
+	void *ret;
+	ASSERT_EQ(pthread_join(cmd_thread, &ret), 0);
+}
+
+// Tests no response
+TEST_F(ElementTest, msgpack_nores) {
+	ElementResponse resp;
+
+	// Start the command thread
+	pthread_t cmd_thread;
+	ASSERT_EQ(pthread_create(&cmd_thread, NULL, command_element, NULL), 0);
+
+	// Wait until the command element is alive
+	while (true) {
+		std::vector<std::string> elements;
+		ASSERT_EQ(element->getAllElements(elements), ATOM_NO_ERROR);
+		if (std::find(elements.begin(), elements.end(), "test_cmd") != elements.end()) {
+			break;
+		}
+		usleep(100000);
+	}
+
+	std::string req = "nores";
+	enum atom_error_t err = element->sendCommandNoRes<std::string>(resp, "test_cmd", "nores", req);
+	ASSERT_EQ(err, ATOM_NO_ERROR);
+
+	// Wait for the command thread to finish
+	void *ret;
+	ASSERT_EQ(pthread_join(cmd_thread, &ret), 0);
+}
+
+// Tests no request and no response
+TEST_F(ElementTest, msgpack_noreqnores) {
+	ElementResponse resp;
+
+	// Start the command thread
+	pthread_t cmd_thread;
+	ASSERT_EQ(pthread_create(&cmd_thread, NULL, command_element, NULL), 0);
+
+	// Wait until the command element is alive
+	while (true) {
+		std::vector<std::string> elements;
+		ASSERT_EQ(element->getAllElements(elements), ATOM_NO_ERROR);
+		if (std::find(elements.begin(), elements.end(), "test_cmd") != elements.end()) {
+			break;
+		}
+		usleep(100000);
+	}
+
+	enum atom_error_t err = element->sendCommand(resp, "test_cmd", "noreqnores", NULL, 0);
+	ASSERT_EQ(err, ATOM_NO_ERROR);
+
+	// Wait for the command thread to finish
+	void *ret;
+	ASSERT_EQ(pthread_join(cmd_thread, &ret), 0);
+}
+
+
 
 // Tests command with an error response
 TEST_F(ElementTest, err_command) {

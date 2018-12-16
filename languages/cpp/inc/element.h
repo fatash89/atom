@@ -13,6 +13,7 @@
 #include <queue>
 #include <mutex>
 #include <syslog.h>
+#include <iostream>
 
 #include "atom/atom.h"
 #include "atom/redis.h"
@@ -22,10 +23,13 @@
 #include "atom/element_command_send.h"
 #include "element_response.h"
 #include "element_read_map.h"
+#include "command.h"
 
 #define ELEMENT_DEFAULT_N_CONTEXTS 20
 
 #define ELEMENT_INFINITE_COMMAND_LOOPS 0
+
+namespace atom {
 
 // Entry value
 typedef std::map<std::string, std::string> entry_data_t;
@@ -62,13 +66,6 @@ public:
 		const std::string &key);
 };
 
-// Command Handler function
-typedef bool (*element_command_handler_t)(
-	const uint8_t *data,
-	size_t data_len,
-	ElementResponse *resp,
-	void *user_data);
-
 // Element class itself
 class Element {
 
@@ -82,11 +79,11 @@ class Element {
 	std::queue<redisContext *>context_pool;
 	mutable std::mutex context_mutex;
 
-	// Commands that the element supports
-	std::map<std::string, std::pair<element_command_handler_t, void*>> commands;
-
 	// Streams that we're currently publishing on
 	std::map<std::string, struct element_entry_write_info *> streams;
+
+	// List of commands we currently have support for
+	std::map<std::string, Command *> commands;
 
 	// Functions for getting redis contexts
 	void initContextPool(
@@ -109,6 +106,52 @@ class Element {
 	void error(
 		std::string str = "",
 		bool log_atom = true);
+
+	// Serializes Data
+	template <typename Req>
+	bool sendCommandSerialize(
+		std::stringstream &buffer,
+		Req &req_data,
+		size_t &buffer_len)
+	{
+		try {
+			msgpack::pack(buffer, req_data);
+		} catch (...) {
+			log(LOG_ERR, "Failed to serialize");
+			return false;
+		}
+
+		// Get the buffer size and then seek it back
+		//	to the beginning
+		buffer.seekg(0, buffer.end);
+		buffer_len = (size_t)buffer.tellg();
+		buffer.seekg(0, buffer.beg);
+
+		return true;
+	}
+
+	// Deserializes data
+	template <typename Res>
+	bool sendCommandDeserialize(
+		ElementResponse &response,
+		Res &res_data)
+	{
+		try {
+			msgpack::object_handle oh = msgpack::unpack(
+				response.getData().c_str(),
+				response.getDataLen());
+
+			msgpack::object deserialized = oh.get();
+			deserialized.convert(res_data);
+		// TODO: make this more specific
+		} catch (...) {
+			log(LOG_ERR, "Failed to deserialize");
+			return false;
+		}
+
+		return true;
+	}
+
 
 public:
 
@@ -135,14 +178,20 @@ public:
 		std::vector<std::string> &stream_list,
 		std::string element);
 
-	// Adds support for a command. Takes a command name,
+	// Adds support for a barebones command. Takes a command name,
 	//	handler function and timeout to be returned to callers of this
 	//	command
 	void addCommand(
 		std::string name,
-		element_command_handler_t fn,
+		std::string description,
+		command_handler_t fn,
 		void *user_data,
 		int timeout);
+
+	// Adds support for a command class. Takes a reference
+	//	to the class and does the rest internally
+	void addCommand(
+		Command *cmd);
 
 	// Processes incoming commands per the command
 	//	handler table. If no args passed, then will loop indefinitely,
@@ -158,6 +207,101 @@ public:
 		const uint8_t *data,
 		size_t data_len,
 		bool block = true);
+
+	// Sends a commad using msgpack for serialization and deserialization
+	template <typename Req, typename Res>
+	enum atom_error_t sendCommand(
+		ElementResponse &response,
+		std::string element,
+		std::string command,
+		Req &req_data,
+		Res &res_data,
+		bool block = true)
+	{
+		// Pack the buffer
+		std::stringstream buffer;
+		size_t buffer_len;
+		if (!sendCommandSerialize<Req>(buffer, req_data, buffer_len)) {
+			return ATOM_SERIALIZATION_ERROR;
+		}
+
+		// Send the command using the packed buffer
+		enum atom_error_t err = sendCommand(
+			response,
+			element,
+			command,
+			(uint8_t*)buffer.str().c_str(),
+			buffer_len);
+		if (err != ATOM_NO_ERROR) {
+			return err;
+		}
+
+		if (!sendCommandDeserialize<Res>(response, res_data)) {
+			return ATOM_DESERIALIZATION_ERROR;
+		}
+
+		// If we got here then we're all set
+		return ATOM_NO_ERROR;
+	}
+
+	// Sends a commad using msgpack with no request data
+	template <typename Res>
+	enum atom_error_t sendCommandNoReq(
+		ElementResponse &response,
+		std::string element,
+		std::string command,
+		Res &res_data,
+		bool block = true)
+	{
+		// Send the command using the packed buffer
+		enum atom_error_t err = sendCommand(
+			response,
+			element,
+			command,
+			NULL,
+			0);
+		if (err != ATOM_NO_ERROR) {
+			return err;
+		}
+
+		if (!sendCommandDeserialize<Res>(response, res_data)) {
+			return ATOM_DESERIALIZATION_ERROR;
+		}
+
+		// If we got here then we're all set
+		return ATOM_NO_ERROR;
+	}
+
+	// Sends a commad using msgpack with no response data
+	template <typename Req>
+	enum atom_error_t sendCommandNoRes(
+		ElementResponse &response,
+		std::string element,
+		std::string command,
+		Req &req_data,
+		bool block = true)
+	{
+		// Pack the buffer
+		std::stringstream buffer;
+		size_t buffer_len;
+		if (!sendCommandSerialize<Req>(buffer, req_data, buffer_len)) {
+			return ATOM_SERIALIZATION_ERROR;
+		}
+
+		// Send the command using the packed buffer
+		enum atom_error_t err = sendCommand(
+			response,
+			element,
+			command,
+			(uint8_t*)buffer.str().c_str(),
+			buffer_len);
+		if (err != ATOM_NO_ERROR) {
+			return err;
+		}
+
+		// If we got here then we're all set
+		return ATOM_NO_ERROR;
+	}
 
 	// Reads entries from the passed streams and passes the
 	//	data onto the proper handlers
@@ -203,5 +347,7 @@ public:
 		...);
 
 };
+
+} // namespace atom
 
 #endif // __ATOM_CPP_ELEMENT_H

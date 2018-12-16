@@ -20,6 +20,8 @@
 #include "element.h"
 #include "element_response.h"
 
+namespace atom {
+
 // Callbacks for atom C api need to be in an "extern C" block
 extern "C" {
 
@@ -243,6 +245,11 @@ Element::~Element()
 		element_entry_write_cleanup(ctx, x.second);
 	}
 
+	//Need to delete all of the command classes associated with us
+	for (auto &cmd : commands) {
+		delete cmd.second;
+	}
+
 	element_cleanup(ctx, elem);
 	releaseContext(ctx);
 	cleanupContextPool();
@@ -413,7 +420,11 @@ bool sendCommandResponseCB(
 void commandCleanup(
 	void *cleanup_ptr)
 {
-	delete (ElementResponse *)cleanup_ptr;
+	// Cast the user data into a command
+	Command *cmd = (Command *)cleanup_ptr;
+
+	// Clean up anything the command allocated
+    cmd->_cleanup();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -430,35 +441,76 @@ int commandCB(
 	void *user_data,
 	void **cleanup_ptr)
 {
-	// Cast the user data to the pair of command handler and other
-	//	user data
-	std::pair<element_command_handler_t, void *> *udata =
-		(std::pair<element_command_handler_t, void *> *)user_data;
+	int error = 0;
 
-	// Make the response and then call the command handler
-	ElementResponse *r = new ElementResponse();
-	if (!udata->first(data, data_len, r, udata->second)) {
-		atom_logf(NULL, NULL, LOG_ERR, "User callback failed");
-	}
+	const char *deserializeError = "Failed to deserialize";
+	const char *validateError = "Failed to validate";
+	const char *runError = "Failed to run";
+	const char *serializeError = "Failed to serialize";
 
-	// Copy over response data, if any
-	if (!r->isError()) {
-		if (r->hasData()) {
-			*response = (uint8_t*)r->getDataPtr();
-			*response_len = r->getDataLen();
+	// We'll need to call the _cleanup function for the
+	//	command after it's done
+	*cleanup_ptr = user_data;
+
+	// Cast the user data into a command
+	Command *cmd = (Command *)user_data;
+
+	// Initialize the command
+	cmd->_init();
+
+	// Run through the command functions
+    if (!cmd->deserialize(data, data_len)) {
+        *error_str = (char*)deserializeError;
+        error = 101;
+        goto done;
+    }
+    if (!cmd->validate()) {
+        *error_str = (char*)validateError;
+        error = 102;
+        goto done;
+    }
+    if (!cmd->run()) {
+        *error_str = (char*)runError;
+        error = 103;
+        goto done;
+    }
+    if (!cmd->serialize()) {
+        *error_str = (char*)serializeError;
+        error = 104;
+        goto done;
+    }
+
+	// If we had a successful handler call
+	if (!cmd->response->isError()) {
+
+		// Copy over the data, if any
+		if (cmd->response->hasData()) {
+			*response = (uint8_t*)cmd->response->getDataPtr();
+			*response_len = cmd->response->getDataLen();
 		} else {
 			*response = NULL;
 			*response_len = 0;
 		}
+
+	// Otherwise get the error string and log the error
 	} else {
-		*error_str = (char*)r->getErrorStrPtr();
+		*error_str = (char*)cmd->response->getErrorStrPtr();
 	}
 
-	// Note the cleanup pointer
-	*cleanup_ptr = (void*)r;
+	error = cmd->response->getError();
+
+done:
+	if (error != 0) {
+		cmd->elem->log(LOG_ERR, "Command %s: Error code %d: '%s'",
+			cmd->name.c_str(),
+			error,
+			(*error_str != NULL) ? *error_str : "");
+	} else {
+		cmd->elem->log(LOG_DEBUG, "Command %s: Success", cmd->name.c_str());
+	}
 
 	// And return the response code
-	return r->getError();
+	return error;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -468,23 +520,61 @@ int commandCB(
 ////////////////////////////////////////////////////////////////////////////////
 void Element::addCommand(
 	std::string name,
-	element_command_handler_t fn,
+	std::string description,
+	command_handler_t fn,
 	void *user_data,
 	int timeout)
 {
-	commands.emplace(name, std::make_pair(fn, user_data));
+	std::cout << "Creating command with name " << name << std::endl;
+
+	// Make the new user callback command
+	Command *new_cmd = new CommandUserCallback(
+		name,
+		description,
+		fn,
+		user_data,
+		timeout);
+	new_cmd->addElement(this);
+
+	// Put the command in the map
+	commands.emplace(name, new_cmd);
 
 	if (!element_command_add(
 		elem,
 		name.c_str(),
 		commandCB,
 		commandCleanup,
-		(void*)&(commands.find(name)->second),
+		new_cmd,
 		timeout))
 	{
 		error("Failed to add command");
 	}
 }
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  @brief Adds a command class to the element. Note that the command MUST
+//			continue to stay in scope throughut commandLoop().
+//
+////////////////////////////////////////////////////////////////////////////////
+void Element::addCommand(
+	Command *cmd)
+{
+	cmd->addElement(this);
+	commands.emplace(cmd->name, cmd);
+
+	if (!element_command_add(
+		elem,
+		cmd->name.c_str(),
+		commandCB,
+		commandCleanup,
+		cmd,
+		cmd->timeout_ms))
+	{
+		error("Failed to add command");
+	}
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -955,3 +1045,5 @@ void Element::log(
 		error("Failed to log", false);
 	}
 }
+
+} // namespace atom

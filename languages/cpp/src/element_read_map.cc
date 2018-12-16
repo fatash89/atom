@@ -12,6 +12,8 @@
 #include "element_read_map.h"
 #include "atom/atom.h"
 
+namespace atom {
+
 ////////////////////////////////////////////////////////////////////////////////
 //
 //  @brief Constructor. Nothing allocated, just a placeholder
@@ -79,3 +81,5 @@ handler_t &ElementReadMap::getHandler(
 {
 	return handlers.at(n);
 }
+
+} // namespace atom
