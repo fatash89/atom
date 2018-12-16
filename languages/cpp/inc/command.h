@@ -40,10 +40,10 @@ public:
 	std::string name;
 	std::string desc;
 
-	ElementResponse response;
-	Element *elem = NULL;
-
 	int timeout_ms;
+
+	Element *elem;
+	ElementResponse *response;
 
 	// Constructor takes a name, description and timeout
 	Command(
@@ -52,7 +52,9 @@ public:
 		int t = COMMAND_DEFAULT_TIMEOUT_MS) :
 		name(n),
 		desc(d),
-		timeout_ms(t) {}
+		timeout_ms(t),
+		elem(NULL),
+		response(NULL) {}
 
 	// Virtual destructor. This is s.t. the derived classes
 	//	can be properly destroyed
@@ -61,6 +63,29 @@ public:
 	// Add an element to the command
 	void addElement(Element *element) {
 		elem = element;
+	}
+
+	// Virtual init function. Do anything the
+	//	class needs to do on a once-per-call basis
+	virtual void init() { return; }
+
+	// Set up function for each time we get
+	//	a callback. Will call the inherited
+	//	class's setup as well
+	void _init() {
+		response = new ElementResponse();
+		init();
+	}
+
+	// Virtual cleanup function. Do anything the class
+	//	needs to do on a once-per-call basis
+	virtual void cleanup() { return; }
+
+	// Cleanup function for each time we finish a callback.
+	//	Will call the inherited class's cleanup as well
+	void _cleanup() {
+		delete response;
+		cleanup();
 	}
 
 	// Deserialization function pointer
@@ -114,7 +139,7 @@ public:
 
 	// Run function passes the data to the user callback
 	virtual bool run() {
-		return cb(req_data, req_data_len, &response, udata);
+		return cb(req_data, req_data_len, response, udata);
 	}
 
 	// Serialization. Nothing to do here
@@ -126,11 +151,29 @@ template <class Req, class Res>
 class CommandMsgpack : public Command {
 public:
 	// Request and response
-	Req req_data;
-	Res res_data;
+	Req *req_data;
+	Res *res_data;
 
 	// Use the constructor and destructor from the base class
-	using Command::Command;
+	CommandMsgpack(
+		std::string n,
+		std::string d,
+		int t = COMMAND_DEFAULT_TIMEOUT_MS) :
+		Command(n, d, t),
+		req_data(NULL),
+		res_data(NULL) {}
+
+	// Init function. Allocate the request and response
+	virtual void init() {
+		req_data = new Req;
+		res_data = new Res;
+	}
+
+	// Cleanup function. Free the request and response
+	virtual void cleanup() {
+		delete req_data;
+		delete res_data;
+	}
 
 	// Deserialization function into req_data.
 	virtual bool deserialize(
@@ -142,7 +185,7 @@ public:
 			msgpack::object_handle oh =
 				msgpack::unpack((const char *)data, data_len);
 	        msgpack::object deserialized = oh.get();
-        	deserialized.convert(req_data);
+        	deserialized.convert(*req_data);
         	return true;
         } catch (...) {
         	return false;
@@ -157,8 +200,8 @@ public:
 		// Try to serialize the data. This shouldn't
 		//	ever fail since the class is templated
 		try {
-			msgpack::pack(buffer, res_data);
-			response.setData(buffer.str());
+			msgpack::pack(buffer, *res_data);
+			response->setData(buffer.str());
 			return true;
 		} catch (...) {
 			return false;
@@ -171,10 +214,25 @@ template <class Res>
 class CommandMsgpack<std::nullptr_t, Res> : public Command {
 public:
 	// Request and response
-	Res res_data;
+	Res *res_data;
 
 	// Use the constructor and destructor from the base class
-	using Command::Command;
+	CommandMsgpack(
+		std::string n,
+		std::string d,
+		int t = COMMAND_DEFAULT_TIMEOUT_MS) :
+		Command(n, d, t),
+		res_data(NULL) {}
+
+	// Init function. Allocate the request and response
+	virtual void init() {
+		res_data = new Res;
+	}
+
+	// Cleanup function. Free the request and response
+	virtual void cleanup() {
+		delete res_data;
+	}
 
 	// Deserialization function into req_data.
 	virtual bool deserialize(
@@ -196,8 +254,8 @@ public:
 		// Try to serialize the data. This shouldn't
 		//	ever fail since the class is templated
 		try {
-			msgpack::pack(buffer, res_data);
-			response.setData(buffer.str());
+			msgpack::pack(buffer, *res_data);
+			response->setData(buffer.str());
 			return true;
 		} catch (...) {
 			return false;
@@ -210,10 +268,25 @@ template <class Req>
 class CommandMsgpack<Req, std::nullptr_t>: public Command {
 public:
 	// Request and response
-	Req req_data;
+	Req *req_data;
 
 	// Use the constructor and destructor from the base class
-	using Command::Command;
+	CommandMsgpack(
+		std::string n,
+		std::string d,
+		int t = COMMAND_DEFAULT_TIMEOUT_MS) :
+		Command(n, d, t),
+		req_data(NULL) {}
+
+	// Init function. Allocate the request and response
+	virtual void init() {
+		req_data = new Req;
+	}
+
+	// Cleanup function. Free the request and response
+	virtual void cleanup() {
+		delete req_data;
+	}
 
 	// Deserialization function into req_data.
 	virtual bool deserialize(
@@ -225,7 +298,7 @@ public:
 			msgpack::object_handle oh =
 				msgpack::unpack((const char *)data, data_len);
 	        msgpack::object deserialized = oh.get();
-        	deserialized.convert(req_data);
+        	deserialized.convert(*req_data);
         	return true;
         } catch (...) {
         	return false;

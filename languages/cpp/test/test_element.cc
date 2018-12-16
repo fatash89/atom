@@ -418,6 +418,23 @@ bool test_err_str_callback_fn(
 	return true;
 }
 
+class MsgpackHello : public CommandMsgpack<std::string, std::string> {
+public:
+	using CommandMsgpack<std::string, std::string>::CommandMsgpack;
+
+	virtual bool validate() {
+		if (*req_data != "hello") {
+			return false;
+		}
+		return true;
+	}
+
+	virtual bool run() {
+		*res_data = "world";
+		return true;
+	}
+};
+
 // Thread that creates a command element
 void* command_element(void *data)
 {
@@ -425,6 +442,12 @@ void* command_element(void *data)
 	elem.addCommand("hello", "hello, world", hello_callback_fn, NULL, 1000);
 	elem.addCommand("test_err", "tests an error", test_err_callback_fn, NULL, 1000);
 	elem.addCommand("test_err_str", "tests an error string", test_err_str_callback_fn, NULL, 1000);
+
+	// Add a class-based command with msgapck. This will test msgpack
+	//	as well as any memory allocations associated with it
+	elem.addCommand(
+		new MsgpackHello("hello_msgpack", "tests msgpack hello world", 1000));
+
 	elem.commandLoop(1);
 	return NULL;
 }
@@ -457,6 +480,42 @@ TEST_F(ElementTest, basic_commands) {
 	void *ret;
 	ASSERT_EQ(pthread_join(cmd_thread, &ret), 0);
 }
+
+// Tests messagepack command
+TEST_F(ElementTest, msgpack_command) {
+	ElementResponse resp;
+
+	// Start the command thread
+	pthread_t cmd_thread;
+	ASSERT_EQ(pthread_create(&cmd_thread, NULL, command_element, NULL), 0);
+
+	// Wait until the command element is alive
+	while (true) {
+		std::vector<std::string> elements;
+		ASSERT_EQ(element->getAllElements(elements), ATOM_NO_ERROR);
+		if (std::find(elements.begin(), elements.end(), "test_cmd") != elements.end()) {
+			break;
+		}
+		usleep(100000);
+	}
+
+	// Send it the command
+	std::stringstream buffer;
+	msgpack::pack(buffer, "hello");
+
+	ASSERT_EQ(element->sendCommand(resp, "test_cmd", "hello_msgpack", (uint8_t*)buffer.str().c_str(), (size_t)buffer.tellg()), ATOM_NO_ERROR);
+
+	std::string response;
+	msgpack::object_handle oh = msgpack::unpack(resp.getData().c_str(), resp.getDataLen());
+	msgpack::object deserialized = oh.get();
+	deserialized.convert(response);
+	ASSERT_EQ(response, "world");
+
+	// Wait for the command thread to finish
+	void *ret;
+	ASSERT_EQ(pthread_join(cmd_thread, &ret), 0);
+}
+
 
 // Tests command with an error response
 TEST_F(ElementTest, err_command) {

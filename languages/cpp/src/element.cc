@@ -452,6 +452,9 @@ int commandCB(
 	// Cast the user data into a command
 	Command *cmd = (Command *)user_data;
 
+	// Initialize the command
+	cmd->init();
+
 	// Run through the command functions
     if (!cmd->deserialize(data, data_len)) {
         *error_str = (char*)deserializeError;
@@ -474,13 +477,16 @@ int commandCB(
         goto done;
     }
 
+    // Clean up anything the command allocated
+    cmd->cleanup();
+
 	// If we had a successful handler call
-	if (!cmd->response.isError()) {
+	if (!cmd->response->isError()) {
 
 		// Copy over the data, if any
-		if (cmd->response.hasData()) {
-			*response = (uint8_t*)cmd->response.getDataPtr();
-			*response_len = cmd->response.getDataLen();
+		if (cmd->response->hasData()) {
+			*response = (uint8_t*)cmd->response->getDataPtr();
+			*response_len = cmd->response->getDataLen();
 		} else {
 			*response = NULL;
 			*response_len = 0;
@@ -488,10 +494,10 @@ int commandCB(
 
 	// Otherwise get the error string and log the error
 	} else {
-		*error_str = (char*)cmd->response.getErrorStrPtr();
+		*error_str = (char*)cmd->response->getErrorStrPtr();
 	}
 
-	error = cmd->response.getError();
+	error = cmd->response->getError();
 
 done:
 	if (error != 0) {
