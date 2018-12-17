@@ -38,13 +38,13 @@ ElementReadMap::~ElementReadMap()
 //
 ////////////////////////////////////////////////////////////////////////////////
 void ElementReadMap::addHandler(
-	std::string &element,
-	std::string &stream,
-	std::vector<std::string> &keys,
+	std::string element,
+	std::string stream,
+	std::vector<std::string> keys,
 	readHandlerFn fn,
 	void *user_data)
 {
-	handlers.emplace_back(element, stream, keys, fn, user_data);
+	handlers.emplace_back(std::move(element), std::move(stream), std::move(keys), fn, user_data);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -53,9 +53,9 @@ void ElementReadMap::addHandler(
 //
 ////////////////////////////////////////////////////////////////////////////////
 void ElementReadMap::addHandler(
-	std::string &element,
-	std::string &stream,
-	std::vector<std::string> &keys,
+	std::string element,
+	std::string stream,
+	std::vector<std::string> keys,
 	readHandlerFn fn)
 {
 	addHandler(element, stream, keys, fn, NULL);

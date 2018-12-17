@@ -29,6 +29,8 @@
 
 #define ELEMENT_INFINITE_COMMAND_LOOPS 0
 
+#define ELEMENT_INFINITE_READ_LOOPS 0
+
 namespace atom {
 
 // Entry value
@@ -96,6 +98,7 @@ class Element {
 	// Function for converting a readMap into element_entry_read_info
 	struct element_entry_read_info *readMapToEntryInfo(
 		ElementReadMap &m);
+
 	// Function for freeing entry info
 	void freeEntryInfo(
 		struct element_entry_read_info *info,
@@ -306,7 +309,8 @@ public:
 	// Reads entries from the passed streams and passes the
 	//	data onto the proper handlers
 	enum atom_error_t entryReadLoop(
-		ElementReadMap &m);
+		ElementReadMap &m,
+		int loops = ELEMENT_INFINITE_READ_LOOPS);
 
 	// Reads N entries from the stream, returning them in order from
 	//	newest to oldest. As such the most recent value is always
