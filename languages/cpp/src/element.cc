@@ -699,11 +699,10 @@ bool entryReadResponseCB(
 struct element_entry_read_info *Element::readMapToEntryInfo(
 	ElementReadMap &m)
 {
-	struct element_entry_read_info *read_infos;
-
 	// Need to fill out the read info.
 	size_t n_infos = m.getNumHandlers();
-	read_infos = (struct element_entry_read_info *)
+
+	struct element_entry_read_info *read_infos = (struct element_entry_read_info *)
 		malloc(n_infos * sizeof(struct element_entry_read_info));
 	assert(read_infos != NULL);
 
@@ -713,8 +712,8 @@ struct element_entry_read_info *Element::readMapToEntryInfo(
 
 		// First is element, second is stream, third
 		std::string &element = std::get<0>(handler);
-		read_infos[i].element = (element.size() > 0) ? element.c_str() : NULL;
-		read_infos[i].stream = std::get<1>(handler).c_str();
+		read_infos[i].element = (element.size() > 0) ? strdup(element.c_str()) : NULL;
+		read_infos[i].stream = strdup(std::get<1>(handler).c_str());
 
 		// Get the keys
 		auto keys = std::get<2>(handler);
@@ -727,7 +726,7 @@ struct element_entry_read_info *Element::readMapToEntryInfo(
 
 		// Fill in the kv items
 		for (size_t j = 0; j < n_keys; ++j) {
-			read_infos[i].kv_items[j].key = keys[j].c_str();
+			read_infos[i].kv_items[j].key = strdup(keys[j].c_str());
 			read_infos[i].kv_items[j].key_len = keys[j].size();
 		}
 
@@ -753,7 +752,16 @@ void Element::freeEntryInfo(
 	// And go ahead and free all of the info
 	if (info != NULL) {
 		for (size_t i = 0; i < n_infos; ++i) {
+			if (info[i].element != NULL) {
+				free((void*)info[i].element);
+			}
+			if (info[i].stream != NULL) {
+				free((void*)info[i].stream);
+			}
 			if (info[i].kv_items != NULL) {
+				for (size_t j = 0; j < info[i].n_kv_items; ++j) {
+					free((void*)info[i].kv_items[j].key);
+				}
 				free(info[i].kv_items);
 			}
 			if (info[i].user_data != NULL) {
@@ -770,20 +778,38 @@ void Element::freeEntryInfo(
 //
 ////////////////////////////////////////////////////////////////////////////////
 enum atom_error_t Element::entryReadLoop(
-	ElementReadMap &m)
+	ElementReadMap &m,
+	int n_loops)
 {
 	struct element_entry_read_info *read_infos = readMapToEntryInfo(m);
 	size_t n_infos = m.getNumHandlers();
 
 	// And now call element_entry_read_loop
 	redisContext *ctx = getContext();
-	enum atom_error_t err = element_entry_read_loop(
-		ctx,
-		elem,
-		read_infos,
-		n_infos,
-		true,
-		ELEMENT_ENTRY_READ_LOOP_FOREVER);
+
+	// And if we're looping infinitely
+	enum atom_error_t err;
+	if (n_loops == ELEMENT_INFINITE_READ_LOOPS) {
+		err = element_entry_read_loop(
+			ctx,
+			elem,
+			read_infos,
+			n_infos,
+			true,
+			ELEMENT_ENTRY_READ_LOOP_FOREVER);
+	} else {
+		for (size_t i = 0; i < n_infos; ++i) {
+			read_infos[i].items_to_read = n_loops;
+		}
+
+		err = element_entry_read_loop(
+			ctx,
+			elem,
+			read_infos,
+			n_infos,
+			false,
+			ELEMENT_ENTRY_READ_LOOP_FOREVER);
+	}
 
 	// Put the context back
 	releaseContext(ctx);

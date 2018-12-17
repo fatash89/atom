@@ -41,16 +41,16 @@ public:
 
 	// Add in a handler
 	void addHandler(
-		std::string &element,
-		std::string &stream,
-		std::vector<std::string> &keys,
+		std::string element,
+		std::string stream,
+		std::vector<std::string> keys,
 		readHandlerFn fn);
 
 	// Add in a handler with user data
 	void addHandler(
-		std::string &element,
-		std::string &stream,
-		std::vector<std::string> &keys,
+		std::string element,
+		std::string stream,
+		std::vector<std::string> keys,
 		readHandlerFn fn,
 		void *user_data);
 
