@@ -40,7 +40,7 @@ ifeq ($(TEST_FILTER),)
 endif
 
 # CFLAGS
-CFLAGS := -Wall -Werror -fPIC -I${INCLUDE_DIR} -I${HIREDIS_BUILD_DIR}/include/ -g
+CFLAGS := -std=c++11 -Wall -Werror -fPIC -I${INCLUDE_DIR} -I${HIREDIS_BUILD_DIR}/include/ -g
 
 #LDFLAGS
 LDFLAGS := -L${HIREDIS_BUILD_DIR}/lib -Wl,-rpath,${HIREDIS_BUILD_DIR}/lib -latom -lhiredis -lpthread
