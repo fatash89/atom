@@ -1,4 +1,5 @@
-FROM elementaryrobotics/atom-base:c3b43d5004c1a21bfed9cdefef73fc2902d8893a
+ARG BASE_IMAGE=elementaryrobotics/atom-base:2412f998eb0164403bef162a586bb0fe303441b1
+FROM $BASE_IMAGE
 
 # Want to copy over the contents of this repo to the code
 #	section so that we have the source
