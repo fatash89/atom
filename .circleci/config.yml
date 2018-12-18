@@ -15,6 +15,8 @@ jobs:
       # Info on where to push the build in Dockerhub
       DOCKERHUB_ORG: elementaryrobotics
       DOCKERHUB_ATOM_REPO: atom
+      DOCKERHUB_ATOM_CUDA_9_REPO: atom-cuda-9
+      DOCKERHUB_ATOM_CUDA_10_REPO : atom-cuda-10
       DOCKERHUB_NUCLEUS_REPO: nucleus
 
       # Name of the service in docker-compose.yml
@@ -74,6 +76,17 @@ jobs:
           path: /tmp/valgrind.log
           destination: valgrind.log
 
+      #
+      # Build for cuda 9 and 10
+      #
+      - run:
+          name: Build for cuda 9
+          command: docker build -f Dockerfile-atom --build-arg BASE_IMAGE=atom-cuda-9-base -t ${DOCKERHUB_ATOM_CUDA_9_REPO} .
+      - run:
+          name: Build for cuda 10
+          command: docker build -f Dockerfile-atom --build-arg BASE_IMAGE=atom-cuda-10-base -t ${DOCKERHUB_ATOM_CUDA_10_REPO} .
+
+
       # Push the image back to DockerHub, either under a "development" tag
       # or under a master tag
       #
@@ -89,6 +102,18 @@ jobs:
               docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
               docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:latest
 
+              # Tag and push atom for cuda 9
+              docker tag ${DOCKERHUB_ATOM_CUDA_9_REPO} ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_9_REPO}:master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
+              docker tag ${DOCKERHUB_ATOM_CUDA_9_REPO} ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_9_REPO}:latest
+              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_9_REPO}:master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
+              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_9_REPO}:latest
+
+              # Tag and push atom for cuda 10
+              docker tag ${DOCKERHUB_ATOM_CUDA_10_REPO} ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}:master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
+              docker tag ${DOCKERHUB_ATOM_CUDA_10_REPO} ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}:latest
+              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}:master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
+              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}:latest
+
               # Tag and push nucleus
               docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME}:latest ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
               docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME}:latest ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:latest
@@ -100,6 +125,14 @@ jobs:
               # Tag and push atom
               docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_ATOM_SERVICE_NAME}:latest ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
               docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
+
+              # Tag and push atom for cuda 9
+              docker tag ${DOCKERHUB_ATOM_CUDA_9_REPO} ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_9_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
+              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_9_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
+
+              # Tag and push atom for cuda 10
+              docker tag ${DOCKERHUB_ATOM_CUDA_10_REPO} ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
+              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
 
               # Tag and push nucleus
               docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME}:latest ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}

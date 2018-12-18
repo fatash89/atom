@@ -1,4 +1,6 @@
-FROM elementaryrobotics/atom-base:c3b43d5004c1a21bfed9cdefef73fc2902d8893a
+ARG BASE_IMAGE_TAG=2412f998eb0164403bef162a586bb0fe303441b1
+ARG BASE_IMAGE=atom-base
+FROM elementaryrobotics/$BASE_IMAGE:$BASE_IMAGE_TAG
 
 # Want to copy over the contents of this repo to the code
 #	section so that we have the source
@@ -17,7 +19,7 @@ RUN python3 setup.py install
 
 # Need to first build hiredis
 WORKDIR /atom/languages/c/third-party/hiredis
-RUN make clean && make && make install
+RUN make clean && make && make install LIBRARY_PATH=lib
 
 # And build the C library
 WORKDIR /atom/languages/c

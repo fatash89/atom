@@ -1,4 +1,6 @@
-FROM ubuntu:18.04
+
+ARG BASE_IMAGE=ubuntu:18.04
+FROM $BASE_IMAGE
 
 # Noninteractive frontend
 ARG DEBIAN_FRONTEND=noninteractive
@@ -9,22 +11,6 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update -y
 RUN apt-get install -y --no-install-recommends apt-utils
 RUN apt-get install -y git python3-minimal python3-pip autoconf libtool
-
-#
-# Clone and install protobuf
-#
-WORKDIR /tmp
-RUN git clone https://github.com/protocolbuffers/protobuf.git
-WORKDIR /tmp/protobuf
-RUN git checkout v3.6.1
-RUN git submodule update --init --recursive
-
-#
-# Install protobuf compiler and libraries
-#
-RUN ./autogen.sh && ./configure && make -j16 && make install
-WORKDIR /tmp/protobuf/python
-RUN python3 setup.py build --cpp_implementation && python3 setup.py install --cpp_implementation
 
 #
 # Install googletest
