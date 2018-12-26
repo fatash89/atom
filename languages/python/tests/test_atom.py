@@ -127,13 +127,13 @@ class TestAtom:
         def entry_write_loop(responder, stream_name, data):
             # Wait until both responders and the caller are ready
             while -1 not in entries or -2 not in entries:
-                responder.entry_write(stream_name, {"data": data-2})
+                responder.entry_write(stream_name, {"value": data-2}, serialize=True)
             for i in range(10):
-                responder.entry_write(stream_name, {"data": data})
+                responder.entry_write(stream_name, {"value": data}, serialize=True)
                 data += 2
 
         def add_entries(data):
-            entries.add(int(data[b"data"].decode()))
+            entries.add(data["value"])
 
         proc_responder_0 = Thread(target=entry_write_loop, args=(responder_0, "stream_0", 0,))
         proc_responder_1 = Thread(target=entry_write_loop, args=(responder_1, "stream_1", 1,))
@@ -142,7 +142,7 @@ class TestAtom:
             StreamHandler("responder_0", "stream_0", add_entries),
             StreamHandler("responder_1", "stream_1", add_entries),
         ]
-        thread_caller = Thread(target=caller.entry_read_loop, args=(stream_handlers,), daemon=True)
+        thread_caller = Thread(target=caller.entry_read_loop, args=(stream_handlers, None, 1000, True,), daemon=True)
         thread_caller.start()
         proc_responder_0.start()
         proc_responder_1.start()

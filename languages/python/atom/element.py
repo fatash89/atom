@@ -5,6 +5,7 @@ from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESP
 from atom.config import ATOM_COMMAND_UNSUPPORTED, ATOM_CALLBACK_FAILED, ATOM_USER_ERRORS_BEGIN
 from atom.messages import Cmd, Response, StreamHandler
 from atom.messages import Acknowledge, Entry, Response, Log, LogLevel
+from msgpack import packb, unpackb
 from os import uname
 from sys import exit
 
@@ -141,6 +142,23 @@ class Element:
             else:
                 decoded_entry[k_str] = entry[k]
         return decoded_entry
+
+    def _deserialize_entry(self, entry):
+        """
+        Deserializes the binary data of the entry and puts the keys and fields of the data into the entry.
+
+        Args:
+            entry (dict): The entry in dictionary form to deserialize with data as key 'bin_data'.
+        Returns:
+            The deserialized entry as a dictionary.
+        """
+        if "bin_data" not in entry:
+            raise TypeError("Received data not serialized by atom! Cannot deserialize.")
+        data = unpackb(entry["bin_data"], raw=False)
+        del entry["bin_data"]
+        for k, v in data.items():
+            entry[k] = v
+        return entry
 
     def get_all_elements(self):
         """
@@ -304,7 +322,7 @@ class Element:
         self.log(LogLevel.ERR, err_str)
         return vars(Response(err_code=ATOM_COMMAND_NO_RESPONSE, err_str=err_str))
 
-    def entry_read_loop(self, stream_handlers, n_loops=None, timeout=MAX_BLOCK):
+    def entry_read_loop(self, stream_handlers, n_loops=None, timeout=MAX_BLOCK, deserialize=False):
         """
         Listens to streams and pass any received entry to corresponding handler.
 
@@ -312,6 +330,7 @@ class Element:
             stream_handlers (list of messages.StreamHandler):
             n_loops (int): Number of times to send the stream entry to the handlers.
             timeout (int): How long to block on the stream. If surpassed, the function returns.
+            deserialize (bool, optional): Whether or not to deserialize the entries using msgpack.
         """
         if n_loops is None:
             # Create an infinite loop
@@ -331,12 +350,16 @@ class Element:
             stream_entries = self._rclient.xread(block=timeout, **streams)
             if stream_entries is None:
                 return
-            for stream, entries in stream_entries.items():
-                for uid, entry in entries:
+            for stream, uid_entries in stream_entries.items():
+                for uid, entry in uid_entries:
                     streams[stream] = uid
+                    entry = self._decode_entry(entry)
+                    entry = self._deserialize_entry(entry) if deserialize else entry
+                    if "timestamp" not in entry or not entry["timestamp"]:
+                        entry["timestamp"] = uid.decode()
                     stream_handler_map[stream](entry)
 
-    def entry_read_n(self, element_name, stream_name, n):
+    def entry_read_n(self, element_name, stream_name, n, deserialize=False):
         """
         Gets the n most recent entries from the specified stream.
 
@@ -344,7 +367,7 @@ class Element:
             element_name (str): Name of the element to get the entry from.
             stream_name (str): Name of the stream to get the entry from.
             n (int): Number of entries to get.
-
+            deserialize (bool, optional): Whether or not to deserialize the entries using msgpack.
         Returns:
             List of dicts containing the data of the entries
         """
@@ -353,12 +376,13 @@ class Element:
         uid_entries = self._rclient.xrevrange(stream_id, count=n)
         for uid, entry in uid_entries:
             entry = self._decode_entry(entry)
+            entry = self._deserialize_entry(entry) if deserialize else entry
             if "timestamp" not in entry or not entry["timestamp"]:
-                entry["timestamp"] = uid
+                entry["timestamp"] = uid.decode()
             entries.append(entry)
         return entries
 
-    def entry_read_since(self, element_name, stream_name, last_id="0", n=None, block=None):
+    def entry_read_since(self, element_name, stream_name, last_id="0", n=None, block=None, deserialize=False):
         """
         Read entries from a stream since the last_id.
 
@@ -368,6 +392,7 @@ class Element:
             last_id (str, optional): Time from which to start get entries from. If '0', get all entries.
             n (int, optional): Number of entries to get. If None, get all.
             block (int, optional): Time (ms) to block on the read. If None, don't block.
+            deserialize (bool, optional): Whether or not to deserialize the entries using msgpack.
         """
         streams, entries = {}, []
         stream_id = self._make_stream_id(element_name, stream_name)
@@ -377,12 +402,13 @@ class Element:
             return entries
         for uid, entry in stream_entries[stream_id]:
             entry = self._decode_entry(entry)
+            entry = self._deserialize_entry(entry) if deserialize else entry
             if "timestamp" not in entry or not entry["timestamp"]:
-                entry["timestamp"] = uid
+                entry["timestamp"] = uid.decode()
             entries.append(entry)
         return entries
 
-    def entry_write(self, stream_name, field_data_map, timestamp="", maxlen=STREAM_LEN):
+    def entry_write(self, stream_name, field_data_map, timestamp="", maxlen=STREAM_LEN, serialize=False):
         """
         Creates element's stream if it does not exist.
         Adds the fields and data to a Entry and puts it in the element's stream.
@@ -392,11 +418,17 @@ class Element:
             field_data_map (dict): Dict which creates the Entry. See messages.Entry for more usage.
             timestamp (str, optional): Timestamp of when the data was created.
             maxlen (int, optional): The maximum number of data to keep in the stream.
+            serialize (bool, optional): Whether or not to serialize the entry using msgpack.
         """
         self.streams.add(stream_name)
         entry = Entry(field_data_map, timestamp)
-        self._pipe.xadd(
-            self._make_stream_id(self.name, stream_name), maxlen=maxlen, **vars(entry))
+        if serialize:
+            entryb = packb(vars(entry), use_bin_type=True)
+            self._pipe.xadd(
+                self._make_stream_id(self.name, stream_name), maxlen=maxlen, bin_data=entryb)
+        else:
+            self._pipe.xadd(
+                self._make_stream_id(self.name, stream_name), maxlen=maxlen, **vars(entry))
         self._pipe.execute()
 
     def log(self, level, msg, stdout=True):
