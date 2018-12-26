@@ -152,10 +152,11 @@ class Element:
         Returns:
             The deserialized entry as a dictionary.
         """
-        if "bin_data" not in entry:
+        try:
+            data = unpackb(entry["bin_data"], raw=False)
+            del entry["bin_data"]
+        except TypeError or KeyError:
             raise TypeError("Received data not serialized by atom! Cannot deserialize.")
-        data = unpackb(entry["bin_data"], raw=False)
-        del entry["bin_data"]
         for k, v in data.items():
             entry[k] = v
         return entry
