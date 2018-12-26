@@ -73,6 +73,18 @@ class TestAtom:
         assert entries[0]["data"] == b"9"
         assert entries[-1]["data"] == b"5"
 
+    def test_add_entry_and_get_n_most_recent_serialized(self, caller, responder):
+        """
+        Adds 10 entries to the responder's stream and makes sure that the
+        proper values are returned from get_n_most_recent.
+        """
+        for i in range(10):
+            responder.entry_write("test_stream_serialized", {"data": i}, serialize=True)
+        entries = caller.entry_read_n("test_responder", "test_stream_serialized", 5, deserialize=True)
+        assert len(entries) == 5
+        assert entries[0]["data"] == 9
+        assert entries[-1]["data"] == 5
+
     def test_add_command(self, responder):
         """
         Ensures that a command can be added to a responder.
@@ -113,6 +125,23 @@ class TestAtom:
         proc.join()
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == b"1"
+
+    def test_command_response_serialized(self, caller, responder):
+        """
+        Element sends command and responder returns response.
+        Tests expected use case of command response.
+        """
+        def add_1_serialized(data):
+            return Response(data+1, serialize=True)
+
+        responder.command_add("add_1", add_1_serialized, deserialize=True)
+        proc = Process(target=responder.command_loop)
+        proc.start()
+        response = caller.command_send("test_responder", "add_1", 0, serialize=True, deserialize=True)
+        proc.terminate()
+        proc.join()
+        assert response["err_code"] == ATOM_NO_ERROR
+        assert response["data"] == 1
 
     def test_listen_on_streams(self, caller):
         """

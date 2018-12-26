@@ -189,7 +189,7 @@ class Element:
         ]
         return streams
 
-    def command_add(self, name, handler, timeout=RESPONSE_TIMEOUT):
+    def command_add(self, name, handler, timeout=RESPONSE_TIMEOUT, deserialize=False):
         """
         Adds a command to the element for another element to call.
 
@@ -197,10 +197,11 @@ class Element:
             name (str): Name of the command.
             handler (callable): Function to call given the command name.
             timeout (int, optional): Time for the caller to wait for the command to finish.
+            deserialize (bool, optional): Whether or not to deserialize the data using msgpack before passing it to the handler.
         """
         if not callable(handler):
             raise TypeError("Passed in handler is not a function!")
-        self.handler_map[name] = handler
+        self.handler_map[name] = {"handler": handler, "deserialize": deserialize}
         self.timeouts[name] = timeout
 
     def command_loop(self):
@@ -248,7 +249,8 @@ class Element:
                     err_code=ATOM_COMMAND_UNSUPPORTED, err_str="Unsupported command.")
             else:
                 try:
-                    response = self.handler_map[cmd_name](data)
+                    data = unpackb(data, raw=False) if self.handler_map[cmd_name]["deserialize"] else data
+                    response = self.handler_map[cmd_name]["handler"](data)
                     if not isinstance(response, Response):
                         raise TypeError(f"Return type of {cmd_name} is not of type Response")
                     # Add ATOM_USER_ERRORS_BEGIN to err_code to map to element error range
@@ -263,7 +265,7 @@ class Element:
             self._pipe.xadd(self._make_response_id(caller), maxlen=STREAM_LEN, **vars(response))
             self._pipe.execute()
 
-    def command_send(self, element_name, cmd_name, data, block=True):
+    def command_send(self, element_name, cmd_name, data, block=True, serialize=False, deserialize=False):
         """
         Sends command to element and waits for acknowledge.
         When acknowledge is received, waits for timeout from acknowledge or until response is received.
@@ -273,11 +275,14 @@ class Element:
             cmd_name (str): Name of the command to execute of element_name.
             data: Entry to be passed to the function specified by cmd_name.
             block (bool): Wait for the response before returning from the function.
+            serialize (bool, optional): Whether or not to serialize the data using msgpack before sending it to the command.
+            deserialize (bool, optional): Whether or not to deserialize the data in the response using msgpack.
 
         Returns:
-            messages.Response
+            A dictionary of the response from the command.
         """
         # Send command to element's command stream
+        data = packb(data, use_bin_type=True) if serialize else data
         cmd = Cmd(self.name, cmd_name, data)
         self._pipe.xadd(self._make_command_id(element_name), maxlen=STREAM_LEN, **vars(cmd))
         cmd_id = self._pipe.execute()[-1].decode()
@@ -315,7 +320,12 @@ class Element:
                 err_str = response[b"err_str"].decode() if b"err_str" in response else ""
                 if err_code != ATOM_NO_ERROR:
                     self.log(LogLevel.ERR, err_str)
-                return vars(Response(data=response.get(b"data", ""), err_code=err_code, err_str=err_str))
+                response_data = response.get(b"data", "")
+                try:
+                    response_data = unpackb(response_data, raw=False) if deserialize else response_data
+                except TypeError:
+                    self.log(LogLevel.WARNING, "Could not deserialize response.")
+                return vars(Response(data=response_data, err_code=err_code, err_str=err_str))
 
         # Proper response was not in responses
         err_str = f"Did not receive response from {element_name}."
@@ -368,6 +378,7 @@ class Element:
             stream_name (str): Name of the stream to get the entry from.
             n (int): Number of entries to get.
             deserialize (bool, optional): Whether or not to deserialize the entries using msgpack.
+
         Returns:
             List of dicts containing the data of the entries
         """
