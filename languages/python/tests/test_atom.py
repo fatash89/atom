@@ -73,6 +73,18 @@ class TestAtom:
         assert entries[0]["data"] == b"9"
         assert entries[-1]["data"] == b"5"
 
+    def test_add_entry_and_get_n_most_recent_serialized(self, caller, responder):
+        """
+        Adds 10 entries to the responder's stream and makes sure that the
+        proper values are returned from get_n_most_recent.
+        """
+        for i in range(10):
+            responder.entry_write("test_stream_serialized", {"data": i}, serialize=True)
+        entries = caller.entry_read_n("test_responder", "test_stream_serialized", 5, deserialize=True)
+        assert len(entries) == 5
+        assert entries[0]["data"] == 9
+        assert entries[-1]["data"] == 5
+
     def test_add_command(self, responder):
         """
         Ensures that a command can be added to a responder.
@@ -114,6 +126,23 @@ class TestAtom:
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == b"1"
 
+    def test_command_response_serialized(self, caller, responder):
+        """
+        Element sends command and responder returns response.
+        Tests expected use case of command response.
+        """
+        def add_1_serialized(data):
+            return Response(data+1, serialize=True)
+
+        responder.command_add("add_1", add_1_serialized, deserialize=True)
+        proc = Process(target=responder.command_loop)
+        proc.start()
+        response = caller.command_send("test_responder", "add_1", 0, serialize=True, deserialize=True)
+        proc.terminate()
+        proc.join()
+        assert response["err_code"] == ATOM_NO_ERROR
+        assert response["data"] == 1
+
     def test_listen_on_streams(self, caller):
         """
         Creates two responders publishing entries on their respective streams with
@@ -127,13 +156,13 @@ class TestAtom:
         def entry_write_loop(responder, stream_name, data):
             # Wait until both responders and the caller are ready
             while -1 not in entries or -2 not in entries:
-                responder.entry_write(stream_name, {"data": data-2})
+                responder.entry_write(stream_name, {"value": data-2}, serialize=True)
             for i in range(10):
-                responder.entry_write(stream_name, {"data": data})
+                responder.entry_write(stream_name, {"value": data}, serialize=True)
                 data += 2
 
         def add_entries(data):
-            entries.add(int(data[b"data"].decode()))
+            entries.add(data["value"])
 
         proc_responder_0 = Thread(target=entry_write_loop, args=(responder_0, "stream_0", 0,))
         proc_responder_1 = Thread(target=entry_write_loop, args=(responder_1, "stream_1", 1,))
@@ -142,7 +171,7 @@ class TestAtom:
             StreamHandler("responder_0", "stream_0", add_entries),
             StreamHandler("responder_1", "stream_1", add_entries),
         ]
-        thread_caller = Thread(target=caller.entry_read_loop, args=(stream_handlers,), daemon=True)
+        thread_caller = Thread(target=caller.entry_read_loop, args=(stream_handlers, None, 1000, True,), daemon=True)
         thread_caller.start()
         proc_responder_0.start()
         proc_responder_1.start()

@@ -1,5 +1,6 @@
 from collections import namedtuple
 from enum import Enum
+from msgpack import packb
 
 
 class Cmd:
@@ -22,7 +23,7 @@ class Cmd:
 
 
 class Response:
-    def __init__(self, data="", err_code=0, err_str=""):
+    def __init__(self, data="", err_code=0, err_str="", serialize=False):
         """
         Specifies the format of a response that an element returns from a command.
 
@@ -30,12 +31,13 @@ class Response:
             data (optional): The data returned from the element's command.
             err_code (int, optional): The error code if error, otherwise 0.
             err_str (str, optional): The error message, if any.
+            serialize (bool, optional): Whether or not to serialize data using msgpack.
         """
         if not isinstance(err_code, int):
             raise TypeError("err_code must be an int")
         if not isinstance(err_str, str):
             raise TypeError("err_str must be a str")
-        self.data = data
+        self.data = packb(data, use_bin_type=True) if serialize else data
         self.err_code = err_code
         self.err_str = err_str
 
