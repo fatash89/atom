@@ -123,8 +123,7 @@ class Element:
 
     def _decode_entry(self, entry):
         """
-        Decodes the binary keys of an entry and the binary timestamp.
-        Leaves the values of non-timestamp fields untouched as they may be intentionally binary.
+        Decodes the binary keys of an entry
 
         Args:
             entry (dict): The entry in dictionary form to decode.
@@ -137,28 +136,24 @@ class Element:
                 k_str = k.decode()
             else:
                 k_str = k
-            if k_str == "timestamp":
-                decoded_entry[k_str] = entry[k].decode()
-            else:
-                decoded_entry[k_str] = entry[k]
+            decoded_entry[k_str] = entry[k]
         return decoded_entry
 
     def _deserialize_entry(self, entry):
         """
-        Deserializes the binary data of the entry and puts the keys and fields of the data into the entry.
+        Deserializes the binary data of the entry.
 
         Args:
-            entry (dict): The entry in dictionary form to deserialize with data as key 'bin_data'.
+            entry (dict): The entry in dictionary form to deserialize.
         Returns:
             The deserialized entry as a dictionary.
         """
-        try:
-            data = unpackb(entry["bin_data"], raw=False)
-            del entry["bin_data"]
-        except TypeError or KeyError:
-            raise TypeError("Received data not serialized by atom! Cannot deserialize.")
-        for k, v in data.items():
-            entry[k] = v
+        for k, v in entry.items():
+            if type(v) is bytes:
+                try:
+                    entry[k] = unpackb(v, raw=False)
+                except TypeError:
+                    pass
         return entry
 
     def get_all_elements(self):
@@ -366,8 +361,7 @@ class Element:
                     streams[stream] = uid
                     entry = self._decode_entry(entry)
                     entry = self._deserialize_entry(entry) if deserialize else entry
-                    if "timestamp" not in entry or not entry["timestamp"]:
-                        entry["timestamp"] = uid.decode()
+                    entry["id"] = uid.decode()
                     stream_handler_map[stream](entry)
 
     def entry_read_n(self, element_name, stream_name, n, deserialize=False):
@@ -389,8 +383,7 @@ class Element:
         for uid, entry in uid_entries:
             entry = self._decode_entry(entry)
             entry = self._deserialize_entry(entry) if deserialize else entry
-            if "timestamp" not in entry or not entry["timestamp"]:
-                entry["timestamp"] = uid.decode()
+            entry["id"] = uid.decode()
             entries.append(entry)
         return entries
 
@@ -415,12 +408,11 @@ class Element:
         for uid, entry in stream_entries[stream_id]:
             entry = self._decode_entry(entry)
             entry = self._deserialize_entry(entry) if deserialize else entry
-            if "timestamp" not in entry or not entry["timestamp"]:
-                entry["timestamp"] = uid.decode()
+            entry["id"] = uid.decode()
             entries.append(entry)
         return entries
 
-    def entry_write(self, stream_name, field_data_map, timestamp="", maxlen=STREAM_LEN, serialize=False):
+    def entry_write(self, stream_name, field_data_map, maxlen=STREAM_LEN, serialize=False):
         """
         Creates element's stream if it does not exist.
         Adds the fields and data to a Entry and puts it in the element's stream.
@@ -428,19 +420,15 @@ class Element:
         Args:
             stream_name (str): The stream to add the data to.
             field_data_map (dict): Dict which creates the Entry. See messages.Entry for more usage.
-            timestamp (str, optional): Timestamp of when the data was created.
             maxlen (int, optional): The maximum number of data to keep in the stream.
             serialize (bool, optional): Whether or not to serialize the entry using msgpack.
         """
         self.streams.add(stream_name)
-        entry = Entry(field_data_map, timestamp)
         if serialize:
-            entryb = packb(vars(entry), use_bin_type=True)
-            self._pipe.xadd(
-                self._make_stream_id(self.name, stream_name), maxlen=maxlen, bin_data=entryb)
-        else:
-            self._pipe.xadd(
-                self._make_stream_id(self.name, stream_name), maxlen=maxlen, **vars(entry))
+            for k, v in field_data_map.items():
+                field_data_map[k] = packb(v, use_bin_type=True)
+        entry = Entry(field_data_map)
+        self._pipe.xadd(self._make_stream_id(self.name, stream_name), maxlen=maxlen, **vars(entry))
         self._pipe.execute()
 
     def log(self, level, msg, stdout=True):
