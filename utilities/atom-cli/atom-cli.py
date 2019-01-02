@@ -13,7 +13,6 @@ from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.styles import Style
 from pyfiglet import Figlet
-import msgpack
 
 class AtomCLI:
     def __init__(self):
@@ -61,7 +60,7 @@ class AtomCLI:
                 Sends a command to an element and displays the response.
 
                 Usage:
-                  command <element> <element_command> [<data>]"""),
+                  command <element> <element_command> [\"<data>\"]"""),
 
             "cmd_read": cleandoc("""
                 Displays the entries of an element's stream.
@@ -107,6 +106,8 @@ class AtomCLI:
             # Exit on CTRL+D
             except EOFError:
                 self.cmd_exit()
+            except Exception as e:
+                print(str(type(e)) + " " + str(e))
 
     def print_atom_os_logo(self):
         f = Figlet(font="slant")
@@ -122,13 +123,11 @@ class AtomCLI:
         for k, v in record.items():
             if type(k) is bytes:
                 k = k.decode()
-            try:
-                if self.use_msgpack:
-                    v = str(msgpack.unpackb(v, use_list=False))
-                else:
+            if not self.use_msgpack:
+                try:
                     v = v.decode()
-            except:
-                v = str(v)
+                except:
+                    v = str(v)
             formatted_record[k] = v
         sorted_record = {k: v for k, v in sorted(formatted_record.items(), key=lambda x: x[0])}
         return json.dumps(sorted_record, indent=self.indent)
@@ -227,7 +226,7 @@ class AtomCLI:
             elements (list): The elements on which to filter the logs for.
         """
         records = []
-        all_records = self.element.entry_read_since(None, "log", start_time)
+        all_records = self.element.entry_read_since(None, "log", start_time, deserialize=self.use_msgpack)
         for record in all_records:
             if not elements or record["element"].decode() in elements:
                 records.append(record)
@@ -246,7 +245,7 @@ class AtomCLI:
             streams.append(self.element._make_response_id(element))
             streams.append(self.element._make_command_id(element))
         for stream in streams:
-            cur_records = self.element.entry_read_since(None, stream, start_time)
+            cur_records = self.element.entry_read_since(None, stream, start_time, deserialize=self.use_msgpack)
             for record in cur_records:
                 record["type"], record["element"] = stream.split(":")
                 records.append(record)
@@ -266,19 +265,16 @@ class AtomCLI:
         element_name = args[0]
         command_name = args[1]
         if len(args) == 3:
+            data = args[2]
             if self.use_msgpack:
                 try:
-                    json_data = json.loads(args[2])
+                    data = eval(data)
                 except:
-                    print("\nCould not load user data to JSON.")
+                    print("Received improperly formatted data!")
                     return
-
-                data = msgpack.packb(json_data, use_bin_type=True)
-            else:
-                data = args[2]
         else:
             data = ""
-        resp = self.element.command_send(element_name, command_name, data)
+        resp = self.element.command_send(element_name, command_name, data, serialize=self.use_msgpack, deserialize=self.use_msgpack)
         print(self.format_record(resp))
 
     def cmd_read(self, *args):
@@ -306,7 +302,7 @@ class AtomCLI:
         last_timestamp = None
         while True:
             start_time = time.time()
-            entries = self.element.entry_read_n(element_name, stream_name, 1)
+            entries = self.element.entry_read_n(element_name, stream_name, 1, deserialize=self.use_msgpack)
             if not entries:
                 print(f"No data from {element_name} {stream_name}.")
                 return
