@@ -250,8 +250,8 @@ class AtomCLI:
             for record in cur_records:
                 record["type"], record["element"] = stream.split(":")
                 records.append(record)
-        # Sort records by timestamp. If same timestamp, put commands before responses
-        return sorted(records, key=lambda x: (x["timestamp"], x["type"]))
+        # Sort records by id. If same id, put commands before responses
+        return sorted(records, key=lambda x: (x["id"], x["type"]))
 
     def cmd_command(self, *args):
         usage = self.usage["cmd_command"]
@@ -311,7 +311,7 @@ class AtomCLI:
                 print(f"No data from {element_name} {stream_name}.")
                 return
             entry = entries[0]
-            timestamp = entry["timestamp"]
+            timestamp = entry["id"]
             # Only print the entry if it is different from the previous one
             if timestamp != last_timestamp:
                 last_timestamp = timestamp

@@ -89,19 +89,14 @@ class InternalResponse(Response):
 
 
 class Entry:
-    def __init__(self, field_data_map, timestamp):
+    def __init__(self, field_data_map):
         """
         Formats the data published on a stream from an element.
 
         Args:
             field_data_map (dict): Dict where the keys are the names of the fields
                 and the values are the data of the corresponding field.
-            timestamp (str): Timestamp of when the data was created.
         """
-        if not isinstance(timestamp, str):
-            raise TypeError("timestamp must be a str")
-        self.timestamp = timestamp
-
         for field, data in field_data_map.items():
             if not isinstance(field, str):
                 raise TypeError(f"field {field} must be a str")
