@@ -1,3 +1,3 @@
 #!/bin/bash
 
-python3 example_python_element.py
+python3 atombot.py
