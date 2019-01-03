@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 import json
 import time
-import shlex
 import sys
 from atom import Element
 from inspect import cleandoc
@@ -60,7 +59,7 @@ class AtomCLI:
                 Sends a command to an element and displays the response.
 
                 Usage:
-                  command <element> <element_command> [\"<data>\"]"""),
+                  command <element> <element_command> [<data>]"""),
 
             "cmd_read": cleandoc("""
                 Displays the entries of an element's stream.
@@ -91,8 +90,7 @@ class AtomCLI:
         """
         while True:
             try:
-                inp = shlex.split(
-                    self.session.prompt("\n> ", auto_suggest=AutoSuggestFromHistory()))
+                inp = self.session.prompt("\n> ", auto_suggest=AutoSuggestFromHistory()).split(" ")
                 if not inp:
                     continue
                 command, args = inp[0], inp[1:]
@@ -258,17 +256,13 @@ class AtomCLI:
             print(usage)
             print("\nToo few arguments.")
             return
-        if len(args) > 3:
-            print(usage)
-            print("\nToo many arguments.")
-            return
         element_name = args[0]
         command_name = args[1]
-        if len(args) == 3:
-            data = args[2]
+        if len(args) >= 3:
+            data = str(" ".join(args[2:]))
             if self.use_msgpack:
                 try:
-                    data = eval(data)
+                    data = json.loads(data)
                 except:
                     print("Received improperly formatted data!")
                     return
