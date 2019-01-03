@@ -11,7 +11,7 @@ services:
         volume:
           nocopy: true
 
-  element:
+  atombot:
     build:
       context: .
       dockerfile: Dockerfile
