@@ -25,6 +25,10 @@ services:
           nocopy: true
     depends_on:
       - "nucleus"
+    ports:
+      - "6080:6080"
+    environment:
+      - "GRAPHICS=1"
     command: tail -f /dev/null
 
 volumes:
