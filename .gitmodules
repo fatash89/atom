@@ -1,3 +1,6 @@
 [submodule "languages/c/third-party/hiredis/hiredis"]
 	path = languages/c/third-party/hiredis/hiredis
 	url = https://github.com/redis/hiredis
+[submodule "third-party/docker-opengl"]
+	path = third-party/docker-opengl
+	url = https://github.com/thewtex/docker-opengl

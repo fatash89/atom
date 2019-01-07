@@ -1,4 +1,4 @@
-ARG BASE_IMAGE_TAG=2412f998eb0164403bef162a586bb0fe303441b1
+ARG BASE_IMAGE_TAG=6f7c91da63bfc40db882b1056ece52e7c7dc5c00
 ARG BASE_IMAGE=atom-base
 FROM elementaryrobotics/$BASE_IMAGE:$BASE_IMAGE_TAG
 
@@ -39,3 +39,6 @@ WORKDIR /atom/utilities/atom-cli
 RUN pip3 install -r requirements.txt
 RUN cp atom-cli.py /usr/bin/atom-cli
 RUN chmod +x /usr/bin/atom-cli
+
+# Change working directory back to atom location
+WORKDIR /atom
