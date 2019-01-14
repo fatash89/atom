@@ -278,7 +278,7 @@ class Element:
             A dictionary of the response from the command.
         """
         # Send command to element's command stream
-        data = packb(data, use_bin_type=True) if serialize else data
+        data = packb(data, use_bin_type=True) if serialize and (data != "") else data
         cmd = Cmd(self.name, cmd_name, data)
         self._pipe.xadd(self._make_command_id(element_name), maxlen=STREAM_LEN, **vars(cmd))
         cmd_id = self._pipe.execute()[-1].decode()
@@ -318,7 +318,7 @@ class Element:
                     self.log(LogLevel.ERR, err_str)
                 response_data = response.get(b"data", "")
                 try:
-                    response_data = unpackb(response_data, raw=False) if deserialize else response_data
+                    response_data = unpackb(response_data, raw=False) if deserialize and (len(response_data) != 0) else response_data
                 except TypeError:
                     self.log(LogLevel.WARNING, "Could not deserialize response.")
                 return vars(Response(data=response_data, err_code=err_code, err_str=err_str))
