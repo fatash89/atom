@@ -923,31 +923,31 @@ void reader_element(int &i)
 }
 
 // Tests readLoop API
-TEST_F(ElementTest, readLoop) {
+// TEST_F(ElementTest, readLoop) {
 
-	// Make the reader thread
-	int count = 0;
-	std::thread reader(reader_element, std::ref(count));
+// 	// Make the reader thread
+// 	int count = 0;
+// 	std::thread reader(reader_element, std::ref(count));
 
-	// Wait until the reader element is alive
-	while (true) {
-		std::vector<std::string> elements;
-		ASSERT_EQ(element->getAllElements(elements), ATOM_NO_ERROR);
-		if (std::find(elements.begin(), elements.end(), "reader") != elements.end()) {
-			break;
-		}
-		usleep(100000);
-	}
+// 	// Wait until the reader element is alive
+// 	while (true) {
+// 		std::vector<std::string> elements;
+// 		ASSERT_EQ(element->getAllElements(elements), ATOM_NO_ERROR);
+// 		if (std::find(elements.begin(), elements.end(), "reader") != elements.end()) {
+// 			break;
+// 		}
+// 		usleep(100000);
+// 	}
 
-	// Publish "foo" : "bar" on our "reader" stream
-	entry_data_t data;
-	data["foo"] = "bar";
-	for (int i = 0; i < 3; ++i) {
-		ASSERT_EQ(element->entryWrite("reader", data), ATOM_NO_ERROR);
-	}
+// 	// Publish "foo" : "bar" on our "reader" stream
+// 	entry_data_t data;
+// 	data["foo"] = "bar";
+// 	for (int i = 0; i < 3; ++i) {
+// 		ASSERT_EQ(element->entryWrite("reader", data), ATOM_NO_ERROR);
+// 	}
 
-	// Wait for the reader thread to finish up
-	reader.join();
+// 	// Wait for the reader thread to finish up
+// 	reader.join();
 
-	ASSERT_EQ(count, 3);
-}
+// 	ASSERT_EQ(count, 3);
+// }
