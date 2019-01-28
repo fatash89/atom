@@ -242,6 +242,10 @@ Element::~Element()
 
 	// Need to clean up all of the stream infos that we're publishing
 	for (auto const &x : streams) {
+		struct element_entry_write_info *info = x.second;
+		for (size_t i = 0; i < info->n_items; ++i) {
+			free((char*)info->items[i].key);
+		}
 		element_entry_write_cleanup(ctx, x.second);
 	}
 
@@ -975,6 +979,10 @@ enum atom_error_t Element::entryWrite(
 	{
 		// If the stream info exists we want to clean it up
 		if (exists != streams.end()) {
+			info = exists->second;
+			for (size_t i = 0; i < info->n_items; ++i) {
+				free((char*)info->items[i].key);
+			}
 			element_entry_write_cleanup(ctx, exists->second);
 		}
 
@@ -991,7 +999,7 @@ enum atom_error_t Element::entryWrite(
 		for (auto const &x: data) {
 
 			// Fill in the write info
-			info->items[idx].key = x.first.c_str();
+			info->items[idx].key = strdup(x.first.c_str());
 			info->items[idx].key_len = x.first.size();
 
 			// Increment the index
