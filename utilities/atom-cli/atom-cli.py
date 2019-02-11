@@ -224,9 +224,10 @@ class AtomCLI:
             elements (list): The elements on which to filter the logs for.
         """
         records = []
-        all_records = self.element.entry_read_since(None, "log", start_time, deserialize=self.use_msgpack)
+        all_records = self.element.entry_read_since(None, "log", start_time,deserialize=False)
         for record in all_records:
             if not elements or record["element"].decode() in elements:
+                record = { key:(value if isinstance(value,str) else value.decode()) for key,value in record.items() } # Decode strings only which are required to
                 records.append(record)
         return records
 
@@ -243,8 +244,9 @@ class AtomCLI:
             streams.append(self.element._make_response_id(element))
             streams.append(self.element._make_command_id(element))
         for stream in streams:
-            cur_records = self.element.entry_read_since(None, stream, start_time, deserialize=self.use_msgpack)
+            cur_records = self.element.entry_read_since(None, stream, start_time, deserialize=False)
             for record in cur_records:
+                record = { key:(value if isinstance(value,str) else value.decode()) for key,value in record.items() } # Decode strings only which are required to
                 record["type"], record["element"] = stream.split(":")
                 records.append(record)
         # Sort records by id. If same id, put commands before responses
