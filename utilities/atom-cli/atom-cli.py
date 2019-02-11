@@ -22,7 +22,7 @@ class AtomCLI:
         })
         self.session = PromptSession(style=self.style)
         self.print_atom_os_logo()
-        self.use_msgpack = False
+        self.use_msgpack = True
         self.cmd_map = {
             "help": self.cmd_help,
             "list": self.cmd_list,
