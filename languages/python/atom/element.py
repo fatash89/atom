@@ -245,7 +245,8 @@ class Element:
                     err_code=ATOM_COMMAND_UNSUPPORTED, err_str="Unsupported command.")
             else:
                 try:
-                    data = unpackb(data, raw=False) if self.handler_map[cmd_name]["deserialize"] else data
+                    data = unpackb(
+                        data, raw=False) if self.handler_map[cmd_name]["deserialize"] else data
                     response = self.handler_map[cmd_name]["handler"](data)
                     if not isinstance(response, Response):
                         raise TypeError(f"Return type of {cmd_name} is not of type Response")
@@ -261,7 +262,13 @@ class Element:
             self._pipe.xadd(self._make_response_id(caller), maxlen=STREAM_LEN, **vars(response))
             self._pipe.execute()
 
-    def command_send(self, element_name, cmd_name, data, block=True, serialize=False, deserialize=False):
+    def command_send(self,
+                     element_name,
+                     cmd_name,
+                     data,
+                     block=True,
+                     serialize=False,
+                     deserialize=False):
         """
         Sends command to element and waits for acknowledge.
         When acknowledge is received, waits for timeout from acknowledge or until response is received.
@@ -292,8 +299,9 @@ class Element:
             self.log(LogLevel.ERR, err_str)
             return vars(Response(err_code=ATOM_COMMAND_NO_ACK, err_str=err_str))
         for self.response_last_id, response in responses[self._make_response_id(self.name)]:
-            if response[b"element"].decode() == element_name and \
-            response[b"cmd_id"].decode() == cmd_id and b"timeout" in response:
+            if b"element" in response and response[b"element"].decode() == element_name \
+            and b"cmd_id" in response and response[b"cmd_id"].decode() == cmd_id \
+            and b"timeout" in response:
                 timeout = int(response[b"timeout"].decode())
                 break
 
@@ -310,15 +318,17 @@ class Element:
             self.log(LogLevel.ERR, err_str)
             return vars(Response(err_code=ATOM_COMMAND_NO_RESPONSE, err_str=err_str))
         for self.response_last_id, response in responses[self._make_response_id(self.name)]:
-            if response[b"element"].decode() == element_name and \
-            response[b"cmd_id"].decode() == cmd_id:
+            if b"element" in response and response[b"element"].decode() == element_name \
+            and b"cmd_id" in response and response[b"cmd_id"].decode() == cmd_id:
                 err_code = int(response[b"err_code"].decode())
                 err_str = response[b"err_str"].decode() if b"err_str" in response else ""
                 if err_code != ATOM_NO_ERROR:
                     self.log(LogLevel.ERR, err_str)
                 response_data = response.get(b"data", "")
                 try:
-                    response_data = unpackb(response_data, raw=False) if deserialize and (len(response_data) != 0) else response_data
+                    response_data = unpackb(
+                        response_data,
+                        raw=False) if deserialize and (len(response_data) != 0) else response_data
                 except TypeError:
                     self.log(LogLevel.WARNING, "Could not deserialize response.")
                 return vars(Response(data=response_data, err_code=err_code, err_str=err_str))
@@ -387,7 +397,13 @@ class Element:
             entries.append(entry)
         return entries
 
-    def entry_read_since(self, element_name, stream_name, last_id="0", n=None, block=None, deserialize=False):
+    def entry_read_since(self,
+                         element_name,
+                         stream_name,
+                         last_id="0",
+                         n=None,
+                         block=None,
+                         deserialize=False):
         """
         Read entries from a stream since the last_id.
 
