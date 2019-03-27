@@ -1,0 +1,15 @@
+version: "3.2"
+
+services:
+
+  docs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ".:/code"
+    ports:
+      - "4567:4567"
+    environment:
+      - "WWWHISPER_DISABLE=1"
+    command: "bundle exec middleman server"
