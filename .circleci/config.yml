@@ -138,3 +138,86 @@ jobs:
               docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME}:latest ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
               docker push ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
             fi
+
+  docs:
+
+    # VM we're going to use to build the docker container
+    machine:
+      enabled: true
+      docker_layer_caching: true
+      image: circleci/classic:201808-01
+
+    # Variables that are easier to set up here to propagate through
+    # the build script
+    environment:
+
+      # Info on where to push the build in Dockerhub
+      DOCKERHUB_ORG: elementaryrobotics
+      DOCKERHUB_REPO: atom-doc
+
+      # Name of the service in docker-compose.yml
+      DOCKER_COMPOSE_PROJECT_NAME: docs
+      DOCKER_COMPOSE_SERVICE_NAME: docs
+
+    steps:
+      - checkout
+
+      # Need to log into docker
+      - run:
+          name: Docker login
+          command: echo ${DOCKERHUB_PASSWORD} | docker login -u ${DOCKERHUB_USER} --password-stdin
+
+      #
+      # Build docker image
+      #
+      - run:
+          working_directory: doc
+          name: Build docker
+          command: docker-compose -p ${DOCKER_COMPOSE_PROJECT_NAME} build --pull
+
+      #
+      # Push the image back to DockerHub, either under a "development" tag
+      # or under a master tag
+      #
+      - run:
+          name: Docker Tag and Push
+          working_directory: doc
+          command: |
+            if [ "${CIRCLE_BRANCH}" == "master" ]
+            then
+
+              # Tag and push
+              docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME} ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}:master-${CIRCLE_BUILD_NUM}
+              docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME} ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}:latest
+              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}:master-${CIRCLE_BUILD_NUM}
+              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}:latest
+
+              # Tag and push to heroku
+              docker login --username=_ --password=${HEROKU_API_KEY} registry.heroku.com
+              docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME} registry.heroku.com/${HEROKU_APP_NAME}/web
+              docker push registry.heroku.com/${HEROKU_APP_NAME}/web
+              heroku container:release -a ${HEROKU_APP_NAME} web
+
+            else
+
+              # Tag and push to dockerhub
+              docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME} ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}:development-${CIRCLE_BUILD_NUM}
+              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}:development-${CIRCLE_BUILD_NUM}
+            fi
+
+workflows:
+  version: 2
+  commit:
+    jobs:
+      - build
+      - docs
+  nightly:
+    triggers:
+      - schedule:
+          cron: "0 8 * * *"
+          filters:
+            branches:
+              only:
+                - master
+    jobs:
+      - docs
