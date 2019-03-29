@@ -161,7 +161,7 @@ field_data_map = {"my_field": "my_value"}
 my_element.entry_write("my_stream", field_data_map, maxlen=512)
 
 
-# If you would like to publish non-string data types (int, list, dict, etc.), you can serialize the data using the serialilze flag
+# If you would like to publish non-string data types (int, list, dict, etc.), you can serialize the data using the serialize flag
 # Just remember to pass the deserialize flag when reading the data!
 field_data_map = {"hello": 0, "atom": ["a", "t", "o", "m"]}
 my_element.entry_write("my_stream", field_data_map, maxlen=512, serialize=True)
