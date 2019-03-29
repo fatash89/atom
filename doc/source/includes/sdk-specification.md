@@ -159,6 +159,12 @@ enum atom_error_t err = my_element.entryWrite("my_stream", data);
 # The key of the map will allow elements who receive the entry to easily access the relevant field of data
 field_data_map = {"my_field": "my_value"}
 my_element.entry_write("my_stream", field_data_map, maxlen=512)
+
+
+# If you would like to publish non-string data types (int, list, dict, etc.), you can serialize the data using the serialilze flag
+# Just remember to pass the deserialize flag when reading the data!
+field_data_map = {"hello": 0, "atom": ["a", "t", "o", "m"]}
+my_element.entry_write("my_stream", field_data_map, maxlen=512, serialize=True)
 ```
 
 Publish a piece of data to a stream.
@@ -307,6 +313,9 @@ enum atom_error_t err = my_element.entryReadN(
 ```python
 # This gets the 5 most recent entries from your_stream
 entries = my_element.entry_read_n("your_element", "your_stream", 5)
+
+# If the element is publishing serialized entries, they can be deserialized
+entries = my_element.entry_read_n("your_element", "your_stream", 5, deserialize=True)
 ```
 
 Reads N entries from a stream in a nonblocking fashion. Returns the N most recent entries.
@@ -393,6 +402,9 @@ enum atom_error_t err = element.entryReadSince(
 ```python
 # This will get the 10 oldest entries from your_stream since the beginning of time.
 entries = my_element.entry_read_since("your_element", "your_stream", last_id="0", n=10)
+
+# If the element is publishing serialized entries, they can be deserialized
+entries = my_element.entry_read_since("your_element", "your_stream", last_id="0", n=10, deserialize=True)
 ```
 
 Allows user to traverse a stream without missing any data. Reads all entries on the stream (or up to at most N), since the last piece we have read.
@@ -496,6 +508,9 @@ enum atom_error_t err = my_element.entryReadLoop(
 your_stream_0_handler = StreamHandler("your_element_0", "your_stream_0", print)
 your_stream_1_handler = StreamHandler("your_element_1", "your_stream_1", print)
 my_element.entry_read_loop([your_stream_0_handler, your_stream_1_handler])
+
+# If the element is publishing serialized entries, they can be deserialized
+my_element.entry_read_loop([your_stream_0_handler, your_stream_1_handler], deserialize=True)
 ```
 
 This API is used to monitor multiple streams with a single thread. The user registers all streams that they're interested in along with the desired callback to use.
@@ -930,6 +945,10 @@ enum atom_error_t err = element.sendCommand<std::string, std::string>(
 
 ```python
 response = my_element.command_send("your_element", "your_command", data, block=True)
+
+# If serialized data is expected by the command, pass the serialize flag to the function.
+# If the response of the command is serialized, it can be deserialized with the deserialize flag.
+response = my_element.command_send("your_element", "your_command", data, block=True, serialize=True, deserialize=True)
 ```
 
 Sends a command to another element
