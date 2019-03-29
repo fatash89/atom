@@ -144,7 +144,7 @@ public:
 		size_t data_len)
 	{
 		req_data = data;
-		req_data_len = req_data_len;
+		req_data_len = data_len;
 		return true;
 	}
 
