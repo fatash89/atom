@@ -12,13 +12,6 @@ jobs:
     # the build script
     environment:
 
-      # Info on where to push the build in Dockerhub
-      DOCKERHUB_ORG: elementaryrobotics
-      DOCKERHUB_ATOM_REPO: atom
-      DOCKERHUB_ATOM_CUDA_9_REPO: atom-cuda-9
-      DOCKERHUB_ATOM_CUDA_10_REPO : atom-cuda-10
-      DOCKERHUB_NUCLEUS_REPO: nucleus
-
       # Name of the service in docker-compose.yml
       DOCKER_COMPOSE_PROJECT_NAME: atom_test
       DOCKER_COMPOSE_ATOM_SERVICE_NAME: atom
@@ -151,10 +144,6 @@ jobs:
     # the build script
     environment:
 
-      # Info on where to push the build in Dockerhub
-      DOCKERHUB_ORG: elementaryrobotics
-      DOCKERHUB_REPO: atom-doc
-
       # Name of the service in docker-compose.yml
       DOCKER_COMPOSE_PROJECT_NAME: docs
       DOCKER_COMPOSE_SERVICE_NAME: docs
@@ -187,10 +176,10 @@ jobs:
             then
 
               # Tag and push
-              docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME} ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}:master-${CIRCLE_BUILD_NUM}
-              docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME} ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}:latest
-              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}:master-${CIRCLE_BUILD_NUM}
-              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}:latest
+              docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME} ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}:master-${CIRCLE_BUILD_NUM}
+              docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME} ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}:latest
+              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}:master-${CIRCLE_BUILD_NUM}
+              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}:latest
 
               # Tag and push to heroku
               docker login --username=_ --password=${HEROKU_API_KEY} registry.heroku.com
@@ -201,8 +190,8 @@ jobs:
             else
 
               # Tag and push to dockerhub
-              docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME} ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}:development-${CIRCLE_BUILD_NUM}
-              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}:development-${CIRCLE_BUILD_NUM}
+              docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME} ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}:development-${CIRCLE_BUILD_NUM}
+              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}:development-${CIRCLE_BUILD_NUM}
             fi
 
 workflows:
