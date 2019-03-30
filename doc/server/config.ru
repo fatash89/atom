@@ -1,7 +1,4 @@
-require 'rack/wwwhisper'
 require File.expand_path("../rack_try_static", __FILE__)
-
-use ::Rack::WWWhisper
 
 use ::Rack::TryStatic,
   :root => "../build",
