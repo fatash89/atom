@@ -3,6 +3,7 @@ version: "3.2"
 services:
 
   nucleus:
+    container_name: nucleus
     image: elementaryrobotics/nucleus
     volumes:
       - type: volume
@@ -16,6 +17,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: element
     volumes:
       - type: volume
         source: shared
