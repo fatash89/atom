@@ -1,0 +1,66 @@
+version: "3.2"
+
+services:
+
+  nucleus:
+    container_name: nucleus
+    image: elementaryrobotics/nucleus
+    volumes:
+      - type: volume
+        source: shared
+        target: /shared
+        volume:
+          nocopy: true
+
+  realsense:
+    container_name: realsense
+    image: elementaryrobotics/element-realsense
+    volumes:
+      - type: volume
+        source: shared
+        target: /shared
+        volume:
+          nocopy: true
+      - "/tmp/.X11-unix:/tmp/.X11-unix:rw"
+    depends_on:
+      - "nucleus"
+    environment:
+      - "DISPLAY"
+      - "QT_X11_NO_MITSHM=1"
+    privileged: true
+
+  stream-viewer:
+    container_name: stream-viewer
+    image: elementaryrobotics/element-stream-viewer
+    volumes:
+      - type: volume
+        source: shared
+        target: /shared
+        volume:
+          nocopy: true
+      - "/tmp/.X11-unix:/tmp/.X11-unix:rw"
+    environment:
+      - "DISPLAY"
+      - "QT_X11_NO_MITSHM=1"
+    depends_on:
+      - "realsense"
+
+  instance-segmentation:
+    container_name: instance-segmentation 
+    image: elementaryrobotics/element-instance-segmentation
+    volumes:
+      - type: volume
+        source: shared
+        target: /shared
+        volume:
+          nocopy: true
+    depends_on:
+      - "nucleus"
+      - "realsense"
+
+
+volumes:
+  shared:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
