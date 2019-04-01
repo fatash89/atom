@@ -193,7 +193,7 @@ docker push elementaryrobotics/atom-base:"$(git rev-parse HEAD)"
 We also build base versions of the dockerfile for cuda 9 and 10. To build for these versions, pass `BASE_IMAGE=$X` the following to the above docker build command:
 
 | Cuda Version | Dockerhub repo | Base Image |
-|--------------|-----------|
+|--------------|----------------|------------|
 | 10 | `atom-cuda-10-base` | `nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04` |
 | 9 | `atom-cuda-9-base` | `nvidia/cuda:9.2-cudnn7-devel-ubuntu18.04` |
 
