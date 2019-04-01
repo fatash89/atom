@@ -2,3 +2,6 @@
 doc
 examples
 template
+Dockerfile*
+docker-compose.yml
+.dockerignore
