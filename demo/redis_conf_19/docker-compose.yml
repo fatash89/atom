@@ -11,7 +11,6 @@ services:
         target: /shared
         volume:
           nocopy: true
-    command: ./launch.sh
 
   realsense:
     container_name: realsense
@@ -44,7 +43,7 @@ services:
       - "DISPLAY"
       - "QT_X11_NO_MITSHM=1"
     depends_on:
-      - "nucleus"
+      - "realsense"
 
   instance-segmentation:
     container_name: instance-segmentation 
@@ -55,7 +54,6 @@ services:
         target: /shared
         volume:
           nocopy: true
-      - ".:/development"
     depends_on:
       - "nucleus"
       - "realsense"
