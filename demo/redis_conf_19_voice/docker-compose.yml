@@ -1,0 +1,68 @@
+version: "3.2"
+
+services:
+
+  nucleus:
+    container_name: nucleus
+    image: elementaryrobotics/nucleus
+    volumes:
+      - type: volume
+        source: shared
+        target: /shared
+        volume:
+          nocopy: true
+    command: ./launch.sh
+
+  waveform:
+    container_name: waveform
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - type: volume
+        source: shared
+        target: /shared
+        volume:
+          nocopy: true
+      - ".:/development"
+    depends_on:
+      - "nucleus"
+
+  record:
+    container_name: record
+    image: elementaryrobotics/element-record
+    volumes:
+      - type: volume
+        source: shared
+        target: /shared
+        volume:
+          nocopy: true
+      - "./record:/recordings"
+    depends_on:
+      - "waveform"
+    environment:
+      - "GRAPHICS=1"
+    ports:
+      - 6080:6080
+
+  voice:
+    container_name: voice
+    image: elementaryrobotics/element-voice
+    volumes:
+      - type: volume
+        source: shared
+        target: /shared
+        volume:
+          nocopy: true
+      - "~/Downloads/google-voice/credential.json:/code/google/credential.json"
+    depends_on:
+      - "nucleus"
+    environment:
+      - "DEVICE_MODEL_ID=SOME_DEVICE_MODEL_ID"
+    privileged: true
+
+volumes:
+  shared:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
