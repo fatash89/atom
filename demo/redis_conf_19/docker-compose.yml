@@ -4,7 +4,7 @@ services:
 
   nucleus:
     container_name: nucleus
-    image: elementaryrobotics/nucleus
+    image: elementaryrobotics/nucleus:redisconf19
     volumes:
       - type: volume
         source: shared
@@ -14,7 +14,7 @@ services:
 
   realsense:
     container_name: realsense
-    image: elementaryrobotics/element-realsense
+    image: elementaryrobotics/element-realsense:redisconf19
     volumes:
       - type: volume
         source: shared
@@ -31,7 +31,7 @@ services:
 
   stream-viewer:
     container_name: stream-viewer
-    image: elementaryrobotics/element-stream-viewer
+    image: elementaryrobotics/element-stream-viewer:redisconf19
     volumes:
       - type: volume
         source: shared
@@ -46,8 +46,8 @@ services:
       - "realsense"
 
   instance-segmentation:
-    container_name: instance-segmentation 
-    image: elementaryrobotics/element-instance-segmentation
+    container_name: instance-segmentation
+    image: elementaryrobotics/element-instance-segmentation:redisconf19
     volumes:
       - type: volume
         source: shared
