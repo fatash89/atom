@@ -3,8 +3,8 @@ version: "3.2"
 services:
 
   nucleus:
-    container_name: nucleus:redisconf19
-    image: elementaryrobotics/nucleus
+    container_name: nucleus
+    image: elementaryrobotics/nucleus:redisconf19
     volumes:
       - type: volume
         source: shared
@@ -27,8 +27,8 @@ services:
       - "nucleus"
 
   record:
-    container_name: record:redisconf19
-    image: elementaryrobotics/element-record
+    container_name: record
+    image: elementaryrobotics/element-record:redisconf19
     volumes:
       - type: volume
         source: shared
@@ -38,31 +38,31 @@ services:
       - "./record:/recordings"
 
     # UNCOMMENT FOR VNC GRAPHICS
-    environment:
-      - "GRAPHICS=1"
-    ports:
-      - 6080:6080
+    # environment:
+    #   - "GRAPHICS=1"
+    # ports:
+    #   - 6080:6080
     # UNCOMMENT FOR LINUX GRAPHICS
 
-    #   - "/tmp/.X11-unix:/tmp/.X11-unix:rw"
-    # environment:
-    #   - "DISPLAY"
-    #   - "QT_X11_NO_MITSHM=1"
+      - "/tmp/.X11-unix:/tmp/.X11-unix:rw"
+    environment:
+      - "DISPLAY"
+      - "QT_X11_NO_MITSHM=1"
 
     depends_on:
       - "waveform"
 
 
   voice:
-    container_name: voice:redisconf19
-    image: elementaryrobotics/element-voice
+    container_name: voice
+    image: elementaryrobotics/element-voice:redisconf19
     volumes:
       - type: volume
         source: shared
         target: /shared
         volume:
           nocopy: true
-      - "~/google_voice/credential.json:/code/google/credential.json"
+      - "~/google_voice/credential.json:/code/google/credentials.json"
     depends_on:
       - "nucleus"
     environment:
