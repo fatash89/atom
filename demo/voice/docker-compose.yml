@@ -3,7 +3,7 @@ version: "3.2"
 services:
 
   nucleus:
-    container_name: nucleus
+    container_name: nucleus:redisconf19
     image: elementaryrobotics/nucleus
     volumes:
       - type: volume
@@ -11,10 +11,66 @@ services:
         target: /shared
         volume:
           nocopy: true
-    command: ./launch.sh
 
   waveform:
     container_name: waveform
+    build:
+      context: ../../examples/cpp
+      dockerfile: Dockerfile
+    volumes:
+      - type: volume
+        source: shared
+        target: /shared
+        volume:
+          nocopy: true
+    depends_on:
+      - "nucleus"
+
+  record:
+    container_name: record:redisconf19
+    image: elementaryrobotics/element-record
+    volumes:
+      - type: volume
+        source: shared
+        target: /shared
+        volume:
+          nocopy: true
+      - "./record:/recordings"
+
+    # UNCOMMENT FOR VNC GRAPHICS
+    environment:
+      - "GRAPHICS=1"
+    ports:
+      - 6080:6080
+    # UNCOMMENT FOR LINUX GRAPHICS
+
+    #   - "/tmp/.X11-unix:/tmp/.X11-unix:rw"
+    # environment:
+    #   - "DISPLAY"
+    #   - "QT_X11_NO_MITSHM=1"
+
+    depends_on:
+      - "waveform"
+
+
+  voice:
+    container_name: voice:redisconf19
+    image: elementaryrobotics/element-voice
+    volumes:
+      - type: volume
+        source: shared
+        target: /shared
+        volume:
+          nocopy: true
+      - "~/google_voice/credential.json:/code/google/credential.json"
+    depends_on:
+      - "nucleus"
+    environment:
+      - "DEVICE_MODEL_ID=SOME_DEVICE_MODEL_ID"
+    privileged: true
+
+  voice_demo:
+    container_name: voice_demo
     build:
       context: .
       dockerfile: Dockerfile
@@ -24,42 +80,9 @@ services:
         target: /shared
         volume:
           nocopy: true
-      - ".:/development"
     depends_on:
-      - "nucleus"
-
-  record:
-    container_name: record
-    image: elementaryrobotics/element-record
-    volumes:
-      - type: volume
-        source: shared
-        target: /shared
-        volume:
-          nocopy: true
-      - "./record:/recordings"
-    depends_on:
-      - "waveform"
-    environment:
-      - "GRAPHICS=1"
-    ports:
-      - 6080:6080
-
-  voice:
-    container_name: voice
-    image: elementaryrobotics/element-voice
-    volumes:
-      - type: volume
-        source: shared
-        target: /shared
-        volume:
-          nocopy: true
-      - "~/Downloads/google-voice/credential.json:/code/google/credential.json"
-    depends_on:
-      - "nucleus"
-    environment:
-      - "DEVICE_MODEL_ID=SOME_DEVICE_MODEL_ID"
-    privileged: true
+      - "voice"
+      - "record"
 
 volumes:
   shared:
