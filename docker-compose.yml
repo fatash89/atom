@@ -3,6 +3,7 @@ version: "3.2"
 services:
 
   nucleus:
+    container_name: dev_nucleus
     build:
       context: .
       dockerfile: Dockerfile-nucleus
@@ -14,6 +15,7 @@ services:
           nocopy: true
 
   atom:
+    container_name: dev_atom
     build:
       context: .
       dockerfile: Dockerfile-atom
