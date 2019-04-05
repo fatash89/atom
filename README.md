@@ -27,6 +27,10 @@ COPY --from=$dockerhub_org/$dockerhub_repo /code/README.md /elements_docs/$uniqu
 
 Please help us keep the documentation up-to-date and accurate! You'll find a [`docker-compose`](doc/docker-compose.yml) file in the `doc` folder that will build and launch a local copy of the docs server that can be used to develop and test documentation updates. Once launched, the server can be accessed at [`localhost:4567`](http://localhost:4567).
 
+## Redis Talks and Slides
+
+Please see the [Redis Talks and Slides](https://github.com/elementary-robotics/atom/wiki/Redis-Talks-and-Slides) page of the wiki for video and slides from the talks that have been given on Atom at various Redis conferences.
+
 ## Development
 
 In this repository is a `docker-compose` file that can build and launch both
