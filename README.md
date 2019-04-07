@@ -47,7 +47,7 @@ git submodule update --init --recursive
 
 In order to build the container, use `docker-compose`
 ```
-docker-compose -p dev build
+docker-compose build
 ```
 
 This will build both the nucleus image and the atom image and will create
@@ -91,23 +91,23 @@ performance.
 
 In order to launch the test container you can run:
 ```
-docker-compose -p dev up -d
+docker-compose up -d
 ```
 
 This will launch the necessary containers and make the shared volume and
 background everything. Then, to run the tests you care about you can run:
 ```
-docker exec -it -w ${COMMAND_WORKING_DIRECTORY} dev_atom_1 ${TEST_COMMAND}
+docker exec -it -w ${COMMAND_WORKING_DIRECTORY} dev_atom ${TEST_COMMAND}
 ```
 
 An example of the above, to run the python unit tests is
 ```
-docker exec -it -w /atom/languages/python dev_atom_1 pytest
+docker exec -it -w /atom/languages/python dev_atom pytest
 ```
 
 After running the tests, to bring down the environment you can run:
 ```
-docker-compose -p dev down -v
+docker-compose down -v
 ```
 This will shut down the containers, remove them and also take down the
 shared volume that was created for the redis socket.
