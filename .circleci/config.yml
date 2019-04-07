@@ -13,9 +13,11 @@ jobs:
     environment:
 
       # Name of the service in docker-compose.yml
-      DOCKER_COMPOSE_PROJECT_NAME: atom_test
+      DOCKER_COMPOSE_PROJECT_NAME: test
       DOCKER_COMPOSE_ATOM_SERVICE_NAME: atom
       DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME: nucleus
+      DOCKER_COMPOSE_ATOM_CONTAINER_NAME: dev_atom
+      DOCKER_COMPOSE_NUCLEUS_CONTAINER_NAME: dev_nucleus
 
     steps:
       - checkout
@@ -49,22 +51,22 @@ jobs:
       #
       - run:
           name: Python tests
-          command: docker exec -it -w /atom/languages/python ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_ATOM_SERVICE_NAME}_1 pytest
+          command: docker exec -it -w /atom/languages/python ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME} pytest
       - run:
           name: C tests
-          command:  docker exec -it -w /atom/languages/c ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_ATOM_SERVICE_NAME}_1 make test
+          command:  docker exec -it -w /atom/languages/c ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME} make test
       - run:
           name: C++ tests
-          command:  docker exec -it -w /atom/languages/cpp ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_ATOM_SERVICE_NAME}_1 make test
+          command:  docker exec -it -w /atom/languages/cpp ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME} make test
       - run:
           name: C++ valgrind check
-          command: docker exec -it -w /atom/languages/cpp ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_ATOM_SERVICE_NAME}_1 valgrind -v --tool=memcheck --leak-check=full --num-callers=40 --log-file=valgrind.log --error-exitcode=1 test/build/test_atom_cpp
+          command: docker exec -it -w /atom/languages/cpp ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME} valgrind -v --tool=memcheck --leak-check=full --num-callers=40 --log-file=valgrind.log --error-exitcode=1 test/build/test_atom_cpp
           environment:
             G_SLICE: always-malloc
             G_DEBUG: gc-friendly
       - run:
           name: C++ copy valgrind log
-          command: docker cp ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_ATOM_SERVICE_NAME}_1:/atom/languages/cpp/valgrind.log /tmp/valgrind.log
+          command: docker cp ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME}:/atom/languages/cpp/valgrind.log /tmp/valgrind.log
       - store_artifacts:
           path: /tmp/valgrind.log
           destination: valgrind.log
