@@ -12,10 +12,11 @@ from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.styles import Style
 from pyfiglet import Figlet
+from uuid import uuid4
 
 class AtomCLI:
     def __init__(self):
-        self.element = Element(f"atom-cli_{uname().nodename}")
+        self.element = Element(f"atom-cli_{uname().nodename}_{uuid4().hex}")
         self.indent = 2
         self.style = Style.from_dict({
             "logo_color": "#6039C8",
