@@ -247,8 +247,16 @@ class AtomCLI:
         for stream in streams:
             cur_records = self.element.entry_read_since(None, stream, start_time, deserialize=False)
             for record in cur_records:
-                record = { key:(value if isinstance(value,str) else value.decode()) for key,value in record.items() } # Decode strings only which are required to
-                record["type"], record["element"] = stream.split(":")
+		try:
+                	record = { key:(value if isinstance(value,str) else value.decode()) for key,value in record.items() } # Decode strings only which are required to	
+		except UnicodeError as e:
+			print("Cannot Show Log of Commands")  
+		except:
+			try:
+				record = {key:value for key,value in record.items()}
+			except:
+				print("Cannot Show Log of Commands")              
+record["type"], record["element"] = stream.split(":")
                 records.append(record)
         # Sort records by id. If same id, put commands before responses
         return sorted(records, key=lambda x: (x["id"], x["type"]))
