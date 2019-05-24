@@ -134,7 +134,10 @@ class AtomCLI:
             formatted_record[k] = v
         sorted_record = {k: v for k, v in sorted(
             formatted_record.items(), key=lambda x: x[0])}
-        return json.dumps(sorted_record, indent=self.indent)
+        try:
+            ret = json.dumps(sorted_record, indent=self.indent)
+        except TypeError as te:
+            print("Cannot Print This Log Item, Sorry :(")
 
     def cmd_help(self, *args):
         usage = self.usage["cmd_help"]
