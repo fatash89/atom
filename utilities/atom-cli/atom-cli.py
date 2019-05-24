@@ -11,10 +11,13 @@ from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.styles import Style
+from msgpack.exceptions import ExtraData
 from pyfiglet import Figlet
 from uuid import uuid4
 
+
 class AtomCLI:
+
     def __init__(self):
         self.element = Element(f"atom-cli_{uname().nodename}_{uuid4().hex}")
         self.indent = 2
@@ -31,7 +34,7 @@ class AtomCLI:
             "command": self.cmd_command,
             "read": self.cmd_read,
             "exit": self.cmd_exit,
-            "msgpack" : self.cmd_msgpack,
+            "msgpack": self.cmd_msgpack,
         }
         self.usage = {
             "cmd_help": cleandoc("""
@@ -91,7 +94,8 @@ class AtomCLI:
         """
         while True:
             try:
-                inp = self.session.prompt("\n> ", auto_suggest=AutoSuggestFromHistory()).split(" ")
+                inp = self.session.prompt(
+                    "\n> ", auto_suggest=AutoSuggestFromHistory()).split(" ")
                 if not inp:
                     continue
                 command, args = inp[0], inp[1:]
@@ -128,7 +132,8 @@ class AtomCLI:
                 except:
                     v = str(v)
             formatted_record[k] = v
-        sorted_record = {k: v for k, v in sorted(formatted_record.items(), key=lambda x: x[0])}
+        sorted_record = {k: v for k, v in sorted(
+            formatted_record.items(), key=lambda x: x[0])}
         return json.dumps(sorted_record, indent=self.indent)
 
     def cmd_help(self, *args):
@@ -202,7 +207,8 @@ class AtomCLI:
         elif mode == "cmdres":
             if not elements:
                 print(usage)
-                print("\nMust provide elements from which to get command response streams from.")
+                print(
+                    "\nMust provide elements from which to get command response streams from.")
                 return
             records = self.mode_cmdres(start_time, elements)
         else:
@@ -225,10 +231,12 @@ class AtomCLI:
             elements (list): The elements on which to filter the logs for.
         """
         records = []
-        all_records = self.element.entry_read_since(None, "log", start_time,deserialize=False)
+        all_records = self.element.entry_read_since(
+            None, "log", start_time, deserialize=False)
         for record in all_records:
             if not elements or record["element"].decode() in elements:
-                record = { key:(value if isinstance(value,str) else value.decode()) for key,value in record.items() } # Decode strings only which are required to
+                record = {key: (value if isinstance(value, str) else value.decode(
+                )) for key, value in record.items()}  # Decode strings only which are required to
                 records.append(record)
         return records
 
@@ -245,12 +253,21 @@ class AtomCLI:
             streams.append(self.element._make_response_id(element))
             streams.append(self.element._make_command_id(element))
         for stream in streams:
-            cur_records = self.element.entry_read_since(None, stream, start_time, deserialize=False)
+            try:
+                cur_records = self.element.entry_read_since(
+                    None, stream, start_time, deserialize=self.use_msgpack)
+            except ExtraData as ea:
+                cur_records = self.element.entry_read_since(
+                    None, stream, start_time, deserialize=(not self.use_msgpack))
             for record in cur_records:
-                record = { key:(value if isinstance(value,str) else value.decode()) for key,value in record.items() } # Decode strings only which are required to
-                record["type"], record["element"] = stream.split(":")
-                records.append(record)
-        # Sort records by id. If same id, put commands before responses
+                try:
+                    record = {key: (value if isinstance(value, str) else value.decode(
+                    )) for key, value in record.items()}  # Decode strings only which are required to
+                except UnicodeError as e:
+                    record = {key: value for key, value in record.items()}
+                finally:
+                    record["type"], record["element"] = stream.split(":")
+                    records.append(record)
         return sorted(records, key=lambda x: (x["id"], x["type"]))
 
     def cmd_command(self, *args):
@@ -271,7 +288,8 @@ class AtomCLI:
                     return
         else:
             data = ""
-        resp = self.element.command_send(element_name, command_name, data, serialize=self.use_msgpack, deserialize=self.use_msgpack)
+        resp = self.element.command_send(
+            element_name, command_name, data, serialize=self.use_msgpack, deserialize=self.use_msgpack)
         print(self.format_record(resp))
 
     def cmd_read(self, *args):
@@ -299,7 +317,8 @@ class AtomCLI:
         last_timestamp = None
         while True:
             start_time = time.time()
-            entries = self.element.entry_read_n(element_name, stream_name, 1, deserialize=self.use_msgpack)
+            entries = self.element.entry_read_n(
+                element_name, stream_name, 1, deserialize=self.use_msgpack)
             if not entries:
                 print(f"No data from {element_name} {stream_name}.")
                 return
@@ -325,10 +344,9 @@ class AtomCLI:
         elif (args[0].lower() == "false"):
             self.use_msgpack = False
         else:
-            print ("\nArgument must be True or False.")
+            print("\nArgument must be True or False.")
 
         print("Current msgpack status is {}".format(self.use_msgpack))
-
 
     def cmd_exit(*args):
         print("Exiting.")
