@@ -136,6 +136,7 @@ class AtomCLI:
             formatted_record.items(), key=lambda x: x[0])}
         try:
             ret = json.dumps(sorted_record, indent=self.indent)
+            return ret
         except TypeError as te:
             print("Cannot Print This Log Item, Sorry :(")
 
