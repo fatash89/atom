@@ -164,7 +164,7 @@ To create a new language client, you must do the following:
 
 1. Add a folder in `languages` for the new language client
 2. Implement the `atom` spec atop a redis client for the language.
-3. Modify `dockerfile-atom-base` to compile `protobuf` for the language.
+3. Modify `dockerfile-atom-base` to compile `msgpack` for the language.
 4. Modify `dockerfile-atom` to compile/install the language into the
 docker image. You will also need to bump the tag for `dockerfile-atom-base` in
 this file.
@@ -200,7 +200,7 @@ python3 my_element.py
 
 The `atom` dockerfile is developed atop the `atom-base` dockerfile which
 isn't built in CI. This dockerfile contains things which are more static such
-as basic ubuntu installs using `apt-get` and the installation of protobuf.
+as basic ubuntu installs using `apt-get` and the installation of msgpack.
 This saves us time on our CI rebuild changes. The process for updating the
 `atom-base` docker container if needed are:
 

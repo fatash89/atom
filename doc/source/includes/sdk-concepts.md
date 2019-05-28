@@ -17,7 +17,7 @@ Issued by an element to execute some functionality of another element.
 Returned by an element to indicate the results of the command to the caller element.
 
 ## Entry
-A timestamped data packet that is published by an element on a stream that can contain multiple fields of data. The atom system is not concerned with the serialization of the data and leaves it as the responsibility of the developers to know how the data was serialized in the element. Our recommendation for serialization is protobuf as it is supported by the major programming languages.
+A timestamped data packet that is published by an element on a stream that can contain multiple fields of data. The atom system is not concerned with the serialization of the data and leaves it as the responsibility of the developers to know how the data was serialized in the element. Our recommendation for serialization is msgpack as it is supported by the major programming languages.
 
 ## Stream
 Data publication and logging system used by atom. A stream keeps track of the previously published entries (up to a user-specified limit) so that elements can ask for an arbitrary number of entries.
