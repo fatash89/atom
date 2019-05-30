@@ -269,6 +269,13 @@ $ docker exec -it atombot atom-cli
 > help
 ```
 
+> <button class="copy-button" onclick='copyText(this, "Turn Msgpack Off")'>Copy</button> (CLI) Turn off Msgpack
+```msgpack_off
+> msgpack false
+```
+
+
+
 > <button class="copy-button" onclick='copyText(this, "help read")'>Copy</button> (CLI) Print help for a given option
 
 ```shell_session
