@@ -1,4 +1,5 @@
 import redis
+import threading
 from atom.config import DEFAULT_REDIS_PORT, DEFAULT_REDIS_SOCKET
 from atom.config import LANG, VERSION, ACK_TIMEOUT, RESPONSE_TIMEOUT, STREAM_LEN, MAX_BLOCK
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESPONSE
@@ -25,6 +26,7 @@ class Element:
         self.timeouts = {}
         self.streams = set()
         self._rclient = None
+        self._command_loop_shutdown = threading.Event()
         try:
             if host is not None:
                 self._rclient = redis.StrictRedis(host=host, port=port)
@@ -207,7 +209,7 @@ class Element:
         Sends acknowledge to caller and then runs command.
         Returns response with processed data to caller.
         """
-        while True:
+        while not self._command_loop_shutdown.isSet():
             # Get oldest new command from element's command stream
             stream = {self._make_command_id(self.name): self.command_last_id}
             cmd_response = self._rclient.xread(block=MAX_BLOCK, count=1, **stream)
@@ -262,6 +264,10 @@ class Element:
             response = response.to_internal(self.name, cmd_name, cmd_id)
             self._pipe.xadd(self._make_response_id(caller), maxlen=STREAM_LEN, **vars(response))
             self._pipe.execute()
+
+    # Triggers graceful exit of command loop
+    def command_loop_shutdown(self):
+        self._command_loop_shutdown.set()
 
     def command_send(self,
                      element_name,

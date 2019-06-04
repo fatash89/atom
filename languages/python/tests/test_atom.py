@@ -225,9 +225,9 @@ class TestAtom:
     def test_parallel_read_write(self, caller, responder):
         """
         """
-        def add_1_serialized(data):
-            return Response(data+1, serialize=True)
-        responder.command_add("add_1", add_1_serialized, deserialize=True)
+        def no_op_serialized(data):
+            return Response(data, serialize=True)
+        responder.command_add("no_op", no_op_serialized, deserialize=True)
 
         # Entry write loop mimics high volume publisher
         def entry_write_loop(responder):
@@ -236,21 +236,27 @@ class TestAtom:
                 time.sleep(0.0001)
 
         # Command loop thread to handle incoming commands
-        command_loop_thread = Thread(target=responder.command_loop, daemon=True)
+        command_loop_thread = Thread(target=responder.command_loop)
         # Entry write thread to publish a whole bunch to a stream
-        entry_write_thread = Thread(target=entry_write_loop, args=(responder))
+        entry_write_thread = Thread(target=entry_write_loop, args=(responder,))
         command_loop_thread.start()
         entry_write_thread.start()
 
         # Send a bunch of commands and you should get valid responses back
         try:
-            pass
-            #for i in range(20):
-        #        response = caller.command_send("test_responder", "add_1", 0, serialize=True, deserialize=True)
-        #        assert response["err_code"] == ATOM_NO_ERROR
-        #        assert response["data"] == 1
+            for i in range(20):
+                response = caller.command_send("test_responder", "no_op", 1, serialize=True, deserialize=True)
+                assert response["err_code"] == ATOM_NO_ERROR
+                assert response["data"] == 1
         finally:
+            # Cleanup threads
             entry_write_thread.join()
+            responder.command_loop_shutdown()
+            command_loop_thread.join(0.5)
+            caller._rclient.delete("stream:test_responder:stream_0")
+            caller._rclient.delete("command:test_responder:no_op")
+            # Give time to recover from failure, other wise we can get no_acks on subsequent tests
+            time.sleep(5)
 
     def test_unsupported_command(self, caller, responder):
         """
