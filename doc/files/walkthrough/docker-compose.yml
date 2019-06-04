@@ -13,8 +13,8 @@ services:
           nocopy: true
     command: ./launch.sh
 
-  atombot:
-    container_name: atombot
+  my_element:
+    container_name: my_element
     build:
       context: .
       dockerfile: Dockerfile
@@ -24,9 +24,9 @@ services:
         target: /shared
         volume:
           nocopy: true
-      - /home/elementary/src/atom/doc/files/walkthrough:/code:rw
     depends_on:
       - "nucleus"
+    command: tail -f /dev/null
 
 volumes:
   shared:
