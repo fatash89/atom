@@ -1,5 +1,4 @@
 import redis
-import threading
 from atom.config import DEFAULT_REDIS_PORT, DEFAULT_REDIS_SOCKET
 from atom.config import LANG, VERSION, ACK_TIMEOUT, RESPONSE_TIMEOUT, STREAM_LEN, MAX_BLOCK
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESPONSE
@@ -26,14 +25,12 @@ class Element:
         self.timeouts = {}
         self.streams = set()
         self._rclient = None
-        self._command_loop_shutdown = threading.Event()
         try:
             if host is not None:
                 self._rclient = redis.StrictRedis(host=host, port=port)
             else:
                 self._rclient = redis.StrictRedis(unix_socket_path=socket_path)
             self._pipe = self._rclient.pipeline()
-            self._write_pipe = self._rclient.pipeline()
             self._pipe.xadd(
                 self._make_response_id(self.name),
                 maxlen=STREAM_LEN,
@@ -209,7 +206,7 @@ class Element:
         Sends acknowledge to caller and then runs command.
         Returns response with processed data to caller.
         """
-        while not self._command_loop_shutdown.isSet():
+        while True:
             # Get oldest new command from element's command stream
             stream = {self._make_command_id(self.name): self.command_last_id}
             cmd_response = self._rclient.xread(block=MAX_BLOCK, count=1, **stream)
@@ -265,10 +262,6 @@ class Element:
             self._pipe.xadd(self._make_response_id(caller), maxlen=STREAM_LEN, **vars(response))
             self._pipe.execute()
 
-    # Triggers graceful exit of command loop
-    def command_loop_shutdown(self):
-        self._command_loop_shutdown.set()
-
     def command_send(self,
                      element_name,
                      cmd_name,
@@ -294,8 +287,8 @@ class Element:
         # Send command to element's command stream
         data = packb(data, use_bin_type=True) if serialize and (data != "") else data
         cmd = Cmd(self.name, cmd_name, data)
-        self._write_pipe.xadd(self._make_command_id(element_name), maxlen=STREAM_LEN, **vars(cmd))
-        cmd_id = self._write_pipe.execute()[-1].decode()
+        self._pipe.xadd(self._make_command_id(element_name), maxlen=STREAM_LEN, **vars(cmd))
+        cmd_id = self._pipe.execute()[-1].decode()
         timeout = None
 
         # Receive acknowledge from element
@@ -451,8 +444,8 @@ class Element:
             for k, v in field_data_map.items():
                 field_data_map[k] = packb(v, use_bin_type=True)
         entry = Entry(field_data_map)
-        self._write_pipe.xadd(self._make_stream_id(self.name, stream_name), maxlen=maxlen, **vars(entry))
-        self._write_pipe.execute()
+        self._pipe.xadd(self._make_stream_id(self.name, stream_name), maxlen=maxlen, **vars(entry))
+        self._pipe.execute()
 
     def log(self, level, msg, stdout=True):
         """
