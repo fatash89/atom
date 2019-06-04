@@ -225,9 +225,11 @@ class TestAtom:
     def test_parallel_read_write(self, caller, responder):
         """
         """
+        responder_0 = Element("responder_0")
+        # NO_OP command responds with whatever data it receives
         def no_op_serialized(data):
             return Response(data, serialize=True)
-        responder.command_add("no_op", no_op_serialized, deserialize=True)
+        responder_0.command_add("no_op", no_op_serialized, deserialize=True)
 
         # Entry write loop mimics high volume publisher
         def entry_write_loop(responder):
@@ -236,27 +238,26 @@ class TestAtom:
                 time.sleep(0.0001)
 
         # Command loop thread to handle incoming commands
-        command_loop_thread = Thread(target=responder.command_loop)
+        command_loop_thread = Thread(target=responder_0.command_loop, daemon=True)
         # Entry write thread to publish a whole bunch to a stream
-        entry_write_thread = Thread(target=entry_write_loop, args=(responder,))
+        entry_write_thread = Thread(target=entry_write_loop, args=(responder_0,), daemon=True)
         command_loop_thread.start()
         entry_write_thread.start()
 
-        # Send a bunch of commands and you should get valid responses back
+        # Send a bunch of commands to responder and you should get valid responses back,
+        # even while its busy publishing to a stream
         try:
             for i in range(20):
-                response = caller.command_send("test_responder", "no_op", 1, serialize=True, deserialize=True)
+                response = caller.command_send("responder_0", "no_op", 1, serialize=True, deserialize=True)
                 assert response["err_code"] == ATOM_NO_ERROR
                 assert response["data"] == 1
         finally:
             # Cleanup threads
-            entry_write_thread.join()
+            entry_write_thread.join(0.5)
             responder.command_loop_shutdown()
             command_loop_thread.join(0.5)
-            caller._rclient.delete("stream:test_responder:stream_0")
-            caller._rclient.delete("command:test_responder:no_op")
-            # Give time to recover from failure, other wise we can get no_acks on subsequent tests
-            time.sleep(5)
+            responder_0._rclient.delete("stream:responder_0:stream_0")
+            responder_0._rclient.delete("command:responder_0:no_op")
 
     def test_unsupported_command(self, caller, responder):
         """
