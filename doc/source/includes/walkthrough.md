@@ -36,7 +36,6 @@ Download the files below and put them into a new folder named `atombot` on your 
 
 ```python
 # atombot.py
-# atombot.py
 from atom import Element
 from atom.messages import Response
 from threading import Thread, Lock

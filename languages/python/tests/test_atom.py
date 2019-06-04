@@ -269,7 +269,7 @@ class TestAtom:
         logs = logs[-8:]
         for i in range(8):
             assert logs[i][1][b"msg"].decode() == f"severity {i}"
-
+            
 
 def add_1(x):
     return Response(int(x)+1)
