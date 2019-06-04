@@ -213,7 +213,7 @@ class TestAtom:
         entries = caller.entry_read_since("test_responder", "test_stream", last_id, 2)
         assert(len(entries) == 2)
         assert entries[-1]["data"] == b"1"
-        
+
     def test_no_ack(self, caller, responder):
         """
         Element sends command and responder does not acknowledge.
@@ -221,6 +221,36 @@ class TestAtom:
         responder.command_add("add_1", add_1)
         response = caller.command_send("test_responder", "add_1", 0)
         assert response["err_code"] == ATOM_COMMAND_NO_ACK
+
+    def test_parallel_read_write(self, caller, responder):
+        """
+        """
+        def add_1_serialized(data):
+            return Response(data+1, serialize=True)
+        responder.command_add("add_1", add_1_serialized, deserialize=True)
+
+        # Entry write loop mimics high volume publisher
+        def entry_write_loop(responder):
+            for i in range(3000):
+                responder.entry_write("stream_0", {"value": 0}, serialize=True)
+                time.sleep(0.0001)
+
+        # Command loop thread to handle incoming commands
+        command_loop_thread = Thread(target=responder.command_loop, daemon=True)
+        # Entry write thread to publish a whole bunch to a stream
+        entry_write_thread = Thread(target=entry_write_loop, args=(responder))
+        command_loop_thread.start()
+        entry_write_thread.start()
+
+        # Send a bunch of commands and you should get valid responses back
+        try:
+            pass
+            #for i in range(20):
+        #        response = caller.command_send("test_responder", "add_1", 0, serialize=True, deserialize=True)
+        #        assert response["err_code"] == ATOM_NO_ERROR
+        #        assert response["data"] == 1
+        finally:
+            entry_write_thread.join()
 
     def test_unsupported_command(self, caller, responder):
         """
@@ -269,7 +299,6 @@ class TestAtom:
         logs = logs[-8:]
         for i in range(8):
             assert logs[i][1][b"msg"].decode() == f"severity {i}"
-            
 
 def add_1(x):
     return Response(int(x)+1)

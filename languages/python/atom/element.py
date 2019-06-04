@@ -31,6 +31,7 @@ class Element:
             else:
                 self._rclient = redis.StrictRedis(unix_socket_path=socket_path)
             self._pipe = self._rclient.pipeline()
+            self._write_pipe = self._rclient.pipeline()
             self._pipe.xadd(
                 self._make_response_id(self.name),
                 maxlen=STREAM_LEN,
@@ -287,8 +288,8 @@ class Element:
         # Send command to element's command stream
         data = packb(data, use_bin_type=True) if serialize and (data != "") else data
         cmd = Cmd(self.name, cmd_name, data)
-        self._pipe.xadd(self._make_command_id(element_name), maxlen=STREAM_LEN, **vars(cmd))
-        cmd_id = self._pipe.execute()[-1].decode()
+        self._write_pipe.xadd(self._make_command_id(element_name), maxlen=STREAM_LEN, **vars(cmd))
+        cmd_id = self._write_pipe.execute()[-1].decode()
         timeout = None
 
         # Receive acknowledge from element
@@ -444,8 +445,8 @@ class Element:
             for k, v in field_data_map.items():
                 field_data_map[k] = packb(v, use_bin_type=True)
         entry = Entry(field_data_map)
-        self._pipe.xadd(self._make_stream_id(self.name, stream_name), maxlen=maxlen, **vars(entry))
-        self._pipe.execute()
+        self._write_pipe.xadd(self._make_stream_id(self.name, stream_name), maxlen=maxlen, **vars(entry))
+        self._write_pipe.execute()
 
     def log(self, level, msg, stdout=True):
         """
