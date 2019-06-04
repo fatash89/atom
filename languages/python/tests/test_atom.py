@@ -250,11 +250,12 @@ class TestAtom:
                 assert response["data"] == 1
         finally:
             # Cleanup threads
-            entry_write_thread.join(0.5)
+            entry_write_thread.join()
             responder.command_loop_shutdown()
             command_loop_thread.join(0.5)
             responder_0._rclient.delete("stream:responder_0:stream_0")
-            responder_0._rclient.delete("command:responder_0:no_op")
+            responder_0._rclient.delete("command:responder_0")
+            responder_0._rclient.delete("response:responder_0")
 
     def test_no_ack(self, caller, responder):
         """
