@@ -213,7 +213,49 @@ class TestAtom:
         entries = caller.entry_read_since("test_responder", "test_stream", last_id, 2)
         assert(len(entries) == 2)
         assert entries[-1]["data"] == b"1"
-        
+
+    def test_parallel_read_write(self, caller, responder):
+        """
+        Has the same responder class receiving commands on 1 thread,
+        while publishing to a stream on a 2nd thread at high volume.
+        Meanwhile, a caller quickly sends a series of commands to the responder and verifies
+        we get valid results back.
+        Ensures that we can safely send and receive using the same element class without concurrency issues.
+        """
+        responder_0 = Element("responder_0")
+        # NO_OP command responds with whatever data it receives
+        def no_op_serialized(data):
+            return Response(data, serialize=True)
+        responder_0.command_add("no_op", no_op_serialized, deserialize=True)
+
+        # Entry write loop mimics high volume publisher
+        def entry_write_loop(responder):
+            for i in range(3000):
+                responder.entry_write("stream_0", {"value": 0}, serialize=True)
+                time.sleep(0.0001)
+
+        # Command loop thread to handle incoming commands
+        command_loop_thread = Thread(target=responder_0.command_loop, daemon=True)
+        # Entry write thread to publish a whole bunch to a stream
+        entry_write_thread = Thread(target=entry_write_loop, args=(responder_0,), daemon=True)
+        command_loop_thread.start()
+        entry_write_thread.start()
+
+        # Send a bunch of commands to responder and you should get valid responses back,
+        # even while its busy publishing to a stream
+        try:
+            for i in range(20):
+                response = caller.command_send("responder_0", "no_op", 1, serialize=True, deserialize=True)
+                assert response["err_code"] == ATOM_NO_ERROR
+                assert response["data"] == 1
+        finally:
+            # Cleanup threads
+            entry_write_thread.join(0.5)
+            responder.command_loop_shutdown()
+            command_loop_thread.join(0.5)
+            responder_0._rclient.delete("stream:responder_0:stream_0")
+            responder_0._rclient.delete("command:responder_0:no_op")
+
     def test_no_ack(self, caller, responder):
         """
         Element sends command and responder does not acknowledge.
@@ -269,7 +311,7 @@ class TestAtom:
         logs = logs[-8:]
         for i in range(8):
             assert logs[i][1][b"msg"].decode() == f"severity {i}"
-            
+
 
 def add_1(x):
     return Response(int(x)+1)
