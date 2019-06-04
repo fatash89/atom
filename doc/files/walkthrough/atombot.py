@@ -115,7 +115,8 @@ if __name__ == "__main__":
     # We set the timeout so the caller will know how long to wait for the command to execute
     element.command_add("move_left", atombot.move_left, timeout=50, deserialize=True)
     element.command_add("move_right", atombot.move_right, timeout=50, deserialize=True)
-    element.command_add("transform", atombot.transform, timeout=50, deserialize=True)
+    # Transform takes no inputs, so there's nothing to deserialize
+    element.command_add("transform", atombot.transform, timeout=50)
 
     # We create a thread and run the command loop which will constantly check for incoming commands from atom
     # We use a thread so we don't hang on the command_loop function because we will be performing other tasks
@@ -127,10 +128,10 @@ if __name__ == "__main__":
         # We write our position data and the visual of atombot's position to their respective streams
         # The maxlen parameter will determine how many entries atom stores
         # This data is serialized using msgpack
-        element.entry_write("pos", {"data": atombot.get_pos()}, maxlen=50, serialize=True)
-        element.entry_write("pos_map", {"data": atombot.get_pos_map()}, maxlen=50, serialize=True)
+        element.entry_write("pos", {"data": atombot.get_pos()}, maxlen=10, serialize=True)
+        element.entry_write("pos_map", {"data": atombot.get_pos_map()}, maxlen=10, serialize=True)
         # We can also choose to write binary data directly without serializing it
-        #element.entry_write("pos_raw", {"data": atombot.pos}, maxlen=10)
+        element.entry_write("pos_binary", {"data": atombot.get_pos()}, maxlen=10)
 
         # Sleep so that we aren't consuming all of our CPU resources
         sleep(0.01)
