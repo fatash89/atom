@@ -81,7 +81,7 @@ class AtomCLI:
 
             "cmd_msgpack": cleandoc("""
                 Turns on/off msgpack serialization and deserialization.
-                Pass True to use msgpack, False to turn off. Default False.
+                Pass True to use msgpack, False to turn off. Defaults to True.
 
                 Usage:
                   msgpack True/False"""),
