@@ -11,7 +11,7 @@ from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.styles import Style
-from msgpack.exceptions import ExtraData
+import msgpack
 from pyfiglet import Figlet
 from uuid import uuid4
 
@@ -81,7 +81,7 @@ class AtomCLI:
 
             "cmd_msgpack": cleandoc("""
                 Turns on/off msgpack serialization and deserialization.
-                Pass True to use msgpack, False to turn off. Default False.
+                Pass True to use msgpack, False to turn off. Defaults to True.
 
                 Usage:
                   msgpack True/False"""),
@@ -132,13 +132,15 @@ class AtomCLI:
                 except:
                     v = str(v)
             formatted_record[k] = v
+
         sorted_record = {k: v for k, v in sorted(
             formatted_record.items(), key=lambda x: x[0])}
         try:
             ret = json.dumps(sorted_record, indent=self.indent)
-            return ret
         except TypeError as te:
-            print("Cannot Print This Log Item, Sorry :(")
+            ret = sorted_record
+        finally:
+            return ret
 
     def cmd_help(self, *args):
         usage = self.usage["cmd_help"]
@@ -247,7 +249,6 @@ class AtomCLI:
     def mode_cmdres(self, start_time, elements):
         """
         Reads the command and response records from the provided elements.
-
         Args:
             start_time (str): The time from which to start reading logs.
             elements (list): The elements to get the command and response records from.
@@ -257,21 +258,19 @@ class AtomCLI:
             streams.append(self.element._make_response_id(element))
             streams.append(self.element._make_command_id(element))
         for stream in streams:
-            try:
-                cur_records = self.element.entry_read_since(
-                    None, stream, start_time, deserialize=self.use_msgpack)
-            except ExtraData as ea:
-                cur_records = self.element.entry_read_since(
-                    None, stream, start_time, deserialize=(not self.use_msgpack))
+            cur_records = self.element.entry_read_since(
+                None, stream, start_time, deserialize=False)
             for record in cur_records:
-                try:
-                    record = {key: (value if isinstance(value, str) else value.decode(
-                    )) for key, value in record.items()}  # Decode strings only which are required to
-                except UnicodeError as e:
-                    record = {key: value for key, value in record.items()}
-                finally:
-                    record["type"], record["element"] = stream.split(":")
-                    records.append(record)
+                for key, value in record.items():
+                    try:
+                        if not isinstance(value, str):
+                            value = value.decode()
+                    except:
+                        value = msgpack.unpackb(value)
+                    finally:
+                        record[key] = value
+                record["type"], record["element"] = stream.split(":")
+                records.append(record)
         return sorted(records, key=lambda x: (x["id"], x["type"]))
 
     def cmd_command(self, *args):
