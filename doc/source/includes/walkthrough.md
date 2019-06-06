@@ -311,7 +311,8 @@ $ docker exec -it atombot atom-cli
 > help
 ```
 
-> <button class="copy-button" onclick='copyText(this, "Turn Msgpack Off")'>Copy</button> (CLI) Turn off Msgpack
+> <button class="copy-button" onclick='copyText(this, "msgpack false")'>Copy</button> (CLI) Turn off Msgpack
+
 ```msgpack_off
 > msgpack false
 ```
