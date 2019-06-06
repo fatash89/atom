@@ -1,6 +1,7 @@
 import redis
 import threading
-from atom.config import DEFAULT_REDIS_PORT, DEFAULT_REDIS_SOCKET
+import time
+from atom.config import DEFAULT_REDIS_PORT, DEFAULT_REDIS_SOCKET, HEALTHCHECK_RETRY_INTERVAL
 from atom.config import LANG, VERSION, ACK_TIMEOUT, RESPONSE_TIMEOUT, STREAM_LEN, MAX_BLOCK
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESPONSE
 from atom.config import ATOM_COMMAND_UNSUPPORTED, ATOM_CALLBACK_FAILED, ATOM_USER_ERRORS_BEGIN
@@ -27,6 +28,7 @@ class Element:
         self.streams = set()
         self._rclient = None
         self._command_loop_shutdown = threading.Event()
+        self._healthcheck_command = 'healthcheck'
         try:
             if host is not None:
                 self._rclient = redis.StrictRedis(host=host, port=port)
@@ -53,6 +55,9 @@ class Element:
                 })
             # Keep track of command_last_id to know last time the element's command stream was read from
             self.command_last_id = self._pipe.execute()[-1].decode()
+
+            # Init a default healthcheck, overridable
+            self.healthcheck_set(self._default_healthcheck)
 
             self.log(LogLevel.INFO, "Element initialized.", stdout=False)
         except redis.exceptions.RedisError:
@@ -84,6 +89,10 @@ class Element:
             self._rclient.delete(self._make_command_id(self.name))
         except redis.exceptions.RedisError:
             raise Exception("Could not connect to nucleus!")
+
+    def _default_healthcheck(self):
+        # If no healthcheck implemented, default to reporting everything is ok (error code 0)
+        return Response()
 
     def _make_response_id(self, element_name):
         """
@@ -203,6 +212,24 @@ class Element:
         self.handler_map[name] = {"handler": handler, "deserialize": deserialize}
         self.timeouts[name] = timeout
 
+    def healthcheck_set(self, handler):
+        # Handler must return response with 0 error_code to pass healthcheck
+        self.command_add(self._healthcheck_command, handler)
+
+    def wait_for_elements_healthy(self, element_list, retry_interval=HEALTHCHECK_RETRY_INTERVAL):
+        while True:
+            all_healthy = True
+            for element_name in element_list:
+                response = self.command_send(element_name, "healthcheck", "")
+                if response["err_code"] != ATOM_NO_ERROR:
+                    self.log(LogLevel.WARNING, f"Failed healthcheck on {element_name}, retrying...")
+                    all_healthy = False
+                    break
+            if all_healthy:
+                break
+
+            time.sleep(retry_interval)
+
     def command_loop(self):
         """
         Waits for command to be put in element's command stream.
@@ -248,9 +275,14 @@ class Element:
                     err_code=ATOM_COMMAND_UNSUPPORTED, err_str="Unsupported command.")
             else:
                 try:
-                    data = unpackb(
-                        data, raw=False) if self.handler_map[cmd_name]["deserialize"] else data
-                    response = self.handler_map[cmd_name]["handler"](data)
+                    if cmd_name != self._healthcheck_command:
+                        data = unpackb(
+                            data, raw=False) if self.handler_map[cmd_name]["deserialize"] else data
+                        response = self.handler_map[cmd_name]["handler"](data)
+                    else:
+                        # healthcheck requests don't care what data you are sending
+                        response = self.handler_map[cmd_name]["handler"]()
+
                     if not isinstance(response, Response):
                         raise TypeError(f"Return type of {cmd_name} is not of type Response")
                     # Add ATOM_USER_ERRORS_BEGIN to err_code to map to element error range
