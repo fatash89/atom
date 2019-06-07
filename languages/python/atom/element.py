@@ -206,7 +206,7 @@ class Element:
         """
         if not callable(handler):
             raise TypeError("Passed in handler is not a function!")
-        if name == HEALTHCHECK_COMMAND:
+        if name == HEALTHCHECK_COMMAND and HEALTHCHECK_COMMAND in self.handler_map:
             raise ValueError(f"'{HEALTHCHECK_COMMAND}' is a reserved command name dedicated to healthchecks, choose another name")
         self.handler_map[name] = {"handler": handler, "deserialize": deserialize}
         self.timeouts[name] = timeout
