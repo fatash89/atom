@@ -329,8 +329,8 @@ class TestAtom:
             # Cleanup threads
             responder_2.command_loop_shutdown()
             command_loop_thread.join(0.5)
-            responder._rclient.delete("command:responder_2")
-            responder._rclient.delete("response:responder_2")
+            responder._rclient.delete("command:test_responder_2")
+            responder._rclient.delete("response:test_responder_2")
 
         proc.terminate()
         proc.join()
