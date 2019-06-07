@@ -171,6 +171,30 @@ class Element:
                     pass
         return entry
 
+    def _check_element_version(self, element_name, supported_language_set=None, supported_min_version=None):
+        """
+        Convenient helper function to query an element about whether it meets min language and version requirements for some feature
+
+        Args:
+            element_name (str): Name of the element to query
+            supported_language_set (set, optional): Optional set of supported languages target element must be a part of to pass
+            supported_min_version (float, optional): Optional min version target element must meet to pass
+        """
+        # Check if element is reachable and supports the version command
+        response = get_element_version(element_name)
+        if response["err_code"] != ATOM_NO_ERROR or type(response["data"]) is not dict:
+            return False
+        # Check for valid response to version command
+        if not ("version" in response["data"] and "language" in response["data"] and type(response["data"]["version"]) is float):
+            return False
+        # Validate element meets language requirement
+        if supported_language_set and response["data"]["language"] not in supported_language_set:
+            return False
+        # Validate element meets version requirement
+        if supported_min_version and response["data"]["version"] < supported_min_version:
+            return False
+        return True
+
     def get_all_elements(self):
         """
         Gets the names of all the elements connected to the Redis server.
@@ -200,6 +224,18 @@ class Element:
         ]
         return streams
 
+    def get_element_version(self, element_name):
+        """
+        Queries the version info for the given element name.
+
+        Args:
+            element_name (str): Name of the element to query
+
+        Returns:
+            A dictionary of the response from the command.
+        """
+        return self.command_send(element_name, VERSION_COMMAND, "", deserialize=True)
+
     def command_add(self, name, handler, timeout=RESPONSE_TIMEOUT, deserialize=False):
         """
         Adds a command to the element for another element to call.
@@ -218,30 +254,6 @@ class Element:
             raise ValueError(f"'{VERSION_COMMAND}' is a reserved command name dedicated to version checking, choose another name")
         self.handler_map[name] = {"handler": handler, "deserialize": deserialize}
         self.timeouts[name] = timeout
-
-    def _check_element_version(self, element_name, supported_language_set=None, supported_min_version=None):
-        """
-        Convenient helper function to query an element about whether it meets min language and version requirements for some feature
-
-        Args:
-            element_name (str): Name of the element to query
-            supported_language_set (set, optional): Optional set of supported languages target element must be a part of to pass
-            supported_min_version (float, optional): Optional min version target element must meet to pass
-        """
-        # Check if element is reachable and supports the version command
-        response = self.command_send(element_name, VERSION_COMMAND, "", deserialize=True)
-        if response["err_code"] != ATOM_NO_ERROR or type(response["data"]) is not dict:
-            return False
-        # Check for valid response to version command
-        if not ("version" in response["data"] and "language" in response["data"] and type(response["data"]["version"]) is float):
-            return False
-        # Validate element meets language requirement
-        if supported_language_set and response["data"]["language"] not in supported_language_set:
-            return False
-        # Validate element meets version requirement
-        if supported_min_version and response["data"]["version"] < supported_min_version:
-            return False
-        return True
 
     def healthcheck_set(self, handler):
         """
