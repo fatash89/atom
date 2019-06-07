@@ -57,7 +57,8 @@ class Element:
             self.command_last_id = self._pipe.execute()[-1].decode()
 
             # Init a default healthcheck, overridable
-            self.healthcheck_set(self._default_healthcheck)
+            # By default, if no healthcheck is set, we assume everything is ok and return error code 0
+            self.healthcheck_set(lambda: Response())
 
             self.log(LogLevel.INFO, "Element initialized.", stdout=False)
         except redis.exceptions.RedisError:
@@ -89,10 +90,6 @@ class Element:
             self._rclient.delete(self._make_command_id(self.name))
         except redis.exceptions.RedisError:
             raise Exception("Could not connect to nucleus!")
-
-    def _default_healthcheck(self):
-        # If no healthcheck implemented, default to reporting everything is ok (error code 0)
-        return Response()
 
     def _make_response_id(self, element_name):
         """
@@ -304,7 +301,7 @@ class Element:
     def command_send(self,
                      element_name,
                      cmd_name,
-                     data,
+                     data="",
                      block=True,
                      serialize=False,
                      deserialize=False):
