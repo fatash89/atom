@@ -1,9 +1,11 @@
 import redis
 import threading
-from atom.config import DEFAULT_REDIS_PORT, DEFAULT_REDIS_SOCKET
+import time
+from atom.config import DEFAULT_REDIS_PORT, DEFAULT_REDIS_SOCKET, HEALTHCHECK_RETRY_INTERVAL
 from atom.config import LANG, VERSION, ACK_TIMEOUT, RESPONSE_TIMEOUT, STREAM_LEN, MAX_BLOCK
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESPONSE
 from atom.config import ATOM_COMMAND_UNSUPPORTED, ATOM_CALLBACK_FAILED, ATOM_USER_ERRORS_BEGIN
+from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND
 from atom.messages import Cmd, Response, StreamHandler
 from atom.messages import Acknowledge, Entry, Response, Log, LogLevel
 from msgpack import packb, unpackb
@@ -53,6 +55,17 @@ class Element:
                 })
             # Keep track of command_last_id to know last time the element's command stream was read from
             self.command_last_id = self._pipe.execute()[-1].decode()
+
+            # Init a default healthcheck, overridable
+            # By default, if no healthcheck is set, we assume everything is ok and return error code 0
+            self.healthcheck_set(lambda: Response())
+
+            # Init a version check callback which reports our language/version
+            current_major_version = ".".join(VERSION.split(".")[:-1])
+            self.command_add(
+                VERSION_COMMAND,
+                lambda: Response(data={"language": LANG, "version": float(current_major_version)}, serialize=True)
+            )
 
             self.log(LogLevel.INFO, "Element initialized.", stdout=False)
         except redis.exceptions.RedisError:
@@ -159,6 +172,30 @@ class Element:
                     pass
         return entry
 
+    def _check_element_version(self, element_name, supported_language_set=None, supported_min_version=None):
+        """
+        Convenient helper function to query an element about whether it meets min language and version requirements for some feature
+
+        Args:
+            element_name (str): Name of the element to query
+            supported_language_set (set, optional): Optional set of supported languages target element must be a part of to pass
+            supported_min_version (float, optional): Optional min version target element must meet to pass
+        """
+        # Check if element is reachable and supports the version command
+        response = self.get_element_version(element_name)
+        if response["err_code"] != ATOM_NO_ERROR or type(response["data"]) is not dict:
+            return False
+        # Check for valid response to version command
+        if not ("version" in response["data"] and "language" in response["data"] and type(response["data"]["version"]) is float):
+            return False
+        # Validate element meets language requirement
+        if supported_language_set and response["data"]["language"] not in supported_language_set:
+            return False
+        # Validate element meets version requirement
+        if supported_min_version and response["data"]["version"] < supported_min_version:
+            return False
+        return True
+
     def get_all_elements(self):
         """
         Gets the names of all the elements connected to the Redis server.
@@ -188,6 +225,18 @@ class Element:
         ]
         return streams
 
+    def get_element_version(self, element_name):
+        """
+        Queries the version info for the given element name.
+
+        Args:
+            element_name (str): Name of the element to query
+
+        Returns:
+            A dictionary of the response from the command.
+        """
+        return self.command_send(element_name, VERSION_COMMAND, "", deserialize=True)
+
     def command_add(self, name, handler, timeout=RESPONSE_TIMEOUT, deserialize=False):
         """
         Adds a command to the element for another element to call.
@@ -200,8 +249,53 @@ class Element:
         """
         if not callable(handler):
             raise TypeError("Passed in handler is not a function!")
+        if name == HEALTHCHECK_COMMAND and name in self.handler_map:
+            raise ValueError(f"'{HEALTHCHECK_COMMAND}' is a reserved command name dedicated to healthchecks, choose another name")
+        if name == VERSION_COMMAND and name in self.handler_map:
+            raise ValueError(f"'{VERSION_COMMAND}' is a reserved command name dedicated to version checking, choose another name")
         self.handler_map[name] = {"handler": handler, "deserialize": deserialize}
         self.timeouts[name] = timeout
+
+    def healthcheck_set(self, handler):
+        """
+        Sets a custom healthcheck callback
+
+        Args:
+            handler (callable): Function to call when evaluating whether this element is healthy or not.
+                                Should return a Response with err_code ATOM_NO_ERROR if healthy.
+        """
+        if not callable(handler):
+            raise TypeError("Passed in handler is not a function!")
+        # Handler must return response with 0 error_code to pass healthcheck
+        self.handler_map[HEALTHCHECK_COMMAND] = {"handler": handler, "deserialize": False}
+        self.timeouts[HEALTHCHECK_COMMAND] = RESPONSE_TIMEOUT
+
+    def wait_for_elements_healthy(self, element_list, retry_interval=HEALTHCHECK_RETRY_INTERVAL):
+        """
+        Blocking call will wait until all elements in the element respond that they are healthy.
+
+        Args:
+            element_list ([str]): List of element names to run healthchecks on
+                                  Should return a Response with err_code ATOM_NO_ERROR if healthy.
+            retry_interval (float, optional) Time in seconds to wait before retrying after a failed attempt.
+        """
+
+        while True:
+            all_healthy = True
+            for element_name in element_list:
+                # Verify element supports healthcheck feature. If it doesn't, assume its healthy and skip it
+                if not self._check_element_version(element_name, supported_language_set={LANG}, supported_min_version=0.2):
+                    continue
+
+                response = self.command_send(element_name, HEALTHCHECK_COMMAND, "")
+                if response["err_code"] != ATOM_NO_ERROR:
+                    self.log(LogLevel.WARNING, f"Failed healthcheck on {element_name}, retrying...")
+                    all_healthy = False
+                    break
+            if all_healthy:
+                break
+
+            time.sleep(retry_interval)
 
     def command_loop(self):
         """
@@ -248,9 +342,14 @@ class Element:
                     err_code=ATOM_COMMAND_UNSUPPORTED, err_str="Unsupported command.")
             else:
                 try:
-                    data = unpackb(
-                        data, raw=False) if self.handler_map[cmd_name]["deserialize"] else data
-                    response = self.handler_map[cmd_name]["handler"](data)
+                    if cmd_name != HEALTHCHECK_COMMAND and cmd_name != VERSION_COMMAND:
+                        data = unpackb(
+                            data, raw=False) if self.handler_map[cmd_name]["deserialize"] else data
+                        response = self.handler_map[cmd_name]["handler"](data)
+                    else:
+                        # healthcheck/version requests don't care what data you are sending
+                        response = self.handler_map[cmd_name]["handler"]()
+
                     if not isinstance(response, Response):
                         raise TypeError(f"Return type of {cmd_name} is not of type Response")
                     # Add ATOM_USER_ERRORS_BEGIN to err_code to map to element error range
@@ -272,7 +371,7 @@ class Element:
     def command_send(self,
                      element_name,
                      cmd_name,
-                     data,
+                     data="",
                      block=True,
                      serialize=False,
                      deserialize=False):

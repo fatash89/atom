@@ -5,6 +5,8 @@ from multiprocessing import Process
 from threading import Thread, Lock
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_UNSUPPORTED
 from atom.config import ATOM_COMMAND_NO_RESPONSE, ATOM_CALLBACK_FAILED
+from atom.config import ATOM_USER_ERRORS_BEGIN, HEALTHCHECK_RETRY_INTERVAL
+from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND, LANG, VERSION
 from atom.messages import Response, StreamHandler, LogLevel
 
 
@@ -256,6 +258,100 @@ class TestAtom:
             responder_0._rclient.delete("stream:responder_0:stream_0")
             responder_0._rclient.delete("command:responder_0")
             responder_0._rclient.delete("response:responder_0")
+
+    def test_healthcheck_default(self, caller, responder):
+        """
+        Verify default healthcheck
+        """
+        proc = Process(target=responder.command_loop)
+        proc.start()
+        response = caller.command_send("test_responder", HEALTHCHECK_COMMAND)
+        assert response["err_code"] == ATOM_NO_ERROR
+        assert response["data"] == b""
+        proc.terminate()
+        proc.join()
+
+    def test_healthcheck_success(self, caller, responder):
+        """
+        Verify a successful response from a custom healthcheck
+        """
+        responder.healthcheck_set(lambda: Response(err_code=0, err_str="We're good"))
+        proc = Process(target=responder.command_loop)
+        proc.start()
+        response = caller.command_send("test_responder", HEALTHCHECK_COMMAND)
+        assert response["err_code"] == ATOM_NO_ERROR
+        assert response["data"] == b""
+        assert response["err_str"] == "We're good"
+        proc.terminate()
+        proc.join()
+
+    def test_healthcheck_failure(self, caller, responder):
+        """
+        Verify a failed response from a custom healthcheck
+        """
+        responder.healthcheck_set(lambda: Response(err_code=5, err_str="Camera is unplugged"))
+        proc = Process(target=responder.command_loop)
+        proc.start()
+        response = caller.command_send("test_responder", HEALTHCHECK_COMMAND)
+        assert response["err_code"] == 5 + ATOM_USER_ERRORS_BEGIN
+        assert response["data"] == b""
+        assert response["err_str"] == "Camera is unplugged"
+        proc.terminate()
+        proc.join()
+
+    def test_wait_for_elements_healthy(self, caller, responder):
+        """
+        Verify wait_for_elements_healthy success/failure cases
+        """
+        proc = Process(target=responder.command_loop)
+        proc.start()
+
+        def wait_for_elements_check(caller, elements_to_check):
+            caller.wait_for_elements_healthy(elements_to_check)
+
+        wait_for_elements_thread = Thread(target=wait_for_elements_check, args=(caller, ['test_responder']), daemon=True)
+        wait_for_elements_thread.start()
+        # If elements reported healthy, call should have returned quickly and thread should exit
+        wait_for_elements_thread.join(0.5)
+        assert not wait_for_elements_thread.is_alive()
+
+        wait_for_elements_thread = Thread(target=wait_for_elements_check, args=(caller, ['test_responder', 'test_responder_2']), daemon=True)
+        wait_for_elements_thread.start()
+        # 1 of these elements is missing, so thread is busy and this join call should timeout retrying
+        wait_for_elements_thread.join(0.5)
+        assert wait_for_elements_thread.is_alive()
+
+        try:
+            responder_2 = Element("test_responder_2")
+            command_loop_thread = Thread(target=responder_2.command_loop, daemon=True)
+            command_loop_thread.start()
+
+            # test_responder_2 is alive now, so both healthchecks should succeed and thread should exit roughly within the retry interval
+            wait_for_elements_thread.join(HEALTHCHECK_RETRY_INTERVAL + 1.0)
+            assert not wait_for_elements_thread.is_alive()
+        finally:
+            # Cleanup threads
+            responder_2.command_loop_shutdown()
+            command_loop_thread.join(0.5)
+            responder._rclient.delete("command:test_responder_2")
+            responder._rclient.delete("response:test_responder_2")
+
+        proc.terminate()
+        proc.join()
+
+    def test_version_command(self, caller, responder):
+        """
+        Verify the response from the get_element_version command
+        """
+        proc = Process(target=responder.command_loop)
+        proc.start()
+        response = caller.command_send("test_responder", VERSION_COMMAND, deserialize=True)
+        assert response["err_code"] == ATOM_NO_ERROR
+        assert response["data"] == {"version": float(".".join(VERSION.split(".")[:-1])), "language": LANG}
+        response2 = caller.get_element_version("test_responder")
+        assert response == response2
+        proc.terminate()
+        proc.join()
 
     def test_no_ack(self, caller, responder):
         """
