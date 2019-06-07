@@ -347,7 +347,7 @@ class TestAtom:
         proc.start()
         response = caller.command_send("test_responder", VERSION_COMMAND, deserialize=True)
         assert response["err_code"] == ATOM_NO_ERROR
-        assert response["data"] == {"version": float(VERSION), "language": LANG}
+        assert response["data"] == {"version": float(".".join(VERSION.split(".")[:-1])), "language": LANG}
         response2 = caller.get_element_version("test_responder")
         assert response == response2
         proc.terminate()

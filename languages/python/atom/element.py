@@ -61,9 +61,10 @@ class Element:
             self.healthcheck_set(lambda: Response())
 
             # Init a version check callback which reports our language/version
+            current_major_version = ".".join(VERSION.split(".")[:-1])
             self.command_add(
                 VERSION_COMMAND,
-                lambda: Response(data={"language": LANG, "version": float(VERSION)}, serialize=True)
+                lambda: Response(data={"language": LANG, "version": float(current_major_version)}, serialize=True)
             )
 
             self.log(LogLevel.INFO, "Element initialized.", stdout=False)
@@ -283,7 +284,7 @@ class Element:
             all_healthy = True
             for element_name in element_list:
                 # Verify element supports healthcheck feature. If it doesn't, assume its healthy and skip it
-                if not self._check_element_version(element_name, supported_language_set={LANG}, supported_min_version=0.10):
+                if not self._check_element_version(element_name, supported_language_set={LANG}, supported_min_version=0.2):
                     continue
 
                 response = self.command_send(element_name, HEALTHCHECK_COMMAND, "")
