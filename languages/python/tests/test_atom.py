@@ -298,7 +298,7 @@ class TestAtom:
         proc.terminate()
         proc.join()
 
-    def test_wait_for_elements_healthy_success(self, caller, responder):
+    def test_wait_for_elements_healthy(self, caller, responder):
         proc = Process(target=responder.command_loop)
         proc.start()
 
@@ -327,9 +327,6 @@ class TestAtom:
 
         proc.terminate()
         proc.join()
-
-    def test_wait_for_elements_healthy_failure(self, caller, responder):
-        pass
 
     def test_no_ack(self, caller, responder):
         """

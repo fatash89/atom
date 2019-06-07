@@ -5,6 +5,7 @@ from atom.config import DEFAULT_REDIS_PORT, DEFAULT_REDIS_SOCKET, HEALTHCHECK_RE
 from atom.config import LANG, VERSION, ACK_TIMEOUT, RESPONSE_TIMEOUT, STREAM_LEN, MAX_BLOCK
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESPONSE
 from atom.config import ATOM_COMMAND_UNSUPPORTED, ATOM_CALLBACK_FAILED, ATOM_USER_ERRORS_BEGIN
+from atom.config import HEALTHCHECK_COMMAND
 from atom.messages import Cmd, Response, StreamHandler
 from atom.messages import Acknowledge, Entry, Response, Log, LogLevel
 from msgpack import packb, unpackb
@@ -28,7 +29,6 @@ class Element:
         self.streams = set()
         self._rclient = None
         self._command_loop_shutdown = threading.Event()
-        self._healthcheck_command = 'healthcheck'
         try:
             if host is not None:
                 self._rclient = redis.StrictRedis(host=host, port=port)
@@ -206,14 +206,34 @@ class Element:
         """
         if not callable(handler):
             raise TypeError("Passed in handler is not a function!")
+        if name == HEALTHCHECK_COMMAND:
+            raise ValueError(f"'{HEALTHCHECK_COMMAND}' is a reserved command name dedicated to healthchecks, choose another name")
         self.handler_map[name] = {"handler": handler, "deserialize": deserialize}
         self.timeouts[name] = timeout
 
     def healthcheck_set(self, handler):
+        """
+        Sets a custom healthcheck callback
+
+        Args:
+            handler (callable): Function to call when evaluating whether this element is healthy or not.
+                                Should return a Response with err_code ATOM_NO_ERROR if healthy.
+        """
+        if not callable(handler):
+            raise TypeError("Passed in handler is not a function!")
         # Handler must return response with 0 error_code to pass healthcheck
-        self.command_add(self._healthcheck_command, handler)
+        self.command_add(HEALTHCHECK_COMMAND, handler)
 
     def wait_for_elements_healthy(self, element_list, retry_interval=HEALTHCHECK_RETRY_INTERVAL):
+        """
+        Blocking call will wait until all elements in the element respond that they are healthy.
+
+        Args:
+            element_list ([str]): List of element names to run healthchecks on
+                                  Should return a Response with err_code ATOM_NO_ERROR if healthy.
+            retry_interval (float, optional) Time in seconds to wait before retrying after a failed attempt.
+        """
+
         while True:
             all_healthy = True
             for element_name in element_list:
@@ -272,7 +292,7 @@ class Element:
                     err_code=ATOM_COMMAND_UNSUPPORTED, err_str="Unsupported command.")
             else:
                 try:
-                    if cmd_name != self._healthcheck_command:
+                    if cmd_name != HEALTHCHECK_COMMAND:
                         data = unpackb(
                             data, raw=False) if self.handler_map[cmd_name]["deserialize"] else data
                         response = self.handler_map[cmd_name]["handler"](data)
