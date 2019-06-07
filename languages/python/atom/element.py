@@ -181,7 +181,7 @@ class Element:
             supported_min_version (float, optional): Optional min version target element must meet to pass
         """
         # Check if element is reachable and supports the version command
-        response = get_element_version(element_name)
+        response = self.get_element_version(element_name)
         if response["err_code"] != ATOM_NO_ERROR or type(response["data"]) is not dict:
             return False
         # Check for valid response to version command
