@@ -103,6 +103,11 @@ class AtomBot:
         finally:
             self.bot_lock.release()
 
+    def is_healthy(self):
+        # This is an example health-check, which can be used to tell other elements that depend on you
+        # whether you are ready to receive commands or not. Any non-zero error code means you are unhealthy.
+        return Response(err_code=0, err_str="Everything is good")
+
 if __name__ == "__main__":
     print("Launching...")
     # Create our element and call it "atombot"
@@ -110,6 +115,10 @@ if __name__ == "__main__":
 
     # Instantiate our AtomBot class
     atombot = AtomBot()
+
+    # We add a healthcheck to our atombot element.
+    # This is optional. If you don't do this, atombot is assumed healthy as soon as its command_loop executes
+    element.healthcheck_set(atombot.is_healthy)
 
     # This registers the relevant AtomBot methods as a command in the atom system
     # We set the timeout so the caller will know how long to wait for the command to execute
@@ -122,6 +131,9 @@ if __name__ == "__main__":
     # We use a thread so we don't hang on the command_loop function because we will be performing other tasks
     thread = Thread(target=element.command_loop, daemon=True)
     thread.start()
+
+    # This will block until every element in the list reports it is healthy. Useful if you depend on other elements.
+    element.wait_for_elements_healthy(['atombot'])
 
     # Create an infinite loop that publishes the position of atombot to a stream as well as a visual of its position
     while True:
