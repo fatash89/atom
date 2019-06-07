@@ -5,7 +5,7 @@ from atom.config import DEFAULT_REDIS_PORT, DEFAULT_REDIS_SOCKET, HEALTHCHECK_RE
 from atom.config import LANG, VERSION, ACK_TIMEOUT, RESPONSE_TIMEOUT, STREAM_LEN, MAX_BLOCK
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESPONSE
 from atom.config import ATOM_COMMAND_UNSUPPORTED, ATOM_CALLBACK_FAILED, ATOM_USER_ERRORS_BEGIN
-from atom.config import HEALTHCHECK_COMMAND
+from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND
 from atom.messages import Cmd, Response, StreamHandler
 from atom.messages import Acknowledge, Entry, Response, Log, LogLevel
 from msgpack import packb, unpackb
@@ -59,6 +59,12 @@ class Element:
             # Init a default healthcheck, overridable
             # By default, if no healthcheck is set, we assume everything is ok and return error code 0
             self.healthcheck_set(lambda: Response())
+
+            # Init a version check callback which reports our language/version
+            self.command_add(
+                VERSION_COMMAND,
+                lambda: Response(data={"language": LANG, "version": float(VERSION)}, serialize=True)
+            )
 
             self.log(LogLevel.INFO, "Element initialized.", stdout=False)
         except redis.exceptions.RedisError:
@@ -206,10 +212,36 @@ class Element:
         """
         if not callable(handler):
             raise TypeError("Passed in handler is not a function!")
-        if name == HEALTHCHECK_COMMAND:
+        if name == HEALTHCHECK_COMMAND and name in self.handler_map:
             raise ValueError(f"'{HEALTHCHECK_COMMAND}' is a reserved command name dedicated to healthchecks, choose another name")
+        if name == VERSION_COMMAND and name in self.handler_map:
+            raise ValueError(f"'{VERSION_COMMAND}' is a reserved command name dedicated to version checking, choose another name")
         self.handler_map[name] = {"handler": handler, "deserialize": deserialize}
         self.timeouts[name] = timeout
+
+    def _check_element_version(self, element_name, supported_language_set=None, supported_min_version=None):
+        """
+        Convenient helper function to query an element about whether it meets min language and version requirements for some feature
+
+        Args:
+            element_name (str): Name of the element to query
+            supported_language_set (set, optional): Optional set of supported languages target element must be a part of to pass
+            supported_min_version (float, optional): Optional min version target element must meet to pass
+        """
+        # Check if element is reachable and supports the version command
+        response = self.command_send(element_name, VERSION_COMMAND, "", deserialize=True)
+        if response["err_code"] != ATOM_NO_ERROR or type(response["data"]) is not dict:
+            return False
+        # Check for valid response to version command
+        if not ("version" in response["data"] and "language" in response["data"] and type(response["data"]["version"]) is float):
+            return False
+        # Validate element meets language requirement
+        if supported_language_set and response["data"]["language"] not in supported_language_set:
+            return False
+        # Validate element meets version requirement
+        if supported_min_version and response["data"]["version"] < supported_min_version:
+            return False
+        return True
 
     def healthcheck_set(self, handler):
         """
@@ -238,7 +270,11 @@ class Element:
         while True:
             all_healthy = True
             for element_name in element_list:
-                response = self.command_send(element_name, "healthcheck", "")
+                # Verify element supports healthcheck feature. If it doesn't, assume its healthy and skip it
+                if not self._check_element_version(element_name, supported_language_set={LANG}, supported_min_version=0.10):
+                    continue
+
+                response = self.command_send(element_name, HEALTHCHECK_COMMAND, "")
                 if response["err_code"] != ATOM_NO_ERROR:
                     self.log(LogLevel.WARNING, f"Failed healthcheck on {element_name}, retrying...")
                     all_healthy = False
@@ -293,12 +329,12 @@ class Element:
                     err_code=ATOM_COMMAND_UNSUPPORTED, err_str="Unsupported command.")
             else:
                 try:
-                    if cmd_name != HEALTHCHECK_COMMAND:
+                    if cmd_name != HEALTHCHECK_COMMAND and cmd_name != VERSION_COMMAND:
                         data = unpackb(
                             data, raw=False) if self.handler_map[cmd_name]["deserialize"] else data
                         response = self.handler_map[cmd_name]["handler"](data)
                     else:
-                        # healthcheck requests don't care what data you are sending
+                        # healthcheck/version requests don't care what data you are sending
                         response = self.handler_map[cmd_name]["handler"]()
 
                     if not isinstance(response, Response):

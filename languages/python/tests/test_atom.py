@@ -6,6 +6,7 @@ from threading import Thread, Lock
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_UNSUPPORTED
 from atom.config import ATOM_COMMAND_NO_RESPONSE, ATOM_CALLBACK_FAILED
 from atom.config import ATOM_USER_ERRORS_BEGIN, HEALTHCHECK_RETRY_INTERVAL
+from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND, LANG, VERSION
 from atom.messages import Response, StreamHandler, LogLevel
 
 
@@ -264,7 +265,7 @@ class TestAtom:
         """
         proc = Process(target=responder.command_loop)
         proc.start()
-        response = caller.command_send("test_responder", "healthcheck")
+        response = caller.command_send("test_responder", HEALTHCHECK_COMMAND)
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == b""
         proc.terminate()
@@ -277,7 +278,7 @@ class TestAtom:
         responder.healthcheck_set(lambda: Response(err_code=0, err_str="We're good"))
         proc = Process(target=responder.command_loop)
         proc.start()
-        response = caller.command_send("test_responder", "healthcheck")
+        response = caller.command_send("test_responder", HEALTHCHECK_COMMAND)
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == b""
         assert response["err_str"] == "We're good"
@@ -291,7 +292,7 @@ class TestAtom:
         responder.healthcheck_set(lambda: Response(err_code=5, err_str="Camera is unplugged"))
         proc = Process(target=responder.command_loop)
         proc.start()
-        response = caller.command_send("test_responder", "healthcheck")
+        response = caller.command_send("test_responder", HEALTHCHECK_COMMAND)
         assert response["err_code"] == 5 + ATOM_USER_ERRORS_BEGIN
         assert response["data"] == b""
         assert response["err_str"] == "Camera is unplugged"
@@ -299,6 +300,9 @@ class TestAtom:
         proc.join()
 
     def test_wait_for_elements_healthy(self, caller, responder):
+        """
+        Verify wait_for_elements_healthy success/failure cases
+        """
         proc = Process(target=responder.command_loop)
         proc.start()
 
@@ -332,6 +336,18 @@ class TestAtom:
             responder._rclient.delete("command:test_responder_2")
             responder._rclient.delete("response:test_responder_2")
 
+        proc.terminate()
+        proc.join()
+
+    def test_version_command(self, caller, responder):
+        """
+        Verify the response from the built-in version command
+        """
+        proc = Process(target=responder.command_loop)
+        proc.start()
+        response = caller.command_send("test_responder", VERSION_COMMAND, deserialize=True)
+        assert response["err_code"] == ATOM_NO_ERROR
+        assert response["data"] == {"version": float(VERSION), "language": LANG}
         proc.terminate()
         proc.join()
 
