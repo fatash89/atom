@@ -317,13 +317,20 @@ class TestAtom:
         wait_for_elements_thread.join(0.5)
         assert wait_for_elements_thread.is_alive()
 
-        responder_2 = Element("test_responder_2")
-        command_loop_thread = Thread(target=responder_2.command_loop, daemon=True)
-        command_loop_thread.start()
+        try:
+            responder_2 = Element("test_responder_2")
+            command_loop_thread = Thread(target=responder_2.command_loop, daemon=True)
+            command_loop_thread.start()
 
-        # test_responder_2 is alive now, so both healthchecks should succeed and thread should exit roughly within the retry interval
-        wait_for_elements_thread.join(HEALTHCHECK_RETRY_INTERVAL + 1.0)
-        assert not wait_for_elements_thread.is_alive()
+            # test_responder_2 is alive now, so both healthchecks should succeed and thread should exit roughly within the retry interval
+            wait_for_elements_thread.join(HEALTHCHECK_RETRY_INTERVAL + 1.0)
+            assert not wait_for_elements_thread.is_alive()
+        finally:
+            # Cleanup threads
+            responder_2.command_loop_shutdown()
+            command_loop_thread.join(0.5)
+            responder._rclient.delete("command:responder_2")
+            responder._rclient.delete("response:responder_2")
 
         proc.terminate()
         proc.join()
