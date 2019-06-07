@@ -1180,6 +1180,10 @@ Use `SCAN` to traverse all streams starting with a prefix. If `element` is not s
 
 ## Get Element Version
 
+```python
+streams = my_element.get_element_version("your_element")
+```
+
 Allows user to query any given element for its atom version and language.
 
 ### API
@@ -1194,11 +1198,18 @@ Object containing error code and response data. Response data should have versio
 
 ### Spec
 
-Version queries are implemented using existing command/response mechanism, with a custom `version` command automatically initialized by atom.
-This is a reserved name, so users should be unable to add custom command handlers with this string value.
-Version responses use the same response mechanism as any other command, with the data field populated by a dictionary containing 'version' and 'language' fields.
+Version queries are implemented using existing command/response mechanism, with a custom `version` command automatically initialized by atom. This is a reserved name, so users should be unable to add custom command handlers with this string value. Version responses use the same response mechanism as any other command, with the data field populated by a dictionary containing 'version' and 'language' fields.
 
 ## Set Healthcheck
+
+```python
+def is_healthy(self):
+    # This is an example health-check, which can be used to tell other elements that depend on you
+    # whether you are ready to receive commands or not. Any non-zero error code means you are unhealthy.
+    return Response(err_code=0, err_str="Everything is good")
+
+my_element.healthcheck_set(is_healthy)
+```
 
 Allows user to optionally set custom healthcheck on an element. By default, any element running its command loop should report as healthy.
 
@@ -1214,12 +1225,13 @@ None
 
 ### Spec
 
-Healthchecks are implemented using the existing command/response mechanism, with a custom `healthcheck` command automatically initialized by atom.
-This is a reserved name, so users should be unable to add custom command handlers with this string value.
-Healthcheck responses use the same response mechanism as any other command, a 0 error code means the element is healthy and ready to accept commands,
-anything else indicates a failure. If the element is unhealthy, the err_str field should be used to indicate the failure reason.
+Healthchecks are implemented using the existing command/response mechanism, with a custom `healthcheck` command automatically initialized by atom. This is a reserved name, so users should be unable to add custom command handlers with this string value. Healthcheck responses use the same response mechanism as any other command, a 0 error code means the element is healthy and ready to accept commands, anything else indicates a failure. If the element is unhealthy, the err_str field should be used to indicate the failure reason.
 
 ## Wait for Elements Healthy
+
+```python
+my_element.wait_for_elements_healthy(['your_element'])
+```
 
 Allows user to do a blocking wait until a given list of elements are all reporting healthy.
 
@@ -1236,26 +1248,7 @@ None
 
 ### Spec
 
-Wait for elements healthy should leverage the existing healthcheck command and block until all given elements are reporting healthy.
-This command should be backwards compatible, so you should do a version check on each given element to make sure it has support for healthchecks.
-If it does not, you should assume it is healthy, so that this command doesn't block indefinitely.
-
-### API
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `handler` | function | Handler to call when a healthcheck command is received. Handler function takes no args, and should return a response indicating whether the element is healthy or not using the err_code on the response. |
-
-### Return Value
-
-None
-
-### Spec
-
-Healthchecks are implemented using the existing command/response mechanism, with a custom `healthcheck` command automatically initialized by atom.
-This is a reserved name, so users should be unable to add custom command handlers with this string value.
-Healthcheck responses use the same response mechanism as any other command, a 0 error code means the element is healthy and ready to accept commands,
-anything else indicates a failure. If the element is unhealthy, the err_str field should be used to indicate the failure reason.
+Wait for elements healthy should leverage the existing healthcheck command and block until all given elements are reporting healthy. This command should be backwards compatible, so you should do a version check on each given element to make sure it has support for healthchecks. If it does not, you should assume it is healthy, so that this command doesn't block indefinitely.
 
 ## Error Codes
 

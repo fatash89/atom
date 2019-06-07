@@ -341,13 +341,15 @@ class TestAtom:
 
     def test_version_command(self, caller, responder):
         """
-        Verify the response from the built-in version command
+        Verify the response from the get_element_version command
         """
         proc = Process(target=responder.command_loop)
         proc.start()
         response = caller.command_send("test_responder", VERSION_COMMAND, deserialize=True)
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == {"version": float(VERSION), "language": LANG}
+        response2 = caller.get_element_version("test_responder")
+        assert response == response2
         proc.terminate()
         proc.join()
 
