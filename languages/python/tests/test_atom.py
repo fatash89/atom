@@ -8,6 +8,7 @@ from atom.config import ATOM_COMMAND_NO_RESPONSE, ATOM_CALLBACK_FAILED
 from atom.config import ATOM_USER_ERRORS_BEGIN, HEALTHCHECK_RETRY_INTERVAL
 from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND, LANG, VERSION
 from atom.messages import Response, StreamHandler, LogLevel
+from atom.contracts import RawContract
 
 
 class TestAtom:
@@ -408,6 +409,10 @@ class TestAtom:
         logs = logs[-8:]
         for i in range(8):
             assert logs[i][1][b"msg"].decode() == f"severity {i}"
+
+    def test_contracts(self):
+        test = RawContract(data=b"")
+        assert test.to_data() == b""
 
 
 def add_1(x):

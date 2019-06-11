@@ -1,4 +1,4 @@
-from lazycontract import BinaryProperty, LazyContract
+from lazycontract import LazyProperty, LazyContract
 
 class BinaryProperty(LazyProperty):
     _type = bytes
@@ -8,8 +8,8 @@ class BinaryProperty(LazyProperty):
 class RawContract(LazyContract):
     data = BinaryProperty(required=True)
 
-    def to_dict():
+    def to_dict(self):
         raise TypeError("Cannot convert raw contract to dict, use the to_data() function instead")
 
-    def to_data():
+    def to_data(self):
         return self.data
