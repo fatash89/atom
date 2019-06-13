@@ -4,7 +4,12 @@ from lazycontract.contract import LazyContractValidationError, LazyContractDeser
 class BinaryProperty(LazyProperty):
     _type = bytes
     def deserialize(self, obj):
-        return obj if isinstance(obj, self._type) else LazyContractDeserializationError("Must provide bytes object")
+        if isinstance(obj, self._type):
+            return obj
+        elif isinstance(obj, str):
+            return obj.encode()
+        else:
+            return LazyContractDeserializationError("Must provide bytes object")
 
 class RawContract(LazyContract):
     def __init__(self,  *args, **kwargs):

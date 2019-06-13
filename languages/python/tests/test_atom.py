@@ -423,6 +423,9 @@ class TestAtom:
         test_raw = RawContractTest(b'test_binary')
         assert test_raw.to_data() == b'test_binary'
 
+        test_raw = RawContractTest('test_binary')
+        assert test_raw.to_data() == b'test_binary'
+
         test_empty = EmptyContractTest()
         assert test_empty.to_data() == ""
 
