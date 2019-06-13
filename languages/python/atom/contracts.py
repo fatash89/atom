@@ -9,7 +9,7 @@ class BinaryProperty(LazyProperty):
         elif isinstance(obj, str):
             return obj.encode()
         else:
-            return LazyContractDeserializationError("Must provide bytes object")
+            raise LazyContractDeserializationError("Must provide bytes object")
 
 class RawContract(LazyContract):
     def __init__(self,  *args, **kwargs):
