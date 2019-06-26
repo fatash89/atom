@@ -5,12 +5,11 @@ from atom.config import DEFAULT_REDIS_PORT, DEFAULT_REDIS_SOCKET, HEALTHCHECK_RE
 from atom.config import LANG, VERSION, ACK_TIMEOUT, RESPONSE_TIMEOUT, STREAM_LEN, MAX_BLOCK
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESPONSE
 from atom.config import ATOM_COMMAND_UNSUPPORTED, ATOM_CALLBACK_FAILED, ATOM_USER_ERRORS_BEGIN
-from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND, REDIS_PIPELINE_POOL_SIZE
+from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND
 from atom.messages import Cmd, Response, StreamHandler
 from atom.messages import Acknowledge, Entry, Response, Log, LogLevel
 from msgpack import packb, unpackb
 from os import uname
-from queue import Queue
 from sys import exit
 
 
@@ -30,19 +29,14 @@ class Element:
         self.streams = set()
         self._rclient = None
         self._command_loop_shutdown = threading.Event()
-        self._rpipeline_pool = Queue()
         try:
             if host is not None:
                 self._rclient = redis.StrictRedis(host=host, port=port)
             else:
                 self._rclient = redis.StrictRedis(unix_socket_path=socket_path)
-
-            # Init our pool of redis clients/pipelines
-            for i in range(REDIS_PIPELINE_POOL_SIZE):
-                self._rpipeline_pool.put(self._rclient.pipeline())
-
-            _pipe = self._rpipeline_pool.get()
-            _pipe.xadd(
+            self._pipe = self._rclient.pipeline()
+            self._write_pipe = self._rclient.pipeline()
+            self._pipe.xadd(
                 self._make_response_id(self.name),
                 maxlen=STREAM_LEN,
                 **{
@@ -50,9 +44,9 @@ class Element:
                     "version": VERSION
                 })
             # Keep track of response_last_id to know last time the client's response stream was read from
-            self.response_last_id = _pipe.execute()[-1].decode()
+            self.response_last_id = self._pipe.execute()[-1].decode()
 
-            _pipe.xadd(
+            self._pipe.xadd(
                 self._make_command_id(self.name),
                 maxlen=STREAM_LEN,
                 **{
@@ -60,8 +54,7 @@ class Element:
                     "version": VERSION
                 })
             # Keep track of command_last_id to know last time the element's command stream was read from
-            self.command_last_id = _pipe.execute()[-1].decode()
-            _pipe = self._release_pipeline(_pipe)
+            self.command_last_id = self._pipe.execute()[-1].decode()
 
             # Init a default healthcheck, overridable
             # By default, if no healthcheck is set, we assume everything is ok and return error code 0
@@ -104,17 +97,6 @@ class Element:
             self._rclient.delete(self._make_command_id(self.name))
         except redis.exceptions.RedisError:
             raise Exception("Could not connect to nucleus!")
-
-    def _release_pipeline(self, pipeline):
-        """
-        Resets the specified pipeline and returns it to the pool of available pipelines.
-
-        Args:
-            pipeline (Redis Pipeline): The pipeline to release
-        """
-        pipeline.reset()
-        self._rpipeline_pool.put(pipeline)
-        return None
 
     def _make_response_id(self, element_name):
         """
@@ -350,9 +332,8 @@ class Element:
             else:
                 timeout = self.timeouts[cmd_name]
             acknowledge = Acknowledge(self.name, cmd_id, timeout)
-            _pipe = self._rpipeline_pool.get()
-            _pipe.xadd(self._make_response_id(caller), maxlen=STREAM_LEN, **vars(acknowledge))
-            _pipe.execute()
+            self._pipe.xadd(self._make_response_id(caller), maxlen=STREAM_LEN, **vars(acknowledge))
+            self._pipe.execute()
 
             # Send response to caller
             if cmd_name not in self.handler_map.keys():
@@ -380,9 +361,8 @@ class Element:
                     response = Response(err_code=ATOM_CALLBACK_FAILED, err_str=err_str)
 
             response = response.to_internal(self.name, cmd_name, cmd_id)
-            _pipe.xadd(self._make_response_id(caller), maxlen=STREAM_LEN, **vars(response))
-            _pipe.execute()
-            _pipe = self._release_pipeline(_pipe)
+            self._pipe.xadd(self._make_response_id(caller), maxlen=STREAM_LEN, **vars(response))
+            self._pipe.execute()
 
     # Triggers graceful exit of command loop
     def command_loop_shutdown(self):
@@ -394,8 +374,7 @@ class Element:
                      data="",
                      block=True,
                      serialize=False,
-                     deserialize=False,
-                     ack_timeout=ACK_TIMEOUT):
+                     deserialize=False):
         """
         Sends command to element and waits for acknowledge.
         When acknowledge is received, waits for timeout from acknowledge or until response is received.
@@ -407,49 +386,29 @@ class Element:
             block (bool): Wait for the response before returning from the function.
             serialize (bool, optional): Whether or not to serialize the data using msgpack before sending it to the command.
             deserialize (bool, optional): Whether or not to deserialize the data in the response using msgpack.
-            ack_timeout (int, optional): Time in milliseconds to wait for ack before timing out, overrides default value
 
         Returns:
             A dictionary of the response from the command.
         """
-        # cache the last response id at the time we are issuing this command, since this can get overwritten
-        last_response_id = self.response_last_id
-
         # Send command to element's command stream
         data = packb(data, use_bin_type=True) if serialize and (data != "") else data
         cmd = Cmd(self.name, cmd_name, data)
-        _pipe = self._rpipeline_pool.get()
-        _pipe.xadd(self._make_command_id(element_name), maxlen=STREAM_LEN, **vars(cmd))
-        cmd_id = _pipe.execute()[-1].decode()
-        _pipe = self._release_pipeline(_pipe)
+        self._write_pipe.xadd(self._make_command_id(element_name), maxlen=STREAM_LEN, **vars(cmd))
+        cmd_id = self._write_pipe.execute()[-1].decode()
         timeout = None
 
         # Receive acknowledge from element
-        # You have no guarantee that the response from the xread is for your specific thread,
-        # so keep trying until we either receive our ack, or timeout is exceeded
-        start_read = time.time()
-        while True:
-            elapsed_time_ms = (time.time() - start_read) * 1000
-            if elapsed_time_ms >= ack_timeout:
-                break
-            responses = self._rclient.xread(
-                block=max(int(ack_timeout - elapsed_time_ms), 1),
-                **{self._make_response_id(self.name): last_response_id}
-            )
-            if responses is None:
-                err_str = f"Did not receive acknowledge from {element_name}."
-                self.log(LogLevel.ERR, err_str)
-                return vars(Response(err_code=ATOM_COMMAND_NO_ACK, err_str=err_str))
-
-            for self.response_last_id, response in responses[self._make_response_id(self.name)]:
-                if b"element" in response and response[b"element"].decode() == element_name \
-                and b"cmd_id" in response and response[b"cmd_id"].decode() == cmd_id \
-                and b"timeout" in response:
-                    timeout = int(response[b"timeout"].decode())
-                    break
-
-            # If the response we received wasn't for this command, keep trying until ack timeout
-            if timeout is not None:
+        responses = self._rclient.xread(
+            block=ACK_TIMEOUT, **{self._make_response_id(self.name): self.response_last_id})
+        if responses is None:
+            err_str = f"Did not receive acknowledge from {element_name}."
+            self.log(LogLevel.ERR, err_str)
+            return vars(Response(err_code=ATOM_COMMAND_NO_ACK, err_str=err_str))
+        for self.response_last_id, response in responses[self._make_response_id(self.name)]:
+            if b"element" in response and response[b"element"].decode() == element_name \
+            and b"cmd_id" in response and response[b"cmd_id"].decode() == cmd_id \
+            and b"timeout" in response:
+                timeout = int(response[b"timeout"].decode())
                 break
 
         if timeout is None:
@@ -458,42 +417,27 @@ class Element:
             return vars(Response(err_code=ATOM_COMMAND_NO_ACK, err_str=err_str))
 
         # Receive response from element
-        # You have no guarantee that the response from the xread is for your specific thread,
-        # so keep trying until we either receive our response, or timeout is exceeded
-        start_read = time.time()
-        while True:
-            elapsed_time_ms = (time.time() - start_read) * 1000
-            if elapsed_time_ms >= timeout:
-                break
-
-            responses = self._rclient.xread(
-                block=max(int(timeout - elapsed_time_ms), 1),
-                **{self._make_response_id(self.name): last_response_id}
-            )
-            if responses is None:
-                err_str = f"Did not receive response from {element_name}."
-                self.log(LogLevel.ERR, err_str)
-                return vars(Response(err_code=ATOM_COMMAND_NO_RESPONSE, err_str=err_str))
-
-            for self.response_last_id, response in responses[self._make_response_id(self.name)]:
-                if b"element" in response and response[b"element"].decode() == element_name \
-                and b"cmd_id" in response and response[b"cmd_id"].decode() == cmd_id \
-                and b"err_code" in response:
-                    err_code = int(response[b"err_code"].decode())
-                    err_str = response[b"err_str"].decode() if b"err_str" in response else ""
-                    if err_code != ATOM_NO_ERROR:
-                        self.log(LogLevel.ERR, err_str)
-                    response_data = response.get(b"data", "")
-                    try:
-                        response_data = unpackb(
-                            response_data,
-                            raw=False) if deserialize and (len(response_data) != 0) else response_data
-                    except TypeError:
-                        self.log(LogLevel.WARNING, "Could not deserialize response.")
-                    return vars(Response(data=response_data, err_code=err_code, err_str=err_str))
-
-            # If the response we received wasn't for this command, keep trying until timeout
-            continue
+        responses = self._rclient.xread(
+            block=timeout, **{self._make_response_id(self.name): self.response_last_id})
+        if responses is None:
+            err_str = f"Did not receive response from {element_name}."
+            self.log(LogLevel.ERR, err_str)
+            return vars(Response(err_code=ATOM_COMMAND_NO_RESPONSE, err_str=err_str))
+        for self.response_last_id, response in responses[self._make_response_id(self.name)]:
+            if b"element" in response and response[b"element"].decode() == element_name \
+            and b"cmd_id" in response and response[b"cmd_id"].decode() == cmd_id:
+                err_code = int(response[b"err_code"].decode())
+                err_str = response[b"err_str"].decode() if b"err_str" in response else ""
+                if err_code != ATOM_NO_ERROR:
+                    self.log(LogLevel.ERR, err_str)
+                response_data = response.get(b"data", "")
+                try:
+                    response_data = unpackb(
+                        response_data,
+                        raw=False) if deserialize and (len(response_data) != 0) else response_data
+                except TypeError:
+                    self.log(LogLevel.WARNING, "Could not deserialize response.")
+                return vars(Response(data=response_data, err_code=err_code, err_str=err_str))
 
         # Proper response was not in responses
         err_str = f"Did not receive response from {element_name}."
@@ -606,10 +550,8 @@ class Element:
             for k, v in field_data_map.items():
                 field_data_map[k] = packb(v, use_bin_type=True)
         entry = Entry(field_data_map)
-        _pipe = self._rpipeline_pool.get()
-        _pipe.xadd(self._make_stream_id(self.name, stream_name), maxlen=maxlen, **vars(entry))
-        _pipe.execute()
-        _pipe = self._release_pipeline(_pipe)
+        self._write_pipe.xadd(self._make_stream_id(self.name, stream_name), maxlen=maxlen, **vars(entry))
+        self._write_pipe.execute()
 
     def log(self, level, msg, stdout=True):
         """
@@ -621,9 +563,7 @@ class Element:
             stdout (bool, optional): Whether to write to stdout or only write to log stream.
         """
         log = Log(self.name, self.host, level, msg)
-        _pipe = self._rpipeline_pool.get()
-        _pipe.xadd("log", maxlen=STREAM_LEN, **vars(log))
-        _pipe.execute()
-        _pipe = self._release_pipeline(_pipe)
+        self._pipe.xadd("log", maxlen=STREAM_LEN, **vars(log))
+        self._pipe.execute()
         if stdout:
             print(msg)
