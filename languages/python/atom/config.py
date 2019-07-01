@@ -1,4 +1,4 @@
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 
 LANG = "Python"
 ACK_TIMEOUT = 1000
@@ -11,6 +11,7 @@ REDIS_PIPELINE_POOL_SIZE = 20
 DEFAULT_REDIS_SOCKET = "/shared/redis.sock"
 HEALTHCHECK_COMMAND = "healthcheck"
 VERSION_COMMAND = "version"
+COMMAND_LIST_COMMAND = "command_list"
 
 # Error codes
 ATOM_NO_ERROR = 0

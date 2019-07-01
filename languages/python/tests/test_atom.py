@@ -1,12 +1,13 @@
 import pytest
 import time
+import gc
 from atom import Element
 from multiprocessing import Process
 from threading import Thread, Lock
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_UNSUPPORTED
 from atom.config import ATOM_COMMAND_NO_RESPONSE, ATOM_CALLBACK_FAILED
 from atom.config import ATOM_USER_ERRORS_BEGIN, HEALTHCHECK_RETRY_INTERVAL
-from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND, LANG, VERSION
+from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND, LANG, VERSION, COMMAND_LIST_COMMAND
 from atom.messages import Response, StreamHandler, LogLevel
 from atom.contracts import RawContract, EmptyContract, BinaryProperty
 
@@ -22,6 +23,8 @@ class TestAtom:
         caller = Element("test_caller")
         yield caller
         del caller
+        gc.collect()
+
 
     @pytest.fixture
     def responder(self):
@@ -32,6 +35,7 @@ class TestAtom:
         responder = Element("test_responder")
         yield responder
         del responder
+        gc.collect()
 
     def test_caller_responder_exist(self, caller, responder):
         """
@@ -113,6 +117,8 @@ class TestAtom:
         new_responder = Element("new_responder")
         assert "new_responder" in responder.get_all_elements()
         del new_responder
+        # Explicitly invoke collection after ref count set to 0
+        gc.collect()
         assert "new_responder" not in responder.get_all_elements()
 
     def test_command_response(self, caller, responder):
@@ -353,6 +359,120 @@ class TestAtom:
         assert response == response2
         proc.terminate()
         proc.join()
+
+    def test_command_list_command(self, caller, responder):
+        """
+        Verify the response from the COMMAND_LIST_COMMAND command
+        """
+        # Test with no commands
+        no_command_responder = Element('no_command_responder')
+        command_loop_process = Process(target=no_command_responder.command_loop)
+        command_loop_process.start()
+        assert caller.command_send(no_command_responder.name, COMMAND_LIST_COMMAND, deserialize=True)["data"] == []
+        command_loop_process.terminate()
+        command_loop_process.join()
+        del no_command_responder
+
+        # Add commands to responder
+        responder.command_add('foo_func1', lambda data: data)
+        responder.command_add('foo_func2', lambda: None, timeout=500, deserialize=True)
+        responder.command_add('foo_func3', lambda x, y: x + y, timeout=1, deserialize=True)
+        command_loop_process = Process(target=responder.command_loop)
+        command_loop_process.start()
+
+        # Test with three commands
+        response = caller.command_send(responder.name, COMMAND_LIST_COMMAND, deserialize=True)
+        assert response["err_code"] == ATOM_NO_ERROR
+        assert response["data"] == ['foo_func1', 'foo_func2', 'foo_func3']
+
+        command_loop_process.terminate()
+        command_loop_process.join()
+
+    def test_get_all_commands_with_version(self, caller, responder):
+        """
+        Ensure get_all_commands only queries support elements.
+        """
+        # Change responder reported version
+        responder.handler_map[VERSION_COMMAND]['handler'] = \
+            lambda: Response(data={'language': 'Python', 'version': 0.2}, serialize=True)
+        # Create element with normal, supported version
+        responder2 = Element('responder2')
+
+        # Add commands to both responders and start command loop
+        responder.command_add('foo_func0', lambda data: data)
+        responder2.command_add('foo_func0', lambda: None, timeout=500, deserialize=True)
+        responder2.command_add('foo_func1', lambda x, y: x + y, timeout=1, deserialize=True)
+        cl_process_1 = Process(target=responder.command_loop)
+        cl_process_2 = Process(target=responder2.command_loop)
+        cl_process_1.start()
+        cl_process_2.start()
+
+        # Retrieve commands
+        commands = caller.get_all_commands()
+        # Do not include responder's commands as the version is too low
+        desired_commands = ['responder2:foo_func0', 'responder2:foo_func1']
+        assert commands == desired_commands
+
+        cl_process_1.terminate()
+        cl_process_2.terminate()
+        cl_process_1.join()
+        cl_process_2.join()
+        del responder2
+
+    def test_get_all_commands(self, caller, responder):
+        """
+        Verify the response from the get_all_commands command
+        """
+        # Test with no available commands
+        assert caller.get_all_commands() == []
+
+        # Set up two responders
+        test_name_1, test_name_2 = 'responder1', 'responder2'
+        responder1, responder2 = Element(test_name_1), Element(test_name_2)
+
+        proc1_function_data = [('foo_func0', lambda x: x + 3),
+                               ('foo_func1', lambda: None, 10, True),
+                               ('foo_func2', lambda x: None)]
+        proc2_function_data = [('foo_func0', lambda y: y * 3, 10),
+                               ('other_foo0', lambda y: None, 3, True),
+                               ('other_foo1', lambda: 5)]
+
+        # Add functions
+        for data in proc1_function_data:
+            responder1.command_add(*data)
+        for data in proc2_function_data:
+            responder2.command_add(*data)
+
+        command_loop_1 = Process(target=responder1.command_loop)
+        command_loop_2 = Process(target=responder2.command_loop)
+        command_loop_1.start()
+        command_loop_2.start()
+
+        # True function names
+        responder1_function_names = [f'{test_name_1}:foo_func{i}' for i in range(3)]
+        responder2_function_names = [f'{test_name_2}:foo_func0',
+                                     f'{test_name_2}:other_foo0',
+                                     f'{test_name_2}:other_foo1']
+
+        # Either order of function names is fine for testing all function names
+        command_list = caller.get_all_commands()
+        assert (command_list == responder1_function_names + responder2_function_names or
+                command_list == responder2_function_names + responder1_function_names)
+
+        # Test just functions for 1
+        command_list = caller.get_all_commands(test_name_1)
+        assert command_list == responder1_function_names
+
+        # Test just functions for 2
+        command_list = caller.get_all_commands(test_name_2)
+        assert command_list == responder2_function_names
+
+        # Cleanup
+        command_loop_1.terminate()
+        command_loop_2.terminate()
+        command_loop_1.join()
+        command_loop_2.join()
+        del responder1, responder2
 
     def test_no_ack(self, caller, responder):
         """
