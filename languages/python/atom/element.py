@@ -51,6 +51,7 @@ class Element:
                 })
             # Keep track of response_last_id to know last time the client's response stream was read from
             self.response_last_id = _pipe.execute()[-1].decode()
+            self.response_last_id_lock = threading.Lock()
 
             _pipe.xadd(
                 self._make_command_id(self.name),
@@ -115,6 +116,24 @@ class Element:
         pipeline.reset()
         self._rpipeline_pool.put(pipeline)
         return None
+
+    def _update_response_id_if_older(self, new_id):
+        """
+        Atomically update global response_last_id to new id, if timestamp on new id is more recent
+
+        Args:
+            new_id (str): New response id we want to set
+        """
+        self.response_last_id_lock.acquire()
+        components = self.response_last_id.split("-")
+        global_id_time = int(components[0])
+        global_id_seq = int(components[1])
+        components = new_id.split("-")
+        new_id_time = int(components[0])
+        new_id_seq = int(components[1])
+        if (new_id_time > global_id_time or (new_id_time == global_id_time and new_id_seq > global_id_seq)):
+            self.response_last_id = new_id
+        self.response_last_id_lock.release()
 
     def _make_response_id(self, element_name):
         """
@@ -413,7 +432,9 @@ class Element:
             A dictionary of the response from the command.
         """
         # cache the last response id at the time we are issuing this command, since this can get overwritten
-        last_response_id = self.response_last_id
+        local_last_id = self.response_last_id
+        timeout = None
+        resp = None
 
         # Send command to element's command stream
         data = packb(data, use_bin_type=True) if serialize and (data != "") else data
@@ -422,7 +443,6 @@ class Element:
         _pipe.xadd(self._make_command_id(element_name), maxlen=STREAM_LEN, **vars(cmd))
         cmd_id = _pipe.execute()[-1].decode()
         _pipe = self._release_pipeline(_pipe)
-        timeout = None
 
         # Receive acknowledge from element
         # You have no guarantee that the response from the xread is for your specific thread,
@@ -434,19 +454,21 @@ class Element:
                 break
             responses = self._rclient.xread(
                 block=max(int(ack_timeout - elapsed_time_ms), 1),
-                **{self._make_response_id(self.name): last_response_id}
+                **{self._make_response_id(self.name): local_last_id}
             )
             if responses is None:
                 err_str = f"Did not receive acknowledge from {element_name}."
                 self.log(LogLevel.ERR, err_str)
                 return vars(Response(err_code=ATOM_COMMAND_NO_ACK, err_str=err_str))
 
-            for self.response_last_id, response in responses[self._make_response_id(self.name)]:
+            for id, response in responses[self._make_response_id(self.name)]:
+                local_last_id = id.decode()
                 if b"element" in response and response[b"element"].decode() == element_name \
                 and b"cmd_id" in response and response[b"cmd_id"].decode() == cmd_id \
                 and b"timeout" in response:
                     timeout = int(response[b"timeout"].decode())
                     break
+            self._update_response_id_if_older(local_last_id)
 
             # If the response we received wasn't for this command, keep trying until ack timeout
             if timeout is not None:
@@ -468,14 +490,15 @@ class Element:
 
             responses = self._rclient.xread(
                 block=max(int(timeout - elapsed_time_ms), 1),
-                **{self._make_response_id(self.name): last_response_id}
+                **{self._make_response_id(self.name): local_last_id}
             )
             if responses is None:
                 err_str = f"Did not receive response from {element_name}."
                 self.log(LogLevel.ERR, err_str)
                 return vars(Response(err_code=ATOM_COMMAND_NO_RESPONSE, err_str=err_str))
 
-            for self.response_last_id, response in responses[self._make_response_id(self.name)]:
+            for id, response in responses[self._make_response_id(self.name)]:
+                local_last_id = id.decode()
                 if b"element" in response and response[b"element"].decode() == element_name \
                 and b"cmd_id" in response and response[b"cmd_id"].decode() == cmd_id \
                 and b"err_code" in response:
@@ -490,7 +513,13 @@ class Element:
                             raw=False) if deserialize and (len(response_data) != 0) else response_data
                     except TypeError:
                         self.log(LogLevel.WARNING, "Could not deserialize response.")
-                    return vars(Response(data=response_data, err_code=err_code, err_str=err_str))
+
+                    resp = vars(Response(data=response_data, err_code=err_code, err_str=err_str))
+                    break
+
+            self._update_response_id_if_older(local_last_id)
+            if resp is not None:
+                return resp
 
             # If the response we received wasn't for this command, keep trying until timeout
             continue
