@@ -44,12 +44,13 @@ class AtomCLI:
                   help [<command>]"""),
 
             "cmd_list": cleandoc("""
-                Displays available elements or streams.
-                Can filter streams based on element.
+                Displays available elements, streams, or commands.
+                Can filter streams and commands based on element.
 
                 Usage:
                   list elements
-                  list streams [<element>]"""),
+                  list streams [<element>]
+                  list commands [<element>]"""),
 
             "cmd_records": cleandoc("""
                 Displays log records or command and response records.
@@ -165,6 +166,7 @@ class AtomCLI:
         mode_map = {
             "elements": self.element.get_all_elements,
             "streams": self.element.get_all_streams,
+            "commands": self.element.get_all_commands
         }
         if not args:
             print(usage)
@@ -175,9 +177,9 @@ class AtomCLI:
             print(usage)
             print("\nInvalid argument to 'list'.")
             return
-        if len(args) > 1 and mode != "streams":
+        if len(args) > 1 and mode == "elements":
             print(usage)
-            print(f"\nInvalid number of arguments for command 'list {mode}'.")
+            print(f"\nInvalid number of arguments for command 'list elements'.")
             return
         if len(args) > 2:
             print(usage)

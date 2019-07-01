@@ -5,13 +5,12 @@ from atom.config import DEFAULT_REDIS_PORT, DEFAULT_REDIS_SOCKET, HEALTHCHECK_RE
 from atom.config import LANG, VERSION, ACK_TIMEOUT, RESPONSE_TIMEOUT, STREAM_LEN, MAX_BLOCK
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESPONSE
 from atom.config import ATOM_COMMAND_UNSUPPORTED, ATOM_CALLBACK_FAILED, ATOM_USER_ERRORS_BEGIN
-from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND, REDIS_PIPELINE_POOL_SIZE
+from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND, REDIS_PIPELINE_POOL_SIZE, COMMAND_LIST_COMMAND
 from atom.messages import Cmd, Response, StreamHandler
 from atom.messages import Acknowledge, Entry, Response, Log, LogLevel
 from msgpack import packb, unpackb
 from os import uname
 from queue import Queue
-from sys import exit
 
 
 class Element:
@@ -31,6 +30,7 @@ class Element:
         self._rclient = None
         self._command_loop_shutdown = threading.Event()
         self._rpipeline_pool = Queue()
+        self.reserved_commands = [COMMAND_LIST_COMMAND, VERSION_COMMAND, HEALTHCHECK_COMMAND]
         try:
             if host is not None:
                 self._rclient = redis.StrictRedis(host=host, port=port)
@@ -73,6 +73,12 @@ class Element:
             self.command_add(
                 VERSION_COMMAND,
                 lambda: Response(data={"language": LANG, "version": float(current_major_version)}, serialize=True)
+            )
+
+            # Add command to query all commands
+            self.command_add(
+                COMMAND_LIST_COMMAND,
+                lambda: Response(data=[k for k in self.handler_map if k not in self.reserved_commands], serialize=True)
             )
 
             self.log(LogLevel.INFO, "Element initialized.", stdout=False)
@@ -274,6 +280,31 @@ class Element:
         """
         return self.command_send(element_name, VERSION_COMMAND, "", deserialize=True)
 
+    def get_all_commands(self, element_name=None, ignore_caller=True):
+        """
+        Gets the names of the commands of the specified element (all elements by default).
+
+        Args:
+            element_name (str): Name of the element of which to get the commands.
+            ignore_caller (bool): Do not send commands to the caller.
+
+        Returns:
+            List of available commands for all elements or specified element.
+        """
+        elements = self.get_all_elements() if element_name is None else [element_name]
+        if ignore_caller and self.name in elements:
+            elements.remove(self.name)
+
+        command_list = []
+        for element in elements:
+            # Check support for command_list command
+            if self._check_element_version(element, {'Python'}, 0.3):
+                # Retrieve commands for each element
+                elem_commands = self.command_send(element, COMMAND_LIST_COMMAND, deserialize=True)['data']
+                # Rename each command pre-pending the element name
+                command_list.extend([f'{element}:{command}' for command in elem_commands])
+        return command_list
+
     def command_add(self, name, handler, timeout=RESPONSE_TIMEOUT, deserialize=False):
         """
         Adds a command to the element for another element to call.
@@ -286,10 +317,8 @@ class Element:
         """
         if not callable(handler):
             raise TypeError("Passed in handler is not a function!")
-        if name == HEALTHCHECK_COMMAND and name in self.handler_map:
-            raise ValueError(f"'{HEALTHCHECK_COMMAND}' is a reserved command name dedicated to healthchecks, choose another name")
-        if name == VERSION_COMMAND and name in self.handler_map:
-            raise ValueError(f"'{VERSION_COMMAND}' is a reserved command name dedicated to version checking, choose another name")
+        if name in self.reserved_commands and name in self.handler_map:
+            raise ValueError(f"'{name}' is a reserved command name dedicated to {name} commands, choose another name")
         self.handler_map[name] = {"handler": handler, "deserialize": deserialize}
         self.timeouts[name] = timeout
 
@@ -380,12 +409,12 @@ class Element:
                     err_code=ATOM_COMMAND_UNSUPPORTED, err_str="Unsupported command.")
             else:
                 try:
-                    if cmd_name != HEALTHCHECK_COMMAND and cmd_name != VERSION_COMMAND:
+                    if cmd_name not in self.reserved_commands:
                         data = unpackb(
                             data, raw=False) if self.handler_map[cmd_name]["deserialize"] else data
                         response = self.handler_map[cmd_name]["handler"](data)
                     else:
-                        # healthcheck/version requests don't care what data you are sending
+                        # healthcheck/version requests/command_list commands don't care what data you are sending
                         response = self.handler_map[cmd_name]["handler"]()
 
                     if not isinstance(response, Response):
