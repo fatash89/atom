@@ -38,7 +38,7 @@ With the messaging protocol chosen, the core of the Atom OS is a pair of specifi
 
 The language clients, then, will implement (1) while exposing (2) to the users in a consistent fashion. Most atom developers will mainly be concerned with (2), i.e. "How do we use atom?", while (1) is needed for developers to create and verify new language clients.
 
-The full specification can be found in the [Specification](#Specifciation) section of this documentation.
+The full specification can be found in the [Specification](#sdk-specification-and-api) section of this documentation.
 
 ## Language Clients
 
