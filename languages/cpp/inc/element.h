@@ -49,22 +49,23 @@ public:
 	~Entry();
 
 	// Add data to the entry
+	template <class KEY, class DATA>
 	void addData(
-		const char *key,
-		const char *data,
+		KEY key,
+		DATA data,
 		size_t data_len);
 
 	// Get the ID of the entry
 	const std::string &getID();
 
 	// Get the data of the entry
-	const entry_data_t &getData();
+	const entry_data_t &getEntry();
 
 	// Get the size of the entry
 	size_t size();
 
 	// Get a key in the entry
-	const std::string &getKey(
+	const msgpack::object getData(
 		const std::string &key);
 };
 

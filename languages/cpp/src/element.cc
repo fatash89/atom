@@ -12,6 +12,7 @@
 #include <assert.h>
 #include <string.h>
 #include <iostream>
+#include <sstream>
 
 #include "atom/atom.h"
 #include "atom/redis.h"
@@ -98,13 +99,30 @@ Entry::~Entry()
 //  @brief Add data to an entry
 //
 ////////////////////////////////////////////////////////////////////////////////
+template <class KEY, class DATA>
 void Entry::addData(
-	const char *k,
-	const char *d,
+	KEY k,
+	DATA d,
 	size_t l)
 {
-	std::string new_str(d, l);
-	data.emplace(k, std::move(new_str));
+	std::stringstream key_buffer, data_buffer;
+	std::string kbuff, dbuff;
+
+	try{
+		//Pack two buffers with serialized key and data
+		msgpack::pack(key_buffer, k);
+		msgpack::pack(data_buffer, d);
+
+		//Take Serialized data as strings
+		kbuff = std::string(key_buffer.str());
+		dbuff = std::string(data_buffer.str());
+	}
+	catch(...){
+		std::cout << "Failed to Serialize" << std::endl;
+	}
+
+	std::string new_str(dbuff, dbuff.size());
+	data.emplace(kbuff, std::move(new_str));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -122,7 +140,7 @@ const std::string &Entry::getID()
 //  @brief Get data of an entry
 //
 ////////////////////////////////////////////////////////////////////////////////
-const entry_data_t &Entry::getData()
+const entry_data_t &Entry::getEntry()
 {
 	return data;
 }
@@ -132,10 +150,21 @@ const entry_data_t &Entry::getData()
 //  @brief Get key in data
 //
 ////////////////////////////////////////////////////////////////////////////////
-const std::string &Entry::getKey(
+const msgpack::object Entry::getData(
 	const std::string &key)
 {
-	return data.at(key);
+	std::string value = data.at(key);
+	msgpack::object ret;
+
+	try{
+		msgpack::object_handle obj = msgpack::unpack(value.data(), value.size());
+
+		ret = obj.get();
+	}
+	catch(...){
+		std::cout << "Error" << std::endl;
+	}
+	return ret;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
