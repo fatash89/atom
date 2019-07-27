@@ -99,30 +99,32 @@ Entry::~Entry()
 //  @brief Add data to an entry
 //
 ////////////////////////////////////////////////////////////////////////////////
+template <typename DATA>
+const std::string 
+Entry::msgpackString(
+	const DATA& input)
+{
+		std::stringstream buffer;
+		try{
+			msgpack::pack(buffer, input);
+		}
+		catch(...){
+			std::cout << "Utterly Failed" << std::endl;
+			exit(-1);
+		}
+		return buffer.str();
+}
+
 template <class KEY, class DATA>
 void Entry::addData(
 	KEY k,
-	DATA d,
-	size_t l)
+	DATA d)
 {
-	std::stringstream key_buffer, data_buffer;
-	std::string kbuff, dbuff;
-
-	try{
-		//Pack two buffers with serialized key and data
-		msgpack::pack(key_buffer, k);
-		msgpack::pack(data_buffer, d);
-
-		//Take Serialized data as strings
-		kbuff = std::string(key_buffer.str());
-		dbuff = std::string(data_buffer.str());
-	}
-	catch(...){
-		std::cout << "Failed to Serialize" << std::endl;
-	}
+	std::string kbuff = msgpackString(k);
+	std::string dbuff = msgpackString(d);
 
 	std::string new_str(dbuff, dbuff.size());
-	data.emplace(kbuff, std::move(new_str));
+	data.emplace(kbuff, std::move(dbuff));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -140,7 +142,7 @@ const std::string &Entry::getID()
 //  @brief Get data of an entry
 //
 ////////////////////////////////////////////////////////////////////////////////
-const entry_data_t &Entry::getEntry()
+const typename Entry::entry_data_t &Entry::getEntry() const
 {
 	return data;
 }
@@ -150,13 +152,19 @@ const entry_data_t &Entry::getEntry()
 //  @brief Get key in data
 //
 ////////////////////////////////////////////////////////////////////////////////
+template <typename DATA>
 const msgpack::object Entry::getData(
-	const std::string &key)
+	const DATA &key)
 {
-	std::string value = data.at(key);
+	std::string value;
+
+	std::string string_key = msgpackString(key);
+
+	value = data.at(string_key);
 	msgpack::object ret;
 
 	try{
+
 		msgpack::object_handle obj = msgpack::unpack(value.data(), value.size());
 
 		ret = obj.get();
@@ -710,7 +718,7 @@ bool entryReadResponseCB(
 	Entry e(id);
 	for (int i = 0; i < n_kv_items; ++i) {
 		if (kv_items[i].found) {
-			e.addData(kv_items[i].key, kv_items[i].reply->str, kv_items[i].reply->len);
+			e.addData(kv_items[i].key, kv_items[i].reply->str);
 		} else {
 			atom_logf(NULL, NULL, LOG_ERR, "Couldn't find key");
 		}
@@ -899,8 +907,18 @@ enum atom_error_t Element::entryReadN(
 
 	// Fill in the kv items
 	for (size_t j = 0; j < n_keys; ++j) {
-		read_info.kv_items[j].key = keys[j].c_str();
-		read_info.kv_items[j].key_len = keys[j].size();
+		try{
+			std::stringstream buffer;
+			msgpack::pack(buffer, keys[j]);
+			std::string curr_key = buffer.str();
+
+			read_info.kv_items[j].key = curr_key.c_str();
+			read_info.kv_items[j].key_len = curr_key.size();
+		}
+		catch(...){
+			std::cout << "Failed Miserably" << std::endl;
+			exit(-1);
+		}
 	}
 
 	// Fill in the handler and response callback
@@ -957,9 +975,20 @@ enum atom_error_t Element::entryReadSince(
 
 	// Fill in the kv items
 	for (size_t j = 0; j < n_keys; ++j) {
-		read_info.kv_items[j].key = keys[j].c_str();
-		read_info.kv_items[j].key_len = keys[j].size();
+		try{
+			std::stringstream buffer;
+			msgpack::pack(buffer, keys[j]);
+			std::string curr_key = buffer.str();
+
+			read_info.kv_items[j].key = curr_key.c_str();
+			read_info.kv_items[j].key_len = curr_key.size();
+		}
+		catch(...){
+			std::cout << "Failed Miserably" << std::endl;
+			exit(-1);
+		}
 	}
+
 
 	// Fill in the handler and response callback
 	read_info.user_data = (void*)new EntryReadInfo(entryCopyCB, (void*)&ret);
@@ -992,11 +1021,12 @@ enum atom_error_t Element::entryReadSince(
 ////////////////////////////////////////////////////////////////////////////////
 enum atom_error_t Element::entryWrite(
 	std::string stream,
-	entry_data_t &data,
+	const Entry &e,
 	int timestamp,
 	int maxlen)
 {
 	redisContext *ctx = getContext();
+	auto data = e.getEntry();
 
 	// Try to find the write info for the stream
 	auto exists = streams.find(stream);
@@ -1025,9 +1055,12 @@ enum atom_error_t Element::entryWrite(
 
 		// Fill in the keys in the info
 		int idx = 0;
+		std::stringstream buff1, buff2, buff3, buff4;
+
 		for (auto const &x: data) {
 
 			// Fill in the write info
+			
 			info->items[idx].key = strdup(x.first.c_str());
 			info->items[idx].key_len = x.first.size();
 

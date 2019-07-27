@@ -9,6 +9,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 #include <gtest/gtest.h>
 #include <string.h>
+#include <iostream>
 #include <list>
 #include <hiredis/hiredis.h>
 #include <thread>
@@ -108,7 +109,7 @@ TEST_F(ElementTest, single_entry_single_key) {
 	// Within that value make sure there's one key
 	ASSERT_EQ(ret[0].size(), data.size());
 
-	for (auto const &x : ret[0].getData()) {
+	for (auto const &x : ret[0].getEntry()) {
 		ASSERT_NE(data.find(x.first), data.end()) << "Read back key " << x.first << " which was not data";
 		ASSERT_EQ(data[x.first], x.second);
 	}
@@ -150,16 +151,16 @@ TEST_F(ElementTest, single_entry_multiple_keys) {
 TEST_F(ElementTest, multiple_entry_multiple_keys) {
 
 	// Make the data to write
-	entry_data_t data;
+	Entry e;
 
 	// Write the three keys 5 times each
 	for (int i = 0; i < 5; ++i) {
-		data["hello"] = "world" + std::to_string(i);
-		data["foo"] = "bar" + std::to_string(i);
-		data["elementary"] = "robotics" + std::to_string(i);
+		e.addData("Hello", "World");
+		e.addData("Foo", "Bar");
+		e.addData("Elementary", "Robotics")
 
 		// Do the write
-		ASSERT_EQ(element->entryWrite("foobar", data), ATOM_NO_ERROR);
+		ASSERT_EQ(element->entryWrite("foobar", e), ATOM_NO_ERROR);
 	}
 
 
@@ -815,13 +816,19 @@ TEST_F(ElementTest, readSinceLog) {
 TEST_F(ElementTest, readSinceElement) {
 
 	// Make the data to write
-	entry_data_t data;
+	Entry e;
 
 	// Write 10 pieces of data to the element stream
 	for (int i = 0; i < 10; ++i) {
-		data["world"] = std::to_string(i);
+		e.addData("world", std::to_string(i));
 
-		ASSERT_EQ(element->entryWrite("hello", data), ATOM_NO_ERROR);
+		auto maps = e.getEntry();
+
+		for (auto x : maps){
+			std::cout << x.second << std::endl;
+		}
+
+		ASSERT_EQ(element->entryWrite("hello", e), ATOM_NO_ERROR);
 	}
 
 	// Do the read back

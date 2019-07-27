@@ -33,16 +33,14 @@
 
 namespace atom {
 
-// Entry value
-typedef std::map<std::string, std::string> entry_data_t;
-
 // Entry Class
 class Entry {
+	//Entry private data and type declarations
+	typedef std::map<std::string, std::string> entry_data_t;
 	std::string id;
 	entry_data_t data;
 
 public:
-
 	// Constructor/Destructor
 	Entry(
 		const char *xread_id);
@@ -52,21 +50,26 @@ public:
 	template <class KEY, class DATA>
 	void addData(
 		KEY key,
-		DATA data,
-		size_t data_len);
+		DATA data);
 
 	// Get the ID of the entry
 	const std::string &getID();
 
 	// Get the data of the entry
-	const entry_data_t &getEntry();
+	const entry_data_t &getEntry() const;
 
 	// Get the size of the entry
 	size_t size();
 
 	// Get a key in the entry
+	template <typename DATA>
 	const msgpack::object getData(
-		const std::string &key);
+		const DATA &key);
+
+	template <typename DATA>
+	const std::string 
+	msgpackString(
+		const DATA& input);
 };
 
 // Element class itself
@@ -338,7 +341,7 @@ public:
 	// Writes an entry to a data stream
 	enum atom_error_t entryWrite(
 		std::string stream,
-		entry_data_t &data,
+		const Entry &e,
 		int timestamp = ELEMENT_DATA_WRITE_DEFAULT_TIMESTAMP,
 		int maxlen = ELEMENT_DATA_WRITE_DEFAULT_MAXLEN);
 
