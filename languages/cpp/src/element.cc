@@ -891,6 +891,7 @@ enum atom_error_t Element::entryReadN(
 	std::vector<Entry> &ret)
 {
 	struct element_entry_read_info read_info;
+	Entry d("Dummy");
 
 	// Fill in the read info
 	read_info.element = (element.size() > 0) ? element.c_str() : NULL;
@@ -907,18 +908,10 @@ enum atom_error_t Element::entryReadN(
 
 	// Fill in the kv items
 	for (size_t j = 0; j < n_keys; ++j) {
-		try{
-			std::stringstream buffer;
-			msgpack::pack(buffer, keys[j]);
-			std::string curr_key = buffer.str();
+		std::string curr_key = d.msgpackString(keys[j]);
 
-			read_info.kv_items[j].key = curr_key.c_str();
-			read_info.kv_items[j].key_len = curr_key.size();
-		}
-		catch(...){
-			std::cout << "Failed Miserably" << std::endl;
-			exit(-1);
-		}
+		read_info.kv_items[j].key = curr_key.c_str();
+		read_info.kv_items[j].key_len = curr_key.size();
 	}
 
 	// Fill in the handler and response callback
@@ -959,7 +952,7 @@ enum atom_error_t Element::entryReadSince(
 	int timeout)
 {
 	struct element_entry_read_info read_info;
-
+	Entry d("Dummy");
 	// Fill in the read info
 	read_info.element = (element.size() > 0) ? element.c_str() : NULL;
 	read_info.stream = stream.c_str();
@@ -975,18 +968,11 @@ enum atom_error_t Element::entryReadSince(
 
 	// Fill in the kv items
 	for (size_t j = 0; j < n_keys; ++j) {
-		try{
-			std::stringstream buffer;
-			msgpack::pack(buffer, keys[j]);
-			std::string curr_key = buffer.str();
+		std::string curr_key = d.msgpackString(keys[j]);
 
-			read_info.kv_items[j].key = curr_key.c_str();
-			read_info.kv_items[j].key_len = curr_key.size();
-		}
-		catch(...){
-			std::cout << "Failed Miserably" << std::endl;
-			exit(-1);
-		}
+		read_info.kv_items[j].key = curr_key.c_str();
+		read_info.kv_items[j].key_len = curr_key.size();
+
 	}
 
 
@@ -1055,7 +1041,6 @@ enum atom_error_t Element::entryWrite(
 
 		// Fill in the keys in the info
 		int idx = 0;
-		std::stringstream buff1, buff2, buff3, buff4;
 
 		for (auto const &x: data) {
 

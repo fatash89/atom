@@ -33,8 +33,11 @@
 
 namespace atom {
 
+class Element;
+
 // Entry Class
 class Entry {
+	friend class Element;
 	//Entry private data and type declarations
 	typedef std::map<std::string, std::string> entry_data_t;
 	std::string id;
