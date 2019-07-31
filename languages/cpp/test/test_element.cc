@@ -87,11 +87,13 @@ TEST_F(ElementTest, get_all_elements) {
 TEST_F(ElementTest, single_entry_single_key) {
 
 	// Make the data to write
-	entry_data_t data;
-	data["hello"] = "world";
+	Entry e("foobar");
+	e.addData("hello", "world", true);
+
+	auto data = e.getEntry();
 
 	// Do the write
-	ASSERT_EQ(element->entryWrite("foobar", data), ATOM_NO_ERROR);
+	ASSERT_EQ(element->entryWrite(e), ATOM_NO_ERROR);
 
 	// Do the read back
 	std::vector<Entry> ret;
@@ -107,25 +109,29 @@ TEST_F(ElementTest, single_entry_single_key) {
 	ASSERT_EQ(ret.size(), 1);
 
 	// Within that value make sure there's one key
-	ASSERT_EQ(ret[0].size(), data.size());
+	ASSERT_EQ(ret[0].size(), e.size());
 
-	for (auto const &x : ret[0].getEntry()) {
-		ASSERT_NE(data.find(x.first), data.end()) << "Read back key " << x.first << " which was not data";
+	for(auto const &x : ret[0].getEntry()){
+		ASSERT_NE(data.find(x.first), data.end());
 		ASSERT_EQ(data[x.first], x.second);
 	}
 }
+
+
 
 // Tests writing data to a stream and then reading it back
 TEST_F(ElementTest, single_entry_multiple_keys) {
 
 	// Make the data to write
-	entry_data_t data;
-	data["hello"] = "world";
-	data["foo"] = "bar";
-	data["elementary"] = "robotics";
+	Entry e("foobar");
+	e.addData("hello", "world", true);
+	e.addData("foo", "bar", true);
+	e.addData("elementary", "robotics", true);
+
+	auto data = e.getEntry();
 
 	// Do the write
-	ASSERT_EQ(element->entryWrite("foobar", data), ATOM_NO_ERROR);
+	ASSERT_EQ(element->entryWrite(e), ATOM_NO_ERROR);
 
 	// Do the read back
 	std::vector<Entry> ret;
@@ -134,19 +140,20 @@ TEST_F(ElementTest, single_entry_multiple_keys) {
 		"testing",
 		"foobar",
 		keys,
-		1,
+		3,
 		ret), ATOM_NO_ERROR);
 
 	// Make sure there are the same number of keys
 	ASSERT_EQ(ret.size(), 1);
 	ASSERT_EQ(ret[0].size(), data.size());
 
-	for (auto const &x : ret[0].getData()) {
+	for (auto const &x : ret[0].getEntry()) {
 		ASSERT_NE(data.find(x.first), data.end()) << "Read back key " << x.first << " which was not data";
 		ASSERT_EQ(data[x.first], x.second);
 	}
 }
 
+/*
 // Tests writing data to a stream and then reading it back
 TEST_F(ElementTest, multiple_entry_multiple_keys) {
 
@@ -166,6 +173,7 @@ TEST_F(ElementTest, multiple_entry_multiple_keys) {
 
 	// Do the read back
 	std::vector<Entry> ret;
+	auto data = getEntry();
 	std::vector<std::string> keys = {"hello", "foo", "elementary"};
 	ASSERT_EQ(element->entryReadN(
 		"testing",
@@ -181,10 +189,10 @@ TEST_F(ElementTest, multiple_entry_multiple_keys) {
 	for (int i = 0; i < 5; ++i) {
 
 		// Get the value
-		auto val = ret.at(i).getData();
+		auto val = ret.at(i).getEntry();
 
 		// Make sure the keys have the right data
-		data["hello"] = "world" + std::to_string(4 - i);
+		data[val.msgpackString("hello")] = "world" + std::to_string(4 - i);
 		data["foo"] = "bar" + std::to_string(4 - i);
 		data["elementary"] = "robotics" + std::to_string(4 - i);
 
@@ -716,6 +724,104 @@ TEST_F(ElementTest, invalid_logs) {
 	ASSERT_THROW(element->log(8, "testing: 1, 2, 3"), std::runtime_error);
 }
 
+TEST_F(ElementTest, readSinceElement) {
+
+	// Make the data to write
+	Entry e;
+
+	// Write 10 pieces of data to the element stream
+	for (int i = 0; i < 10; ++i) {
+		e.addData("world", std::to_string(i));
+
+		auto maps = e.getEntry();
+
+		for (auto x : maps){
+			std::cout << x.second << std::endl;
+		}
+
+		ASSERT_EQ(element->entryWrite("hello", e), ATOM_NO_ERROR);
+	}
+}
+
+	// Do the read back
+	std::vector<Entry> ret;
+	std::vector<std::string> keys = {"world"};
+	ASSERT_EQ(element->entryReadSince(
+		"testing",
+		"hello",
+		keys,
+		4,
+		ret,
+		ENTRY_READ_SINCE_BEGIN_WITH_OLDEST_ID), ATOM_NO_ERROR);
+
+	// Make sure we got 2 pieces of data
+	ASSERT_EQ(ret.size(), 4);
+
+	// For each piece of data make sure there's 4 keys
+	for (int i = 0; i < 4; ++i) {
+		Entry &x = ret.at(i);
+
+		// Make sure that we have the right number of keys
+		ASSERT_EQ(x.size(), keys.size());
+
+		// Make sure that the keys are correct
+		ASSERT_EQ(x.getKey("world"), std::to_string(i));
+	}
+
+	// Clear the response and start again
+	std::string last = std::string(ret[3].getID());
+	ret.clear();
+	ASSERT_EQ(element->entryReadSince(
+		"testing",
+		"hello",
+		keys,
+		1,
+		ret,
+		last), ATOM_NO_ERROR);
+
+	// Make sure we got 3 pieces of data
+	ASSERT_EQ(ret.size(), 1);
+
+	// For each piece of data make sure there's 4 keys
+	for (int i = 0; i < 1; ++i) {
+		Entry &x = ret.at(i);
+
+		// Make sure that we have the right number of keys
+		ASSERT_EQ(x.size(), keys.size());
+
+		// Make sure that the keys are correct
+		ASSERT_EQ(x.getKey("world"), std::to_string(4 + i));
+	}
+
+	// Do the final chunk
+	last = std::string(ret[0].getID());
+	ret.clear();
+	ASSERT_EQ(element->entryReadSince(
+		"testing",
+		"hello",
+		keys,
+		5,
+		ret,
+		last), ATOM_NO_ERROR);
+
+	// Make sure we got 5 pieces of data
+	ASSERT_EQ(ret.size(), 5);
+
+	// For each piece of data make sure there's 4 keys
+	for (int i = 0; i < 5; ++i) {
+		Entry &x = ret.at(i);
+
+		// Make sure that we have the right number of keys
+		ASSERT_EQ(x.size(), keys.size());
+
+		// Make sure that the keys are correct
+
+		ASSERT_EQ(x.getData("world"), std::to_string(5 + i));
+	}
+}
+
+
+//--------------------------------------------------------------------------------
 // Tests readSince API
 TEST_F(ElementTest, readSinceLog) {
 	char hostname[HOST_NAME_MAX + 1];
@@ -958,3 +1064,4 @@ void reader_element(int &i)
 
 // 	ASSERT_EQ(count, 3);
 // }
+*/

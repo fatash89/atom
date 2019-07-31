@@ -33,11 +33,8 @@
 
 namespace atom {
 
-class Element;
-
 // Entry Class
 class Entry {
-	friend class Element;
 	//Entry private data and type declarations
 	typedef std::map<std::string, std::string> entry_data_t;
 	std::string id;
@@ -49,30 +46,71 @@ public:
 		const char *xread_id);
 	~Entry();
 
-	// Add data to the entry
-	template <class KEY, class DATA>
-	void addData(
-		KEY key,
-		DATA data);
-
 	// Get the ID of the entry
-	const std::string &getID();
+	const std::string &getID() const;
 
 	// Get the data of the entry
 	const entry_data_t &getEntry() const;
 
 	// Get the size of the entry
-	size_t size();
+	size_t size() const;
 
-	// Get a key in the entry
-	template <typename DATA>
-	const msgpack::object getData(
-		const DATA &key);
-
+	//Convert String into Msgpack
 	template <typename DATA>
 	const std::string 
 	msgpackString(
-		const DATA& input);
+		const DATA& input) const{
+				std::stringstream buffer;
+		try{
+			msgpack::pack(buffer, input);
+		}
+		catch(...){
+			std::cout << "Utterly Failed" << std::endl;
+			exit(-1);
+		}
+		return buffer.str();
+	}
+
+	// Add data to the entry
+	template <class KEY, class DATA>
+	void addData(
+		KEY k,
+		DATA d, bool s){
+		if(s){
+			std::string kbuff = msgpackString(k);
+			std::string dbuff = msgpackString(d);
+
+			std::string new_str(dbuff, dbuff.size());
+			data.emplace(kbuff, std::move(dbuff));
+		}
+		else{
+			//This should only occur if k,d are std::string, std::string
+			data.emplace(k, d);
+		}
+	}
+
+	// Get a key in the entry
+	template <typename DATA>
+	msgpack::object getData(
+		const DATA &key) const{
+		std::string value;
+
+		std::string string_key = msgpackString(key);
+
+		value = data.at(string_key);
+		msgpack::object ret;
+
+		try{
+
+			msgpack::object_handle obj = msgpack::unpack(value.data(), value.size());
+
+			ret = obj.get();
+		}
+		catch(...){
+			std::cout << "Error" << std::endl;
+		}
+		return ret;
+	}
 };
 
 // Element class itself
@@ -343,7 +381,6 @@ public:
 
 	// Writes an entry to a data stream
 	enum atom_error_t entryWrite(
-		std::string stream,
 		const Entry &e,
 		int timestamp = ELEMENT_DATA_WRITE_DEFAULT_TIMESTAMP,
 		int maxlen = ELEMENT_DATA_WRITE_DEFAULT_MAXLEN);
@@ -360,5 +397,4 @@ public:
 };
 
 } // namespace atom
-
 #endif // __ATOM_CPP_ELEMENT_H

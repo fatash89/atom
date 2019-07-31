@@ -96,43 +96,10 @@ Entry::~Entry()
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-//  @brief Add data to an entry
-//
-////////////////////////////////////////////////////////////////////////////////
-template <typename DATA>
-const std::string 
-Entry::msgpackString(
-	const DATA& input)
-{
-		std::stringstream buffer;
-		try{
-			msgpack::pack(buffer, input);
-		}
-		catch(...){
-			std::cout << "Utterly Failed" << std::endl;
-			exit(-1);
-		}
-		return buffer.str();
-}
-
-template <class KEY, class DATA>
-void Entry::addData(
-	KEY k,
-	DATA d)
-{
-	std::string kbuff = msgpackString(k);
-	std::string dbuff = msgpackString(d);
-
-	std::string new_str(dbuff, dbuff.size());
-	data.emplace(kbuff, std::move(dbuff));
-}
-
-////////////////////////////////////////////////////////////////////////////////
-//
 //  @brief Get ID of an entry
 //
 ////////////////////////////////////////////////////////////////////////////////
-const std::string &Entry::getID()
+const std::string &Entry::getID() const
 {
 	return id;
 }
@@ -149,38 +116,10 @@ const typename Entry::entry_data_t &Entry::getEntry() const
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-//  @brief Get key in data
-//
-////////////////////////////////////////////////////////////////////////////////
-template <typename DATA>
-const msgpack::object Entry::getData(
-	const DATA &key)
-{
-	std::string value;
-
-	std::string string_key = msgpackString(key);
-
-	value = data.at(string_key);
-	msgpack::object ret;
-
-	try{
-
-		msgpack::object_handle obj = msgpack::unpack(value.data(), value.size());
-
-		ret = obj.get();
-	}
-	catch(...){
-		std::cout << "Error" << std::endl;
-	}
-	return ret;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-//
 //  @brief Get size
 //
 ////////////////////////////////////////////////////////////////////////////////
-size_t Entry::size()
+size_t Entry::size() const
 {
 	return data.size();
 }
@@ -718,7 +657,7 @@ bool entryReadResponseCB(
 	Entry e(id);
 	for (int i = 0; i < n_kv_items; ++i) {
 		if (kv_items[i].found) {
-			e.addData(kv_items[i].key, kv_items[i].reply->str);
+			e.addData(kv_items[i].key, kv_items[i].reply->str, false);
 		} else {
 			atom_logf(NULL, NULL, LOG_ERR, "Couldn't find key");
 		}
@@ -1006,13 +945,13 @@ enum atom_error_t Element::entryReadSince(
 //
 ////////////////////////////////////////////////////////////////////////////////
 enum atom_error_t Element::entryWrite(
-	std::string stream,
-	const Entry &e,
+	const Entry& e,
 	int timestamp,
 	int maxlen)
 {
 	redisContext *ctx = getContext();
 	auto data = e.getEntry();
+	const std::string stream = e.getID();
 
 	// Try to find the write info for the stream
 	auto exists = streams.find(stream);
@@ -1020,7 +959,7 @@ enum atom_error_t Element::entryWrite(
 
 	// We did not find the write info or the number of keys was off
 	if ((exists == streams.end()) ||
-		(exists->second->n_items != data.size()))
+		(exists->second->n_items != e.size()))
 	{
 		// If the stream info exists we want to clean it up
 		if (exists != streams.end()) {
@@ -1036,7 +975,7 @@ enum atom_error_t Element::entryWrite(
 			ctx,
 			elem,
 			stream.c_str(),
-			data.size());
+			e.size());
 		assert(info != NULL);
 
 		// Fill in the keys in the info
