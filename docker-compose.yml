@@ -25,6 +25,7 @@ services:
         target: /shared
         volume:
           nocopy: true
+      - "./:/development"
     depends_on:
       - "nucleus"
     ports:
@@ -32,6 +33,8 @@ services:
     environment:
       - "GRAPHICS=1"
     command: tail -f /dev/null
+    cap_add:
+      - SYS_PTRACE
 
 volumes:
   shared:
