@@ -11,6 +11,7 @@
 #define __ATOM_CPP_ELEMENT_H
 
 #include <queue>
+#include <set>
 #include <mutex>
 #include <syslog.h>
 #include <iostream>
@@ -25,7 +26,7 @@
 #include "element_read_map.h"
 #include "command.h"
 
-#define VERSION "v0.2.0"
+#define ATOM_VERSION_CPP "v0.2.0"
 #define ATOM_VERSION_COMMAND "version"
 #define ATOM_HEALTHCHECK_COMMAND "healthcheck"
 #define ATOM_HEALTHCHECK_RETRY_INTERVAL 5
@@ -160,6 +161,11 @@ class Element {
 		return true;
 	}
 
+	// Helper function for checking if another element meets version requirements
+	bool checkElementVersion(
+		std::string element,
+		std::set<std::string> supported_language_set,
+		double supported_min_version);
 
 public:
 
@@ -173,6 +179,8 @@ public:
 
 	// Returns the name of the element
 	const std::string &getName();
+
+	void getElementVersion(ElementResponse &response, std::map<std::string, std::string> &result, std::string element_name);
 
 	// Returns a list of all elements
 	enum atom_error_t getAllElements(

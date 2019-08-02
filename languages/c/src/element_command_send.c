@@ -20,7 +20,7 @@
 #include "atom.h"
 #include "element.h"
 
-#define ELEMENT_COMMAND_ACK_TIMEOUT 100000
+#define ELEMENT_COMMAND_ACK_TIMEOUT 1000
 
 // How long to wait for a response if the command is not supported
 #define ELEMENT_NO_COMMAND_TIMEOUT_MS 1000

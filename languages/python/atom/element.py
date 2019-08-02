@@ -352,7 +352,7 @@ class Element:
             all_healthy = True
             for element_name in element_list:
                 # Verify element is reachable and supports healthcheck feature
-                if not self._check_element_version(element_name, supported_language_set={LANG}, supported_min_version=0.2):
+                if not self._check_element_version(element_name, supported_language_set={LANG, 'c'}, supported_min_version=0.2):
                     # In strict mode, if element is not reachable or doesn't support healthchecks, assume unhealthy
                     if strict:
                         self.log(LogLevel.WARNING, f"Failed healthcheck on {element_name}, retrying...")

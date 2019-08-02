@@ -62,7 +62,7 @@ bool get_version_callback(
 	{
 			msgpack::zone zone;
 
-			std::string version = VERSION;
+			std::string version = ATOM_VERSION_CPP;
 			std::size_t pos = version.find_last_of(".");
 			double major_version = std::stod(version.substr(1, version.length()).substr(0, pos));
 			std::string language = ATOM_LANGUAGE;
@@ -1130,6 +1130,48 @@ void Element::log(
 	if (err != ATOM_NO_ERROR) {
 		error("Failed to log", false);
 	}
+}
+
+void Element::getElementVersion(ElementResponse &response, std::map<std::string, std::string> &result, std::string element_name)
+{
+	std::map<std::string, msgpack::object> res;
+	enum atom_error_t err = this->sendCommandNoReq<std::map<std::string, msgpack::object>>(
+		response,
+		element_name,
+		ATOM_VERSION_COMMAND,
+		res
+	);
+	if (err != ATOM_NO_ERROR) {
+		return;
+	}
+	result["language"] = res["language"].as<std::string>();
+	result["version"] = std::to_string(res["version"].as<double>());
+}
+
+bool Element::checkElementVersion(
+	std::string element_name,
+	std::set<std::string> supported_language_set,
+	double supported_min_version)
+{
+	ElementResponse response;
+	std::map<std::string, std::string> result;
+	this->getElementVersion(response, result, element_name);
+
+	if (response.isError()) {
+		return false;
+	}
+
+	// Validate element meets language requirement
+	if (supported_language_set.find(result["language"]) == supported_language_set.end()) {
+		return false;
+	}
+
+	// Validate element meets version requirement
+	if (std::stod(result["version"]) < supported_min_version) {
+		return false;
+	}
+
+	return true;
 }
 
 } // namespace atom

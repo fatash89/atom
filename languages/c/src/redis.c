@@ -332,11 +332,9 @@ bool redis_xread(
 		goto done;
 	}
 
-	// Otherwise we have a reply. If we timed out then there are no
-	//	callbacks to call so we can just note that. This is an acceptable
-	//	outcome.
+	// If we timed out reply should be false
 	if (reply->type == REDIS_REPLY_NIL) {
-		ret_val = true;
+		ret_val = false;
 		goto free_reply;
 	}
 
