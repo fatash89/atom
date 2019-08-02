@@ -25,6 +25,11 @@
 #include "element_read_map.h"
 #include "command.h"
 
+#define VERSION "v0.2.0"
+#define ATOM_VERSION_COMMAND "version"
+#define ATOM_HEALTHCHECK_COMMAND "healthcheck"
+#define ATOM_HEALTHCHECK_RETRY_INTERVAL 5
+
 #define ELEMENT_DEFAULT_N_CONTEXTS 20
 
 #define ELEMENT_INFINITE_COMMAND_LOOPS 0

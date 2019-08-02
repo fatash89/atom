@@ -43,7 +43,7 @@ endif
 CFLAGS := -std=c++11 -Wall -Werror -fPIC -I${INCLUDE_DIR} -I${HIREDIS_BUILD_DIR}/include/ -g
 
 #LDFLAGS
-LDFLAGS := -L${HIREDIS_BUILD_DIR}/lib -Wl,-rpath,${HIREDIS_BUILD_DIR}/lib -latom -lhiredis -lpthread
+LDFLAGS := -L${HIREDIS_BUILD_DIR}/lib -Wl,-rpath,${HIREDIS_BUILD_DIR}/lib -latom -lhiredis -lpthread -lmsgpackc
 
 $(BUILD_DIR)/lib/%.o: src/%.cc $(HEADER_OBJS) | $(BUILD_DIR)/lib
 	@ echo "Compiling $<"

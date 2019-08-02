@@ -52,6 +52,36 @@ extern "C" {
 		void *cleanup_ptr);
 }
 
+
+
+bool get_version_callback(
+	const uint8_t *data,
+	size_t data_len,
+	ElementResponse *resp,
+	void *user_data)
+{
+	std::map< std::string, msgpack::object> version_dict;
+	{
+			msgpack::zone zone;
+
+			double major_version = 0.2;
+			std::string language = ATOM_LANGUAGE;
+
+			version_dict["language"] =  msgpack::object(language, zone);
+			version_dict["version"] =  msgpack::object(major_version, zone);
+
+			std::stringstream ss;
+			msgpack::pack(ss, version_dict);
+			resp->setData(ss.str());
+	}   // zone is auto-destroyed here
+	return true;
+}
+
+
+
+
+
+
 // Class for entry info from a handler to be passed to the callback function
 class EntryReadInfo {
 public:
@@ -225,6 +255,16 @@ Element::Element(
 
 	// Make an element
 	elem = element_init(ctx, name.c_str());
+
+	// Add version callback
+  this->addCommand(
+		ATOM_VERSION_COMMAND,
+    "Retrieves the version info for this element",
+    get_version_callback,
+		NULL,
+		1000
+	);
+	// Add healthcheck callback
 
 	// Release the context
 	releaseContext(ctx);
