@@ -52,8 +52,6 @@ extern "C" {
 		void *cleanup_ptr);
 }
 
-
-
 bool get_version_callback(
 	const uint8_t *data,
 	size_t data_len,
@@ -64,7 +62,9 @@ bool get_version_callback(
 	{
 			msgpack::zone zone;
 
-			double major_version = 0.2;
+			std::string version = VERSION;
+			std::size_t pos = version.find_last_of(".");
+			double major_version = std::stod(version.substr(1, version.length()).substr(0, pos));
 			std::string language = ATOM_LANGUAGE;
 
 			version_dict["language"] =  msgpack::object(language, zone);
@@ -77,10 +77,14 @@ bool get_version_callback(
 	return true;
 }
 
-
-
-
-
+bool default_healthcheck_callback(
+	const uint8_t *data,
+	size_t data_len,
+	ElementResponse *resp,
+	void *user_data)
+{
+	return true;
+}
 
 // Class for entry info from a handler to be passed to the callback function
 class EntryReadInfo {
@@ -264,7 +268,15 @@ Element::Element(
 		NULL,
 		1000
 	);
+
 	// Add healthcheck callback
+	this->addCommand(
+		ATOM_HEALTHCHECK_COMMAND,
+    "Returns whether the element is healthy (defaults to true)",
+    default_healthcheck_callback,
+		NULL,
+		1000
+	);
 
 	// Release the context
 	releaseContext(ctx);
