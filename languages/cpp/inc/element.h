@@ -209,6 +209,10 @@ public:
 	void addCommand(
 		Command *cmd);
 
+	void healthcheckSet(
+		command_handler_t fn,
+		int timeout);
+
 	// Processes incoming commands per the command
 	//	handler table. If no args passed, then will loop indefinitely,
 	//	else will handle only N commands and then will exit

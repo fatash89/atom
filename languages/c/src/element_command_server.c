@@ -501,6 +501,16 @@ bool element_command_add(
 	struct element_command *cmd = NULL;
 	uint32_t hash;
 
+	cmd = element_command_get(elem, command);
+
+	// If command already exists, we should update it instead of allocating a new command
+	if (cmd != NULL) {
+		cmd->cb = cb;
+		cmd->cleanup = cleanup;
+		cmd->timeout = timeout;
+		cmd->user_data = user_data;
+	}
+
 	// Need to allocate the memory for the new command
 	cmd = malloc(sizeof(struct element_command));
 	assert(cmd != NULL);

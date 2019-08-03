@@ -583,6 +583,13 @@ void Element::addCommand(
 {
 	std::cout << "Creating command with name " << name << std::endl;
 
+	if ((name == ATOM_VERSION_COMMAND && commands.find(name) != commands.end()) ||
+			(name == ATOM_HEALTHCHECK_COMMAND && commands.find(name) != commands.end()))
+	{
+		error("Attempting to add reserved command name, choose a different command name");
+		return;
+	}
+
 	// Make the new user callback command
 	Command *new_cmd = new CommandUserCallback(
 		name,
@@ -616,6 +623,15 @@ void Element::addCommand(
 void Element::addCommand(
 	Command *cmd)
 {
+	std::cout << "Creating command with name " << cmd->name << std::endl;
+
+	if ((cmd->name == ATOM_VERSION_COMMAND && commands.find(cmd->name) != commands.end()) ||
+			(cmd->name == ATOM_HEALTHCHECK_COMMAND && commands.find(cmd->name) != commands.end()))
+	{
+		error("Attempting to add reserved command name, choose a different command name");
+		return;
+	}
+
 	cmd->addElement(this);
 	commands.emplace(cmd->name, cmd);
 
@@ -631,6 +647,49 @@ void Element::addCommand(
 	}
 }
 
+////////////////////////////////////////////////////////////////////////////////
+//
+//  @brief Adds a command and its handler to the map of supported commands
+//         Handler must return response with 0 error_code to pass healthcheck
+//
+////////////////////////////////////////////////////////////////////////////////
+void Element::healthcheckSet(
+	command_handler_t fn,
+	int timeout)
+{
+	// If default healthcheck hasn't been set yet, we need to add it
+	if (commands.find(ATOM_HEALTHCHECK_COMMAND) == commands.end()) {
+		this->addCommand(
+			ATOM_HEALTHCHECK_COMMAND,
+	    "Returns whether the element is healthy",
+	    fn,
+			NULL,
+			1000
+		);
+	// Otherwise, update the healthcheck to the new user provided callback/timeout
+	} else {
+		// Replace existing healthcheck command with new command
+		Command *new_cmd = new CommandUserCallback(
+			ATOM_HEALTHCHECK_COMMAND,
+			"Returns whether the element is healthy",
+			fn,
+			NULL,
+			timeout);
+		delete commands[ATOM_HEALTHCHECK_COMMAND];
+		commands[ATOM_HEALTHCHECK_COMMAND] = new_cmd;
+
+		if (!element_command_add(
+			elem,
+			ATOM_HEALTHCHECK_COMMAND,
+			commandCB,
+			commandCleanup,
+			new_cmd,
+			timeout))
+		{
+			error("Failed to update healthcheck");
+		}
+	}
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 //
