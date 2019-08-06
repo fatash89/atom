@@ -65,7 +65,7 @@ bool get_version_callback(
 
 	std::string version = ATOM_VERSION_CPP;
 	std::size_t pos = version.find_last_of(".");
-	double major_version = std::stod(version.substr(1, version.length()).substr(0, pos));
+	double major_version = std::stod(version.substr(1, version.length()).substr(0, pos - 1));
 	std::string language = ATOM_LANGUAGE_CPP;
 
 	version_dict["language"] =  msgpack::object(language, zone);

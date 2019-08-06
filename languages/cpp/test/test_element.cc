@@ -714,7 +714,7 @@ TEST_F(ElementTest, get_element_version) {
 
 	std::string version = ATOM_VERSION_CPP;
 	std::size_t pos = version.find_last_of(".");
-	std::string major_version = version.substr(1, version.length()).substr(0, pos);
+	std::string major_version = version.substr(1, version.length()).substr(0, pos - 1);
 
 	std::map<std::string, std::string> result;
 	element->getElementVersion(response, result, "test_cmd");
@@ -728,6 +728,32 @@ TEST_F(ElementTest, get_element_version) {
 	ASSERT_EQ(pthread_join(cmd_thread, &ret), 0);
 }
 
+// Tests waitForElementsHealthy
+TEST_F(ElementTest, wait_for_elements_healthy) {
+	ElementResponse response;
+
+	// Start the command thread
+	pthread_t cmd_thread;
+	ASSERT_EQ(pthread_create(&cmd_thread, NULL, command_element, NULL), 0);
+
+	// Wait until the command element is alive
+	while (true) {
+		std::vector<std::string> elements;
+		ASSERT_EQ(element->getAllElements(elements), ATOM_NO_ERROR);
+		if (std::find(elements.begin(), elements.end(), "test_cmd") != elements.end()) {
+			break;
+		}
+		usleep(100000);
+	}
+
+	std::vector<std::string> elem_list;
+	elem_list.push_back("test_cmd");
+	element->waitForElementsHealthy(elem_list);
+
+	// Wait for the command thread to finish
+	void *ret;
+	ASSERT_EQ(pthread_join(cmd_thread, &ret), 0);
+}
 
 // Tests sending a log. We'll read it back with a redis XREVRANGE command
 //	 on the log stream
