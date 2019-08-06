@@ -66,7 +66,7 @@ bool get_version_callback(
 	std::string version = ATOM_VERSION_CPP;
 	std::size_t pos = version.find_last_of(".");
 	double major_version = std::stod(version.substr(1, version.length()).substr(0, pos));
-	std::string language = ATOM_LANGUAGE;
+	std::string language = ATOM_LANGUAGE_CPP;
 
 	version_dict["language"] =  msgpack::object(language, zone);
 	version_dict["version"] =  msgpack::object(major_version, zone);
@@ -379,7 +379,10 @@ const std::string &Element::getName()
 //			and populates the result dictionary with the received data.
 //
 ////////////////////////////////////////////////////////////////////////////////
-void Element::getElementVersion(ElementResponse &response, std::map<std::string, std::string> &result, std::string element_name)
+void Element::getElementVersion(
+	ElementResponse &response,
+	std::map<std::string, std::string> &result,
+	std::string element_name)
 {
 	std::map<std::string, msgpack::object> res;
 	enum atom_error_t err = this->sendCommandNoReq<std::map<std::string, msgpack::object>>(
@@ -405,10 +408,10 @@ void Element::getElementVersion(ElementResponse &response, std::map<std::string,
 void Element::waitForElementsHealthy(
 	std::vector<std::string> &elem_list,
 	int retry_interval_ms,
-  bool strict)
+	bool strict)
 {
 	std::set<std::string> supported_language_set;
-	supported_language_set.insert(ATOM_LANGUAGE);
+	supported_language_set.insert(ATOM_LANGUAGE_CPP);
 	supported_language_set.insert("Python");
 	bool all_healthy;
 	while (true) {

@@ -27,6 +27,7 @@
 #include "command.h"
 
 #define ATOM_VERSION_CPP "v0.2.0"
+#define ATOM_LANGUAGE_CPP "c++"
 #define ATOM_VERSION_COMMAND "version"
 #define ATOM_HEALTHCHECK_COMMAND "healthcheck"
 #define ATOM_HEALTHCHECK_RETRY_INTERVAL_MS 5000

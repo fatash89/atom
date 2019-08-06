@@ -694,6 +694,37 @@ TEST_F(ElementTest, err_string) {
 	ASSERT_EQ(pthread_join(cmd_thread, &ret), 0);
 }
 
+// Tests getElementVersion
+TEST_F(ElementTest, err_string) {
+	ElementResponse response;
+
+	// Start the command thread
+	pthread_t cmd_thread;
+	ASSERT_EQ(pthread_create(&cmd_thread, NULL, command_element, NULL), 0);
+
+	// Wait until the command element is alive
+	while (true) {
+		std::vector<std::string> elements;
+		ASSERT_EQ(element->getAllElements(elements), ATOM_NO_ERROR);
+		if (std::find(elements.begin(), elements.end(), "test_cmd") != elements.end()) {
+			break;
+		}
+		usleep(100000);
+	}
+
+	std::map<std::string, std::string> result;
+	element->getElementVersion(response, result, "test_cmd");
+
+	ASSERT_EQ(response.isError(), false);
+	ASSERT_EQ(result["language"],  ATOM_LANGUAGE_CPP);
+	ASSERT_EQ(result["version"],  ATOM_VERSION_CPP);
+
+	// Wait for the command thread to finish
+	void *ret;
+	ASSERT_EQ(pthread_join(cmd_thread, &ret), 0);
+}
+
+
 // Tests sending a log. We'll read it back with a redis XREVRANGE command
 //	 on the log stream
 TEST_F(ElementTest, basic_log) {
