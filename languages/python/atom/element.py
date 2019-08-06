@@ -336,7 +336,7 @@ class Element:
         self.handler_map[HEALTHCHECK_COMMAND] = {"handler": handler, "deserialize": False}
         self.timeouts[HEALTHCHECK_COMMAND] = RESPONSE_TIMEOUT
 
-    def wait_for_elements_healthy(self, element_list, retry_interval=HEALTHCHECK_RETRY_INTERVAL, strict=False):
+    def wait_for_elements_healthy(self, element_list, retry_interval=HEALTHCHECK_RETRY_INTERVAL, strict=True):
         """
         Blocking call will wait until all elements in the element respond that they are healthy.
 

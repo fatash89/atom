@@ -7,11 +7,13 @@
 //  @copy 2018 Elementary Robotics. All rights reserved.
 //
 ////////////////////////////////////////////////////////////////////////////////
+#include <assert.h>
+#include <chrono>
+#include <iostream>
 #include <mutex>
 #include <queue>
-#include <assert.h>
 #include <string.h>
-#include <iostream>
+#include <thread>
 
 #include "atom/atom.h"
 #include "atom/redis.h"
@@ -1235,10 +1237,41 @@ bool Element::checkElementVersion(
 }
 
 void Element::waitForElementsHealthy(
-	std::vector<std::string> &elements_list,
-	double retry_interval,
+	std::vector<std::string> &elem_list,
+	int retry_interval_ms,
   bool strict)
 {
+	std::set<std::string> supported_language_set;
+	supported_language_set.insert(ATOM_LANGUAGE);
+	supported_language_set.insert("Python");
+	bool all_healthy;
+	while (true) {
+		all_healthy = true;
+		for (auto const &element_name: elem_list) {
+			// Query version for this element, make sure it meets minimum requirements
+			if (!this->checkElementVersion(element_name, supported_language_set, 0.2)) {
+				if (strict) {
+					std::cout << "Failed healthcheck on " << element_name.c_str() << ", retrying..." << std::endl;
+					all_healthy = false;
+					break;
+				} else {
+					continue;
+				}
+			}
+			// Call the healthcheck for this element to make sure it is reporting healthy
+			ElementResponse resp;
+			if (this->sendCommand(resp, element_name.c_str(), ATOM_HEALTHCHECK_COMMAND, NULL, 0) != ATOM_NO_ERROR) {
+				std::cout << "Failed healthcheck on " << element_name.c_str() << ", retrying..." << std::endl;
+				all_healthy = false;
+				break;
+			}
+		}
 
+		if (all_healthy) {
+			break;
+		}
+		std::this_thread::sleep_for(std::chrono::milliseconds(retry_interval_ms));
+	}
 }
+
 } // namespace atom

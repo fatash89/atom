@@ -29,7 +29,7 @@
 #define ATOM_VERSION_CPP "v0.2.0"
 #define ATOM_VERSION_COMMAND "version"
 #define ATOM_HEALTHCHECK_COMMAND "healthcheck"
-#define ATOM_HEALTHCHECK_RETRY_INTERVAL 5
+#define ATOM_HEALTHCHECK_RETRY_INTERVAL_MS 5000
 
 #define ELEMENT_DEFAULT_N_CONTEXTS 20
 
@@ -189,8 +189,8 @@ public:
 	// Blocks until all specified elements are up and reporting healthy
 	void waitForElementsHealthy(
 		std::vector<std::string> &elem_list,
-		double retry_interval,
-	  bool strict);
+		int retry_interval_ms = ATOM_HEALTHCHECK_RETRY_INTERVAL_MS,
+	  bool strict = true);
 
 	// Returns a list of all elements
 	enum atom_error_t getAllElements(
