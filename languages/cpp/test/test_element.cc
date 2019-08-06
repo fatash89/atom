@@ -712,12 +712,16 @@ TEST_F(ElementTest, get_element_version) {
 		usleep(100000);
 	}
 
+	std::string version = ATOM_VERSION_CPP;
+	std::size_t pos = version.find_last_of(".");
+	std::string major_version = version.substr(1, version.length()).substr(0, pos);
+
 	std::map<std::string, std::string> result;
 	element->getElementVersion(response, result, "test_cmd");
 
 	ASSERT_EQ(response.isError(), false);
 	ASSERT_EQ(result["language"],  ATOM_LANGUAGE_CPP);
-	ASSERT_EQ(result["version"],  ATOM_VERSION_CPP);
+	ASSERT_EQ(result["version"],  major_version);
 
 	// Wait for the command thread to finish
 	void *ret;

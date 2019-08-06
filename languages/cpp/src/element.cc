@@ -395,7 +395,9 @@ void Element::getElementVersion(
 		return;
 	}
 	result["language"] = res["language"].as<std::string>();
-	result["version"] = std::to_string(res["version"].as<double>());
+	std::stringstream ss;
+	ss << res["version"].as<double>();
+	result["version"] = ss.str();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
