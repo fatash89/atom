@@ -190,7 +190,7 @@ public:
 	void waitForElementsHealthy(
 		std::vector<std::string> &elem_list,
 		int retry_interval_ms = ATOM_HEALTHCHECK_RETRY_INTERVAL_MS,
-	  bool strict = true);
+		bool strict = true);
 
 	// Returns a list of all elements
 	enum atom_error_t getAllElements(
@@ -219,6 +219,9 @@ public:
 	void addCommand(
 		Command *cmd);
 
+	// Sets a custom healthcheck for this element.
+	//	The user provided command_handler should return err code 0 if healthy,
+	//	non 0 if unhealthy
 	void healthcheckSet(
 		command_handler_t fn,
 		int timeout);

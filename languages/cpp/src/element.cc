@@ -61,21 +61,20 @@ bool get_version_callback(
 	void *user_data)
 {
 	std::map< std::string, msgpack::object> version_dict;
-	{
-			msgpack::zone zone;
+	msgpack::zone zone;
 
-			std::string version = ATOM_VERSION_CPP;
-			std::size_t pos = version.find_last_of(".");
-			double major_version = std::stod(version.substr(1, version.length()).substr(0, pos));
-			std::string language = ATOM_LANGUAGE;
+	std::string version = ATOM_VERSION_CPP;
+	std::size_t pos = version.find_last_of(".");
+	double major_version = std::stod(version.substr(1, version.length()).substr(0, pos));
+	std::string language = ATOM_LANGUAGE;
 
-			version_dict["language"] =  msgpack::object(language, zone);
-			version_dict["version"] =  msgpack::object(major_version, zone);
+	version_dict["language"] =  msgpack::object(language, zone);
+	version_dict["version"] =  msgpack::object(major_version, zone);
 
-			std::stringstream ss;
-			msgpack::pack(ss, version_dict);
-			resp->setData(ss.str());
-	}   // zone is auto-destroyed here
+	std::stringstream ss;
+	msgpack::pack(ss, version_dict);
+	resp->setData(ss.str());
+
 	return true;
 }
 
@@ -263,20 +262,16 @@ Element::Element(
 	elem = element_init(ctx, name.c_str());
 
 	// Add version callback
-  this->addCommand(
+	this->addCommand(
 		ATOM_VERSION_COMMAND,
-    "Retrieves the version info for this element",
-    get_version_callback,
+		"Retrieves the version info for this element",
+		get_version_callback,
 		NULL,
 		1000
 	);
-
-	// Add healthcheck callback
-	this->addCommand(
-		ATOM_HEALTHCHECK_COMMAND,
-    "Returns whether the element is healthy (defaults to true)",
-    default_healthcheck_callback,
-		NULL,
+	// Add default healthcheck callback
+	this->healthcheckSet(
+		default_healthcheck_callback,
 		1000
 	);
 
@@ -333,6 +328,40 @@ void Element::error(
 	throw std::runtime_error(str);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+//
+//  @brief Helper function to validate whether a given element meets
+//			the provided atom language and min version requirements.
+//			Returns true if element is reachable, has a language that's in the
+//			provided set of supported languages, and has a version >= the provided
+//			min supported version. Returns false otherwise.
+//
+////////////////////////////////////////////////////////////////////////////////
+bool Element::checkElementVersion(
+	std::string element_name,
+	std::set<std::string> &supported_language_set,
+	double supported_min_version)
+{
+	ElementResponse response;
+	std::map<std::string, std::string> result;
+	this->getElementVersion(response, result, element_name);
+
+	if (response.isError()) {
+		return false;
+	}
+
+	// Validate element meets language requirement
+	if (supported_language_set.find(result["language"]) == supported_language_set.end()) {
+		return false;
+	}
+
+	// Validate element meets version requirement
+	if (std::stod(result["version"]) < supported_min_version) {
+		return false;
+	}
+
+	return true;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -342,6 +371,73 @@ void Element::error(
 const std::string &Element::getName()
 {
 	return name;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  @brief Queries the version info for a given element_name,
+//			and populates the result dictionary with the received data.
+//
+////////////////////////////////////////////////////////////////////////////////
+void Element::getElementVersion(ElementResponse &response, std::map<std::string, std::string> &result, std::string element_name)
+{
+	std::map<std::string, msgpack::object> res;
+	enum atom_error_t err = this->sendCommandNoReq<std::map<std::string, msgpack::object>>(
+		response,
+		element_name,
+		ATOM_VERSION_COMMAND,
+		res
+	);
+	if (err != ATOM_NO_ERROR) {
+		return;
+	}
+	result["language"] = res["language"].as<std::string>();
+	result["version"] = std::to_string(res["version"].as<double>());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  @brief Blocks until all elements in elem_list are reporting healthy.
+//			If strict is set to false, this check will skip any elements that are
+//			unreachable or don't meet the version requirements.
+//
+////////////////////////////////////////////////////////////////////////////////
+void Element::waitForElementsHealthy(
+	std::vector<std::string> &elem_list,
+	int retry_interval_ms,
+  bool strict)
+{
+	std::set<std::string> supported_language_set;
+	supported_language_set.insert(ATOM_LANGUAGE);
+	supported_language_set.insert("Python");
+	bool all_healthy;
+	while (true) {
+		all_healthy = true;
+		for (auto const &element_name: elem_list) {
+			// Query version for this element, make sure it meets minimum requirements
+			if (!this->checkElementVersion(element_name, supported_language_set, 0.2)) {
+				if (strict) {
+					std::cout << "Failed healthcheck on " << element_name.c_str() << ", retrying..." << std::endl;
+					all_healthy = false;
+					break;
+				} else {
+					continue;
+				}
+			}
+			// Call the healthcheck for this element to make sure it is reporting healthy
+			ElementResponse resp;
+			if (this->sendCommand(resp, element_name.c_str(), ATOM_HEALTHCHECK_COMMAND, NULL, 0) != ATOM_NO_ERROR) {
+				std::cout << "Failed healthcheck on " << element_name.c_str() << ", retrying..." << std::endl;
+				all_healthy = false;
+				break;
+			}
+		}
+
+		if (all_healthy) {
+			break;
+		}
+		std::this_thread::sleep_for(std::chrono::milliseconds(retry_interval_ms));
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -586,7 +682,7 @@ void Element::addCommand(
 	std::cout << "Creating command with name " << name << std::endl;
 
 	if ((name == ATOM_VERSION_COMMAND && commands.find(name) != commands.end()) ||
-			(name == ATOM_HEALTHCHECK_COMMAND && commands.find(name) != commands.end()))
+		(name == ATOM_HEALTHCHECK_COMMAND && commands.find(name) != commands.end()))
 	{
 		error("Attempting to add reserved command name, choose a different command name");
 		return;
@@ -628,7 +724,7 @@ void Element::addCommand(
 	std::cout << "Creating command with name " << cmd->name << std::endl;
 
 	if ((cmd->name == ATOM_VERSION_COMMAND && commands.find(cmd->name) != commands.end()) ||
-			(cmd->name == ATOM_HEALTHCHECK_COMMAND && commands.find(cmd->name) != commands.end()))
+		(cmd->name == ATOM_HEALTHCHECK_COMMAND && commands.find(cmd->name) != commands.end()))
 	{
 		error("Attempting to add reserved command name, choose a different command name");
 		return;
@@ -651,8 +747,8 @@ void Element::addCommand(
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-//  @brief Adds a command and its handler to the map of supported commands
-//         Handler must return response with 0 error_code to pass healthcheck
+//  @brief Sets a custom user defined healthcheck for this element.
+//         Handler must return response with 0 error_code to pass healthcheck.
 //
 ////////////////////////////////////////////////////////////////////////////////
 void Element::healthcheckSet(
@@ -663,8 +759,8 @@ void Element::healthcheckSet(
 	if (commands.find(ATOM_HEALTHCHECK_COMMAND) == commands.end()) {
 		this->addCommand(
 			ATOM_HEALTHCHECK_COMMAND,
-	    "Returns whether the element is healthy",
-	    fn,
+			"Returns whether the element is healthy",
+			fn,
 			NULL,
 			timeout
 		);
@@ -1193,85 +1289,4 @@ void Element::log(
 		error("Failed to log", false);
 	}
 }
-
-void Element::getElementVersion(ElementResponse &response, std::map<std::string, std::string> &result, std::string element_name)
-{
-	std::map<std::string, msgpack::object> res;
-	enum atom_error_t err = this->sendCommandNoReq<std::map<std::string, msgpack::object>>(
-		response,
-		element_name,
-		ATOM_VERSION_COMMAND,
-		res
-	);
-	if (err != ATOM_NO_ERROR) {
-		return;
-	}
-	result["language"] = res["language"].as<std::string>();
-	result["version"] = std::to_string(res["version"].as<double>());
-}
-
-bool Element::checkElementVersion(
-	std::string element_name,
-	std::set<std::string> &supported_language_set,
-	double supported_min_version)
-{
-	ElementResponse response;
-	std::map<std::string, std::string> result;
-	this->getElementVersion(response, result, element_name);
-
-	if (response.isError()) {
-		return false;
-	}
-
-	// Validate element meets language requirement
-	if (supported_language_set.find(result["language"]) == supported_language_set.end()) {
-		return false;
-	}
-
-	// Validate element meets version requirement
-	if (std::stod(result["version"]) < supported_min_version) {
-		return false;
-	}
-
-	return true;
-}
-
-void Element::waitForElementsHealthy(
-	std::vector<std::string> &elem_list,
-	int retry_interval_ms,
-  bool strict)
-{
-	std::set<std::string> supported_language_set;
-	supported_language_set.insert(ATOM_LANGUAGE);
-	supported_language_set.insert("Python");
-	bool all_healthy;
-	while (true) {
-		all_healthy = true;
-		for (auto const &element_name: elem_list) {
-			// Query version for this element, make sure it meets minimum requirements
-			if (!this->checkElementVersion(element_name, supported_language_set, 0.2)) {
-				if (strict) {
-					std::cout << "Failed healthcheck on " << element_name.c_str() << ", retrying..." << std::endl;
-					all_healthy = false;
-					break;
-				} else {
-					continue;
-				}
-			}
-			// Call the healthcheck for this element to make sure it is reporting healthy
-			ElementResponse resp;
-			if (this->sendCommand(resp, element_name.c_str(), ATOM_HEALTHCHECK_COMMAND, NULL, 0) != ATOM_NO_ERROR) {
-				std::cout << "Failed healthcheck on " << element_name.c_str() << ", retrying..." << std::endl;
-				all_healthy = false;
-				break;
-			}
-		}
-
-		if (all_healthy) {
-			break;
-		}
-		std::this_thread::sleep_for(std::chrono::milliseconds(retry_interval_ms));
-	}
-}
-
 } // namespace atom
