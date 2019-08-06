@@ -472,7 +472,7 @@ public:
 
 
 // Thread that creates a command element
-void* command_element(void *data)
+void* command_element(void *data, int n_loops = 1)
 {
 	Element elem("test_cmd");
 	elem.addCommand("hello", "hello, world", hello_callback_fn, NULL, 1000);
@@ -734,7 +734,7 @@ TEST_F(ElementTest, wait_for_elements_healthy) {
 
 	// Start the command thread
 	pthread_t cmd_thread;
-	ASSERT_EQ(pthread_create(&cmd_thread, NULL, command_element, NULL), 0);
+	ASSERT_EQ(pthread_create(&cmd_thread, NULL, command_element, NULL, 2), 0);
 
 	// Wait until the command element is alive
 	while (true) {
