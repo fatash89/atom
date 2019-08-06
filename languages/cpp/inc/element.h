@@ -164,7 +164,7 @@ class Element {
 	// Helper function for checking if another element meets version requirements
 	bool checkElementVersion(
 		std::string element,
-		std::set<std::string> supported_language_set,
+		std::set<std::string> &supported_language_set,
 		double supported_min_version);
 
 public:
@@ -180,7 +180,17 @@ public:
 	// Returns the name of the element
 	const std::string &getName();
 
-	void getElementVersion(ElementResponse &response, std::map<std::string, std::string> &result, std::string element_name);
+	// Returns version info for a given element in the system
+	void getElementVersion(
+		ElementResponse &response,
+		std::map<std::string, std::string> &result,
+		std::string element_name);
+
+	// Blocks until all specified elements are up and reporting healthy
+	void waitForElementsHealthy(
+		std::vector<std::string> &elem_list,
+		double retry_interval,
+	  bool strict);
 
 	// Returns a list of all elements
 	enum atom_error_t getAllElements(

@@ -664,7 +664,7 @@ void Element::healthcheckSet(
 	    "Returns whether the element is healthy",
 	    fn,
 			NULL,
-			1000
+			timeout
 		);
 	// Otherwise, update the healthcheck to the new user provided callback/timeout
 	} else {
@@ -675,6 +675,7 @@ void Element::healthcheckSet(
 			fn,
 			NULL,
 			timeout);
+		new_cmd->addElement(this);
 		delete commands[ATOM_HEALTHCHECK_COMMAND];
 		commands[ATOM_HEALTHCHECK_COMMAND] = new_cmd;
 
@@ -1209,7 +1210,7 @@ void Element::getElementVersion(ElementResponse &response, std::map<std::string,
 
 bool Element::checkElementVersion(
 	std::string element_name,
-	std::set<std::string> supported_language_set,
+	std::set<std::string> &supported_language_set,
 	double supported_min_version)
 {
 	ElementResponse response;
@@ -1233,4 +1234,11 @@ bool Element::checkElementVersion(
 	return true;
 }
 
+void Element::waitForElementsHealthy(
+	std::vector<std::string> &elements_list,
+	double retry_interval,
+  bool strict)
+{
+
+}
 } // namespace atom
