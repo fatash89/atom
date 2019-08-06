@@ -695,7 +695,7 @@ TEST_F(ElementTest, err_string) {
 }
 
 // Tests getElementVersion
-TEST_F(ElementTest, err_string) {
+TEST_F(ElementTest, get_element_version) {
 	ElementResponse response;
 
 	// Start the command thread
