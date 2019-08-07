@@ -386,15 +386,23 @@ void Element::getElementVersion(
 	std::string element_name)
 {
 	std::map<std::string, msgpack::object> res;
-	enum atom_error_t err = this->sendCommandNoReq<std::map<std::string, msgpack::object>>(
+	enum atom_error_t err = this->sendCommand(
 		response,
 		element_name,
 		ATOM_VERSION_COMMAND,
-		res
+		NULL,
+		0
 	);
 	if (err != ATOM_NO_ERROR) {
 		return;
 	}
+	// Deserialize version command response
+	msgpack::object_handle oh = msgpack::unpack(
+		response.getData().c_str(),
+		response.getDataLen());
+	msgpack::object deserialized = oh.get();
+	deserialized.convert(res);
+	// Unpack version dictionary
 	result["language"] = res["language"].as<std::string>();
 	std::stringstream ss;
 	ss << res["version"].as<double>();
