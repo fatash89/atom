@@ -1302,4 +1302,5 @@ void Element::log(
 		error("Failed to log", false);
 	}
 }
+
 } // namespace atom
