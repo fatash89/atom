@@ -84,6 +84,7 @@ bool default_healthcheck_callback(
 	ElementResponse *resp,
 	void *user_data)
 {
+	resp->setData("healthy");
 	return true;
 }
 
