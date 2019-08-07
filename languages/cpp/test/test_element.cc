@@ -470,6 +470,29 @@ public:
 	}
 };
 
+bool test_healthcheck_callback(
+	const uint8_t *data,
+	size_t data_len,
+	ElementResponse *resp,
+	void *user_data)
+{
+	resp->setError(2, "I am unhealthy");
+	return true;
+}
+
+// Thread creates an element with custom healthcheck
+void* healthcheck_element(void *num_loops_ptr)
+{
+	Element elem("test_healthcheck");
+	elem.healthcheckSet(test_healthcheck_callback, 1000);
+
+	int num_loops = 1;
+	if (num_loops_ptr != NULL) {
+		num_loops = *((int *) num_loops_ptr);
+	}
+	elem.commandLoop(num_loops);
+	return NULL;
+}
 
 // Thread that creates a command element
 void* command_element(void *num_loops_ptr)
@@ -754,6 +777,35 @@ TEST_F(ElementTest, wait_for_elements_healthy) {
 	std::vector<std::string> elem_list;
 	elem_list.push_back("test_cmd");
 	element->waitForElementsHealthy(elem_list);
+
+	// Wait for the command thread to finish
+	void *ret;
+	ASSERT_EQ(pthread_join(cmd_thread, &ret), 0);
+}
+
+// Tests healthcheckSet
+TEST_F(ElementTest, healthcheck_set) {
+	ElementResponse response;
+
+	// Start the command thread
+	pthread_t cmd_thread;
+	int num_loops = 1;
+	ASSERT_EQ(pthread_create(&cmd_thread, NULL, healthcheck_element, &num_loops), 0);
+
+	// Wait until the command element is alive
+	while (true) {
+		std::vector<std::string> elements;
+		ASSERT_EQ(element->getAllElements(elements), ATOM_NO_ERROR);
+		if (std::find(elements.begin(), elements.end(), "test_healthcheck") != elements.end()) {
+			break;
+		}
+		usleep(100000);
+	}
+
+	ASSERT_EQ(element->sendCommand(response, "test_healthcheck", ATOM_HEALTHCHECK_COMMAND, NULL, 0), ATOM_USER_ERRORS_BEGIN + 2);
+	ASSERT_EQ(response.isError(), true);
+	ASSERT_EQ(response.getError(), ATOM_USER_ERRORS_BEGIN + 2);
+	ASSERT_EQ(response.getErrorStr(), "I am unhealthy");
 
 	// Wait for the command thread to finish
 	void *ret;
