@@ -472,7 +472,7 @@ public:
 
 
 // Thread that creates a command element
-void* command_element(void *data, int n_loops = 1)
+void* command_element(void *num_loops_ptr)
 {
 	Element elem("test_cmd");
 	elem.addCommand("hello", "hello, world", hello_callback_fn, NULL, 1000);
@@ -492,7 +492,11 @@ void* command_element(void *data, int n_loops = 1)
 	elem.addCommand(
 		new MsgpackNoReqNoRes("noreqnores", "Tests msgpack no request or response", 1000));
 
-	elem.commandLoop(1);
+	int num_loops = 1;
+	if (num_loops_ptr != NULL) {
+		num_loops = *((int *) num_loops_ptr);
+	}
+	elem.commandLoop(num_loops);
 	return NULL;
 }
 
@@ -734,7 +738,8 @@ TEST_F(ElementTest, wait_for_elements_healthy) {
 
 	// Start the command thread
 	pthread_t cmd_thread;
-	ASSERT_EQ(pthread_create(&cmd_thread, NULL, command_element, NULL, 2), 0);
+	int num_loops = 2;
+	ASSERT_EQ(pthread_create(&cmd_thread, NULL, command_element, &num_loops), 0);
 
 	// Wait until the command element is alive
 	while (true) {
