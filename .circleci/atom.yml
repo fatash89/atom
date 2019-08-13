@@ -1,0 +1,168 @@
+version: 2.1
+description: Commands useful for building/deploying elements
+
+#
+# Machines that can be used for build. Build-classic is typically
+# what you want to use.
+#
+executors:
+
+  # Machine used to build docker containers using the
+  # CircleCI classic image
+  build-classic:
+    machine:
+      enabled: true
+      docker_layer_caching: true
+      image: circleci/classic:201808-01
+
+  # Ubuntu 16.04 machine used to build some images
+  build-ubuntu:
+    machine:
+      enabled: true
+      docker_layer_caching: true
+      image: ubuntu-1604:201903-01
+
+#
+# Commands that are useful for build and deploy
+#
+commands:
+
+  # Log into docker
+  docker_login:
+    description: "Logs into Dockerhub"
+    steps:
+      - run:
+          name: Docker Login
+          command: echo ${DOCKERHUB_PASSWORD} | docker login -u ${DOCKERHUB_USER} --password-stdin
+
+  # Load image from workspace and log into docker
+  load_and_login:
+    description: "Load the image from workspace and login"
+    steps:
+      - attach_workspace:
+          at: /tmp/workspace
+      - run:
+          name: Load Docker Image
+          command: docker load -i /tmp/workspace/image.tar
+      - docker_login
+
+  # Build and launch the docker-compose file
+  build_and_launch:
+    description: "Build and launch the docker-compose file"
+    parameters:
+      file:
+        type: string
+      service:
+        type: string
+    steps:
+      - run:
+          name: Build Docker Compose File
+          command: docker-compose -p atom -f << parameters.file >> build --no-cache --pull
+      - run:
+          name: Tag built service
+          command: docker tag atom_<< parameters.service >>:latest ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
+      - run:
+          name: Launch Docker Compose File
+          command: docker-compose -p atom -f << parameters.file >> up -d
+
+  # Store the docker image
+  store_image:
+    description: "Store the image built"
+    steps:
+      - run:
+          name: Archive Docker image
+          command: docker save -o image.tar ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
+      - persist_to_workspace:
+          root: .
+          paths:
+            - ./image.tar
+      - store_artifacts:
+          path: ./image.tar
+
+
+  # Create and push image tag
+  tag_and_deploy:
+    description: "Tag the latest docker image and deploy it"
+    parameters:
+      tag:
+        type: string
+    steps:
+      - run:
+          name: Docker Tag
+          command: docker tag ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID} ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}:<< parameters.tag >>
+      - run:
+          name: Docker Push
+          command: docker push ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}:<< parameters.tag >>
+
+#
+# Jobs that are nice to be able to share between elements
+#
+jobs:
+
+  # Tag and deploy a development image
+  deploy-dev:
+    executor: build-classic
+    steps:
+      - load_and_login
+      - tag_and_deploy:
+          tag: development-${CIRCLE_BUILD_NUM}
+
+  # Tag and deploy a master image
+  deploy-master:
+    executor: build-classic
+    steps:
+      - load_and_login
+      - tag_and_deploy:
+          tag: master-${CIRCLE_BUILD_NUM}
+      - tag_and_deploy:
+          tag: latest
+
+#
+# Examples
+#
+examples:
+  standard-build:
+
+    description: General-purpose build, and deploy
+
+    usage:
+      version: 2.1
+
+      orbs:
+        atom: elementaryrobotics/atom@x.y.z
+
+      jobs:
+        build:
+          executor: atom/build-classic
+          environment:
+            DOCKER_COMPOSE_SERVICE_NAME: some_service
+          steps:
+            - checkout
+            - atom/docker_login
+            - atom/build_and_launch:
+                file: docker-compose.yml
+                service: ${DOCKER_COMPOSE_SERVICE_NAME}
+            - run:
+                name: Unit Tests
+                command: docker exec -it ${DOCKER_COMPOSE_SERVICE_NAME} $my_unit_test_command
+            - atom/store_image
+
+      workflows:
+        version: 2
+        build-all:
+          jobs:
+            - build
+            - atom/deploy-master:
+                requires:
+                  - build
+                filters:
+                  branches:
+                    only:
+                      - master
+            - atom/deploy-dev:
+                requires:
+                  - build
+                filters:
+                  branches:
+                    ignore:
+                      - master

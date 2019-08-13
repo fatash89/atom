@@ -123,12 +123,18 @@ on the branch, they will be tagged as so:
 
 | branch | tag |
 |--------|-----|
-| `master` | master-${CI_BUILD}-${COMMIT_HASH} |
-| Non-`master` | development-${CI_BUILD}-${COMMIT_HASH} |
+| `master` | master-${CIRCLE_BUILD_NUM} |
+| Non-`master` | development-${CIRCLE_BUILD_NUM} |
 
 When `master` is built, the images will also be tagged and pushed as `latest`.
 
 ### Configuring CircleCI
+
+#### For a generic element
+
+If you're looking for the general CircleCI config docs for elements, see [the CircleCI README](.circleci/README.md)
+
+#### To build this repo
 
 If you've forked this repository and/or made an element and want to set up the build chain on CircleCI (recommended), please follow the steps below:
 
