@@ -157,10 +157,42 @@ size_t Entry::size()
 void Element::initContextPool(
 	int n_contexts)
 {
+	initContextPool(REDIS_DEFAULT_SOCKET_TYPE, n_contexts);
+}
+
+void Element::initContextPool(
+	socketType type,
+	int n_contexts)
+{
 	std::lock_guard<std::mutex> lock(context_mutex);
 
 	for (int i = 0; i < n_contexts; ++i) {
-		redisContext *new_context = redis_context_init();
+		redisContext *new_context = redis_context_init(type);
+		context_pool.push(new_context);
+	}
+}
+
+void Element::initContextPool(
+	char* socket,
+	int n_contexts)
+{
+	std::lock_guard<std::mutex> lock(context_mutex);
+
+	for (int i = 0; i < n_contexts; ++i) {
+		redisContext *new_context = redis_context_init_local(socket);
+		context_pool.push(new_context);
+	}
+}
+
+void Element::initContextPool(
+	char* addr,
+	int port,
+	int n_contexts)
+{
+	std::lock_guard<std::mutex> lock(context_mutex);
+
+	for (int i = 0; i < n_contexts; ++i) {
+		redisContext *new_context = redis_context_init_remote(addr, port);
 		context_pool.push(new_context);
 	}
 }
@@ -219,6 +251,87 @@ Element::Element(
 
 	// Initialize the context pool
 	initContextPool(n_contexts);
+
+	// Get a context
+	redisContext *ctx = getContext();
+
+	// Make an element
+	elem = element_init(ctx, name.c_str());
+
+	// Release the context
+	releaseContext(ctx);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  @brief Constructor specifying use of local or remote redis server.
+//			Contexts initialized with default local socket name or remote
+//			socket address and port
+//
+////////////////////////////////////////////////////////////////////////////////
+Element::Element(
+	std::string n,
+	socketType type,
+	int n_contexts) : context_pool(), context_mutex()
+{
+	// Copy over the name
+	name = n;
+
+	// Initialize the context pool
+	initContextPool(type, n_contexts);
+
+	// Get a context
+	redisContext *ctx = getContext();
+
+	// Make an element
+	elem = element_init(ctx, name.c_str());
+
+	// Release the context
+	releaseContext(ctx);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  @brief Constructor specifying socket for local redis server
+//
+////////////////////////////////////////////////////////////////////////////////
+Element::Element(
+	std::string n,
+	char* socket,
+	int n_contexts) : context_pool(), context_mutex()
+{
+	// Copy over the name
+	name = n;
+
+	// Initialize the context pool
+	initContextPool(socket, n_contexts);
+
+	// Get a context
+	redisContext *ctx = getContext();
+
+	// Make an element
+	elem = element_init(ctx, name.c_str());
+
+	// Release the context
+	releaseContext(ctx);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  @brief Constructor specifying address and port for remote redis server
+//
+////////////////////////////////////////////////////////////////////////////////
+Element::Element(
+	std::string n,
+	char* addr,
+	int port,
+	int n_contexts) : context_pool(), context_mutex()
+{
+	// Copy over the name
+	name = n;
+
+	// Initialize the context pool
+	initContextPool(addr, port, n_contexts);
 
 	// Get a context
 	redisContext *ctx = getContext();

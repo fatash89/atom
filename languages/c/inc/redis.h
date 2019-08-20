@@ -33,6 +33,13 @@
 // Constant string length. Useful for keys/values
 #define CONST_STRLEN(x) (sizeof(x) - 1)
 
+// Local vs remote redis server configurations
+typedef enum {
+	LOCAL,
+	REMOTE
+} socketType;
+#define REDIS_DEFAULT_SOCKET_TYPE LOCAL
+
 // Struct that contains all of the information about an XREAD stream
 //	being monitored. The user is expected to fill out the stream name
 //	and data_cb. data_cb should be a function that takes a redisReply
@@ -159,7 +166,9 @@ void redis_print_xread_kv_items(
 	size_t n_items);
 
 // Gets a redis context
-redisContext *redis_context_init(void);
+redisContext *redis_context_init(
+	socketType type = REDIS_DEFAULT_SOCKET_TYPE
+	);
 
 // Frees a redis context
 void redis_context_cleanup(redisContext *ctx);

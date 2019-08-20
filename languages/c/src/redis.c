@@ -814,9 +814,15 @@ redisContext *redis_context_init_local(const char *socket)
 // 	@brief	Gets a new redis handle using all defaults
 //
 ////////////////////////////////////////////////////////////////////////////////
-redisContext *redis_context_init(void)
+redisContext *redis_context_init(socketType type)
 {
-	return redis_context_init_local(REDIS_DEFAULT_LOCAL_SOCKET);
+	return (type == LOCAL) ?
+		redis_context_init_local(
+			REDIS_DEFAULT_LOCAL_SOCKET) :
+		redis_context_init_remote(
+			REDIS_DEFAULT_REMOTE_ADDR,
+			REDIS_DEFAULT_REMOTE_PORT
+			);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -90,6 +90,17 @@ class Element {
 	// Functions for getting redis contexts
 	void initContextPool(
 		int n_contexts);
+	void initContextPool(
+		socketType type,
+		int n_contexts);
+	void initContextPool(
+		char* socket,
+		int n_contexts);
+	void initContextPool(
+		char* addr,
+		int port,
+		int n_contexts);
+
 	void cleanupContextPool();
 	redisContext *getContext();
 	void releaseContext(
@@ -161,6 +172,22 @@ public:
 	// Constructors
 	Element(
 		std::string n,
+		int n_contexts = ELEMENT_DEFAULT_N_CONTEXTS);
+
+	Element(
+		std::string n,
+		socketType type,
+		int n_contexts = ELEMENT_DEFAULT_N_CONTEXTS);
+
+	Element(
+		std::string n,
+		char* socket,
+		int n_contexts = ELEMENT_DEFAULT_N_CONTEXTS);
+
+	Element(
+		std::string n,
+		char* addr,
+		int port,
 		int n_contexts = ELEMENT_DEFAULT_N_CONTEXTS);
 
 	// Destructor
