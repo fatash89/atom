@@ -336,7 +336,7 @@ class Element:
         self.handler_map[HEALTHCHECK_COMMAND] = {"handler": handler, "deserialize": False}
         self.timeouts[HEALTHCHECK_COMMAND] = RESPONSE_TIMEOUT
 
-    def wait_for_elements_healthy(self, element_list, retry_interval=HEALTHCHECK_RETRY_INTERVAL):
+    def wait_for_elements_healthy(self, element_list, retry_interval=HEALTHCHECK_RETRY_INTERVAL, strict=False):
         """
         Blocking call will wait until all elements in the element respond that they are healthy.
 
@@ -344,14 +344,22 @@ class Element:
             element_list ([str]): List of element names to run healthchecks on
                                   Should return a Response with err_code ATOM_NO_ERROR if healthy.
             retry_interval (float, optional) Time in seconds to wait before retrying after a failed attempt.
+            strict (bool, optional) In strict mode, all elements must be reachable and support healthchecks to pass.
+                                    If false, elements that don't have healthchecks will be assumed healthy.
         """
 
         while True:
             all_healthy = True
             for element_name in element_list:
-                # Verify element supports healthcheck feature. If it doesn't, assume its healthy and skip it
+                # Verify element is reachable and supports healthcheck feature
                 if not self._check_element_version(element_name, supported_language_set={LANG}, supported_min_version=0.2):
-                    continue
+                    # In strict mode, if element is not reachable or doesn't support healthchecks, assume unhealthy
+                    if strict:
+                        self.log(LogLevel.WARNING, f"Failed healthcheck on {element_name}, retrying...")
+                        all_healthy = False
+                        break
+                    else:
+                        continue
 
                 response = self.command_send(element_name, HEALTHCHECK_COMMAND, "")
                 if response["err_code"] != ATOM_NO_ERROR:
