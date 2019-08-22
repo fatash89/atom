@@ -90,8 +90,7 @@ class Element {
 	// Functions for getting redis contexts
 	void initContextPool(
 		socketType type,
-		int n_contexts
-		);
+		int n_contexts);
 	void initContextPool(
 		char* socket,
 		int n_contexts);

@@ -174,10 +174,8 @@ void Element::initContextPool(
 	std::lock_guard<std::mutex> lock(context_mutex);
 
 	for (int i = 0; i < n_contexts; ++i) {
-		redisContext *new_context = redis_context_init_config(
-										LOCAL,
-										socket
-										);
+		redisContext *new_context =
+			redis_context_init_config(LOCAL, socket);
 		context_pool.push(new_context);
 	}
 }
@@ -190,10 +188,8 @@ void Element::initContextPool(
 	std::lock_guard<std::mutex> lock(context_mutex);
 
 	for (int i = 0; i < n_contexts; ++i) {
-		redisContext *new_context = redis_context_init_config(
-										REMOTE,
-										addr, port
-										);
+		redisContext *new_context =
+			redis_context_init_config(REMOTE, addr, port);
 		context_pool.push(new_context);
 	}
 }

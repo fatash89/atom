@@ -831,9 +831,8 @@ redisContext *redis_context_init_default(socketType type)
 	if (type == LOCAL) {
 		return redis_context_init_local(REDIS_DEFAULT_LOCAL_SOCKET);
 	} else {
-		return redis_context_init_remote(REDIS_DEFAULT_REMOTE_ADDR,
-										 REDIS_DEFAULT_REMOTE_PORT
-										 );
+		return redis_context_init_remote(
+			REDIS_DEFAULT_REMOTE_ADDR, REDIS_DEFAULT_REMOTE_PORT);
 	}
 }
 
