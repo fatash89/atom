@@ -13,6 +13,7 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <string.h>
+#include <stdarg.h>
 
 #include "redis.h"
 
@@ -814,15 +815,55 @@ redisContext *redis_context_init_local(const char *socket)
 // 	@brief	Gets a new redis handle using all defaults
 //
 ////////////////////////////////////////////////////////////////////////////////
-redisContext *redis_context_init(socketType type)
+redisContext *redis_context_init()
 {
-	return (type == LOCAL) ?
-		redis_context_init_local(
-			REDIS_DEFAULT_LOCAL_SOCKET) :
-		redis_context_init_remote(
-			REDIS_DEFAULT_REMOTE_ADDR,
-			REDIS_DEFAULT_REMOTE_PORT
-			);
+	return redis_context_init_default(REDIS_DEFAULT_SOCKET_TYPE);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// 	@brief	Gets a new redis handle with specified socket type and
+//			default configurations
+//
+////////////////////////////////////////////////////////////////////////////////
+redisContext *redis_context_init_default(socketType type)
+{
+	if (type == LOCAL) {
+		return redis_context_init_local(REDIS_DEFAULT_LOCAL_SOCKET);
+	} else {
+		return redis_context_init_remote(REDIS_DEFAULT_REMOTE_ADDR,
+										 REDIS_DEFAULT_REMOTE_PORT
+										 );
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// 	@brief	Gets a new redis handle with specified socket type and
+//			custom configurations. Specify socket name if local;
+//			address and port if remote
+//
+////////////////////////////////////////////////////////////////////////////////
+redisContext *redis_context_init_config(socketType type, ...)
+{
+	va_list argptr;
+	va_start(argptr, type);
+
+	if (type == LOCAL) {
+		// Retrieve socket name or use default
+		char* socket = va_arg(argptr, char*);
+
+		va_end(argptr);
+		return redis_context_init_local(socket);
+
+	} else {
+		// Retrieve address and port or use defaults
+		char* addr = va_arg(argptr, char*);
+		int port = va_arg(argptr, int);
+
+		va_end(argptr);
+		return redis_context_init_remote(addr, port);
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////

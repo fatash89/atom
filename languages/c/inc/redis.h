@@ -17,6 +17,7 @@
 
 #include <hiredis/hiredis.h>
 #include <stdbool.h>
+#include <stdarg.h>
 
 // Default address and port of the local redis server
 #define REDIS_DEFAULT_LOCAL_SOCKET "/shared/redis.sock"
@@ -166,9 +167,9 @@ void redis_print_xread_kv_items(
 	size_t n_items);
 
 // Gets a redis context
-redisContext *redis_context_init(
-	socketType type = REDIS_DEFAULT_SOCKET_TYPE
-	);
+redisContext *redis_context_init();
+redisContext *redis_context_init_default(socketType type);
+redisContext *redis_context_init_config(socketType type, ...);
 
 // Frees a redis context
 void redis_context_cleanup(redisContext *ctx);
