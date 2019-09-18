@@ -22,29 +22,35 @@
 #include "element_entry_read.h"
 #include "element_entry_write.h"
 
+// Element's name
+struct _element_name {
+	char *str;
+	size_t len;
+};
+
+// Response stream
+struct _element_response_info {
+	char *stream;
+	char last_id[STREAM_ID_BUFFLEN];
+};
+
+// Command stream
+struct _element_command_info {
+	char *stream;
+	char last_id[STREAM_ID_BUFFLEN];
+	redisContext *ctx;
+	struct element_command *hash[ELEMENT_COMMAND_HASH_N_BINS];
+};
+
 // Element itself. Element consists of a name, command stream
 //	and response stream.
 struct element {
-
 	// Element's name
-	struct _element_name {
-		char *str;
-		size_t len;
-	} name;
-
+	_element_name name;
 	// Response stream
-	struct _element_response_info {
-		char *stream;
-		char last_id[STREAM_ID_BUFFLEN];
-	} response;
-
+	_element_response_info response;
 	// Command stream
-	struct _element_command_info {
-		char *stream;
-		char last_id[STREAM_ID_BUFFLEN];
-		redisContext *ctx;
-		struct element_command *hash[ELEMENT_COMMAND_HASH_N_BINS];
-	} command;
+	_element_command_info command;
 };
 
 // Initializes an element of the given name.
