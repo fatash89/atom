@@ -210,8 +210,12 @@ class TestAtom:
         for i in range(5):
             responder.entry_write("test_stream", {"data": i})
 
-        # Ensure this gets all entries
+        # Ensure this doesn't get an entry (because it's waiting for new entries and they never come)
         entries = caller.entry_read_since("test_responder", "test_stream")
+        assert(len(entries) == 0)
+
+        # Ensure this gets all entries
+        entries = caller.entry_read_since("test_responder", "test_stream",last_id='0')
         assert(len(entries) == 6)
 
         # Ensure we get the correct number of entries since the last_id
