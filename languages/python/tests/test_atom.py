@@ -2,7 +2,7 @@ import pytest
 import time
 import gc
 from atom import Element
-from multiprocessing import Process
+from multiprocessing import Process, Queue
 from threading import Thread, Lock
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_UNSUPPORTED
 from atom.config import ATOM_COMMAND_NO_RESPONSE, ATOM_CALLBACK_FAILED
@@ -226,6 +226,19 @@ class TestAtom:
         entries = caller.entry_read_since("test_responder", "test_stream", last_id, 2)
         assert(len(entries) == 2)
         assert entries[-1]["data"] == b"1"
+
+        # Ensure that last_id=='$' only gets new entries arriving after the call
+        q = Queue()
+        def wrapped_read(q):
+            q.put(caller.entry_read_since("test_responder", "test_stream", block=500))
+        proc = Process(target=wrapped_read, args=(q,))
+        proc.start()
+        time.sleep(0.1) #sleep to give the process time to start listening for new entries
+        responder.entry_write("test_stream", {"data": None})
+        entries = q.get()
+        proc.join()
+        proc.terminate()
+        assert(len(entries) == 1)
 
     def test_parallel_read_write(self, caller, responder):
         """
