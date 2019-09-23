@@ -60,6 +60,35 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
 COPY third-party/docker-opengl/etc/skel/.xinitrc /etc/skel/.xinitrc
 
 RUN useradd -m -s /bin/bash user
+
+#install Julia
+# Set the home directory to our default user's home.
+ENV HOME=/home/user
+RUN apt-get update && apt-get install -y curl tar procps net-tools
+#RUN curl -L -o /usr/local/bin/dumb-init https://github.com/Yelp/dumb-init/releases/download/v1.2.1/dumb-init_1.2.1_amd64
+#RUN chmod +x /usr/local/bin/dumb-init
+WORKDIR /usr/local
+# bump JULIA_DOCKER_VERSION to force rebuild of nightly binary download
+ENV JULIA_DOCKER_VERSION 1
+# download, unpack nightly julia binary
+RUN curl https://julialang-s3.julialang.org/bin/linux/x64/1.2/julia-1.2.0-linux-x86_64.tar.gz > julia.tar.gz && \
+    mkdir julia && \
+    tar xzf julia.tar.gz -C julia && \
+    mv julia/$(cd julia; echo *)/* julia/ && \
+    rm julia.tar.gz  && \
+    rm -rf julia/share/doc && \
+    rm -rf julia/share/julia/test && \
+    find . -type f -name '*.cov' -delete && \
+    find . -type f -name '*.mem' -delete && \
+    rm -rf julia/etc && rm -rf julia/include && \
+    rm -rf julia/share/appdata && rm -rf julia/share/applications && \
+    rm -rf julia/share/icons && rm -rf julia/share/man && \
+    mv julia/bin/* bin/ && \
+    mv julia/lib/* lib/ && \
+    mv julia/share/* share/ && \
+    rm -rf julia
+RUN chown -R user:user $HOME
+# Change to the default user.
 USER user
 
 RUN cp /etc/skel/.xinitrc /home/user/
