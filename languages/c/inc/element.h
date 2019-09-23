@@ -46,11 +46,11 @@ struct _element_command_info {
 //	and response stream.
 struct element {
 	// Element's name
-	_element_name name;
+	struct _element_name name;
 	// Response stream
-	_element_response_info response;
+	struct _element_response_info response;
 	// Command stream
-	_element_command_info command;
+	struct _element_command_info command;
 };
 
 // Initializes an element of the given name.
