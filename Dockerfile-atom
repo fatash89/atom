@@ -1,4 +1,5 @@
-ARG BASE_IMAGE_TAG=6f7c91da63bfc40db882b1056ece52e7c7dc5c00
+#ARG BASE_IMAGE_TAG=6f7c91da63bfc40db882b1056ece52e7c7dc5c00
+ARG BASE_IMAGE_TAG=julia
 ARG BASE_IMAGE=atom-base
 FROM elementaryrobotics/$BASE_IMAGE:$BASE_IMAGE_TAG
 
@@ -31,6 +32,18 @@ RUN make clean && make && make install
 
 WORKDIR /atom/languages/cpp
 RUN make clean && make && make install
+
+
+#
+# Build and install the julia library
+#
+WORKDIR /atom/languages/julia
+#COPY Manifest.toml Manifest.toml
+#COPY Project.toml Project.toml
+# force compilation of external, shared packages copied in from Manifest.toml./Project.toml
+#RUN /usr/local/bin/julia -e 'using Pkg; Pkg.instantiate();Pkg.add("Images")' && \
+RUN /usr/local/bin/julia -e 'using Pkg; Pkg.develop(PackageSpec(url=joinpath(pwd(), "LibAtom"))); Pkg.activate("LibAtom"); Pkg.instantiate()' && \
+    /usr/local/bin/julia -e 'using LibAtom'
 
 #
 # And finally set up the LD_LIBRARY_PATH on the system s.t.

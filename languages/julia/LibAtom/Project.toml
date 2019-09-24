@@ -1,0 +1,8 @@
+name = "LibAtom"
+uuid = "5d62de86-7acc-47d0-b380-1a9b1d84e08e"
+authors = ["Cody-G <codyjgreer@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+CEnum = "fa961155-64e5-5f13-b03f-caf6b980ea82"
+Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
