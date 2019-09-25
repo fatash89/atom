@@ -628,7 +628,7 @@ class Element:
     def entry_read_since(self,
                          element_name,
                          stream_name,
-                         last_id="0",
+                         last_id="$",
                          n=None,
                          block=None,
                          deserialize=False):
@@ -639,8 +639,10 @@ class Element:
             element_name (str): Name of the element to get the entry from.
             stream_name (str): Name of the stream to get the entry from.
             last_id (str, optional): Time from which to start get entries from. If '0', get all entries.
+                If '$' (default), get only new entries after the function call (blocking).
             n (int, optional): Number of entries to get. If None, get all.
-            block (int, optional): Time (ms) to block on the read. If None, don't block.
+            block (int, optional): Time (ms) to block on the read. If 0, block forever.
+                If None, don't block.
             deserialize (bool, optional): Whether or not to deserialize the entries using msgpack.
         """
         streams, entries = {}, []
