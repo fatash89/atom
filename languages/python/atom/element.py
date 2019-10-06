@@ -483,6 +483,12 @@ class Element:
 
         # Send command to element's command stream
         data = packb(data, use_bin_type=True) if serialize and (data != "") else data
+
+        # Make sure the keyword "data" isn't being used in the raw_data
+        #   dict
+        if "data" in raw_data:
+            raise Exception("'data' cannot be used as a key in raw_data")
+
         cmd = Cmd(self.name, cmd_name, data, **raw_data)
         _pipe = self._rpipeline_pool.get()
         _pipe.xadd(self._make_command_id(element_name), maxlen=STREAM_LEN, **vars(cmd))

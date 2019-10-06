@@ -758,7 +758,7 @@ def add_2(data):
 my_element.command_add("add_2", add_2, timeout=50, deserialize=True)
 
 # If we're expecting raw data to be sent from the caller in the event of mixed serialization, we can note that with kwargs in our command handler
-def command_with_raw_data(data, raw_key_1=None, raw_key_2 = None):
+def command_with_raw_data(data, raw_key_1=None, raw_key_2=None):
     """
     Expects the caller to call command_send with payload of raw_data={"raw_key_1" : some_data, "raw_key_2" : some_other_data}
 
