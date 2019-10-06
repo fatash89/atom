@@ -4,7 +4,7 @@ from msgpack import packb
 
 
 class Cmd:
-    def __init__(self, element, cmd, data):
+    def __init__(self, element, cmd, data, **kwargs):
         """
         Specifies the format of a command that an element sends to another.
 
@@ -20,6 +20,7 @@ class Cmd:
         self.element = element
         self.cmd = cmd
         self.data = data
+        self.__dict__.update(kwargs)
 
 
 class Response:
@@ -101,7 +102,7 @@ class Entry:
             if not isinstance(field, str):
                 raise TypeError(f"field {field} must be a str")
             setattr(self, field, data)
-            
+
 
 class Acknowledge:
     def __init__(self, element, cmd_id, timeout):
