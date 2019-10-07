@@ -2,6 +2,8 @@ from collections import namedtuple
 from enum import Enum
 from msgpack import packb
 
+CMD_RESERVED_KEYS = ("data", "cmd", "element",)
+RES_RESERVED_KEYS = ("data", "err_code", "err_str", "element", "cmd", "cmd_id")
 
 class Cmd:
     def __init__(self, element, cmd, data, **kwargs):
@@ -17,6 +19,8 @@ class Cmd:
             raise TypeError("element must be a str")
         if not isinstance(cmd, str):
             raise TypeError("cmd must be a str")
+        if any(key in kwargs for key in CMD_RESERVED_KEYS):
+            raise KeyError("invalid key in raw_data")
         self.element = element
         self.cmd = cmd
         self.data = data
@@ -24,7 +28,7 @@ class Cmd:
 
 
 class Response:
-    def __init__(self, data="", err_code=0, err_str="", serialize=False):
+    def __init__(self, data="", err_code=0, err_str="", serialize=False, raw_data={}):
         """
         Specifies the format of a response that an element returns from a command.
 
@@ -38,56 +42,12 @@ class Response:
             raise TypeError("err_code must be an int")
         if not isinstance(err_str, str):
             raise TypeError("err_str must be a str")
+        if any(key in raw_data for key in RES_RESERVED_KEYS):
+            raise KeyError("invalid key in raw_data")
         self.data = packb(data, use_bin_type=True) if serialize else data
+        self.__dict__.update(raw_data)
         self.err_code = err_code
         self.err_str = err_str
-
-    def to_internal(self, element, cmd, cmd_id):
-        """
-        Converts a Response to an InternalResponse.
-
-        Args:
-            element (str): The element from which the Response came from.
-            cmd (str): The command of the element that was called.
-            cmd_id (bytes): The Redis ID of the command that generated this response.
-
-        Returns:
-            InternalResponse
-        """
-        return InternalResponse(element, cmd, cmd_id, self.data, self.err_code, self.err_str)
-
-
-class InternalResponse(Response):
-    def __init__(self, element, cmd, cmd_id, data="", err_code=0, err_str=""):
-        """
-        Format of a Response when being sent through Redis.
-        Only intended for internal usage as it contains extra data for logging.
-
-        Args:
-            element (str): The element from which the Response came from.
-            cmd (str): The command of the element that was called.
-            cmd_id (bytes): The Redis ID of the command that generated this response.
-            err_code (int, optional): The error code if error, otherwise 0.
-            err_str (str, optional): The error message, if any.
-            data (optional): The data returned from the element's command.
-        """
-        if not isinstance(element, str):
-            raise TypeError("element must be a str")
-        if not isinstance(cmd, str):
-            raise TypeError("cmd must be a str")
-        if not isinstance(cmd_id, bytes):
-            raise TypeError("cmd_id must be bytes")
-        self.element = element
-        self.cmd = cmd
-        self.cmd_id = cmd_id
-        super().__init__(data, err_code, err_str)
-
-    def to_response(self):
-        """
-        Strips away the extra data of InternalResponse to create Response.
-        """
-        return Response(self.data, self.err_code, self.err_str)
-
 
 class Entry:
     def __init__(self, field_data_map):

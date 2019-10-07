@@ -442,8 +442,7 @@ class Element:
                     self.log(LogLevel.ERR, err_str)
                     response = Response(err_code=ATOM_CALLBACK_FAILED, err_str=err_str)
 
-            response = response.to_internal(self.name, cmd_name, cmd_id)
-            _pipe.xadd(self._make_response_id(caller), maxlen=STREAM_LEN, **vars(response))
+            _pipe.xadd(self._make_response_id(caller), maxlen=STREAM_LEN, **vars(response), cmd=cmd_name, cmd_id=cmd_id, element=self.name)
             _pipe.execute()
             _pipe = self._release_pipeline(_pipe)
 
