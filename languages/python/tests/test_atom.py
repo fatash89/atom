@@ -575,6 +575,7 @@ class TestAtom:
         proc.join()
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == "success"
+        assert response["raw_test"] == b"hello, world!"
 
 def check_kwargs(data, first_kwarg=None, second_kwarg=None):
     """
@@ -583,7 +584,7 @@ def check_kwargs(data, first_kwarg=None, second_kwarg=None):
     assert data["test"] == "kwarg"
     assert first_kwarg == b"hello"
     assert second_kwarg == b"world"
-    return Response("success", serialize=True)
+    return Response("success", serialize=True, raw_data={"raw_test": "hello, world!"})
 
 def add_1(x):
     return Response(int(x)+1)

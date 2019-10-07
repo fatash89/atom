@@ -8,6 +8,7 @@ from atom.config import ATOM_COMMAND_UNSUPPORTED, ATOM_CALLBACK_FAILED, ATOM_USE
 from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND, REDIS_PIPELINE_POOL_SIZE, COMMAND_LIST_COMMAND
 from atom.messages import Cmd, Response, StreamHandler
 from atom.messages import Acknowledge, Entry, Response, Log, LogLevel
+from atom.messages import RES_RESERVED_KEYS, CMD_RESERVED_KEYS
 from msgpack import packb, unpackb
 from os import uname
 from queue import Queue
@@ -404,8 +405,9 @@ class Element:
             #   kwargs to handlers
             kw_data = {}
             for val in cmd:
-                if val not in [b'element', b'cmd', b'data']:
-                    kw_data[val.decode('ascii')] = cmd[val]
+                ascii_val = val.decode('ascii')
+                if ascii_val not in CMD_RESERVED_KEYS:
+                    kw_data[ascii_val] = cmd[val]
 
             # Send acknowledge to caller
             if cmd_name not in self.timeouts.keys():
@@ -483,11 +485,6 @@ class Element:
         # Send command to element's command stream
         data = packb(data, use_bin_type=True) if serialize and (data != "") else data
 
-        # Make sure the keyword "data" isn't being used in the raw_data
-        #   dict
-        if "data" in raw_data:
-            raise Exception("'data' cannot be used as a key in raw_data")
-
         cmd = Cmd(self.name, cmd_name, data, **raw_data)
         _pipe = self._rpipeline_pool.get()
         _pipe.xadd(self._make_command_id(element_name), maxlen=STREAM_LEN, **vars(cmd))
@@ -564,7 +561,14 @@ class Element:
                     except TypeError:
                         self.log(LogLevel.WARNING, "Could not deserialize response.")
 
-                    resp = vars(Response(data=response_data, err_code=err_code, err_str=err_str))
+                    # Process the raw data
+                    raw_data = {}
+                    for val in response:
+                        ascii_val = val.decode('ascii')
+                        if ascii_val not in RES_RESERVED_KEYS:
+                            raw_data[ascii_val] = response[val]
+                    # Make the final response
+                    resp = vars(Response(data=response_data, err_code=err_code, err_str=err_str, raw_data=raw_data))
                     break
 
             self._update_response_id_if_older(local_last_id)
