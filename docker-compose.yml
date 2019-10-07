@@ -25,7 +25,7 @@ services:
         target: /shared
         volume:
           nocopy: true
-      - ".:/atom"
+    # - ".:/atom"
     depends_on:
       - "nucleus"
     ports:
