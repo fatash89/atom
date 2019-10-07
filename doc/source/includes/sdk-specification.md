@@ -756,6 +756,17 @@ def add_2(data):
 
 # The deserialize flag will allow the data to be deserialized before it is sent to the add_2 function
 my_element.command_add("add_2", add_2, timeout=50, deserialize=True)
+
+# If we're expecting raw data to be sent from the caller in the event of mixed serialization, we can note that with kwargs in our command handler. Also, we can send raw data in the response with the raw_data kwarg on the Response object. This allows us to still send a primary serialized response but will add raw data to a response dictionary returned to the user.
+def command_with_raw_data(data, raw_key_1=None, raw_key_2=None):
+    """
+    Expects the caller to call command_send with payload of raw_data={"raw_key_1" : some_data, "raw_key_2" : some_other_data}
+
+    The primary data payload here is still serialized using msgpack which is pretty nice.
+    """
+    return Response("success", serialize=True, raw_data={"img" : img.bytes()})
+
+my_element.command_add("raw_data_test", command_with_raw_data, deserialize=True)
 ```
 
 Adds a command to an element. The element will then "support" this command, allowing other elements to call it.
@@ -949,6 +960,9 @@ response = my_element.command_send("your_element", "your_command", data, block=T
 # If serialized data is expected by the command, pass the serialize flag to the function.
 # If the response of the command is serialized, it can be deserialized with the deserialize flag.
 response = my_element.command_send("your_element", "your_command", data, block=True, serialize=True, deserialize=True)
+
+# If you'd like to use serialization for _most_ of your command but still would like to send a big chunk of unserialized binary data (common for image-based APIs), then you can do so with the raw_data arg
+response = my_element.command_send("your_element", "your_command", data, block=True, serialize=True, deserialize=True, raw_data={"cmd_img" : img.bytes()})
 ```
 
 Sends a command to another element
@@ -961,6 +975,7 @@ Sends a command to another element
 | `command` | String | Command we want to call |
 | `data` | binary/unspecified | Optional data payload for the command |
 | `block` | bool | Optional value to wait for the response to the command. If false will only wait for the ACK from the element and not the response packet, else if true will wait for both the ACK and the response |
+| `raw_data` | map/dict | Currently only supported in Python. Writes any additional key:value pairs without serialization to key:value pairs in the stream used for sending commands. This is useful for commands which need mixed serialization, i.e. need serialization for parameters but not for a big data payload such as an image |
 
 ### Return Value
 
@@ -970,7 +985,7 @@ Object containing error code and response data. Implementation to be specified b
 
 Perform the following steps:
 
-1. `XADD command:$element * ...` where `...` is the "Command Packet Data" from the "Handle Commands" spec. This sends the command to the element. This XADD will return an entry ID that uniquely identifies it and is based on a global millisecond-level redis timestamp. This ID will be used in a few places and will be referred to as `cmd_id`.
+1. `XADD command:$element * ...` where `...` is the "Command Packet Data" from the "Handle Commands" spec. This sends the command to the element. This XADD will return an entry ID that uniquely identifies it and is based on a global millisecond-level redis timestamp. This ID will be used in a few places and will be referred to as `cmd_id`. Primary data will go on a "data" key in the stream. Raw data will be added on additional keys in the stream where the key name will be key from the raw data dict and the value will be the value from the raw data dict.
 2. `XREAD BLOCK 1000 STREAMS response:$self $cmd_id`. This performs a blocking read on our response stream for the ACK packet. Note that we're reading for all entries since our command packet which works nicely since the entry IDs use a global redis timestamp.
 3. If (2) times out, return an error, i.e. we didn't get an ACK
 4. If (2) returns data, loop over the data and look for a packet with matching `element` and `cmd_id` fields.

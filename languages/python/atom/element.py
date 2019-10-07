@@ -8,6 +8,7 @@ from atom.config import ATOM_COMMAND_UNSUPPORTED, ATOM_CALLBACK_FAILED, ATOM_USE
 from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND, REDIS_PIPELINE_POOL_SIZE, COMMAND_LIST_COMMAND
 from atom.messages import Cmd, Response, StreamHandler
 from atom.messages import Acknowledge, Entry, Response, Log, LogLevel
+from atom.messages import RES_RESERVED_KEYS, CMD_RESERVED_KEYS
 from msgpack import packb, unpackb
 from os import uname
 from queue import Queue
@@ -400,6 +401,14 @@ class Element:
                 self.log(LogLevel.ERR, "No caller name present in command!")
                 continue
 
+            # Get the additional streams that will be passed as
+            #   kwargs to handlers
+            kw_data = {}
+            for val in cmd:
+                ascii_val = val.decode('ascii')
+                if ascii_val not in CMD_RESERVED_KEYS:
+                    kw_data[ascii_val] = cmd[val]
+
             # Send acknowledge to caller
             if cmd_name not in self.timeouts.keys():
                 timeout = RESPONSE_TIMEOUT
@@ -420,7 +429,7 @@ class Element:
                     if cmd_name not in self.reserved_commands:
                         data = unpackb(
                             data, raw=False) if self.handler_map[cmd_name]["deserialize"] else data
-                        response = self.handler_map[cmd_name]["handler"](data)
+                        response = self.handler_map[cmd_name]["handler"](data, **kw_data)
                     else:
                         # healthcheck/version requests/command_list commands don't care what data you are sending
                         response = self.handler_map[cmd_name]["handler"]()
@@ -435,8 +444,7 @@ class Element:
                     self.log(LogLevel.ERR, err_str)
                     response = Response(err_code=ATOM_CALLBACK_FAILED, err_str=err_str)
 
-            response = response.to_internal(self.name, cmd_name, cmd_id)
-            _pipe.xadd(self._make_response_id(caller), maxlen=STREAM_LEN, **vars(response))
+            _pipe.xadd(self._make_response_id(caller), maxlen=STREAM_LEN, **vars(response), cmd=cmd_name, cmd_id=cmd_id, element=self.name)
             _pipe.execute()
             _pipe = self._release_pipeline(_pipe)
 
@@ -451,7 +459,8 @@ class Element:
                      block=True,
                      serialize=False,
                      deserialize=False,
-                     ack_timeout=ACK_TIMEOUT):
+                     ack_timeout=ACK_TIMEOUT,
+                     raw_data={}):
         """
         Sends command to element and waits for acknowledge.
         When acknowledge is received, waits for timeout from acknowledge or until response is received.
@@ -475,7 +484,8 @@ class Element:
 
         # Send command to element's command stream
         data = packb(data, use_bin_type=True) if serialize and (data != "") else data
-        cmd = Cmd(self.name, cmd_name, data)
+
+        cmd = Cmd(self.name, cmd_name, data, **raw_data)
         _pipe = self._rpipeline_pool.get()
         _pipe.xadd(self._make_command_id(element_name), maxlen=STREAM_LEN, **vars(cmd))
         cmd_id = _pipe.execute()[-1].decode()
@@ -551,7 +561,14 @@ class Element:
                     except TypeError:
                         self.log(LogLevel.WARNING, "Could not deserialize response.")
 
-                    resp = vars(Response(data=response_data, err_code=err_code, err_str=err_str))
+                    # Process the raw data
+                    raw_data = {}
+                    for val in response:
+                        ascii_val = val.decode('ascii')
+                        if ascii_val not in RES_RESERVED_KEYS:
+                            raw_data[ascii_val] = response[val]
+                    # Make the final response
+                    resp = vars(Response(data=response_data, err_code=err_code, err_str=err_str, raw_data=raw_data))
                     break
 
             self._update_response_id_if_older(local_last_id)

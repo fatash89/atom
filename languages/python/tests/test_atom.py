@@ -566,7 +566,25 @@ class TestAtom:
         test_empty = EmptyContractTest()
         assert test_empty.to_data() == ""
 
+    def test_raw_data(self, caller, responder):
+        responder.command_add("check_kwargs", check_kwargs, deserialize=True)
+        proc = Process(target=responder.command_loop)
+        proc.start()
+        response = caller.command_send("test_responder", "check_kwargs", {"test" : "kwarg"}, serialize=True, deserialize=True, raw_data={"first_kwarg" : "hello", "second_kwarg" : "world"})
+        proc.terminate()
+        proc.join()
+        assert response["err_code"] == ATOM_NO_ERROR
+        assert response["data"] == "success"
+        assert response["raw_test"] == b"hello, world!"
 
+def check_kwargs(data, first_kwarg=None, second_kwarg=None):
+    """
+    Check that the kwargs are correct
+    """
+    assert data["test"] == "kwarg"
+    assert first_kwarg == b"hello"
+    assert second_kwarg == b"world"
+    return Response("success", serialize=True, raw_data={"raw_test": "hello, world!"})
 
 def add_1(x):
     return Response(int(x)+1)
