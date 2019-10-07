@@ -757,14 +757,14 @@ def add_2(data):
 # The deserialize flag will allow the data to be deserialized before it is sent to the add_2 function
 my_element.command_add("add_2", add_2, timeout=50, deserialize=True)
 
-# If we're expecting raw data to be sent from the caller in the event of mixed serialization, we can note that with kwargs in our command handler
+# If we're expecting raw data to be sent from the caller in the event of mixed serialization, we can note that with kwargs in our command handler. Also, we can send raw data in the response with the raw_data kwarg on the Response object. This allows us to still send a primary serialized response but will add raw data to a response dictionary returned to the user.
 def command_with_raw_data(data, raw_key_1=None, raw_key_2=None):
     """
     Expects the caller to call command_send with payload of raw_data={"raw_key_1" : some_data, "raw_key_2" : some_other_data}
 
     The primary data payload here is still serialized using msgpack which is pretty nice.
     """
-    return Response("success")
+    return Response("success", serialize=True, raw_data={"img" : img.bytes()})
 
 my_element.command_add("raw_data_test", command_with_raw_data, deserialize=True)
 ```
