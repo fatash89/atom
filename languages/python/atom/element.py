@@ -425,24 +425,20 @@ class Element:
                 response = Response(
                     err_code=ATOM_COMMAND_UNSUPPORTED, err_str="Unsupported command.")
             else:
-                try:
-                    if cmd_name not in self.reserved_commands:
-                        data = unpackb(
-                            data, raw=False) if self.handler_map[cmd_name]["deserialize"] else data
-                        response = self.handler_map[cmd_name]["handler"](data, **kw_data)
-                    else:
-                        # healthcheck/version requests/command_list commands don't care what data you are sending
-                        response = self.handler_map[cmd_name]["handler"]()
+                if cmd_name not in self.reserved_commands:
+                    data = unpackb(
+                        data, raw=False) if self.handler_map[cmd_name]["deserialize"] else data
+                    response = self.handler_map[cmd_name]["handler"](data, **kw_data)
+                else:
+                    # healthcheck/version requests/command_list commands don't care what data you are sending
+                    response = self.handler_map[cmd_name]["handler"]()
 
-                    if not isinstance(response, Response):
-                        raise TypeError(f"Return type of {cmd_name} is not of type Response")
-                    # Add ATOM_USER_ERRORS_BEGIN to err_code to map to element error range
+                # Add ATOM_USER_ERRORS_BEGIN to err_code to map to element error range
+                if isinstance(response, Response):
                     if response.err_code != 0:
                         response.err_code += ATOM_USER_ERRORS_BEGIN
-                except Exception as e:
-                    err_str = f"{str(type(e))} {str(e)}"
-                    self.log(LogLevel.ERR, err_str)
-                    response = Response(err_code=ATOM_CALLBACK_FAILED, err_str=err_str)
+                else:
+                    response = Response(err_code=ATOM_CALLBACK_FAILED, err_str=f"Return type of {cmd_name} is not of type Response")
 
             _pipe.xadd(self._make_response_id(caller), maxlen=STREAM_LEN, **vars(response), cmd=cmd_name, cmd_id=cmd_id, element=self.name)
             _pipe.execute()
