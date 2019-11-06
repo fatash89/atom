@@ -646,6 +646,16 @@ class TestAtom:
         del_data = caller.reference_get(ref_id, deserialize=True)
         assert del_data == None
 
+    def test_reference_expire(self, caller):
+        data = {"msgpack" : "data"}
+        ref_id = caller.reference_create(data, serialize=True, timeout_ms=100)
+        ref_data = caller.reference_get(ref_id, deserialize=True)
+        assert ref_data == data
+
+        time.sleep(0.2)
+        expired_data = caller.reference_get(ref_id, deserialize=True)
+        assert expired_data == None
+
 def check_kwargs(data, first_kwarg=None, second_kwarg=None):
     """
     Check that the kwargs are correct
