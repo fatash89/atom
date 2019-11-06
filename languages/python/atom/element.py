@@ -754,8 +754,11 @@ class Element:
         # Do the set. Expire as set by the user, throw an error if the
         #   value already exists (since this would be a collision on the UUID)
         _pipe.set(key, data, px=px_val, nx=True)
-        _pipe.execute()
+        response = _pipe.execute()
         _pipe = self._release_pipeline(_pipe)
+
+        if (type(response) != list) or (len(response) != 1) or (response[0] != True):
+            raise ValueError(f"Failed to create reference! response {response}")
 
         # Return the key that was generated for the reference
         return key
