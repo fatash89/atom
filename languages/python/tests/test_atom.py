@@ -577,6 +577,75 @@ class TestAtom:
         assert response["data"] == "success"
         assert response["raw_test"] == b"hello, world!"
 
+    def test_reference_basic(self, caller):
+        data = b'hello, world!'
+        ref_id = caller.reference_create(data)
+        ref_data = caller.reference_get(ref_id)
+        assert ref_data == data
+
+    def test_reference_msgpack(self, caller):
+        data = {"hello" : "world", "atom" : 123456, "some_obj" : {"references" : "are fun!"} }
+        ref_id = caller.reference_create(data, serialize=True)
+        ref_data = caller.reference_get(ref_id, deserialize=True)
+        assert ref_data == data
+
+    def test_reference_get_timeout_ms(self, caller):
+        data = b'hello, world!'
+        ref_id = caller.reference_create(data, timeout_ms=1000)
+        ref_remaining_ms = caller.reference_get_timeout_ms(ref_id)
+        assert ref_remaining_ms > 0 and ref_remaining_ms <= 1000
+        time.sleep(0.1)
+        ref_still_remaining_ms = caller.reference_get_timeout_ms(ref_id)
+        assert (ref_still_remaining_ms < ref_remaining_ms) and (ref_still_remaining_ms > 0)
+
+    def test_reference_update_timeout(self, caller):
+        data = b'hello, world!'
+        ref_id = caller.reference_create(data, timeout_ms=1000)
+        ref_remaining_ms = caller.reference_get_timeout_ms(ref_id)
+        assert ref_remaining_ms > 0 and ref_remaining_ms <= 1000
+
+
+        caller.reference_update_timeout(ref_id, 10000)
+        ref_updated_ms = caller.reference_get_timeout_ms(ref_id)
+        assert (ref_updated_ms > 1000) and (ref_updated_ms <= 10000)
+
+    def test_reference_remove_timeout(self, caller):
+        data = b'hello, world!'
+        ref_id = caller.reference_create(data, timeout_ms=1000)
+        ref_remaining_ms = caller.reference_get_timeout_ms(ref_id)
+        assert ref_remaining_ms > 0 and ref_remaining_ms <= 1000
+
+
+        caller.reference_update_timeout(ref_id, 0)
+        ref_updated_ms = caller.reference_get_timeout_ms(ref_id)
+        assert ref_updated_ms == -1
+
+    def test_reference_delete(self, caller):
+        data = b'hello, world!'
+        ref_id = caller.reference_create(data, timeout_ms=0)
+        ref_data = caller.reference_get(ref_id)
+        assert ref_data == data
+
+        ref_ms = caller.reference_get_timeout_ms(ref_id)
+        assert ref_ms == -1
+
+        caller.reference_delete(ref_id)
+        del_data = caller.reference_get(ref_id)
+        assert del_data == None
+
+    def test_reference_delete_msgpack(self, caller):
+        data = {"msgpack" : "data"}
+        ref_id = caller.reference_create(data, timeout_ms=0, serialize=True)
+        ref_data = caller.reference_get(ref_id, deserialize=True)
+        assert ref_data == data
+
+        ref_ms = caller.reference_get_timeout_ms(ref_id)
+        assert ref_ms == -1
+
+        caller.reference_delete(ref_id)
+        del_data = caller.reference_get(ref_id, deserialize=True)
+        assert del_data == None
+
 def check_kwargs(data, first_kwarg=None, second_kwarg=None):
     """
     Check that the kwargs are correct

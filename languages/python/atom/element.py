@@ -1,6 +1,7 @@
 import redis
 import threading
 import time
+import uuid
 from atom.config import DEFAULT_REDIS_PORT, DEFAULT_REDIS_SOCKET, HEALTHCHECK_RETRY_INTERVAL
 from atom.config import LANG, VERSION, ACK_TIMEOUT, RESPONSE_TIMEOUT, STREAM_LEN, MAX_BLOCK
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESPONSE
@@ -172,6 +173,16 @@ class Element:
             return stream_name
         else:
             return f"stream:{element_name}:{stream_name}"
+
+    def _make_reference_id(self):
+        """
+        Creates a reference ID
+
+        Args:
+
+        """
+
+        return f"reference:{self.name}:{str(uuid.uuid4())}"
 
     def _get_redis_timestamp(self):
         """
@@ -708,3 +719,150 @@ class Element:
         _pipe = self._release_pipeline(_pipe)
         if stdout:
             print(msg)
+
+
+    def reference_create(self, data, serialize=False, timeout_ms=10000):
+        """
+        Creates an expiring reference (similar to a pointer) in the atom system.
+        This will typically be used when we've gotten a piece of data from a
+        stream and we want it to persist past the length of time it would live
+        in the stream s.t. we can pass it to other commands/elements. The
+        reference will simply be a cached value in redis and will expire after
+        the timeout_ms amount of time.
+
+        Args:
+
+            data (binary or object): data to be included in the reference
+            serialize (bool): whether or not to msgpack the data before creating
+                        the reference
+            timeout_ms (int): How long the reference should persist in atom
+                        unless otherwise extended/deleted. Set to 0 to have the
+                        reference never time out (generally a terrible idea)
+        """
+
+        # Get the key name for the reference to use in redis
+        key = self._make_reference_id()
+
+        # If we're serializing, do so
+        if serialize:
+            data = packb(data, use_bin_type=True)
+
+        # Now, we can go ahead and do the SET in redis for the key
+        _pipe = self._rpipeline_pool.get()
+        px_val = timeout_ms if timeout_ms != 0 else None
+
+        # Do the set. Expire as set by the user, throw an error if the
+        #   value already exists (since this would be a collision on the UUID)
+        _pipe.set(key, data, px=px_val, nx=True)
+        _pipe.execute()
+        _pipe = self._release_pipeline(_pipe)
+
+        # Return the key that was generated for the reference
+        return key
+
+    def reference_get(self, key, deserialize=False):
+        """
+        Gets a reference from the atom system. Reads the key from redis
+        and returns it, performing a serialize/deserialize operation on the
+        key as commanded by the user
+
+        Args:
+            key (str): Key of reference to get from Atom
+        """
+
+        # Get the data
+        _pipe = self._rpipeline_pool.get()
+        _pipe.get(key)
+        data = _pipe.execute()
+        _pipe = self._release_pipeline(_pipe)
+
+        # Make sure there's only one value in the data return
+        if type(data) != list and len(data) != 1:
+            raise ValueError(f"Invalid response from redis: {data}")
+
+        # Remove the list
+        data = data[0]
+
+        # Deserialize it if necessary
+        if deserialize and data != None:
+            data = unpackb(data, raw=False)
+
+        return data
+
+    def reference_delete(self, key):
+        """
+        Deletes a reference and cleans up its memory
+
+        Args:
+            key (str): Key of a reference to delete from Atom
+        """
+
+        # Unlink the data
+        _pipe = self._rpipeline_pool.get()
+        _pipe.delete(key)
+        data = _pipe.execute()
+        _pipe = self._release_pipeline(_pipe)
+
+        # Make sure there's only one value in the data return
+        if type(data) != list and len(data) != 1:
+            raise ValueError(f"Invalid response from redis: {data}")
+
+        if data[0] != 1:
+            raise KeyError(f"Reference {key} not in redis")
+
+    def reference_update_timeout(self, key, timeout_ms):
+        """
+        Updates the timeout for an existing reference. This might want to
+        be done as we won't know exactly how long we'll need the key for
+        at the original point in time for which we created it
+
+        Args:
+            key (str): Key of a reference for which we want to update the
+                        timeout
+            timeout_ms (int): Timeout at which we want the key to expire.
+                        Pass <= 0 for no timeout, i.e. never expire (generally
+                        a terrible idea)
+
+        """
+        _pipe = self._rpipeline_pool.get()
+
+        # Call pexpeire to set the timeout in ms if we got a positive
+        #   nonzero timeout, else call persist to remove any existing
+        #   timeout
+        if timeout_ms > 0:
+            _pipe.pexpire(key, timeout_ms)
+        else:
+            _pipe.persist(key)
+
+        data = _pipe.execute()
+        _pipe = self._release_pipeline(_pipe)
+
+        # Make sure there's only one value in the data return
+        if type(data) != list and len(data) != 1:
+            raise ValueError(f"Invalid response from redis: {data}")
+
+        if data[0] != 1:
+            raise KeyError(f"Reference {key} not in redis")
+
+    def reference_get_timeout_ms(self, key):
+        """
+        Get the current amount of ms left on the reference. Mainly useful
+        for debug I'd imagine. Returns -1 if no timeout, else the timeout
+        in ms.
+
+        Args:
+            key (str):  Key of a reference for which we want to get the
+                        timeout ms for.
+        """
+        _pipe = self._rpipeline_pool.get()
+        _pipe.pttl(key)
+        data = _pipe.execute()
+        _pipe = self._release_pipeline(_pipe)
+
+        if type(data) != list and len(data) != 1:
+            raise ValueError(f"Invalid response from redis: {data}")
+
+        if data[0] == -2:
+            raise KeyError(f"Reference {key} doesn't exist")
+
+        return data[0]
