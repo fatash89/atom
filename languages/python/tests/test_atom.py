@@ -656,6 +656,15 @@ class TestAtom:
         expired_data = caller.reference_get(ref_id, deserialize=True)
         assert expired_data == None
 
+    def test_reference_create_from_stream_single_key(self, caller):
+        stream_name = "test_reference"
+        stream_data = {"data": b"test reference!"}
+        caller.entry_write(stream_name, stream_data)
+        key = caller.reference_create_from_stream(caller.name, stream_name)
+        print(key)
+        ref_data = caller.reference_get(key)
+        assert ref_data == stream_data["data"]
+
 def check_kwargs(data, first_kwarg=None, second_kwarg=None):
     """
     Check that the kwargs are correct

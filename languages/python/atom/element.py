@@ -763,6 +763,50 @@ class Element:
         # Return the key that was generated for the reference
         return key
 
+    def reference_create_from_stream(self, element, stream, id=None, timeout_ms=10000):
+        """
+        Creates an expiring reference (similar to a pointer) in the atom system.
+        This API will take an element and a stream and, depending on the value
+        of the stream_id field, will create a reference within Atom without
+        the data ever having left Redis. This is optimal for performance and
+        memory reasons. If the id arg is None then we will make a reference
+        from the most recent piece of data. If it is a particular ID we will
+        make a reference from that piece of data.
+
+        Since streams have multiple key:value pairs, one reference per key
+        in the stream will be created where the stream key will be included
+        in the name of the list of references returned.
+
+        Args:
+
+            element (string) : Name of the element whose stream we want to
+                        make a reference from
+            stream (string) : Stream from which we want to make a reference
+            id (string) : If None, will use the most recent value from the
+                        stream. Else, will try to make a reference from the
+                        particular stream ID
+            timeout_ms (int): How long the reference should persist in atom
+                        unless otherwise extended/deleted. Set to 0 to have the
+                        reference never time out (generally a terrible idea)
+
+        Return:
+            list of reference keys, one for each key in the stream. Raises
+            an error on failure.
+        """
+
+        # Make the new reference key
+        key = self._make_reference_id()
+
+        _pipe = self._rpipeline_pool.get()
+        _pipe.eval(f"return redis.call('set',ARGV[2],redis.call('xrevrange',ARGV[1],'+','-','COUNT','1')[1][2][2])", 0, self._make_stream_id(element, stream), key)
+        data = _pipe.execute()
+        _pipe = self._release_pipeline(_pipe)
+
+        if type(data) != list or len(data) != 1 or data[0] != b"OK":
+            raise ValueError("Failed to make reference!")
+
+        return key
+
     def reference_get(self, key, deserialize=False):
         """
         Gets a reference from the atom system. Reads the key from redis
