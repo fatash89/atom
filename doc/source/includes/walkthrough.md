@@ -400,7 +400,7 @@ Now that our atombot element is running, let's interact with it using `atom-cli`
 - Launch `atom-cli` in the container
     - `docker exec -it <CONTAINER_NAME> atom-cli`
 
-<aside class="notice">If you would like to use a bash shell to debug your element's container you can run bash intead of atom-cli.</aside>
+<aside class="notice">If you would like to use a bash shell to debug your element's container you can run bash instead of atom-cli.</aside>
 
 - You can list all of the available commands in `atom-cli` using the `help` command.
 - You can view the usage of any command by typing `help <COMMAND>`
