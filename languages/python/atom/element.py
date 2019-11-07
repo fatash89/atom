@@ -837,7 +837,13 @@ class Element:
         if (type(data) != list) or (len(data) != 1) or (type(data[0]) != list):
             raise ValueError("Failed to make reference!")
 
-        return data[0]
+        # Make a dictionary to return from the response
+        key_dict = {}
+        for key in data[0]:
+            key_val = key.decode().split(':')[-1]
+            key_dict[key_val] = key
+
+        return key_dict
 
     def reference_get(self, key, deserialize=False):
         """

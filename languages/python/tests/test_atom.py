@@ -661,52 +661,48 @@ class TestAtom:
         stream_name = "test_ref"
         stream_data = {"data": b"test reference!"}
         caller.entry_write(stream_name, stream_data)
-        keys = caller.reference_create_from_stream(caller.name, stream_name, timeout_ms=0)
-        ref_data = caller.reference_get(keys[0])
+        key_dict = caller.reference_create_from_stream(caller.name, stream_name, timeout_ms=0)
+        ref_data = caller.reference_get(key_dict["data"])
         assert ref_data == stream_data["data"]
 
     def test_reference_create_from_stream_multiple_keys(self, caller):
         stream_name = "test_ref_multiple_keys"
         stream_data = {"key1": b"value 1!", "key2" : b"value 2!"}
         caller.entry_write(stream_name, stream_data)
-        keys = caller.reference_create_from_stream(caller.name, stream_name, timeout_ms=0)
-        for key in keys:
-            dict_key = str(key).split(":")[-1].strip("'")
-            ref_data = caller.reference_get(key)
-            assert ref_data == stream_data[dict_key]
+        key_dict = caller.reference_create_from_stream(caller.name, stream_name, timeout_ms=0)
+        for key in key_dict:
+            ref_data = caller.reference_get(key_dict[key])
+            assert ref_data == stream_data[key]
 
     def test_reference_create_from_stream_multiple_keys_msgpack(self, caller):
         stream_name = "test_ref_multiple_keys"
         stream_data = {"key1": {"nested1": "val1"}, "key2" : {"nested2": "val2"}}
         orig_stream_data = copy.deepcopy(stream_data)
         caller.entry_write(stream_name, stream_data, serialize=True)
-        keys = caller.reference_create_from_stream(caller.name, stream_name, timeout_ms=0)
-        for key in keys:
-            dict_key = str(key).split(":")[-1].strip("'")
-            ref_data = caller.reference_get(key, deserialize=True)
-            print(ref_data)
-            assert ref_data == orig_stream_data[dict_key]
+        key_dict = caller.reference_create_from_stream(caller.name, stream_name, timeout_ms=0)
+        for key in key_dict:
+            ref_data = caller.reference_get(key_dict[key], deserialize=True)
+            assert ref_data == orig_stream_data[key]
 
     def test_reference_create_from_stream_multiple_keys_persist(self, caller):
         stream_name = "test_ref_multiple_keys"
         stream_data = {"key1": b"value 1!", "key2" : b"value 2!"}
         caller.entry_write(stream_name, stream_data)
-        keys = caller.reference_create_from_stream(caller.name, stream_name, timeout_ms=0)
-        for key in keys:
-            assert caller.reference_get_timeout_ms(key) == -1
+        key_dict = caller.reference_create_from_stream(caller.name, stream_name, timeout_ms=0)
+        for key in key_dict:
+            assert caller.reference_get_timeout_ms(key_dict[key]) == -1
 
     def test_reference_create_from_stream_multiple_keys_timeout(self, caller):
         stream_name = "test_ref_multiple_keys"
         stream_data = {"key1": b"value 1!", "key2" : b"value 2!"}
         caller.entry_write(stream_name, stream_data)
-        keys = caller.reference_create_from_stream(caller.name, stream_name, timeout_ms=100)
-        for key in keys:
-            dict_key = str(key).split(":")[-1].strip("'")
-            ref_data = caller.reference_get(key)
-            assert ref_data == stream_data[dict_key]
+        key_dict = caller.reference_create_from_stream(caller.name, stream_name, timeout_ms=100)
+        for key in key_dict:
+            ref_data = caller.reference_get(key_dict[key])
+            assert ref_data == stream_data[key]
         time.sleep(0.2)
-        for key in keys:
-            assert caller.reference_get(key) == None
+        for key in key_dict:
+            assert caller.reference_get(key_dict[key]) == None
 
     def test_reference_create_from_stream_multiple_keys_latest(self, caller):
 
@@ -725,26 +721,24 @@ class TestAtom:
         for i, id_val in enumerate(ids):
 
             # Make the reference to the particular ID
-            keys = caller.reference_create_from_stream(caller.name, stream_name, stream_id=id_val, timeout_ms=0)
+            key_dict = caller.reference_create_from_stream(caller.name, stream_name, stream_id=id_val, timeout_ms=0)
 
             # Loop over the references and check the data
-            for key in keys:
+            for key in key_dict:
 
-                dict_key = str(key).split(":")[-1].strip("'")
-                ref_data = caller.reference_get(key, deserialize=True)
+                ref_data = caller.reference_get(key_dict[key], deserialize=True)
                 correct_data = get_data(i)
-                assert ref_data == correct_data[dict_key]
+                assert ref_data == correct_data[key]
 
         # Now, check the final piece and make sure it's the most recent
-        keys = caller.reference_create_from_stream(caller.name, stream_name, timeout_ms=0)
+        key_dict = caller.reference_create_from_stream(caller.name, stream_name, timeout_ms=0)
 
         # Loop over the references and check the data
-        for key in keys:
+        for key in key_dict:
 
-            dict_key = str(key).split(":")[-1].strip("'")
-            ref_data = caller.reference_get(key, deserialize=True)
+            ref_data = caller.reference_get(key_dict[key], deserialize=True)
             correct_data = get_data(9)
-            assert ref_data == correct_data[dict_key]
+            assert ref_data == correct_data[key]
 
 def check_kwargs(data, first_kwarg=None, second_kwarg=None):
     """
