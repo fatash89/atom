@@ -4,7 +4,7 @@ With the basics of Docker understood, we can now learn about Docker Compose and 
 
 ## Installing Docker Compose
 
-See the instructions [on the Docker site](https://docs.docker.com/compose/install/) for information on installing `docker-compose`.
+See the instructions [on the Docker site](https://docs.docker.com/compose/install/) for information on installing `docker-compose`.  Note that the version of docker-compose installable via `apt` apt in Ubuntu 18.04 is outdated and will not work with the examples here.  You may instead install `docker-compose` manually as described on the Docker site or use `pip`, which provides a relatively up-to-date version: `pip3 install docker-compose`.
 
 ## Docker-Compose file
 
