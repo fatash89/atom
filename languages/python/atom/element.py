@@ -684,9 +684,12 @@ class Element:
         """
         self.streams.add(stream_name)
         if serialize:
+            serialized_field_data_map = {}
             for k, v in field_data_map.items():
-                field_data_map[k] = packb(v, use_bin_type=True)
-        entry = Entry(field_data_map)
+                serialized_field_data_map[k] = packb(v, use_bin_type=True)
+            entry = Entry(serialized_field_data_map)
+        else:
+            entry = Entry(field_data_map)
         _pipe = self._rpipeline_pool.get()
         _pipe.xadd(self._make_stream_id(self.name, stream_name), maxlen=maxlen, **vars(entry))
         _pipe.execute()
