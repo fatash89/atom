@@ -62,8 +62,20 @@ dev_nucleus:latest
 It's best to do all developmental testing and building within
 the docker containers. The easiest way to do this is to mount the
 current directory into the latest atom image that's been built and
-continue development in there until you're ready to rebuild. To do
-this:
+continue development in there until you're ready to rebuild.
+For more details refer to [Atom's docker-compose docs](https://github.com/elementary-robotics/atom/blob/26ff146fb23e12071a2743e12bc71c15023d23b3/doc/source/includes/docker-compose.md
+).
+
+For example, mount your local Atom source directory to `/development` 
+in the atom image by adding a volume entry to the atom service in the docker-compose file:
+
+```yaml
+    volumes:
+      - ".:/development"
+```
+
+The recommended workflow for development is then to execute:
+
 ```
 docker-compose up -d
 docker exec -it dev_atom bash
@@ -71,7 +83,10 @@ docker exec -it dev_atom bash
 
 This will open up a shell within the most recent dev_atom you've built (or you can specify a tag or even the atom-base container if
 you'd like) and mount your current source folder in `/development`.
-From there you can compile/run/test your code.
+Then you may compile/run code (such as unit tests of a new feature) 
+from within the container while editing the source in a different shell session running outside of the container.
+Note that typically you'll need to restart/reinstall the service that you're developing from within the container 
+in order for your code edits to take effect (For example, run `python3 setup.py install` between edits to the Python3 language client).
 
 #### Debugging with gdb
 
