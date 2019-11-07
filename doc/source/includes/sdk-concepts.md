@@ -21,3 +21,13 @@ A timestamped data packet that is published by an element on a stream that can c
 
 ## Stream
 Data publication and logging system used by atom. A stream keeps track of the previously published entries (up to a user-specified limit) so that elements can ask for an arbitrary number of entries.
+
+## Reference
+A unique string that acts as a pointer to data in the atom system. Allows the
+user to convert data that is temporarily available in a stream (but will
+eventually be overwritten) into a permanent pointer (with optional auto-timeout)
+so that it can be passed around between elements with the guarantee that the
+data exists for as long as it's needed, no more, no less. Optimizes data flow
+in the system such that for commands/responses that move around large binary
+data blobs (such as images), the blobs aren't being copied excessively and don't
+make the logs unreadable.
