@@ -164,7 +164,7 @@ jobs:
       - run:
           working_directory: doc
           name: Build docker
-          command: docker-compose -p ${DOCKER_COMPOSE_PROJECT_NAME} build --pull
+          command: docker-compose -f docker-compose-test.yml -p ${DOCKER_COMPOSE_PROJECT_NAME} build --pull
 
       #
       # Push the image back to DockerHub, either under a "development" tag

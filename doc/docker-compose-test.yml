@@ -1,0 +1,11 @@
+version: "3.2"
+
+services:
+
+  docs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "4567:4567"
+    command: "bundle exec middleman server"
