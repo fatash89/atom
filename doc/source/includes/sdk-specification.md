@@ -1265,23 +1265,6 @@ None
 
 Wait for elements healthy should leverage the existing healthcheck command and block until all given elements are reporting healthy. This command should be backwards compatible, so you should do a version check on each given element to make sure it has support for healthchecks. If it does not, you should assume it is healthy, so that this command doesn't block indefinitely.
 
-## Error Codes
-
-The atom spec defines a set of error codes to standardize errors throughout the system.
-
-| Error Code | Description |
-|------------|-------------|
-0           | No Error
-1           | Internal Error, something that happened in the language client |
-2           | Redis Error |
-3           | Didn't get an ACK to a command |
-4           | Didn't get a response to a command |
-5           | Invalid command packet, i.e. not all required key/value pairs were present |
-6           | Unsupported command |
-7           | User callback for command failed |
-100-999     | Reserved for language-client specific errors |
-1000+       | Reserved for user-callback errors |
-
 ## Create Reference
 
 ```python
@@ -1581,3 +1564,20 @@ PERSIST $key
 ```
 PEXPIRE $key $timeout_ms
 ```
+
+## Error Codes
+
+The atom spec defines a set of error codes to standardize errors throughout the system.
+
+| Error Code | Description |
+|------------|-------------|
+0           | No Error
+1           | Internal Error, something that happened in the language client |
+2           | Redis Error |
+3           | Didn't get an ACK to a command |
+4           | Didn't get a response to a command |
+5           | Invalid command packet, i.e. not all required key/value pairs were present |
+6           | Unsupported command |
+7           | User callback for command failed |
+100-999     | Reserved for language-client specific errors |
+1000+       | Reserved for user-callback errors |
