@@ -2,6 +2,7 @@ import redis
 import threading
 import time
 import uuid
+import os
 from atom.config import DEFAULT_REDIS_PORT, DEFAULT_REDIS_SOCKET, HEALTHCHECK_RETRY_INTERVAL
 from atom.config import LANG, VERSION, ACK_TIMEOUT, RESPONSE_TIMEOUT, STREAM_LEN, MAX_BLOCK
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESPONSE
@@ -85,7 +86,8 @@ class Element:
 
             # Load lua scripts
             self._stream_reference_sha = None
-            with open('stream_reference.lua') as f:
+            this_dir, this_filename = os.path.split(__file__)
+            with open(os.path.join(this_dir, 'stream_reference.lua')) as f:
                 data = f.read()
                 _pipe = self._rpipeline_pool.get()
                 _pipe.script_load(data)
@@ -707,6 +709,8 @@ class Element:
             field_data_map (dict): Dict which creates the Entry. See messages.Entry for more usage.
             maxlen (int, optional): The maximum number of data to keep in the stream.
             serialize (bool, optional): Whether or not to serialize the entry using msgpack.
+
+        Return: ID of item added to stream
         """
         self.streams.add(stream_name)
         if serialize:
@@ -715,8 +719,14 @@ class Element:
         entry = Entry(field_data_map)
         _pipe = self._rpipeline_pool.get()
         _pipe.xadd(self._make_stream_id(self.name, stream_name), maxlen=maxlen, **vars(entry))
-        _pipe.execute()
+        ret = _pipe.execute()
         _pipe = self._release_pipeline(_pipe)
+
+        if (type(ret) != list) or (len(ret) != 1) or (type(ret[0]) != bytes):
+            print(ret)
+            raise ValueError("Failed to write data to stream")
+
+        return ret[0].decode()
 
     def log(self, level, msg, stdout=True):
         """
@@ -778,7 +788,7 @@ class Element:
         # Return the key that was generated for the reference
         return key
 
-    def reference_create_from_stream(self, element, stream, id="", timeout_ms=10000):
+    def reference_create_from_stream(self, element, stream, stream_id="", timeout_ms=10000):
         """
         Creates an expiring reference (similar to a pointer) in the atom system.
         This API will take an element and a stream and, depending on the value
@@ -820,14 +830,14 @@ class Element:
 
         # Call the script to make a reference
         _pipe = self._rpipeline_pool.get()
-        _pipe.evalsha(self._stream_reference_sha, 0, stream_name, id, key, timeout_ms)
+        _pipe.evalsha(self._stream_reference_sha, 0, stream_name, stream_id, key, timeout_ms)
         data = _pipe.execute()
         _pipe = self._release_pipeline(_pipe)
 
-        if (type(data) != list) or (len(data) != 1) or (type(data[1]) != list):
+        if (type(data) != list) or (len(data) != 1) or (type(data[0]) != list):
             raise ValueError("Failed to make reference!")
 
-        return data[1]
+        return data[0]
 
     def reference_get(self, key, deserialize=False):
         """
