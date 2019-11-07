@@ -14,7 +14,7 @@ RUN bundle install
 
 # Copy circleci docs
 COPY --from=elementaryrobotics/atom:latest \
-    /atom/.circleci/README.md /doc/source/includes/circleci.md
+    /atom/.circleci/README.md /code/source/includes/circleci.md
 
 # Copy documentation for each element
 RUN mkdir /elements_docs
