@@ -599,14 +599,14 @@ class TestAtom:
         ref_still_remaining_ms = caller.reference_get_timeout_ms(ref_id)
         assert (ref_still_remaining_ms < ref_remaining_ms) and (ref_still_remaining_ms > 0)
 
-    def test_reference_update_timeout(self, caller):
+    def test_reference_update_timeout_ms(self, caller):
         data = b'hello, world!'
         ref_id = caller.reference_create(data, timeout_ms=1000)
         ref_remaining_ms = caller.reference_get_timeout_ms(ref_id)
         assert ref_remaining_ms > 0 and ref_remaining_ms <= 1000
 
 
-        caller.reference_update_timeout(ref_id, 10000)
+        caller.reference_update_timeout_ms(ref_id, 10000)
         ref_updated_ms = caller.reference_get_timeout_ms(ref_id)
         assert (ref_updated_ms > 1000) and (ref_updated_ms <= 10000)
 
@@ -617,7 +617,7 @@ class TestAtom:
         assert ref_remaining_ms > 0 and ref_remaining_ms <= 1000
 
 
-        caller.reference_update_timeout(ref_id, 0)
+        caller.reference_update_timeout_ms(ref_id, 0)
         ref_updated_ms = caller.reference_get_timeout_ms(ref_id)
         assert ref_updated_ms == -1
 

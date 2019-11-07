@@ -794,7 +794,7 @@ class Element:
         This API will take an element and a stream and, depending on the value
         of the stream_id field, will create a reference within Atom without
         the data ever having left Redis. This is optimal for performance and
-        memory reasons. If the id arg is None then we will make a reference
+        memory reasons. If the id arg is "" then we will make a reference
         from the most recent piece of data. If it is a particular ID we will
         make a reference from that piece of data.
 
@@ -807,7 +807,7 @@ class Element:
             element (string) : Name of the element whose stream we want to
                         make a reference from
             stream (string) : Stream from which we want to make a reference
-            id (string) : If None, will use the most recent value from the
+            id (string) : If "", will use the most recent value from the
                         stream. Else, will try to make a reference from the
                         particular stream ID
             timeout_ms (int): How long the reference should persist in atom
@@ -889,7 +889,7 @@ class Element:
         if data[0] != 1:
             raise KeyError(f"Reference {key} not in redis")
 
-    def reference_update_timeout(self, key, timeout_ms):
+    def reference_update_timeout_ms(self, key, timeout_ms):
         """
         Updates the timeout for an existing reference. This might want to
         be done as we won't know exactly how long we'll need the key for
