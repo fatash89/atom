@@ -27,6 +27,13 @@ Redis Streams are essentially in-memory time-series data stores that allow for b
 
 Another advantage of Redis Streams are the consumer groups. With a consumer group, we can set up multiple subscribers on a single data stream where redis will handle distributing the N messages coming in over the stream to the M subscribers such that no two subscribers get the same message. This allows for load balancing, a/b testing and more paradigms with no additional effort.
 
+The choice of Redis as our under-the-hood data structure also allows us to make
+use of all of the other things that Redis is good at such as being a traditional
+key:value store. We utilize this with our reference API -- allowing us to
+convert ephemeral stream entries into permanent pointers (with optional
+auto-expiry for easier memory management) without the data
+ever leaving Redis and without any undue burden on the client.
+
 Finally, Redis is a hardened technology with an active developer base which leads us to believe that building a system atop Redis will enable us to be more consistently stable and also give us the tools to fix the issues we see when they do arrive.
 
 ## Specification
@@ -79,3 +86,24 @@ Data streams are published by elements for other elements to consume. For exampl
 Using Redis Streams, the publisher is able to publish completely agnostic to any subscribers and/or their preferred subscription method. The subscribers can then choose to subscribe to all data in an event-driven fashion, poll at their desired frequency for the most recent value, or traverse the stream in large chunks, querying for all data since they last read.
 
 Each piece of data in a stream is called an "Entry".
+
+### References
+
+Data published in a stream
+is ephemeral, i.e. it is not permanently stored anywhere and when the stream
+reaches its maximum length the old data is pruned and no longer available. For
+streams which have large data entries (such as cameras), the data is perhaps
+only typically available for the last 5-10s.
+
+This is typically fine, but in a basic implementation if we wanted to say,
+take a picture from a stream and pass it as an argument to a series of 5 CV/ML
+commands we can't trust that the entry in the stream will continue to exist
+throughout the time in which we need it to.
+
+We solve this with a reference which converts an entry from a stream
+into a standard redis cached value which can either last until explicitly
+deleted/freed or can auto-expire. Using a lua script within redis this can
+easily be done on either the most recent entry in a stream or for any particular
+value that exists in the stream. The reference is created without the data
+ever leaving redis -- there are zero copies to/from the client performed --
+which is beneficial in applications with large entries (such as for cameras).
