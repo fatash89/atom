@@ -83,6 +83,21 @@ class Element:
                 lambda: Response(data=[k for k in self.handler_map if k not in self.reserved_commands], serialize=True)
             )
 
+            # Load lua scripts
+            self._stream_reference_sha = None
+            with open('stream_reference.lua') as f:
+                data = f.read()
+                _pipe = self._rpipeline_pool.get()
+                _pipe.script_load(data)
+                script_response = _pipe.execute()
+                _pipe = self._release_pipeline(_pipe)
+
+                if (type(script_response) != list) or (len(script_response)) != 1 or (type(script_response[0]) != str):
+                    self.log(LogLevel.ERROR, "Failed to load lua script stream_reference.lua")
+                else:
+                    self._stream_reference_sha = script_response[0]
+
+
             self.log(LogLevel.INFO, "Element initialized.", stdout=False)
         except redis.exceptions.RedisError:
             raise Exception("Could not connect to nucleus!")
@@ -763,7 +778,7 @@ class Element:
         # Return the key that was generated for the reference
         return key
 
-    def reference_create_from_stream(self, element, stream, id=None, timeout_ms=10000):
+    def reference_create_from_stream(self, element, stream, id="", timeout_ms=10000):
         """
         Creates an expiring reference (similar to a pointer) in the atom system.
         This API will take an element and a stream and, depending on the value
@@ -794,18 +809,25 @@ class Element:
             an error on failure.
         """
 
+        if self._stream_reference_sha is None:
+            raise ValueError("Lua script not loaded -- unable to call reference_create_from_stream")
+
         # Make the new reference key
         key = self._make_reference_id()
 
+        # Get the stream we'll be reading from
+        stream_name = self._make_stream_id(element, stream)
+
+        # Call the script to make a reference
         _pipe = self._rpipeline_pool.get()
-        _pipe.eval(f"return redis.call('set',ARGV[2],redis.call('xrevrange',ARGV[1],'+','-','COUNT','1')[1][2][2])", 0, self._make_stream_id(element, stream), key)
+        _pipe.evalsha(self._stream_reference_sha, 0, stream_name, id, key, timeout_ms)
         data = _pipe.execute()
         _pipe = self._release_pipeline(_pipe)
 
-        if type(data) != list or len(data) != 1 or data[0] != b"OK":
+        if (type(data) != list) or (len(data) != 1) or (type(data[1]) != list):
             raise ValueError("Failed to make reference!")
 
-        return key
+        return data[1]
 
     def reference_get(self, key, deserialize=False):
         """
