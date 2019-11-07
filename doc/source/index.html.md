@@ -18,6 +18,7 @@ includes:
   - docker-compose
   - walkthrough
   - tutorials
+  - circleci
   - elements
   - acknowledgements
 
