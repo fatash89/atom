@@ -87,7 +87,10 @@ class TestAtom:
         proper values are returned from get_n_most_recent.
         """
         for i in range(10):
-            responder.entry_write("test_stream_serialized", {"data": i}, serialize=True)
+            data = {"data": i}
+            responder.entry_write("test_stream_serialized", data, serialize=True)
+            # Ensure that serialization keeps the original data in tact
+            assert data["data"] == i
         entries = caller.entry_read_n("test_responder", "test_stream_serialized", 5, deserialize=True)
         assert len(entries) == 5
         assert entries[0]["data"] == 9
