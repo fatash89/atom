@@ -1265,6 +1265,306 @@ None
 
 Wait for elements healthy should leverage the existing healthcheck command and block until all given elements are reporting healthy. This command should be backwards compatible, so you should do a version check on each given element to make sure it has support for healthchecks. If it does not, you should assume it is healthy, so that this command doesn't block indefinitely.
 
+## Create Reference
+
+```python
+
+# Basic reference, default serialize=False and timout_ms=10000
+data = b'hello, world!'
+ref_id = my_element.reference_create(data)
+
+
+# Serialized reference
+data = {"hello" : "world"}
+ref_id = my_element.reference_create(data, serialize=True)
+
+# Explicit timeout
+data = {"hello" : "world"}
+ref_id = my_element.reference_create(data, serialize=True, timeout_ms=1000)
+
+# No timeout
+data = {"hello" : "world"}
+ref_id = my_element.reference_create(data, serialize=True, timeout_ms=0)
+```
+
+Turn a user-specified data blob into an Atom reference. The data
+will be stored in Redis and will be able to be retrieved using
+the `reference_get` API.
+
+The `timeout_ms` argument is powerful -- it allows you to set a time at which the reference will auto-expire and the memory will be cleaned up. *This feature is not to be depended on as the primary clean-up mechanism for references*. Calls to `reference_create` should *always* be followed by calls to `reference_delete` once the reference is no longer needed with the timeout acting as a fallback for errors/exceptions/bugs s.t. we don't slowly accumulate memory and die. Do not rely on the timeout to free your memory, this is poor form.
+
+### API
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `data` | Binary/Object | Data to be used for the reference |
+| `serialize` | bool | Whether or not to use `msgpack` to serialize the data specified by the user before storing it in Atom. |
+| `timeout_ms` | int | How long the reference should exist in Atom. This sets the expiry timeout in redis. Units in milliseconds. Set to 0 for no timeout, i.e. reference exists until explicitly deleted. |
+
+### Return Value
+
+string ID for the newly created reference.
+
+### Spec
+
+1. Make a reference ID using the following string format:
+```
+key = reference:$element_name:$uuid4
+```
+2. Serialize the data if specified to in the args
+3. Depending on the value of `timeout_ms`, run a SET command as below with `PX $timeout` of `timout_ms>0`, else without the `PX` portion. The NX portion ensures that the reference key doesn't already exist which is pretty unlikely with the UUID scheme but should be checked regardless.
+```
+SET $key NX [PX $timeout]
+```
+4. Return `$key`
+
+## Get Reference
+
+```python
+
+# Basic reference, default serialize=False and timout_ms=10000
+data = b'hello, world!'
+ref_id = my_element.reference_create(data)
+ref_data = my_element.reference_get(ref_id)
+# ref_data == data
+
+
+# Serialized reference
+data = {"hello" : "world"}
+ref_id = my_element.reference_create(data, serialize=True)
+ref_data = my_element.reference_get(ref_id, deserialize=True)
+# ref_data == data
+```
+
+Receive the data from Atom for a given reference
+
+### API
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | String | Reference ID |
+| `deserialize` | bool | Whether or not to use `msgpack` to deserialize the data for the reference before returning to the user |
+
+### Return Value
+
+Data object or None/Null/error
+
+### Spec
+
+1. Call redis `GET` on the reference
+```
+GET $key
+```
+2. If no data, return None/NULL/error/etc.
+3. If there's data, and `deserialize=True`, deserialize the data
+4. Return the data
+
+## Delete Reference
+
+```python
+
+# Basic reference, no expiry -- exists until deleted
+data = b'hello, world!'
+ref_id = my_element.reference_create(data, timeout_ms=0)
+
+# Delete the reference
+my_element.reference_delete(ref_id)
+
+ref_data = my_element.reference_get(ref_id)
+# ref_data == None
+```
+
+Explicitly delete a reference from Atom. If a reference was created with `timeout_ms=0` then this *always* needs to be called after, otherwise the memory will just sit in redis. In general, it's ill-advised to use `timeout_ms=0` and recommended you choose a safe timeout as a fallback in case we ever forget to call this function. Normal dev flows should *always* plan to call this function and should use the timeout as a fallback, not a primary mechanism, for cleaning up memory.
+
+### API
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | String | Reference ID to delete |
+
+### Return Value
+
+Nothing. If reference is already gone, no issues.
+
+### Spec
+
+1. Call redis `UNLINK` or `DEL` on the reference -- `UNLINK` is preferred.
+```
+UNLINK $key
+```
+
+## Create Reference From Stream
+
+```python
+
+#
+# Using the most recent piece of data from a stream
+#
+
+# Publish some data on a stream -- shown only for example,
+#   can use any stream from any element
+stream_name = "example_stream"
+stream_data = {"key1": b"value1!", "key2" : b"value2!"}
+my_element.entry_write(stream_name, stream_data)
+
+# Make a reference to the data that's currently in the above
+# stream. Will make a reference to the most recent piece of data
+# in the stream. references is a dictionary of reference strings,
+# with a key for each key in the stream entry
+references = caller.reference_create_from_stream(my_element.name, stream_name, timeout_ms=0)
+key1_data = caller.reference_get(references["key1"])
+# key1_data == b"value1!"
+key2_data = caller.reference_get(references["key2"])
+# key2_data == b"value2!"
+
+# Need to delete *each* key when done
+for key in references:
+    caller.reference_delete(references[key])
+
+#
+# Using an exact stream ID
+#
+
+# Publish some data on a stream -- shown only for example,
+#   can use any stream from any element
+stream_name = "example_stream"
+stream_data_1 = {"key1": b"value1!", "key2" : b"value2!"}
+stream_data_2 = {"key1": b"value3!", "key2" : b"value4!"}
+stream_data_3 = {"key1": b"value5!", "key2" : b"value6!"}
+id_1 = my_element.entry_write(stream_name, stream_data_1)
+id_2 = my_element.entry_write(stream_name, stream_data_2)
+id_3 = my_element.entry_write(stream_name, stream_data_3)
+
+# Make a reference to the data that's currently in the above
+# stream. Will make a reference to the most recent piece of data
+# in the stream. references is a dictionary of reference strings,
+# with a key for each key in the stream entry
+references = caller.reference_create_from_stream(my_element.name, stream_name, stream_id=id_2, timeout_ms=0)
+key1_data = caller.reference_get(references["key1"])
+# key1_data == b"value3!"
+key2_data = caller.reference_get(references["key2"])
+# key2_data == b"value4!"
+
+# Need to delete *each* key when done
+for key in references:
+    caller.reference_delete(references[key])
+```
+
+Explicitly delete a reference from Atom. If a reference was created with `timeout_ms=0` then this *always* needs to be called after, otherwise the memory will just sit in redis. In general, it's ill-advised to use `timeout_ms=0` and recommended you choose a safe timeout as a fallback in case we ever forget to call this function. Normal dev flows should *always* plan to call this function and should use the timeout as a fallback, not a primary mechanism, for cleaning up memory.
+
+### API
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `element` | String | Name of element whose stream you want to create a reference from |
+| `stream` | String | Name of stream from above element you want to create a reference from |
+| `stream_id` | String | Explicit redis stream ID (returned from `entry_write` or `entry_read`s to create the reference from. If blank/None/etc. then create a reference to the most recent piece of data on the stream |
+| `timeout_ms` | int | How long the reference should exist in Atom. This sets the expiry timeout in redis. Units in milliseconds. Set to 0 for no timeout, i.e. reference exists until explicitly deleted. |
+
+### Return Value
+
+Dict/object mapping keys on the stream to references. We need one reference per key s.t. we can keep the optional serialization/deserialization of the data types and redis SET only supports binary blobs and not hashtables like streams. Caller must call `reference_delete` on each stream in the dictionary!
+
+### Spec
+
+This is our first command that requires us to use lua scripting in Redis and is decently nontrivial to set up and incorporate into the client. We have shared lua scripts in the `lua-scripts` folder at the top level of the repo and your client must be sure to ship the lua script with the package s.t. regardless of how it's installed (container vs not), the script is accessible by the installed client.
+
+Then, on initialization of the element, we need to use the `SCROPT LOAD` command in redis to load the lua script. This will return a `sha1` for the script that we can use to call the script. A script is necessary in order to read from a stream and write to a key without the data ever leaving redis.
+
+#### Language client and element init
+
+1. Add the `stream_reference.lua` lua script to your package installation
+2. Add `stream_reference.lua` to the set of lua scripts that your client loads on init. Scripts should be loaded with `SCRIPT LOAD`. Store the `sha1` reference to the loaded script in a private variable in your element.
+
+#### Command
+
+1. Call the `stream_reference.lua` script by using the `EVALSHA` command on the `sha1` returned in (2) above. You will need to pass four arguments to the script:
+(a) Name of the stream to read. This should be the full redis key for the stream, i.e. `stream:$element:$stream_name`
+(b) `stream_id`. Either valid stream ID or empty string, same as the argument
+(c) Full reference key, following the spec in step 1 of `reference_create`, i.e. `reference:$this_element:uuid4`
+(d) `timeout_ms`. 0 for no timeout, else positive number of milliseconds. Same as the argument.
+```
+EVALSHA `sha1` 0 $a $b $c $d
+```
+2. The `EVALSHA` command will return a list of reference keys, one for each key in the stream entry. Return those to the user.
+
+## Get Reference Time Remaining
+
+```python
+
+# Basic reference, no expiry -- exists until deleted
+data = b'hello, world!'
+ref_id = my_element.reference_create(data, timeout_ms=0)
+time_remaining = my_element.reference_get_timeout_ms(ref_id)
+# time_remaining == -1 i.e. no timeout
+
+# Basic reference, with timeout
+data = b'hello, world!'
+ref_id = my_element.reference_create(data, timeout_ms=1000)
+time_remaining = my_element.reference_get_timeout_ms(ref_id)
+# time_remaining ~= 1000
+```
+
+Gets the amount of time until a reference expires and its memory is cleaned up.
+
+### API
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | String | Reference ID to get timeout for |
+
+### Return Value
+
+Integer number of milliseconds until the key expires. `-1` for no expiry, i.e. persists until deleted.
+
+### Spec
+
+1. Call `PTTL` on the key
+```
+PTTL $key
+```
+
+## Update reference timeout
+
+```python
+
+# Basic reference, no expiry -- exists until deleted
+data = b'hello, world!'
+ref_id = my_element.reference_create(data, timeout_ms=0)
+time_remaining = my_element.reference_get_timeout_ms(ref_id)
+# time_remaining == -1 i.e. no timeout
+
+# Update the timeout for the reference
+my_element.reference_update_timeout_ms(ref_id, 10000)
+
+time_remaining = my_element.reference_get_timeout_ms(ref_id)
+# time_remaining ~= 10000
+```
+
+Update the timout for a reference so that it expires in `timeout_ms` milliseconds from now, with the edge case of `timeout_ms==0` yielding no timeout, i.e. it persists until deleted.
+
+### API
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | String | Reference ID to update timeout of |
+| `timeout_ms` | Int | How many milliseconds until the timeout should expire |
+
+### Return Value
+
+None
+
+### Spec
+
+1. If `timout_ms == ` call `PERSIST` on the key
+```
+PERSIST $key
+```
+2. Else, call `PEXPIRE` on the key
+```
+PEXPIRE $key $timeout_ms
+```
+
 ## Error Codes
 
 The atom spec defines a set of error codes to standardize errors throughout the system.

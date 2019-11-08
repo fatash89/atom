@@ -5,4 +5,5 @@ setuptools.setup(
     name="atom",
     packages=["atom"],
     version=__version__,
+    include_package_data=True,
 )
