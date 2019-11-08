@@ -787,14 +787,14 @@ class Element:
             # Get the key name for the reference to use in redis
             key = self._make_reference_id()
 
-            # If we're serializing, do so
-            if serialize:
-                datum = packb(datum, use_bin_type=True)
-
             # Now, we can go ahead and do the SET in redis for the key
-            # Expire as set by the user, throw an error if the
-            #   value already exists (since this would be a collision on the UUID)
-            _pipe.set(key, datum, px=px_val, nx=True)
+            # Expire as set by the user
+            if serialize:
+                serialized_datum = packb(datum, use_bin_type=True)
+                _pipe.set(key, serialized_datum, px=px_val, nx=True)
+            else:
+                _pipe.set(key, datum, px=px_val, nx=True)
+            
             keys.append(key)
 
         response = _pipe.execute()
