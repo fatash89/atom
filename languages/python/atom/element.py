@@ -762,7 +762,7 @@ class Element:
             print(msg)
 
 
-    def reference_create(self, data, serialize=False, timeout_ms=10000):
+    def reference_create(self, *data, serialize=False, timeout_ms=10000):
         """
         Creates an expiring reference (similar to a pointer) in the atom system.
         This will typically be used when we've gotten a piece of data from a
@@ -772,7 +772,6 @@ class Element:
         the timeout_ms amount of time.
 
         Args:
-
             data (binary or object): data to be included in the reference
             serialize (bool): whether or not to msgpack the data before creating
                         the reference
@@ -780,29 +779,32 @@ class Element:
                         unless otherwise extended/deleted. Set to 0 to have the
                         reference never time out (generally a terrible idea)
         """
+        keys = []
 
-        # Get the key name for the reference to use in redis
-        key = self._make_reference_id()
-
-        # If we're serializing, do so
-        if serialize:
-            data = packb(data, use_bin_type=True)
-
-        # Now, we can go ahead and do the SET in redis for the key
         _pipe = self._rpipeline_pool.get()
         px_val = timeout_ms if timeout_ms != 0 else None
+        for datum in data:
+            # Get the key name for the reference to use in redis
+            key = self._make_reference_id()
 
-        # Do the set. Expire as set by the user, throw an error if the
-        #   value already exists (since this would be a collision on the UUID)
-        _pipe.set(key, data, px=px_val, nx=True)
+            # If we're serializing, do so
+            if serialize:
+                datum = packb(datum, use_bin_type=True)
+
+            # Now, we can go ahead and do the SET in redis for the key
+            # Expire as set by the user, throw an error if the
+            #   value already exists (since this would be a collision on the UUID)
+            _pipe.set(key, datum, px=px_val, nx=True)
+            keys.append(key)
+
         response = _pipe.execute()
         _pipe = self._release_pipeline(_pipe)
 
-        if (type(response) != list) or (len(response) != 1) or (response[0] != True):
+        if not all(response):
             raise ValueError(f"Failed to create reference! response {response}")
 
         # Return the key that was generated for the reference
-        return key
+        return keys
 
     def reference_create_from_stream(self, element, stream, stream_id="", timeout_ms=10000):
         """
@@ -861,7 +863,7 @@ class Element:
 
         return key_dict
 
-    def reference_get(self, key, deserialize=False):
+    def reference_get(self, *keys, deserialize=False):
         """
         Gets a reference from the atom system. Reads the key from redis
         and returns it, performing a serialize/deserialize operation on the
@@ -873,43 +875,12 @@ class Element:
 
         # Get the data
         _pipe = self._rpipeline_pool.get()
-        _pipe.get(key)
-        data = _pipe.execute()
-        _pipe = self._release_pipeline(_pipe)
-
-        # Make sure there's only one value in the data return
-        if type(data) != list and len(data) != 1:
-            raise ValueError(f"Invalid response from redis: {data}")
-
-        # Remove the list
-        data = data[0]
-
-        # Deserialize it if necessary
-        if deserialize and data != None:
-            data = unpackb(data, raw=False)
-
-        return data
-
-    def reference_get_list(self, keys, deserialize=False):
-        """
-        Gets a list of references from the atom system. Reads the keys from
-        redis and returns them, performing a serialize/deserialize operation
-        on the keys as commanded by the user. Gets all references in a single
-        redis pipelined operation in order to improve performance.
-
-        Args:
-            keys (list of str): List of keys to get from Atom
-        """
-
-        # Get the data
-        _pipe = self._rpipeline_pool.get()
         for key in keys:
             _pipe.get(key)
         data = _pipe.execute()
         _pipe = self._release_pipeline(_pipe)
 
-        # Make sure there's only one value in the data return
-        if type(data) != list and len(data) != len(keys):
+        if type(data) is not list:
             raise ValueError(f"Invalid response from redis: {data}")
 
         # Make a dict of the response data, depending on whether or not
@@ -927,7 +898,7 @@ class Element:
 
         return ret_data
 
-    def reference_delete(self, key):
+    def reference_delete(self, *keys):
         """
         Deletes a reference and cleans up its memory
 
@@ -937,15 +908,14 @@ class Element:
 
         # Unlink the data
         _pipe = self._rpipeline_pool.get()
-        _pipe.delete(key)
+        for key in keys:
+            _pipe.delete(key)
         data = _pipe.execute()
         _pipe = self._release_pipeline(_pipe)
 
-        # Make sure there's only one value in the data return
-        if type(data) != list and len(data) != 1:
+        if type(data) is not list:
             raise ValueError(f"Invalid response from redis: {data}")
-
-        if data[0] != 1:
+        if all(data) != 1:
             raise KeyError(f"Reference {key} not in redis")
 
     def reference_update_timeout_ms(self, key, timeout_ms):
