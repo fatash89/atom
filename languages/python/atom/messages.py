@@ -5,6 +5,20 @@ from msgpack import packb
 CMD_RESERVED_KEYS = ("data", "cmd", "element",)
 RES_RESERVED_KEYS = ("data", "err_code", "err_str", "element", "cmd", "cmd_id")
 
+def format_redis_py(data):
+    if data is None:
+        return ""
+    if type(data) is dict:
+        output = {}
+        for k, v in data.items():
+            if v is None:
+                output[k] = ""
+            else:
+                output[k] = v
+        return output
+    else:
+        return data
+
 class Cmd:
     def __init__(self, element, cmd, data, **kwargs):
         """

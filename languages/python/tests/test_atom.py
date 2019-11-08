@@ -60,14 +60,14 @@ class TestAtom:
         """
         proc = Process(target=caller.command_send, args=("test_responder", "test_cmd", 0,))
         proc.start()
-        data = caller._rclient.xread(block=10, **{caller._make_command_id("test_responder"): "$"})
+        data = caller._rclient.xread({caller._make_command_id("test_responder"): "$"}, block=10)
         proc.join()
-
-        assert "command:test_responder" in data
-        data = data["command:test_responder"][0][1]
-        assert data[b"element"] == b"test_caller"
-        assert data[b"cmd"] == b"test_cmd"
-        assert data[b"data"] == b"0"
+        stream, msgs = data[0] #since there's only one stream
+        assert stream == b"command:test_responder"
+        id, msg = msgs[0]
+        assert msg[b"element"] == b"test_caller"
+        assert msg[b"cmd"] == b"test_cmd"
+        assert msg[b"data"] == b"0"
 
     def test_add_entry_and_get_n_most_recent(self, caller, responder):
         """
@@ -546,7 +546,7 @@ class TestAtom:
         for i, severity in enumerate(LogLevel):
             caller.log(severity, f"severity {i}", stdout=False)
         logs = caller._rclient.xread(
-            **{"log": 0})["log"]
+            {"log": 0})[0][1]
         logs = logs[-8:]
         for i in range(8):
             assert logs[i][1][b"msg"].decode() == f"severity {i}"

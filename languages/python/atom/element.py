@@ -8,7 +8,7 @@ from atom.config import LANG, VERSION, ACK_TIMEOUT, RESPONSE_TIMEOUT, STREAM_LEN
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESPONSE
 from atom.config import ATOM_COMMAND_UNSUPPORTED, ATOM_CALLBACK_FAILED, ATOM_USER_ERRORS_BEGIN
 from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND, REDIS_PIPELINE_POOL_SIZE, COMMAND_LIST_COMMAND
-from atom.messages import Cmd, Response, StreamHandler
+from atom.messages import Cmd, Response, StreamHandler, format_redis_py
 from atom.messages import Acknowledge, Entry, Response, Log, LogLevel
 from atom.messages import RES_RESERVED_KEYS, CMD_RESERVED_KEYS
 from msgpack import packb, unpackb
@@ -47,22 +47,22 @@ class Element:
             _pipe = self._rpipeline_pool.get()
             _pipe.xadd(
                 self._make_response_id(self.name),
-                maxlen=STREAM_LEN,
-                **{
+                {
                     "language": LANG,
                     "version": VERSION
-                })
+                },
+                maxlen=STREAM_LEN)
             # Keep track of response_last_id to know last time the client's response stream was read from
             self.response_last_id = _pipe.execute()[-1].decode()
             self.response_last_id_lock = threading.Lock()
 
             _pipe.xadd(
                 self._make_command_id(self.name),
-                maxlen=STREAM_LEN,
-                **{
+                {
                     "language": LANG,
                     "version": VERSION
-                })
+                },
+                maxlen=STREAM_LEN)
             # Keep track of command_last_id to know last time the element's command stream was read from
             self.command_last_id = _pipe.execute()[-1].decode()
             _pipe = self._release_pipeline(_pipe)
@@ -409,13 +409,14 @@ class Element:
         while not self._command_loop_shutdown.isSet():
             # Get oldest new command from element's command stream
             stream = {self._make_command_id(self.name): self.command_last_id}
-            cmd_response = self._rclient.xread(block=MAX_BLOCK, count=1, **stream)
-            if cmd_response is None:
+            cmd_responses = self._rclient.xread(stream, block=MAX_BLOCK, count=1)
+            if not cmd_responses:
                 continue
-
+            stream_name, msgs = cmd_responses[0]
+            msg = msgs[0] #we only read one
+            cmd_id, cmd = msg
             # Set the command_last_id to this command's id to keep track of our last read
-            cmd_id, cmd = cmd_response[self._make_command_id(self.name)][0]
-            self.command_last_id = cmd_id
+            self.command_last_id = cmd_id.decode()
 
             try:
                 caller = cmd[b"element"].decode()
@@ -444,7 +445,7 @@ class Element:
                 timeout = self.timeouts[cmd_name]
             acknowledge = Acknowledge(self.name, cmd_id, timeout)
             _pipe = self._rpipeline_pool.get()
-            _pipe.xadd(self._make_response_id(caller), maxlen=STREAM_LEN, **vars(acknowledge))
+            _pipe.xadd(self._make_response_id(caller), vars(acknowledge), maxlen=STREAM_LEN)
             _pipe.execute()
 
             # Send response to caller
@@ -467,8 +468,11 @@ class Element:
                         response.err_code += ATOM_USER_ERRORS_BEGIN
                 else:
                     response = Response(err_code=ATOM_CALLBACK_FAILED, err_str=f"Return type of {cmd_name} is not of type Response")
-
-            _pipe.xadd(self._make_response_id(caller), maxlen=STREAM_LEN, **vars(response), cmd=cmd_name, cmd_id=cmd_id, element=self.name)
+            kv = vars(response)
+            kv["cmd_id"] = cmd_id
+            kv["element"] = self.name
+            kv["cmd"] = cmd_name
+            _pipe.xadd(self._make_response_id(caller), kv, maxlen=STREAM_LEN)
             _pipe.execute()
             _pipe = self._release_pipeline(_pipe)
 
@@ -505,13 +509,14 @@ class Element:
         local_last_id = self.response_last_id
         timeout = None
         resp = None
+        data = format_redis_py(data)
 
         # Send command to element's command stream
         data = packb(data, use_bin_type=True) if serialize and (data != "") else data
 
         cmd = Cmd(self.name, cmd_name, data, **raw_data)
         _pipe = self._rpipeline_pool.get()
-        _pipe.xadd(self._make_command_id(element_name), maxlen=STREAM_LEN, **vars(cmd))
+        _pipe.xadd(self._make_command_id(element_name), vars(cmd), maxlen=STREAM_LEN)
         cmd_id = _pipe.execute()[-1].decode()
         _pipe = self._release_pipeline(_pipe)
 
@@ -519,27 +524,30 @@ class Element:
         # You have no guarantee that the response from the xread is for your specific thread,
         # so keep trying until we either receive our ack, or timeout is exceeded
         start_read = time.time()
+        elapsed_time_ms = (time.time() - start_read) * 1000
         while True:
-            elapsed_time_ms = (time.time() - start_read) * 1000
-            if elapsed_time_ms >= ack_timeout:
-                break
             responses = self._rclient.xread(
-                block=max(int(ack_timeout - elapsed_time_ms), 1),
-                **{self._make_response_id(self.name): local_last_id}
+                {self._make_response_id(self.name): local_last_id},
+                block=max(int(ack_timeout - elapsed_time_ms), 1)
             )
-            if responses is None:
-                err_str = f"Did not receive acknowledge from {element_name}."
-                self.log(LogLevel.ERR, err_str)
-                return vars(Response(err_code=ATOM_COMMAND_NO_ACK, err_str=err_str))
-
-            for id, response in responses[self._make_response_id(self.name)]:
+            if not responses:
+                elapsed_time_ms = (time.time() - start_read) * 1000
+                if elapsed_time_ms >= ack_timeout:
+                    err_str = f"Did not receive acknowledge from {element_name}."
+                    self.log(LogLevel.ERR, err_str)
+                    return vars(Response(err_code=ATOM_COMMAND_NO_ACK, err_str=err_str))
+                    break
+                else:
+                    continue
+            stream, msgs = responses[0] #we only read one stream
+            for id, response in msgs:
                 local_last_id = id.decode()
                 if b"element" in response and response[b"element"].decode() == element_name \
                 and b"cmd_id" in response and response[b"cmd_id"].decode() == cmd_id \
                 and b"timeout" in response:
                     timeout = int(response[b"timeout"].decode())
                     break
-            self._update_response_id_if_older(local_last_id)
+                self._update_response_id_if_older(local_last_id)
 
             # If the response we received wasn't for this command, keep trying until ack timeout
             if timeout is not None:
@@ -560,15 +568,16 @@ class Element:
                 break
 
             responses = self._rclient.xread(
-                block=max(int(timeout - elapsed_time_ms), 1),
-                **{self._make_response_id(self.name): local_last_id}
+                {self._make_response_id(self.name): local_last_id},
+                block=max(int(timeout - elapsed_time_ms), 1)
             )
-            if responses is None:
+            if not responses:
                 err_str = f"Did not receive response from {element_name}."
                 self.log(LogLevel.ERR, err_str)
                 return vars(Response(err_code=ATOM_COMMAND_NO_RESPONSE, err_str=err_str))
-
-            for id, response in responses[self._make_response_id(self.name)]:
+            stream_name, msgs = responses[0] #we only read from one stream
+            for msg in msgs:
+                id, response = msg
                 local_last_id = id.decode()
                 if b"element" in response and response[b"element"].decode() == element_name \
                 and b"cmd_id" in response and response[b"cmd_id"].decode() == cmd_id \
@@ -632,16 +641,16 @@ class Element:
             streams[stream_id] = self._get_redis_timestamp()
             stream_handler_map[stream_id] = stream_handler.handler
         for _ in n_loops:
-            stream_entries = self._rclient.xread(block=timeout, **streams)
-            if stream_entries is None:
+            stream_entries = self._rclient.xread(streams, block=timeout)
+            if not stream_entries:
                 return
-            for stream, uid_entries in stream_entries.items():
-                for uid, entry in uid_entries:
+            for stream, msgs in stream_entries:
+                for uid, entry in msgs:
                     streams[stream] = uid
                     entry = self._decode_entry(entry)
                     entry = self._deserialize_entry(entry) if deserialize else entry
                     entry["id"] = uid.decode()
-                    stream_handler_map[stream](entry)
+                    stream_handler_map[stream.decode()](entry)
 
     def entry_read_n(self, element_name, stream_name, n, deserialize=False):
         """
@@ -689,14 +698,17 @@ class Element:
         streams, entries = {}, []
         stream_id = self._make_stream_id(element_name, stream_name)
         streams[stream_id] = last_id
-        stream_entries = self._rclient.xread(count=n, block=block, **streams)
-        if not stream_entries or stream_id not in stream_entries:
+        stream_entries = self._rclient.xread(streams, count=n, block=block)
+        stream_names = [x[0].decode() for x in stream_entries]
+        if not stream_entries or stream_id not in stream_names:
             return entries
-        for uid, entry in stream_entries[stream_id]:
-            entry = self._decode_entry(entry)
-            entry = self._deserialize_entry(entry) if deserialize else entry
-            entry["id"] = uid.decode()
-            entries.append(entry)
+        for stream_name, msgs in stream_entries:
+            if stream_name.decode() == stream_id:
+                for uid, entry in msgs:
+                    entry = self._decode_entry(entry)
+                    entry = self._deserialize_entry(entry) if deserialize else entry
+                    entry["id"] = uid.decode()
+                    entries.append(entry)
         return entries
 
     def entry_write(self, stream_name, field_data_map, maxlen=STREAM_LEN, serialize=False):
@@ -713,6 +725,7 @@ class Element:
         Return: ID of item added to stream
         """
         self.streams.add(stream_name)
+        field_data_map = format_redis_py(field_data_map)
         if serialize:
             serialized_field_data_map = {}
             for k, v in field_data_map.items():
@@ -721,7 +734,7 @@ class Element:
         else:
             entry = Entry(field_data_map)
         _pipe = self._rpipeline_pool.get()
-        _pipe.xadd(self._make_stream_id(self.name, stream_name), maxlen=maxlen, **vars(entry))
+        _pipe.xadd(self._make_stream_id(self.name, stream_name), vars(entry), maxlen=maxlen)
         ret = _pipe.execute()
         _pipe = self._release_pipeline(_pipe)
 
@@ -742,7 +755,7 @@ class Element:
         """
         log = Log(self.name, self.host, level, msg)
         _pipe = self._rpipeline_pool.get()
-        _pipe.xadd("log", maxlen=STREAM_LEN, **vars(log))
+        _pipe.xadd("log", vars(log), maxlen=STREAM_LEN)
         _pipe.execute()
         _pipe = self._release_pipeline(_pipe)
         if stdout:
