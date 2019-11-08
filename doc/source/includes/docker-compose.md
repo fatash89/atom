@@ -240,6 +240,11 @@ Then, go ahead and run `docker-compose build` which tells docker-compose to buil
 
 We can then launch the compose configuration, test the example image by running the `neofetch` command from before, and shut everything down.
 
+<aside class="notice">
+`docker-compose build` runs the build process defined Dockerfiles but it _does not_ automatically use the latest versions of images that originate from DockerHub.
+In order to those images update images you must call `docker-compose pull` before calling `docker-compose build`.  In some cases you may also need to call `docker pull` to update specific dependencies.
+</aside>
+
 ## Configuration Detail
 
 > Basic element (built from Dockerfile) configuration
