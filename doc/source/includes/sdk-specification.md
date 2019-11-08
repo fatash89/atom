@@ -1359,6 +1359,51 @@ GET $key
 3. If there's data, and `deserialize=True`, deserialize the data
 4. Return the data
 
+## Get List of References
+
+```python
+
+# Basic References
+data1 = b'hello, world!'
+data2 = b'atom!'
+ref1_id = my_element.reference_create(data1)
+ref2_id = my_element.reference_create(data2)
+keys = my_element.reference_get_list(ref_id)
+# keys[ref1_id] == data1
+# keys[ref2_id] == data2
+
+# Serialized References
+data1 = {"hello" : "world"}
+data2 = {"atom" : "cool"}
+ref1_id = my_element.reference_create(data1, serialize=True)
+ref2_id = my_element.reference_create(data2, serialize=True)
+keys = my_element.reference_get_list(ref_id, deserialize=True)
+# keys[ref1_id] == data1
+# keys[ref2_id] == data2
+
+```
+
+Receive the data from Atom for a given list of references. Returns a dictionary
+mapping reference to the data from Atom.
+
+### API
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `keys` | List of strings | List of reference IDs |
+| `deserialize` | bool | Whether or not to use `msgpack` to deserialize the data for the reference before returning to the user |
+
+### Return Value
+
+Dictionary mapping reference IDs to their data.
+
+### Spec
+
+Same as `reference_create`, but takes a list of keys and pipelines all of the
+calls so that it's a single transaction to redis to get all of the references.
+Returns the result in a dictionary mapping references to their data.
+
+
 ## Delete Reference
 
 ```python

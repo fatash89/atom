@@ -890,6 +890,43 @@ class Element:
 
         return data
 
+    def reference_get_list(self, keys, deserialize=False):
+        """
+        Gets a list of references from the atom system. Reads the keys from
+        redis and returns them, performing a serialize/deserialize operation
+        on the keys as commanded by the user. Gets all references in a single
+        redis pipelined operation in order to improve performance.
+
+        Args:
+            keys (list of str): List of keys to get from Atom
+        """
+
+        # Get the data
+        _pipe = self._rpipeline_pool.get()
+        for key in keys:
+            _pipe.get(key)
+        data = _pipe.execute()
+        _pipe = self._release_pipeline(_pipe)
+
+        # Make sure there's only one value in the data return
+        if type(data) != list and len(data) != len(keys):
+            raise ValueError(f"Invalid response from redis: {data}")
+
+        # Make a dict of the response data, depending on whether or not
+        #   we're deserializing
+        ret_data = {}
+        if deserialize:
+            for i, val in enumerate(data):
+                if val != None:
+                    ret_data[keys[i]] = unpackb(val, raw=False)
+                else:
+                    ret_data[keys[i]] = None
+        else:
+            for i, val in enumerate(data):
+                ret_data[keys[i]] = val
+
+        return ret_data
+
     def reference_delete(self, key):
         """
         Deletes a reference and cleans up its memory

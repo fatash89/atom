@@ -587,11 +587,53 @@ class TestAtom:
         ref_data = caller.reference_get(ref_id)
         assert ref_data == data
 
+    def test_reference_doesnt_exist(self, caller):
+        ref_id = "nonexistent"
+        ref_data = caller.reference_get(ref_id)
+        assert ref_data == None
+
     def test_reference_msgpack(self, caller):
         data = {"hello" : "world", "atom" : 123456, "some_obj" : {"references" : "are fun!"} }
         ref_id = caller.reference_create(data, serialize=True)
         ref_data = caller.reference_get(ref_id, deserialize=True)
         assert ref_data == data
+
+    def test_reference_get_list_basic(self, caller):
+        data1 = b'hello, world!'
+        data2 = b'robots are fun!'
+        ref1_id = caller.reference_create(data1)
+        ref2_id = caller.reference_create(data2)
+        ref_data = caller.reference_get_list([ref1_id, ref2_id])
+        assert ref_data[ref1_id] == data1
+        assert ref_data[ref2_id] == data2
+
+    def test_reference_get_list_doesnt_exist(self, caller):
+        ref1_id = "nonexistent"
+        ref2_id = "reference"
+        ref_data = caller.reference_get_list([ref1_id, ref2_id])
+        assert ref_data[ref1_id] == None
+        assert ref_data[ref2_id] == None
+
+    def test_reference_get_list_msgpack(self, caller):
+        data1 = {"hello" : "world"}
+        data2 = {"robots" : "fun"}
+        data3 = {"atom" : "cool"}
+        ref1_id = caller.reference_create(data1, serialize=True)
+        ref2_id = caller.reference_create(data2, serialize=True)
+        ref3_id = caller.reference_create(data3, serialize=True)
+        ref_data = caller.reference_get_list([ref1_id, ref2_id, ref3_id], deserialize=True)
+        assert ref_data[ref1_id] == data1
+        assert ref_data[ref2_id] == data2
+        assert ref_data[ref3_id] == data3
+
+    def test_reference_get_list_msgpack_doesnt_exist(self, caller):
+        ref1_id = "msgpack"
+        ref2_id = "doesnt"
+        ref3_id = "exist"
+        ref_data = caller.reference_get_list([ref1_id, ref2_id, ref3_id], deserialize=True)
+        assert ref_data[ref1_id] == None
+        assert ref_data[ref2_id] == None
+        assert ref_data[ref3_id] == None
 
     def test_reference_get_timeout_ms(self, caller):
         data = b'hello, world!'
