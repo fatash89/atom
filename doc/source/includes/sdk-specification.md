@@ -1271,20 +1271,24 @@ Wait for elements healthy should leverage the existing healthcheck command and b
 
 # Basic reference, default serialize=False and timout_ms=10000
 data = b'hello, world!'
-ref_id = my_element.reference_create(data)
+ref_ids = my_element.reference_create(data)
 
 
 # Serialized reference
 data = {"hello" : "world"}
-ref_id = my_element.reference_create(data, serialize=True)
+ref_ids = my_element.reference_create(data, serialize=True)
 
 # Explicit timeout
 data = {"hello" : "world"}
-ref_id = my_element.reference_create(data, serialize=True, timeout_ms=1000)
+ref_ids = my_element.reference_create(data, serialize=True, timeout_ms=1000)
 
 # No timeout
 data = {"hello" : "world"}
-ref_id = my_element.reference_create(data, serialize=True, timeout_ms=0)
+ref_ids = my_element.reference_create(data, serialize=True, timeout_ms=0)
+
+# Creating multiple references
+data = ["a", "b", "c"]
+ref_ids = my_element.reference_create(*data, serialize=True)
 ```
 
 Turn a user-specified data blob into an Atom reference. The data
@@ -1297,13 +1301,13 @@ The `timeout_ms` argument is powerful -- it allows you to set a time at which th
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `data` | Binary/Object | Data to be used for the reference |
+| `*data` | Binary/Object | One or more objects to be used for the reference |
 | `serialize` | bool | Whether or not to use `msgpack` to serialize the data specified by the user before storing it in Atom. |
-| `timeout_ms` | int | How long the reference should exist in Atom. This sets the expiry timeout in redis. Units in milliseconds. Set to 0 for no timeout, i.e. reference exists until explicitly deleted. |
+| `timeout_ms` | int | How long the references should exist in Atom. This sets the expiry timeout in redis. Units in milliseconds. Set to 0 for no timeout, i.e. references exist until explicitly deleted. |
 
 ### Return Value
 
-string ID for the newly created reference.
+List of string IDs for the newly created references.
 
 ### Spec
 
@@ -1316,7 +1320,7 @@ key = reference:$element_name:$uuid4
 ```
 SET $key NX [PX $timeout]
 ```
-4. Return `$key`
+4. Return `[$key]`
 
 ## Get Reference
 
@@ -1324,30 +1328,38 @@ SET $key NX [PX $timeout]
 
 # Basic reference, default serialize=False and timout_ms=10000
 data = b'hello, world!'
-ref_id = my_element.reference_create(data)
+ref_id = my_element.reference_create(data)[0]
 ref_data = my_element.reference_get(ref_id)
-# ref_data == data
+# ref_data[ref_id] == data
 
 
 # Serialized reference
 data = {"hello" : "world"}
-ref_id = my_element.reference_create(data, serialize=True)
+ref_id = my_element.reference_create(data, serialize=True)[0]
 ref_data = my_element.reference_get(ref_id, deserialize=True)
-# ref_data == data
+# ref_data[ref_id] == data
+
+# Get multiple references
+data = ["a", "b", "c"]
+ref_ids = my_element.reference_create(*data, serialize=True)
+ref_data = my_element.reference_get(*ref_ids, deserialize=True)
+# ref_data[ref_ids[0]] == "a"
+# ref_data[ref_ids[1]] == "b"
+# ref_data[ref_ids[2]] == "c"
 ```
 
-Receive the data from Atom for a given reference
+Receive the data from Atom for the given references
 
 ### API
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `key` | String | Reference ID |
+| `*keys` | String | One or more Reference IDs |
 | `deserialize` | bool | Whether or not to use `msgpack` to deserialize the data for the reference before returning to the user |
 
 ### Return Value
 
-Data object or None/Null/error
+Dictionary where the key is the reference ID and the value is the corresponding data.
 
 ### Spec
 
@@ -1357,52 +1369,7 @@ GET $key
 ```
 2. If no data, return None/NULL/error/etc.
 3. If there's data, and `deserialize=True`, deserialize the data
-4. Return the data
-
-## Get List of References
-
-```python
-
-# Basic References
-data1 = b'hello, world!'
-data2 = b'atom!'
-ref1_id = my_element.reference_create(data1)
-ref2_id = my_element.reference_create(data2)
-keys = my_element.reference_get_list(ref_id)
-# keys[ref1_id] == data1
-# keys[ref2_id] == data2
-
-# Serialized References
-data1 = {"hello" : "world"}
-data2 = {"atom" : "cool"}
-ref1_id = my_element.reference_create(data1, serialize=True)
-ref2_id = my_element.reference_create(data2, serialize=True)
-keys = my_element.reference_get_list(ref_id, deserialize=True)
-# keys[ref1_id] == data1
-# keys[ref2_id] == data2
-
-```
-
-Receive the data from Atom for a given list of references. Returns a dictionary
-mapping reference to the data from Atom.
-
-### API
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `keys` | List of strings | List of reference IDs |
-| `deserialize` | bool | Whether or not to use `msgpack` to deserialize the data for the reference before returning to the user |
-
-### Return Value
-
-Dictionary mapping reference IDs to their data.
-
-### Spec
-
-Same as `reference_create`, but takes a list of keys and pipelines all of the
-calls so that it's a single transaction to redis to get all of the references.
-Returns the result in a dictionary mapping references to their data.
-
+4. Return {$key : data}
 
 ## Delete Reference
 
@@ -1410,22 +1377,29 @@ Returns the result in a dictionary mapping references to their data.
 
 # Basic reference, no expiry -- exists until deleted
 data = b'hello, world!'
-ref_id = my_element.reference_create(data, timeout_ms=0)
+ref_id = my_element.reference_create(data, timeout_ms=0)[0]
 
 # Delete the reference
 my_element.reference_delete(ref_id)
 
 ref_data = my_element.reference_get(ref_id)
-# ref_data == None
+# ref_data[ref_id] is None
+
+# Multiple references can be deleted in the same fashion that they are created
+data = ["a", "b", "c"]
+ref_ids = my_element.reference_create(*data, timeout_ms=0)
+
+# Delete the references
+my_element.reference_delete(*ref_ids)
 ```
 
-Explicitly delete a reference from Atom. If a reference was created with `timeout_ms=0` then this *always* needs to be called after, otherwise the memory will just sit in redis. In general, it's ill-advised to use `timeout_ms=0` and recommended you choose a safe timeout as a fallback in case we ever forget to call this function. Normal dev flows should *always* plan to call this function and should use the timeout as a fallback, not a primary mechanism, for cleaning up memory.
+Explicitly delete references from Atom. If a reference was created with `timeout_ms=0` then this *always* needs to be called after, otherwise the memory will just sit in redis. In general, it's ill-advised to use `timeout_ms=0` and recommended you choose a safe timeout as a fallback in case we ever forget to call this function. Normal dev flows should *always* plan to call this function and should use the timeout as a fallback, not a primary mechanism, for cleaning up memory.
 
 ### API
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `key` | String | Reference ID to delete |
+| `key` | String | One or more reference IDs to delete |
 
 ### Return Value
 
@@ -1495,7 +1469,7 @@ for key in references:
     caller.reference_delete(references[key])
 ```
 
-Explicitly delete a reference from Atom. If a reference was created with `timeout_ms=0` then this *always* needs to be called after, otherwise the memory will just sit in redis. In general, it's ill-advised to use `timeout_ms=0` and recommended you choose a safe timeout as a fallback in case we ever forget to call this function. Normal dev flows should *always* plan to call this function and should use the timeout as a fallback, not a primary mechanism, for cleaning up memory.
+This allows us to specify an element, stream and (optional) stream ID and create a set of references from it. An independent reference will be created for each key in the stream, where the reference will end with :key.
 
 ### API
 
@@ -1539,13 +1513,13 @@ EVALSHA `sha1` 0 $a $b $c $d
 
 # Basic reference, no expiry -- exists until deleted
 data = b'hello, world!'
-ref_id = my_element.reference_create(data, timeout_ms=0)
+ref_id = my_element.reference_create(data, timeout_ms=0)[0]
 time_remaining = my_element.reference_get_timeout_ms(ref_id)
 # time_remaining == -1 i.e. no timeout
 
 # Basic reference, with timeout
 data = b'hello, world!'
-ref_id = my_element.reference_create(data, timeout_ms=1000)
+ref_id = my_element.reference_create(data, timeout_ms=1000)[0]
 time_remaining = my_element.reference_get_timeout_ms(ref_id)
 # time_remaining ~= 1000
 ```
@@ -1575,7 +1549,7 @@ PTTL $key
 
 # Basic reference, no expiry -- exists until deleted
 data = b'hello, world!'
-ref_id = my_element.reference_create(data, timeout_ms=0)
+ref_id = my_element.reference_create(data, timeout_ms=0)[0]
 time_remaining = my_element.reference_get_timeout_ms(ref_id)
 # time_remaining == -1 i.e. no timeout
 
