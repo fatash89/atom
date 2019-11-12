@@ -225,40 +225,45 @@ as basic ubuntu installs using `apt-get` and the installation of msgpack.
 This saves us time on our CI rebuild changes. The process for updating the
 `atom-base` docker container if needed are:
 
-1. Modify the `atom-base` dockerfile and commit the changes. You MUST commit
-the changes since the tag will depend on the git hash.
-2. Rebuild the `atom-base` image using:
+1. Commit any changes to the base dockerfile. You MUST commit the changes since 
+the image tag will depend on the latest git hash.
+2. Rebuild the `atom-base` image _and the OpenGL/cuda base images (see next section)_.  For example,
+rebuild atom-base using:
 ```
 docker build --no-cache -f Dockerfile-atom-base -t elementaryrobotics/atom-base:"$(git rev-parse HEAD)" .
 ```
-3. Push the new `atom-base` image to `elementaryrobotics/atom-base`
+3. Push the new `atom-base` image _and the OpenGL/cuda base images (see next section)_ to dockerhub.
+For example, push `atom-base` to `elementaryrobotics/atom-base` with the command below:
 ```
 docker push elementaryrobotics/atom-base:"$(git rev-parse HEAD)"
 ```
 4. Bump the dependency in `Dockerfile-atom` to use the new tag from `atom-base`.
 
-### Cuda support
+### OpenGL and Cuda support
 
-We also build base versions of the dockerfile for cuda 9 and 10. To build for these versions, pass `BASE_IMAGE=$X` the following to the above docker build command:
+We also build base versions of the dockerfile for OpenGL and cuda / cuDNN. To build for these versions, pass `BASE_IMAGE=$X` the following to the above docker build command:
 
-| Cuda Version | Dockerhub repo | Base Image |
-|--------------|----------------|------------|
-| 10 | `atom-cuda-10-base` | `nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04` |
-| 9 | `atom-cuda-9-base` | `nvidia/cuda:9.2-cudnn7-devel-ubuntu18.04` |
+| Cuda Version | cuDNN Version | Dockerhub repo | Base Image |
+|--------------|--------------|----------------|------------|
+| - | - | `atom-opengl-base` | `nvidia/opengl:1.0-glvnd-runtime-ubuntu18.04` |
+| 10.0 | 7.6.4.38 | `atom-cuda-10-base` | `nvidia/cuda:10.0-cudnn7-runtime-ubuntu18.04` |
+| 10.0 | 7.6.5.32 | `atom-opengl-cuda-10-base` | custom, see below\* |
 
-An example to build for Cuda 10 would be:
+An example to build for Cuda 10 / cudnn would be:
 ```
-docker build --no-cache -f Dockerfile-atom-base -t elementaryrobotics/atom-cuda-10-base:"$(git rev-parse HEAD)" --build-arg BASE_IMAGE=nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04 .
-```
-
-And for cuda 9:
-```
-docker build --no-cache -f Dockerfile-atom-base -t elementaryrobotics/atom-cuda-9-base:"$(git rev-parse HEAD)" --build-arg BASE_IMAGE=nvidia/cuda:9.2-cudnn7-devel-ubuntu18.04 .
+docker build --no-cache -f Dockerfile-atom-base -t elementaryrobotics/atom-cuda-10-base:"$(git rev-parse HEAD)" --build-arg BASE_IMAGE=nvidia/cuda:10.0-cudnn7-runtime-ubuntu18.04 .
 ```
 
-### Graphics Support
+The combined OpenGL/cuda/cuDNN base image can be built in two steps, with the first step utilizing the included dockerfile `Dockerfile-install-cudnn` (modify this file for cuDNN version updates):
+```
+docker build --no-cache -f Dockerfile-install-cudnn -t opengl-cuda-10-base .
+docker build --no-cache -f Dockerfile-atom-base -t elementaryrobotics/atom-opengl-cuda-10-base:"$(git rev-parse HEAD)" --build-arg BASE_IMAGE=opengl-cuda-10-base .
+```
 
-In order to make the graphics more portable, `atom` ships with an openGL-enabled VNC, NoVNC, that by default renders to port `6080`. This is implemented largely based off of [docker-opengl](https://github.com/thewtex/docker-opengl), which is also included as a submodule in this repo. In order to launch the screen server and view it:
+### Portable Graphics Support
+
+While the above openGL images allow hardware-accelerated rendering with Nvidia graphics cards, sometimes a more portable graphics solution is needed.
+For these cases `atom` also ships with an openGL-enabled VNC, NoVNC, that by default renders to port `6080`. This is implemented largely based off of [docker-opengl](https://github.com/thewtex/docker-opengl), which is also included as a submodule in this repo. In order to launch the screen server and view it:
 
 1. If you're using the `launch.sh` template then you'll notice you can just set the `GRAPHICS` environment variable. If you're not using this template, the server can be launched with the command:
 ```
