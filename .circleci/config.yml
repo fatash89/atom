@@ -72,14 +72,17 @@ jobs:
           destination: valgrind.log
 
       #
-      # Build for cuda 9 and 10
+      # Build for OpenGL and cuda / cuDNN
       #
       - run:
-          name: Build for cuda 9
-          command: docker build -f Dockerfile-atom --build-arg BASE_IMAGE=atom-cuda-9-base -t ${DOCKERHUB_ATOM_CUDA_9_REPO} .
+          name: Build for OpenGL
+          command: docker build -f Dockerfile-atom --build-arg BASE_IMAGE=atom-opengl-base -t ${DOCKERHUB_ATOM_OPENGL_REPO} .
       - run:
-          name: Build for cuda 10
+          name: Build for cuda / cuDNN
           command: docker build -f Dockerfile-atom --build-arg BASE_IMAGE=atom-cuda-10-base -t ${DOCKERHUB_ATOM_CUDA_10_REPO} .
+      - run:
+          name: Build for OpenGL + cuda / cuDNN
+          command: docker build -f Dockerfile-atom --build-arg BASE_IMAGE=atom-opengl-cuda-10-base -t ${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO} .
 
 
       # Push the image back to DockerHub, either under a "development" tag
@@ -97,17 +100,23 @@ jobs:
               docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
               docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:latest
 
-              # Tag and push atom for cuda 9
-              docker tag ${DOCKERHUB_ATOM_CUDA_9_REPO} ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_9_REPO}:master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
-              docker tag ${DOCKERHUB_ATOM_CUDA_9_REPO} ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_9_REPO}:latest
-              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_9_REPO}:master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
-              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_9_REPO}:latest
+              # Tag and push atom for OpenGL
+              docker tag ${DOCKERHUB_ATOM_OPENGL_REPO} ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_REPO}:master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
+              docker tag ${DOCKERHUB_ATOM_OPENGL_REPO} ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_REPO}:latest
+              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_REPO}:master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
+              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_REPO}:latest
 
               # Tag and push atom for cuda 10
               docker tag ${DOCKERHUB_ATOM_CUDA_10_REPO} ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}:master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
               docker tag ${DOCKERHUB_ATOM_CUDA_10_REPO} ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}:latest
               docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}:master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
               docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}:latest
+
+              # Tag and push atom for OpenGL + cuda 10
+              docker tag ${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO} ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}:master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
+              docker tag ${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO} ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}:latest
+              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}:master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
+              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}:latest
 
               # Tag and push nucleus
               docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME}:latest ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
@@ -121,13 +130,17 @@ jobs:
               docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_ATOM_SERVICE_NAME}:latest ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
               docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
 
-              # Tag and push atom for cuda 9
-              docker tag ${DOCKERHUB_ATOM_CUDA_9_REPO} ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_9_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
-              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_9_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
+              # Tag and push atom for OpenGL
+              docker tag ${DOCKERHUB_ATOM_OPENGL_REPO} ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
+              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
 
               # Tag and push atom for cuda 10
               docker tag ${DOCKERHUB_ATOM_CUDA_10_REPO} ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
               docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
+
+              # Tag and push atom for OpenGL + cuda 10
+              docker tag ${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO} ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
+              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
 
               # Tag and push nucleus
               docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME}:latest ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}

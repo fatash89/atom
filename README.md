@@ -62,8 +62,20 @@ dev_nucleus:latest
 It's best to do all developmental testing and building within
 the docker containers. The easiest way to do this is to mount the
 current directory into the latest atom image that's been built and
-continue development in there until you're ready to rebuild. To do
-this:
+continue development in there until you're ready to rebuild.
+For more details refer to [Atom's docker-compose docs](https://github.com/elementary-robotics/atom/blob/26ff146fb23e12071a2743e12bc71c15023d23b3/doc/source/includes/docker-compose.md
+).
+
+For example, mount your local Atom source directory to `/development` 
+in the atom image by adding a volume entry to the atom service in the docker-compose file:
+
+```yaml
+    volumes:
+      - ".:/development"
+```
+
+The recommended workflow for development is then to execute:
+
 ```
 docker-compose up -d
 docker exec -it dev_atom bash
@@ -71,7 +83,10 @@ docker exec -it dev_atom bash
 
 This will open up a shell within the most recent dev_atom you've built (or you can specify a tag or even the atom-base container if
 you'd like) and mount your current source folder in `/development`.
-From there you can compile/run/test your code.
+Then you may compile/run code (such as unit tests of a new feature) 
+from within the container while editing the source in a different shell session running outside of the container.
+Note that typically you'll need to restart/reinstall the service that you're developing from within the container 
+in order for your code edits to take effect (For example, run `python3 setup.py install` between edits to the Python3 language client).
 
 #### Debugging with gdb
 
@@ -151,8 +166,9 @@ If you've forked this repository and/or made an element and want to set up the b
 | `DOCKERHUB_ATOM_REPO` | atom repo only | If you're rebuilding atom, which repo to put the atom container into |
 | `DOCKERHUB_NUCLEUS_REPO` | atom repo only | If you're rebuilding atom, which repo to put the nucleus container into |
 | `DOCKERHUB_DOCS_REPO` | atom repo only | If you're rebuilding atom, which repo to put the built docs container into |
+| `DOCKERHUB_ATOM_OPENGL_REPO` | atom repo only | If you're rebuilding atom, which repo to put the built atom container with OpenGL support into |
 | `DOCKERHUB_ATOM_CUDA_10_REPO` | atom repo only | If you're rebuilding atom, which repo to put the built atom container with CUDA 10 support into |
-| `DOCKERHUB_ATOM_CUDA_9_REPO` | atom repo only  | If you're rebuilding atom, which repo to put the built atom container with CUDA 9 support into |
+| `DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO` | atom repo only | If you're rebuilding atom, which repo to put the built atom container with OpenGL + CUDA 10 support into |
 | `HEROKU_API_KEY` | atom repo only | If you're rebuilding atom, secret API key to use to push the docs container to heroku for deployment. You can host your own version of the docs site pretty easily by making a new heroku app and pushing the docs container to it using our deploy script |
 | `HEROKU_APP_NAME` | atom repo only | Name of the heroku app to which you're deploying the docs container |
 
@@ -210,44 +226,37 @@ as basic ubuntu installs using `apt-get` and the installation of msgpack.
 This saves us time on our CI rebuild changes. The process for updating the
 `atom-base` docker container if needed are:
 
-1. Modify the `atom-base` dockerfile and commit the changes. You MUST commit
-the changes since the tag will depend on the git hash.
-2. Rebuild the `atom-base` image using:
+1. Commit any changes to the base dockerfile. You MUST commit the changes since 
+the image tag will depend on the latest git hash.
+2. Rebuild the `atom-base` image _and the OpenGL/cuda base images (see next section)_.  For example,
+rebuild atom-base using:
 ```
 docker build --no-cache -f Dockerfile-atom-base -t elementaryrobotics/atom-base:"$(git rev-parse HEAD)" .
 ```
-3. Push the new `atom-base` image to `elementaryrobotics/atom-base`
+3. Push the new `atom-base` image _and the OpenGL/cuda base images (see next section)_ to dockerhub.
+For example, push `atom-base` to `elementaryrobotics/atom-base` with the command below:
 ```
 docker push elementaryrobotics/atom-base:"$(git rev-parse HEAD)"
 ```
 4. Bump the dependency in `Dockerfile-atom` to use the new tag from `atom-base`.
 
-### Cuda support
+### OpenGL and Cuda support
 
-We also build base versions of the dockerfile for cuda 9 and 10. To build for these versions, pass `BASE_IMAGE=$X` the following to the above docker build command:
+We also build base versions of the dockerfile for OpenGL and cuda / cuDNN. To build for these versions, pass `BASE_IMAGE=$X` the following to the above docker build command:
 
-| Cuda Version | Dockerhub repo | Base Image |
-|--------------|----------------|------------|
-| 10 | `atom-cuda-10-base` | `nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04` |
-| 9 | `atom-cuda-9-base` | `nvidia/cuda:9.2-cudnn7-devel-ubuntu18.04` |
+| Cuda Version | cuDNN Version | Dockerhub repo | Base Image |
+|--------------|--------------|----------------|------------|
+| - | - | `atom-opengl-base` | `nvidia/opengl:1.0-glvnd-runtime-ubuntu18.04` |
+| 10.0 | 7.6.4.38 | `atom-cuda-10-base` | `nvidia/cuda:10.0-cudnn7-runtime-ubuntu18.04` |
+| 10.0 | 7.6.5.32 | `atom-opengl-cuda-10-base` | custom, see below\* |
 
-An example to build for Cuda 10 would be:
+An example to build for Cuda 10 / cudnn would be:
 ```
-docker build --no-cache -f Dockerfile-atom-base -t elementaryrobotics/atom-cuda-10-base:"$(git rev-parse HEAD)" --build-arg BASE_IMAGE=nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04 .
-```
-
-And for cuda 9:
-```
-docker build --no-cache -f Dockerfile-atom-base -t elementaryrobotics/atom-cuda-9-base:"$(git rev-parse HEAD)" --build-arg BASE_IMAGE=nvidia/cuda:9.2-cudnn7-devel-ubuntu18.04 .
+docker build --no-cache -f Dockerfile-atom-base -t elementaryrobotics/atom-cuda-10-base:"$(git rev-parse HEAD)" --build-arg BASE_IMAGE=nvidia/cuda:10.0-cudnn7-runtime-ubuntu18.04 .
 ```
 
-### Graphics Support
-
-In order to make the graphics more portable, `atom` ships with an openGL-enabled VNC, NoVNC, that by default renders to port `6080`. This is implemented largely based off of [docker-opengl](https://github.com/thewtex/docker-opengl), which is also included as a submodule in this repo. In order to launch the screen server and view it:
-
-1. If you're using the `launch.sh` template then you'll notice you can just set the `GRAPHICS` environment variable. If you're not using this template, the server can be launched with the command:
+The combined OpenGL/cuda/cuDNN base image can be built in two steps, with the first step utilizing the included dockerfile `Dockerfile-install-cudnn` (modify this file for cuDNN version updates):
 ```
-/usr/bin/supervisord -c /etc/supervisor/supervisord.conf
+docker build --no-cache -f Dockerfile-install-cudnn -t opengl-cuda-10-base .
+docker build --no-cache -f Dockerfile-atom-base -t elementaryrobotics/atom-opengl-cuda-10-base:"$(git rev-parse HEAD)" --build-arg BASE_IMAGE=opengl-cuda-10-base .
 ```
-2. Remap the port `6080` to be exposed on your system. This can be done in the `docker-compose` or by passing the `-p` flag when using `docker run`.
-3. Visit `localhost:$port` in your browser, where `$port` corresponds to the port you mapped `6080` to using docker.

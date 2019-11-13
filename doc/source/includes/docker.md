@@ -39,7 +39,7 @@ For more examples and ideas, visit:
  https://docs.docker.com/engine/userguide/
 ```
 
-The official [Docker Site](https://docs.docker.com/install/) contains good instructions for installing docker on your system. You'll want to install the docker community edition, with the exception of Docker Toolbox being currently recommeded for Windows and Mac users who wish to use Atom with USB-connected hardware such as the realsense camera.
+The official [Docker Site](https://docs.docker.com/install/) contains good instructions for installing docker on your system.  When running on Linux be sure to also follow these [post-install instructions](https://docs.docker.com/install/linux/linux-postinstall/). You'll want to install the docker community edition, with the exception of Docker Toolbox being currently recommeded for Windows and Mac users who wish to use Atom with USB-connected hardware such as the realsense camera.
 
 <aside class="notice">
 If you use Windows or Mac as your OS, and you plan on using hardware connected via USB (such as the realsense camera), it is recommended to install the <strong>Docker Toolbox</strong> version instead of (or alongside) the Docker CE version. See the <a href="https://docs.docker.com/toolbox/toolbox_install_windows">Docker Toolbox Install Instructions</a> instead of the general Docker install instructions.

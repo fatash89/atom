@@ -4,7 +4,7 @@ With the basics of Docker understood, we can now learn about Docker Compose and 
 
 ## Installing Docker Compose
 
-See the instructions [on the Docker site](https://docs.docker.com/compose/install/) for information on installing `docker-compose`.
+See the instructions [on the Docker site](https://docs.docker.com/compose/install/) for information on installing `docker-compose`.  Note that the version of docker-compose installable via `apt` apt in Ubuntu 18.04 is outdated and will not work with the examples here.  You may instead install `docker-compose` manually as described on the Docker site or use `pip`, which provides a relatively up-to-date version: `pip3 install docker-compose`.
 
 ## Docker-Compose file
 
@@ -239,6 +239,11 @@ So far we've only used Docker Compose to launch prebuilt images, but we can also
 Then, go ahead and run `docker-compose build` which tells docker-compose to build all of the images that it needs. It won't build the `atom` or `nucleus` since they come from prebuilt images, but it will go and recompile your `Dockerfile`.
 
 We can then launch the compose configuration, test the example image by running the `neofetch` command from before, and shut everything down.
+
+<aside class="notice">
+`docker-compose build` runs the build process defined Dockerfiles but it _does not_ automatically use the latest versions of images that originate from DockerHub.
+In order to those images update images you must call `docker-compose pull` before calling `docker-compose build`.  In some cases you may also need to call `docker pull` to update specific dependencies.
+</aside>
 
 ## Configuration Detail
 

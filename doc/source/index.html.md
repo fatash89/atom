@@ -13,6 +13,7 @@ includes:
   - sdk-introduction
   - sdk-concepts
   - sdk-specification
+  - sdk-graphics
   - sdk-cuda
   - docker
   - docker-compose
