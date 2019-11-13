@@ -259,15 +259,3 @@ The combined OpenGL/cuda/cuDNN base image can be built in two steps, with the fi
 docker build --no-cache -f Dockerfile-install-cudnn -t opengl-cuda-10-base .
 docker build --no-cache -f Dockerfile-atom-base -t elementaryrobotics/atom-opengl-cuda-10-base:"$(git rev-parse HEAD)" --build-arg BASE_IMAGE=opengl-cuda-10-base .
 ```
-
-### Portable Graphics Support
-
-While the above openGL images allow hardware-accelerated rendering with Nvidia graphics cards, sometimes a more portable graphics solution is needed.
-For these cases `atom` also ships with an openGL-enabled VNC, NoVNC, that by default renders to port `6080`. This is implemented largely based off of [docker-opengl](https://github.com/thewtex/docker-opengl), which is also included as a submodule in this repo. In order to launch the screen server and view it:
-
-1. If you're using the `launch.sh` template then you'll notice you can just set the `GRAPHICS` environment variable. If you're not using this template, the server can be launched with the command:
-```
-/usr/bin/supervisord -c /etc/supervisor/supervisord.conf
-```
-2. Remap the port `6080` to be exposed on your system. This can be done in the `docker-compose` or by passing the `-p` flag when using `docker run`.
-3. Visit `localhost:$port` in your browser, where `$port` corresponds to the port you mapped `6080` to using docker.
