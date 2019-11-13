@@ -166,8 +166,9 @@ If you've forked this repository and/or made an element and want to set up the b
 | `DOCKERHUB_ATOM_REPO` | atom repo only | If you're rebuilding atom, which repo to put the atom container into |
 | `DOCKERHUB_NUCLEUS_REPO` | atom repo only | If you're rebuilding atom, which repo to put the nucleus container into |
 | `DOCKERHUB_DOCS_REPO` | atom repo only | If you're rebuilding atom, which repo to put the built docs container into |
+| `DOCKERHUB_ATOM_OPENGL_REPO` | atom repo only | If you're rebuilding atom, which repo to put the built atom container with OpenGL support into |
 | `DOCKERHUB_ATOM_CUDA_10_REPO` | atom repo only | If you're rebuilding atom, which repo to put the built atom container with CUDA 10 support into |
-| `DOCKERHUB_ATOM_CUDA_9_REPO` | atom repo only  | If you're rebuilding atom, which repo to put the built atom container with CUDA 9 support into |
+| `DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO` | atom repo only | If you're rebuilding atom, which repo to put the built atom container with OpenGL + CUDA 10 support into |
 | `HEROKU_API_KEY` | atom repo only | If you're rebuilding atom, secret API key to use to push the docs container to heroku for deployment. You can host your own version of the docs site pretty easily by making a new heroku app and pushing the docs container to it using our deploy script |
 | `HEROKU_APP_NAME` | atom repo only | Name of the heroku app to which you're deploying the docs container |
 
