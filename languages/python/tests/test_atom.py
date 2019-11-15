@@ -574,7 +574,11 @@ class TestAtom:
         responder.command_add("check_kwargs", check_kwargs, deserialize=True)
         proc = Process(target=responder.command_loop)
         proc.start()
-        response = caller.command_send("test_responder", "check_kwargs", {"test" : "kwarg"}, serialize=True, deserialize=True, raw_data={"first_kwarg" : "hello", "second_kwarg" : "world"})
+        response = caller.command_send("test_responder",
+                                        "check_kwargs",
+                                        {"test" : "kwarg"},
+                                        serialize=True, deserialize=True,
+                                        raw_data={"first_kwarg" : "hello", "second_kwarg" : "world", "third_kwarg":None})
         proc.terminate()
         proc.join()
         assert response["err_code"] == ATOM_NO_ERROR
@@ -782,13 +786,14 @@ class TestAtom:
             correct_data = get_data(9)
             assert ref_data[key_dict[key]] == correct_data[key]
 
-def check_kwargs(data, first_kwarg=None, second_kwarg=None):
+def check_kwargs(data, first_kwarg=None, second_kwarg=None, third_kwarg=None):
     """
     Check that the kwargs are correct
     """
     assert data["test"] == "kwarg"
     assert first_kwarg == b"hello"
     assert second_kwarg == b"world"
+    assert third_kwarg == b""
     return Response("success", serialize=True, raw_data={"raw_test": "hello, world!"})
 
 def add_1(x):

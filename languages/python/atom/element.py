@@ -510,6 +510,7 @@ class Element:
         timeout = None
         resp = None
         data = format_redis_py(data)
+        raw_data = format_redis_py(raw_data)
 
         # Send command to element's command stream
         data = packb(data, use_bin_type=True) if serialize and (data != "") else data
