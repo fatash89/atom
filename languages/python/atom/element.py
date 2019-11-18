@@ -884,20 +884,10 @@ class Element:
         if type(data) is not list:
             raise ValueError(f"Invalid response from redis: {data}")
 
-        # Make a dict of the response data, depending on whether or not
-        #   we're deserializing
-        ret_data = {}
         if deserialize:
-            for i, val in enumerate(data):
-                if val != None:
-                    ret_data[keys[i]] = unpackb(val, raw=False)
-                else:
-                    ret_data[keys[i]] = None
+            return [unpackb(v, raw=False) if v !=None else None for v in data]
         else:
-            for i, val in enumerate(data):
-                ret_data[keys[i]] = val
-
-        return ret_data
+            return data
 
     def reference_delete(self, *keys):
         """

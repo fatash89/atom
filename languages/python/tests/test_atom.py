@@ -588,38 +588,38 @@ class TestAtom:
     def test_reference_basic(self, caller):
         data = b'hello, world!'
         ref_id = caller.reference_create(data)[0]
-        ref_data = caller.reference_get(ref_id)
-        assert ref_data[ref_id] == data
+        ref_data = caller.reference_get(ref_id)[0]
+        assert ref_data == data
 
     def test_reference_doesnt_exist(self, caller):
         ref_id = "nonexistent"
-        ref_data = caller.reference_get(ref_id)
-        assert ref_data[ref_id] is None
+        ref_data = caller.reference_get(ref_id)[0]
+        assert ref_data is None
 
     def test_reference_msgpack(self, caller):
         data = {"hello" : "world", "atom" : 123456, "some_obj" : {"references" : "are fun!"} }
         ref_id = caller.reference_create(data, serialize=True)[0]
-        ref_data = caller.reference_get(ref_id, deserialize=True)
-        assert ref_data[ref_id] == data
+        ref_data = caller.reference_get(ref_id, deserialize=True)[0]
+        assert ref_data == data
 
     def test_reference_msgpack_dne(self, caller):
         ref_id = "nonexistent"
-        ref_data = caller.reference_get(ref_id, deserialize=True)
-        assert ref_data[ref_id] is None
+        ref_data = caller.reference_get(ref_id, deserialize=True)[0]
+        assert ref_data is None
 
     def test_reference_multiple(self, caller):
         data = [b'hello, world!', b'robots are fun!']
         ref_ids = caller.reference_create(*data)
         ref_data = caller.reference_get(*ref_ids)
-        for ref_id, datum in zip(ref_ids, data):
-            assert ref_data[ref_id] == datum
+        for i in range(len(data)):
+            assert ref_data[i] == data[i]
 
     def test_reference_multiple_msgpack(self, caller):
         data = [{"hello" : "world", "atom" : 123456, "some_obj" : {"references" : "are fun!"}}, True]
         ref_ids = caller.reference_create(*data, serialize=True)
         ref_data = caller.reference_get(*ref_ids, deserialize=True)
-        for ref_id, datum in zip(ref_ids, data):
-            assert ref_data[ref_id] == datum
+        for i in range(len(data)):
+            assert ref_data[i] == data[i]
 
     def test_reference_get_timeout_ms(self, caller):
         data = b'hello, world!'
@@ -653,22 +653,22 @@ class TestAtom:
     def test_reference_delete(self, caller):
         data = b'hello, world!'
         ref_id = caller.reference_create(data, timeout_ms=0)[0]
-        ref_data = caller.reference_get(ref_id)
-        assert ref_data[ref_id] == data
+        ref_data = caller.reference_get(ref_id)[0]
+        assert ref_data == data
 
         ref_ms = caller.reference_get_timeout_ms(ref_id)
         assert ref_ms == -1
 
         caller.reference_delete(ref_id)
-        del_data = caller.reference_get(ref_id)
-        assert del_data[ref_id] is None
+        del_data = caller.reference_get(ref_id)[0]
+        assert del_data is None
 
     def test_reference_delete_multiple(self, caller):
         data = [b'hello, world!', b'test']
         ref_ids = caller.reference_create(*data, timeout_ms=0)
         ref_data = caller.reference_get(*ref_ids)
-        assert ref_data[ref_ids[0]] == data[0]
-        assert ref_data[ref_ids[1]] == data[1]
+        assert ref_data[0] == data[0]
+        assert ref_data[1] == data[1]
 
         ref_ms = caller.reference_get_timeout_ms(ref_ids[0])
         assert ref_ms == -1
@@ -677,39 +677,39 @@ class TestAtom:
 
         caller.reference_delete(*ref_ids)
         del_data = caller.reference_get(*ref_ids)
-        assert del_data[ref_ids[0]] is None
-        assert del_data[ref_ids[1]] is None
+        assert del_data[0] is None
+        assert del_data[1] is None
 
     def test_reference_delete_msgpack(self, caller):
         data = {"msgpack" : "data"}
         ref_id = caller.reference_create(data, timeout_ms=0, serialize=True)[0]
-        ref_data = caller.reference_get(ref_id, deserialize=True)
-        assert ref_data[ref_id] == data
+        ref_data = caller.reference_get(ref_id, deserialize=True)[0]
+        assert ref_data == data
 
         ref_ms = caller.reference_get_timeout_ms(ref_id)
         assert ref_ms == -1
 
         caller.reference_delete(ref_id)
-        del_data = caller.reference_get(ref_id, deserialize=True)
-        assert del_data[ref_id] is None
+        del_data = caller.reference_get(ref_id, deserialize=True)[0]
+        assert del_data is None
 
     def test_reference_expire(self, caller):
         data = {"msgpack" : "data"}
         ref_id = caller.reference_create(data, serialize=True, timeout_ms=100)[0]
-        ref_data = caller.reference_get(ref_id, deserialize=True)
-        assert ref_data[ref_id] == data
+        ref_data = caller.reference_get(ref_id, deserialize=True)[0]
+        assert ref_data == data
 
         time.sleep(0.2)
-        expired_data = caller.reference_get(ref_id, deserialize=True)
-        assert expired_data[ref_id] is None
+        expired_data = caller.reference_get(ref_id, deserialize=True)[0]
+        assert expired_data is None
 
     def test_reference_create_from_stream_single_key(self, caller):
         stream_name = "test_ref"
         stream_data = {"data": b"test reference!"}
         caller.entry_write(stream_name, stream_data)
         key_dict = caller.reference_create_from_stream(caller.name, stream_name, timeout_ms=0)
-        ref_data = caller.reference_get(key_dict["data"])
-        assert ref_data[key_dict["data"]] == stream_data["data"]
+        ref_data = caller.reference_get(key_dict["data"])[0]
+        assert ref_data == stream_data["data"]
 
     def test_reference_create_from_stream_multiple_keys(self, caller):
         stream_name = "test_ref_multiple_keys"
@@ -717,8 +717,8 @@ class TestAtom:
         caller.entry_write(stream_name, stream_data)
         key_dict = caller.reference_create_from_stream(caller.name, stream_name, timeout_ms=0)
         for key in key_dict:
-            ref_data = caller.reference_get(key_dict[key])
-            assert ref_data[key_dict[key]] == stream_data[key]
+            ref_data = caller.reference_get(key_dict[key])[0]
+            assert ref_data == stream_data[key]
 
     def test_reference_create_from_stream_multiple_keys_msgpack(self, caller):
         stream_name = "test_ref_multiple_keys"
@@ -727,8 +727,8 @@ class TestAtom:
         caller.entry_write(stream_name, stream_data, serialize=True)
         key_dict = caller.reference_create_from_stream(caller.name, stream_name, timeout_ms=0)
         for key in key_dict:
-            ref_data = caller.reference_get(key_dict[key], deserialize=True)
-            assert ref_data[key_dict[key]] == orig_stream_data[key]
+            ref_data = caller.reference_get(key_dict[key], deserialize=True)[0]
+            assert ref_data == orig_stream_data[key]
 
     def test_reference_create_from_stream_multiple_keys_persist(self, caller):
         stream_name = "test_ref_multiple_keys"
@@ -744,11 +744,11 @@ class TestAtom:
         caller.entry_write(stream_name, stream_data)
         key_dict = caller.reference_create_from_stream(caller.name, stream_name, timeout_ms=100)
         for key in key_dict:
-            ref_data = caller.reference_get(key_dict[key])
-            assert ref_data[key_dict[key]] == stream_data[key]
+            ref_data = caller.reference_get(key_dict[key])[0]
+            assert ref_data == stream_data[key]
         time.sleep(0.2)
         for key in key_dict:
-            assert caller.reference_get(key_dict[key])[key_dict[key]] is None
+            assert caller.reference_get(key_dict[key])[0] is None
 
     def test_reference_create_from_stream_multiple_keys_latest(self, caller):
 
@@ -772,9 +772,9 @@ class TestAtom:
             # Loop over the references and check the data
             for key in key_dict:
 
-                ref_data = caller.reference_get(key_dict[key], deserialize=True)
+                ref_data = caller.reference_get(key_dict[key], deserialize=True)[0]
                 correct_data = get_data(i)
-                assert ref_data[key_dict[key]] == correct_data[key]
+                assert ref_data == correct_data[key]
 
         # Now, check the final piece and make sure it's the most recent
         key_dict = caller.reference_create_from_stream(caller.name, stream_name, timeout_ms=0)
@@ -782,9 +782,9 @@ class TestAtom:
         # Loop over the references and check the data
         for key in key_dict:
 
-            ref_data = caller.reference_get(key_dict[key], deserialize=True)
+            ref_data = caller.reference_get(key_dict[key], deserialize=True)[0]
             correct_data = get_data(9)
-            assert ref_data[key_dict[key]] == correct_data[key]
+            assert ref_data == correct_data[key]
 
 def check_kwargs(data, first_kwarg=None, second_kwarg=None, third_kwarg=None):
     """
