@@ -818,8 +818,9 @@ class Element:
         make a reference from that piece of data.
 
         Since streams have multiple key:value pairs, one reference per key
-        in the stream will be created where the stream key will be included
-        in the name of the list of references returned.
+        in the stream will be created, and the return type is a dictionary mapping
+        stream keys to references.  The references are named so that the stream key
+        is also included in the name the corresponding reference.
 
         Args:
 
@@ -834,7 +835,7 @@ class Element:
                         reference never time out (generally a terrible idea)
 
         Return:
-            list of reference keys, one for each key in the stream. Raises
+            dictionary mapping stream keys to reference keys. Raises
             an error on failure.
         """
 
