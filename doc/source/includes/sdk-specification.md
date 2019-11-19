@@ -1330,22 +1330,22 @@ SET $key NX [PX $timeout]
 data = b'hello, world!'
 ref_id = my_element.reference_create(data)[0]
 ref_data = my_element.reference_get(ref_id)
-# ref_data[ref_id] == data
+# ref_data == data
 
 
 # Serialized reference
 data = {"hello" : "world"}
 ref_id = my_element.reference_create(data, serialize=True)[0]
 ref_data = my_element.reference_get(ref_id, deserialize=True)
-# ref_data[ref_id] == data
+# ref_data == data
 
 # Get multiple references
 data = ["a", "b", "c"]
 ref_ids = my_element.reference_create(*data, serialize=True)
 ref_data = my_element.reference_get(*ref_ids, deserialize=True)
-# ref_data[ref_ids[0]] == "a"
-# ref_data[ref_ids[1]] == "b"
-# ref_data[ref_ids[2]] == "c"
+# ref_data[0] == "a"
+# ref_data[1] == "b"
+# ref_data[2] == "c"
 ```
 
 Receive the data from Atom for the given references
@@ -1359,7 +1359,7 @@ Receive the data from Atom for the given references
 
 ### Return Value
 
-Dictionary where the key is the reference ID and the value is the corresponding data.
+List of data items corresponding with the reference IDs passed as arguments.
 
 ### Spec
 
@@ -1383,7 +1383,7 @@ ref_id = my_element.reference_create(data, timeout_ms=0)[0]
 my_element.reference_delete(ref_id)
 
 ref_data = my_element.reference_get(ref_id)
-# ref_data[ref_id] is None
+# ref_data is None
 
 # Multiple references can be deleted in the same fashion that they are created
 data = ["a", "b", "c"]
