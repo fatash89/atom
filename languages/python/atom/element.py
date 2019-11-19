@@ -765,20 +765,22 @@ class Element:
 
     def reference_create(self, *data, serialize=False, timeout_ms=10000):
         """
-        Creates an expiring reference (similar to a pointer) in the atom system.
+        Creates one or more expiring references (similar to a pointer) in the atom system.
         This will typically be used when we've gotten a piece of data from a
         stream and we want it to persist past the length of time it would live
         in the stream s.t. we can pass it to other commands/elements. The
-        reference will simply be a cached value in redis and will expire after
+        references will simply be cached values in redis and will expire after
         the timeout_ms amount of time.
 
         Args:
-            data (binary or object): data to be included in the reference
+            data (binary or object): one or more data items to be included in the reference
             serialize (bool): whether or not to msgpack the data before creating
                         the reference
             timeout_ms (int): How long the reference should persist in atom
                         unless otherwise extended/deleted. Set to 0 to have the
                         reference never time out (generally a terrible idea)
+        Return:
+            List of references corresponding to the arguments passed
         """
         keys = []
 
@@ -818,8 +820,9 @@ class Element:
         make a reference from that piece of data.
 
         Since streams have multiple key:value pairs, one reference per key
-        in the stream will be created where the stream key will be included
-        in the name of the list of references returned.
+        in the stream will be created, and the return type is a dictionary mapping
+        stream keys to references.  The references are named so that the stream key
+        is also included in the name of the corresponding reference.
 
         Args:
 
@@ -834,7 +837,7 @@ class Element:
                         reference never time out (generally a terrible idea)
 
         Return:
-            list of reference keys, one for each key in the stream. Raises
+            dictionary mapping stream keys to reference keys. Raises
             an error on failure.
         """
 
@@ -866,12 +869,14 @@ class Element:
 
     def reference_get(self, *keys, deserialize=False):
         """
-        Gets a reference from the atom system. Reads the key from redis
-        and returns it, performing a serialize/deserialize operation on the
+        Gets one or more reference from the atom system. Reads the key(s) from redis
+        and returns the data, performing a serialize/deserialize operation on each
         key as commanded by the user
 
         Args:
-            key (str): Key of reference to get from Atom
+            keys (str): One or more keys of references to get from Atom
+        Return:
+            List of items corresponding to each reference key passed as an argument
         """
 
         # Get the data
@@ -884,27 +889,17 @@ class Element:
         if type(data) is not list:
             raise ValueError(f"Invalid response from redis: {data}")
 
-        # Make a dict of the response data, depending on whether or not
-        #   we're deserializing
-        ret_data = {}
         if deserialize:
-            for i, val in enumerate(data):
-                if val != None:
-                    ret_data[keys[i]] = unpackb(val, raw=False)
-                else:
-                    ret_data[keys[i]] = None
+            return [unpackb(v, raw=False) if v is not None else None for v in data]
         else:
-            for i, val in enumerate(data):
-                ret_data[keys[i]] = val
-
-        return ret_data
+            return data
 
     def reference_delete(self, *keys):
         """
-        Deletes a reference and cleans up its memory
+        Deletes one or more references and cleans up their memory
 
         Args:
-            key (str): Key of a reference to delete from Atom
+            keys (strs): Keys of references to delete from Atom
         """
 
         # Unlink the data
