@@ -1329,14 +1329,14 @@ SET $key NX [PX $timeout]
 # Basic reference, default serialize=False and timout_ms=10000
 data = b'hello, world!'
 ref_id = my_element.reference_create(data)[0]
-ref_data = my_element.reference_get(ref_id)
+ref_data = my_element.reference_get(ref_id)[0]
 # ref_data == data
 
 
 # Serialized reference
 data = {"hello" : "world"}
 ref_id = my_element.reference_create(data, serialize=True)[0]
-ref_data = my_element.reference_get(ref_id, deserialize=True)
+ref_data = my_element.reference_get(ref_id, deserialize=True)[0]
 # ref_data == data
 
 # Get multiple references
@@ -1382,7 +1382,7 @@ ref_id = my_element.reference_create(data, timeout_ms=0)[0]
 # Delete the reference
 my_element.reference_delete(ref_id)
 
-ref_data = my_element.reference_get(ref_id)
+ref_data = my_element.reference_get(ref_id)[0]
 # ref_data is None
 
 # Multiple references can be deleted in the same fashion that they are created
@@ -1431,9 +1431,9 @@ my_element.entry_write(stream_name, stream_data)
 # in the stream. references is a dictionary of reference strings,
 # with a key for each key in the stream entry
 references = caller.reference_create_from_stream(my_element.name, stream_name, timeout_ms=0)
-key1_data = caller.reference_get(references["key1"])
+key1_data = caller.reference_get(references["key1"])[0]
 # key1_data == b"value1!"
-key2_data = caller.reference_get(references["key2"])
+key2_data = caller.reference_get(references["key2"])[0]
 # key2_data == b"value2!"
 
 # Need to delete *each* key when done
@@ -1459,9 +1459,9 @@ id_3 = my_element.entry_write(stream_name, stream_data_3)
 # in the stream. references is a dictionary of reference strings,
 # with a key for each key in the stream entry
 references = caller.reference_create_from_stream(my_element.name, stream_name, stream_id=id_2, timeout_ms=0)
-key1_data = caller.reference_get(references["key1"])
+key1_data = caller.reference_get(references["key1"])[0]
 # key1_data == b"value3!"
-key2_data = caller.reference_get(references["key2"])
+key2_data = caller.reference_get(references["key2"])[0]
 # key2_data == b"value4!"
 
 # Need to delete *each* key when done
