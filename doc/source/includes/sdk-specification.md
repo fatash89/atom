@@ -1272,23 +1272,27 @@ Wait for elements healthy should leverage the existing healthcheck command and b
 # Basic reference, default serialize=False and timout_ms=10000
 data = b'hello, world!'
 ref_ids = my_element.reference_create(data)
-
+my_element.reference_delete(*ref_ids)
 
 # Serialized reference
 data = {"hello" : "world"}
 ref_ids = my_element.reference_create(data, serialize=True)
+my_element.reference_delete(*ref_ids)
 
 # Explicit timeout
 data = {"hello" : "world"}
 ref_ids = my_element.reference_create(data, serialize=True, timeout_ms=1000)
+my_element.reference_delete(*ref_ids)
 
 # No timeout
 data = {"hello" : "world"}
 ref_ids = my_element.reference_create(data, serialize=True, timeout_ms=0)
+my_element.reference_delete(*ref_ids)
 
 # Creating multiple references
 data = ["a", "b", "c"]
 ref_ids = my_element.reference_create(*data, serialize=True)
+my_element.reference_delete(*ref_ids)
 ```
 
 Turn a user-specified data blob into an Atom reference. The data
@@ -1331,13 +1335,14 @@ data = b'hello, world!'
 ref_id = my_element.reference_create(data)[0]
 ref_data = my_element.reference_get(ref_id)[0]
 # ref_data == data
-
+my_element.reference_delete(ref_id)
 
 # Serialized reference
 data = {"hello" : "world"}
 ref_id = my_element.reference_create(data, serialize=True)[0]
 ref_data = my_element.reference_get(ref_id, deserialize=True)[0]
 # ref_data == data
+my_element.reference_delete(ref_id)
 
 # Get multiple references
 data = ["a", "b", "c"]
@@ -1346,6 +1351,7 @@ ref_data = my_element.reference_get(*ref_ids, deserialize=True)
 # ref_data[0] == "a"
 # ref_data[1] == "b"
 # ref_data[2] == "c"
+my_element.reference_delete(*ref_ids)
 ```
 
 Receive the data from Atom for the given references
@@ -1516,12 +1522,14 @@ data = b'hello, world!'
 ref_id = my_element.reference_create(data, timeout_ms=0)[0]
 time_remaining = my_element.reference_get_timeout_ms(ref_id)
 # time_remaining == -1 i.e. no timeout
+my_element.reference_delete(ref_id)
 
 # Basic reference, with timeout
 data = b'hello, world!'
 ref_id = my_element.reference_create(data, timeout_ms=1000)[0]
 time_remaining = my_element.reference_get_timeout_ms(ref_id)
 # time_remaining ~= 1000
+my_element.reference_delete(ref_id)
 ```
 
 Gets the amount of time until a reference expires and its memory is cleaned up.
@@ -1558,6 +1566,7 @@ my_element.reference_update_timeout_ms(ref_id, 10000)
 
 time_remaining = my_element.reference_get_timeout_ms(ref_id)
 # time_remaining ~= 10000
+my_element.reference_delete(ref_id)
 ```
 
 Update the timout for a reference so that it expires in `timeout_ms` milliseconds from now, with the edge case of `timeout_ms==0` yielding no timeout, i.e. it persists until deleted.
