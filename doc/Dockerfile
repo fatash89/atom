@@ -4,8 +4,8 @@ FROM ubuntu:18.04
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y build-essential ruby-full zlib1g-dev nodejs
-RUN gem update --system
-RUN gem install bundler
+RUN apt-get install rubygems-integration
+RUN gem install bundler -v '1.17.3'
 
 COPY . /code
 WORKDIR /code
