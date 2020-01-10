@@ -12,6 +12,7 @@ from atom.messages import Cmd, Response, StreamHandler, format_redis_py
 from atom.messages import Acknowledge, Entry, Response, Log, LogLevel
 from atom.messages import RES_RESERVED_KEYS, CMD_RESERVED_KEYS
 from msgpack import packb, unpackb
+import pyarrow as pa
 from os import uname
 from queue import Queue
 
@@ -243,6 +244,24 @@ class Element:
                 except TypeError:
                     pass
         return entry
+
+    def _serialize(self, data, method="msgpack"):
+        """
+        Serializes data using the requested method, defaulting to msgpack.
+
+        Args:
+            data: The data to serialize.
+            method (str, optional): The serialization method to use; defaults to msgpack
+            kwargs (optional): Any arguments of the serialization method
+        Returns:
+            The serialized data.
+        """
+        if method == "msgpack":
+            return packb(data, use_bin_type=True)
+        elif method == "arrow":
+            return pa.serialize(data).to_buffer()
+        else:
+            raise ValueError('Invalid serialization method requested')
 
     def _check_element_version(self, element_name, supported_language_set=None, supported_min_version=None):
         """
@@ -712,7 +731,7 @@ class Element:
                     entries.append(entry)
         return entries
 
-    def entry_write(self, stream_name, field_data_map, maxlen=STREAM_LEN, serialize=False):
+    def entry_write(self, stream_name, field_data_map, maxlen=STREAM_LEN, serialize=False, serialization="msgpack"):
         """
         Creates element's stream if it does not exist.
         Adds the fields and data to a Entry and puts it in the element's stream.
@@ -730,7 +749,7 @@ class Element:
         if serialize:
             serialized_field_data_map = {}
             for k, v in field_data_map.items():
-                serialized_field_data_map[k] = packb(v, use_bin_type=True)
+                serialized_field_data_map[k] = self._serialize(v, method="arrow")
             entry = Entry(serialized_field_data_map)
         else:
             entry = Entry(field_data_map)
@@ -797,7 +816,7 @@ class Element:
                 _pipe.set(key, serialized_datum, px=px_val, nx=True)
             else:
                 _pipe.set(key, datum, px=px_val, nx=True)
-            
+
             keys.append(key)
 
         response = _pipe.execute()
