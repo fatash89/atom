@@ -11,7 +11,7 @@ from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND, REDIS_PIPELINE_POO
 from atom.messages import Cmd, Response, StreamHandler, format_redis_py
 from atom.messages import Acknowledge, Entry, Response, Log, LogLevel
 from atom.messages import RES_RESERVED_KEYS, CMD_RESERVED_KEYS
-import atom.serialization as srlz
+import atom.util as util
 from os import uname
 from queue import Queue
 
@@ -240,7 +240,7 @@ class Element:
         for k, v in entry.items():
             if type(v) is bytes:
                 try:
-                    entry[k] = srlz.deserialize(v, method=method)
+                    entry[k] = util.deserialize(v, method=method)
                 except TypeError:
                     pass
         return entry
@@ -459,7 +459,7 @@ class Element:
                 if cmd_name not in self.reserved_commands:
                     if self.handler_map[cmd_name]["deserialize"]:
                         # assume serialization key present if deserialize set to True
-                        data = srlz.deserialize(data, method=self.handler_map[cmd_name]["serialization"])
+                        data = util.deserialize(data, method=self.handler_map[cmd_name]["serialization"])
                     response = self.handler_map[cmd_name]["handler"](data, **kw_data)
                 else:
                     # healthcheck/version requests/command_list commands don't care what data you are sending
@@ -518,7 +518,7 @@ class Element:
         raw_data = format_redis_py(raw_data)
 
         # Send command to element's command stream
-        data = srlz.serialize(data, method=serialization) if serialize and (data != "") else data
+        data = util.serialize(data, method=serialization) if serialize and (data != "") else data
 
         cmd = Cmd(self.name, cmd_name, data, **raw_data)
         _pipe = self._rpipeline_pool.get()
@@ -594,7 +594,7 @@ class Element:
                         self.log(LogLevel.ERR, err_str)
                     response_data = response.get(b"data", "")
                     try:
-                        response_data = (srlz.deserialize(response_data, method=serialization) if
+                        response_data = (util.deserialize(response_data, method=serialization) if
                                          deserialize and (len(response_data) != 0) else response_data)
                     except TypeError:
                         self.log(LogLevel.WARNING, "Could not deserialize response.")
@@ -739,7 +739,7 @@ class Element:
         if serialize:
             serialized_field_data_map = {}
             for k, v in field_data_map.items():
-                serialized_field_data_map[k] = srlz.serialize(v, method=serialization)
+                serialized_field_data_map[k] = util.serialize(v, method=serialization)
             entry = Entry(serialized_field_data_map)
         else:
             entry = Entry(field_data_map)
@@ -770,7 +770,6 @@ class Element:
         _pipe = self._release_pipeline(_pipe)
         if stdout:
             print(msg)
-
 
     def reference_create(self, *data, serialize=False, serialization="msgpack", timeout_ms=10000):
         """
@@ -804,7 +803,7 @@ class Element:
             # Now, we can go ahead and do the SET in redis for the key
             # Expire as set by the user
             if serialize:
-                serialized_datum = srlz.serialize(datum, method=serialization)
+                serialized_datum = util.serialize(datum, method=serialization)
                 _pipe.set(key, serialized_datum, px=px_val, nx=True)
             else:
                 _pipe.set(key, datum, px=px_val, nx=True)
@@ -903,7 +902,7 @@ class Element:
             raise ValueError(f"Invalid response from redis: {data}")
 
         if deserialize:
-            return [srlz.deserialize(v, method=serialization) if v is not None else None for v in data]
+            return [util.deserialize(v, method=serialization) if v is not None else None for v in data]
         else:
             return data
 
