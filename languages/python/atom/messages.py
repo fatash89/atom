@@ -1,7 +1,7 @@
 from collections import namedtuple
 from enum import Enum
 from msgpack import packb
-import atom.util as util
+import atom.serialization as ser
 
 
 CMD_RESERVED_KEYS = ("data", "cmd", "element",)
@@ -62,7 +62,7 @@ class Response:
             raise TypeError("err_str must be a str")
         if any(key in raw_data for key in RES_RESERVED_KEYS):
             raise KeyError("invalid key in raw_data")
-        self.data = util.serialize(data, method=serialization) if serialize else data
+        self.data = ser.serialize(data, method=serialization) if serialize else data
         self.__dict__.update(raw_data)
         self.err_code = err_code
         self.err_str = err_str
