@@ -86,6 +86,6 @@ def deserialize(data, method="msgpack"):
         raise ValueError(f'Invalid serialization method. Must be one of {Serializations.print_values()}.')
 
     if Serializations[method].value:
-        return Serializations[method].value.serialize(data)
+        return Serializations[method].value.deserialize(data)
     else:
         return data
