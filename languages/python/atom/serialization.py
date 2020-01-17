@@ -88,4 +88,4 @@ def deserialize(data, method="msgpack"):
     if Serializations[method].value:
         return Serializations[method].value.deserialize(data)
     else:
-        return data.decode()
+        return data

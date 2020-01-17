@@ -810,8 +810,10 @@ class Element:
             # Expire as set by the user
             if serialize:
                 serialized_datum = ser.serialize(datum, method=serialization)
+                key = key + ":ser:" + serialization
                 _pipe.set(key, serialized_datum, px=px_val, nx=True)
             else:
+                key = key + ":ser:" + "none"
                 _pipe.set(key, datum, px=px_val, nx=True)
 
             keys.append(key)
@@ -872,16 +874,13 @@ class Element:
         data = _pipe.execute()
         _pipe = self._release_pipeline(_pipe)
 
-        # print(data)
-
         if (type(data) != list) or (len(data) != 1) or (type(data[0]) != list):
             raise ValueError("Failed to make reference!")
 
         # Make a dictionary to return from the response
         key_dict = {}
         for key in data[0]:
-            key_split = key.decode().split(':')
-            key_val = key_split[-3] if key_split[-2] == "ser" else key_split[-1]
+            key_val = key.decode().split(':')[-1]
             key_dict[key_val] = key
 
         return key_dict
@@ -910,15 +909,16 @@ class Element:
         if type(data) is not list:
             raise ValueError(f"Invalid response from redis: {data}")
 
-        if deserialize:
-            # check for serialization method in reference key
-            try:
-                key_split = key.split(':') if type(key) == str else key.decode().split(':')
-                ser_method = key_split[-1] if key_split[-2] == "ser" else serialization
-            except Exception:
-                pass
-
+        # look for serialization method in reference key
+        try:
+            key_split = key.split(':') if type(key) == str else key.decode().split(':')
+            ser_method = key_split[key_split.index("ser") + 1]
             return [ser.deserialize(v, method=ser_method) if v is not None else None for v in data]
+        except Exception:
+            pass
+
+        if deserialize:
+            return [ser.deserialize(v, method=serialization) if v is not None else None for v in data]
         else:
             return data
 
