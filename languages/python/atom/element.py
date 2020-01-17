@@ -654,7 +654,8 @@ class Element:
                 for uid, entry in msgs:
                     streams[stream] = uid
                     entry = self._decode_entry(entry)
-                    entry = self._deserialize_entry(entry, method=serialization) if deserialize else entry
+                    ser_method = entry.pop("ser").decode() if "ser" in entry.keys() else serialization
+                    entry = self._deserialize_entry(entry, method=ser_method) if deserialize else entry
                     entry["id"] = uid.decode()
                     stream_handler_map[stream.decode()](entry)
 
@@ -677,7 +678,8 @@ class Element:
         uid_entries = self._rclient.xrevrange(stream_id, count=n)
         for uid, entry in uid_entries:
             entry = self._decode_entry(entry)
-            entry = self._deserialize_entry(entry, method=serialization) if deserialize else entry
+            ser_method = entry.pop("ser").decode() if "ser" in entry.keys() else serialization
+            entry = self._deserialize_entry(entry, method=ser_method) if deserialize else entry
             entry["id"] = uid.decode()
             entries.append(entry)
         return entries
@@ -715,7 +717,8 @@ class Element:
             if stream_name.decode() == stream_id:
                 for uid, entry in msgs:
                     entry = self._decode_entry(entry)
-                    entry = self._deserialize_entry(entry, method=serialization) if deserialize else entry
+                    ser_method = entry.pop("ser").decode() if "ser" in entry.keys() else serialization
+                    entry = self._deserialize_entry(entry, method=ser_method) if deserialize else entry
                     entry["id"] = uid.decode()
                     entries.append(entry)
         return entries
@@ -740,9 +743,12 @@ class Element:
             serialized_field_data_map = {}
             for k, v in field_data_map.items():
                 serialized_field_data_map[k] = ser.serialize(v, method=serialization)
+                serialized_field_data_map["ser"] = serialization
             entry = Entry(serialized_field_data_map)
         else:
+            field_data_map["ser"] = "none"
             entry = Entry(field_data_map)
+
         _pipe = self._rpipeline_pool.get()
         _pipe.xadd(self._make_stream_id(self.name, stream_name), vars(entry), maxlen=maxlen)
         ret = _pipe.execute()
@@ -866,13 +872,16 @@ class Element:
         data = _pipe.execute()
         _pipe = self._release_pipeline(_pipe)
 
+        # print(data)
+
         if (type(data) != list) or (len(data) != 1) or (type(data[0]) != list):
             raise ValueError("Failed to make reference!")
 
         # Make a dictionary to return from the response
         key_dict = {}
         for key in data[0]:
-            key_val = key.decode().split(':')[-1]
+            key_split = key.decode().split(':')
+            key_val = key_split[-3] if key_split[-2] == "ser" else key_split[-1]
             key_dict[key_val] = key
 
         return key_dict
@@ -902,7 +911,14 @@ class Element:
             raise ValueError(f"Invalid response from redis: {data}")
 
         if deserialize:
-            return [ser.deserialize(v, method=serialization) if v is not None else None for v in data]
+            # check for serialization method in reference key
+            try:
+                key_split = key.split(':') if type(key) == str else key.decode().split(':')
+                ser_method = key_split[-1] if key_split[-2] == "ser" else serialization
+            except Exception:
+                pass
+
+            return [ser.deserialize(v, method=ser_method) if v is not None else None for v in data]
         else:
             return data
 

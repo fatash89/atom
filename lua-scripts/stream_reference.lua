@@ -21,14 +21,40 @@ end
 -- For each key,value pair, make a reference at reference:id:key with the
 --  value as the value.
 local ref = ""
+local ser = ""
 local keys = {}
+local logtable = {}
+
+local function logit(msg)
+  logtable[#logtable+1] = msg
+end
+-- Find serialization from ser key if it exists
 for key,val in pairs(data[1][2]) do
 
     -- If even, do the write
     if (key % 2 == 0) then
 
+        if (string.match(ref, "ser")) then
+            ser = val
+        end
+
+    -- If odd, just use it for the key name
+    else
+        ref = ARGV[3] .. ":" .. val
+    end
+end
+
+-- Set references, adding ser to ref value
+for key,val in pairs(data[1][2]) do
+
+    -- If even, do the write
+    if (key % 2 == 0) and not (string.match(ref, "ser")) then
         -- If we don't have a timeout, don't set one
         if (ARGV[4] == '0') then
+            logit(ref)
+            logit(ser)
+            ref = ref .. ":ser:" .. ser
+            logit(ref)
             redis.call('set',ref,val)
         -- Else, set the timeout in milliseconds
         else

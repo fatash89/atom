@@ -4,8 +4,9 @@ from msgpack import packb
 import atom.serialization as ser
 
 
-CMD_RESERVED_KEYS = ("data", "cmd", "element",)
-RES_RESERVED_KEYS = ("data", "err_code", "err_str", "element", "cmd", "cmd_id")
+CMD_RESERVED_KEYS = ("data", "cmd", "element", "ser")
+RES_RESERVED_KEYS = ("data", "err_code", "err_str", "element", "cmd", "cmd_id", "ser")
+
 
 def format_redis_py(data):
     if data is None:
@@ -20,6 +21,7 @@ def format_redis_py(data):
         return output
     else:
         return data
+
 
 class Cmd:
     def __init__(self, element, cmd, data, **kwargs):
@@ -66,6 +68,7 @@ class Response:
         self.__dict__.update(raw_data)
         self.err_code = err_code
         self.err_str = err_str
+        self.ser = serialization if serialize else "none"
 
 class Entry:
     def __init__(self, field_data_map):

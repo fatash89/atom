@@ -81,10 +81,10 @@ class TestAtom:
         assert entries[0]["data"] == b"9"
         assert entries[-1]["data"] == b"5"
 
-    def test_add_entry_and_get_n_most_recent_serialized(self, caller, responder):
+    def test_add_entry_and_get_n_most_recent_default_serialized(self, caller, responder):
         """
-        Adds 10 entries to the responder's stream and makes sure that the
-        proper values are returned from get_n_most_recent.
+        Adds 10 entries to the responder's stream with default serialization and makes sure
+        that the proper values are returned from get_n_most_recent.
         """
         for i in range(10):
             data = {"data": i}
@@ -92,6 +92,25 @@ class TestAtom:
             # Ensure that serialization keeps the original data in tact
             assert data["data"] == i
         entries = caller.entry_read_n("test_responder", "test_stream_serialized", 5, deserialize=True)
+        assert len(entries) == 5
+        assert entries[0]["data"] == 9
+        assert entries[-1]["data"] == 5
+
+    def test_add_entry_and_get_n_most_recent_arrow_serialized(self, caller, responder):
+        """
+        Adds 10 entries to the responder's stream with Apache Arrow serialization and makes sure
+        that the proper values are returned from get_n_most_recent without specifying deserialization
+        method in method call, instead relying on serialization key embedded within entry.
+        """
+        for i in range(10):
+            data = {"data": i}
+            responder.entry_write("test_stream_serialized", data, serialize=True, serialization="arrow")
+            # Ensure that serialization keeps the original data in tact
+            assert data["data"] == i
+        entries = caller.entry_read_n("test_responder",
+                                      "test_stream_serialized",
+                                      5,
+                                      deserialize=True)
         assert len(entries) == 5
         assert entries[0]["data"] == 9
         assert entries[-1]["data"] == 5
@@ -724,7 +743,7 @@ class TestAtom:
         stream_name = "test_ref_multiple_keys"
         stream_data = {"key1": {"nested1": "val1"}, "key2" : {"nested2": "val2"}}
         orig_stream_data = copy.deepcopy(stream_data)
-        caller.entry_write(stream_name, stream_data, serialize=True)
+        caller.entry_write(stream_name, stream_data, serialize=True, serialization="arrow")
         key_dict = caller.reference_create_from_stream(caller.name, stream_name, timeout_ms=0)
         for key in key_dict:
             ref_data = caller.reference_get(key_dict[key], deserialize=True)[0]

@@ -24,7 +24,7 @@ class arrow():
 
     @classmethod
     def serialize(cls, data):
-        return pa.serialize(data).to_buffer()
+        return pa.serialize(data).to_buffer().to_pybytes()
 
     @classmethod
     def deserialize(cls, data):
@@ -83,9 +83,9 @@ def deserialize(data, method="msgpack"):
         by Serializations enum.
     """
     if method not in Serializations.__members__:
-        raise ValueError(f'Invalid serialization method. Must be one of {Serializations.print_values()}.')
+        raise ValueError(f'Invalid deserialization method {method}. Must be one of {Serializations.print_values()}.')
 
     if Serializations[method].value:
         return Serializations[method].value.deserialize(data)
     else:
-        return data
+        return data.decode()
