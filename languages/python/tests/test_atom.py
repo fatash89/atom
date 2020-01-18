@@ -4,7 +4,7 @@ import gc
 import copy
 from atom import Element
 from multiprocessing import Process, Queue
-from threading import Thread, Lock
+from threading import Thread
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_UNSUPPORTED
 from atom.config import ATOM_COMMAND_NO_RESPONSE, ATOM_CALLBACK_FAILED
 from atom.config import ATOM_USER_ERRORS_BEGIN, HEALTHCHECK_RETRY_INTERVAL
@@ -588,21 +588,6 @@ class TestAtom:
 
         test_empty = EmptyContractTest()
         assert test_empty.to_data() == ""
-
-    def test_raw_data(self, caller, responder):
-        responder.command_add("check_kwargs", check_kwargs, deserialize=True)
-        proc = Process(target=responder.command_loop)
-        proc.start()
-        response = caller.command_send("test_responder",
-                                        "check_kwargs",
-                                        {"test" : "kwarg"},
-                                        serialize=True, deserialize=True,
-                                        raw_data={"first_kwarg" : "hello", "second_kwarg" : "world", "third_kwarg":None})
-        proc.terminate()
-        proc.join()
-        assert response["err_code"] == ATOM_NO_ERROR
-        assert response["data"] == "success"
-        assert response["raw_test"] == b"hello, world!"
 
     def test_reference_basic(self, caller):
         data = b'hello, world!'

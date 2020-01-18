@@ -24,7 +24,7 @@ def format_redis_py(data):
 
 
 class Cmd:
-    def __init__(self, element, cmd, data, **kwargs):
+    def __init__(self, element, cmd, data):
         """
         Specifies the format of a command that an element sends to another.
 
@@ -37,16 +37,14 @@ class Cmd:
             raise TypeError("element must be a str")
         if not isinstance(cmd, str):
             raise TypeError("cmd must be a str")
-        if any(key in kwargs for key in CMD_RESERVED_KEYS):
-            raise KeyError("invalid key in raw_data")
+
         self.element = element
         self.cmd = cmd
         self.data = data
-        self.__dict__.update(kwargs)
 
 
 class Response:
-    def __init__(self, data="", err_code=0, err_str="", serialize=False, serialization="msgpack", raw_data={}):
+    def __init__(self, data="", err_code=0, err_str="", serialize=False, serialization="msgpack"):
         """
         Specifies the format of a response that an element returns from a command.
 
@@ -62,10 +60,8 @@ class Response:
             raise TypeError("err_code must be an int")
         if not isinstance(err_str, str):
             raise TypeError("err_str must be a str")
-        if any(key in raw_data for key in RES_RESERVED_KEYS):
-            raise KeyError("invalid key in raw_data")
+
         self.data = ser.serialize(data, method=serialization) if serialize else data
-        self.__dict__.update(raw_data)
         self.err_code = err_code
         self.err_str = err_str
         if serialize:

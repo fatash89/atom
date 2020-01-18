@@ -9,8 +9,7 @@ from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESP
 from atom.config import ATOM_COMMAND_UNSUPPORTED, ATOM_CALLBACK_FAILED, ATOM_USER_ERRORS_BEGIN
 from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND, REDIS_PIPELINE_POOL_SIZE, COMMAND_LIST_COMMAND
 from atom.messages import Cmd, Response, StreamHandler, format_redis_py
-from atom.messages import Acknowledge, Entry, Response, Log, LogLevel
-from atom.messages import RES_RESERVED_KEYS, CMD_RESERVED_KEYS
+from atom.messages import Acknowledge, Entry, Log, LogLevel
 import atom.serialization as ser
 from os import uname
 from queue import Queue
@@ -432,14 +431,6 @@ class Element:
                 self.log(LogLevel.ERR, "No caller name present in command!")
                 continue
 
-            # Get the additional streams that will be passed as
-            #   kwargs to handlers
-            kw_data = {}
-            for val in cmd:
-                ascii_val = val.decode('ascii')
-                if ascii_val not in CMD_RESERVED_KEYS:
-                    kw_data[ascii_val] = cmd[val]
-
             # Send acknowledge to caller
             if cmd_name not in self.timeouts.keys():
                 timeout = RESPONSE_TIMEOUT
@@ -460,7 +451,7 @@ class Element:
                     if self.handler_map[cmd_name]["deserialize"]:
                         # assume serialization key present if deserialize set to True
                         data = ser.deserialize(data, method=self.handler_map[cmd_name]["serialization"])
-                    response = self.handler_map[cmd_name]["handler"](data, **kw_data)
+                    response = self.handler_map[cmd_name]["handler"](data)
                 else:
                     # healthcheck/version requests/command_list commands don't care what data you are sending
                     response = self.handler_map[cmd_name]["handler"]()
@@ -493,8 +484,7 @@ class Element:
                      serialize=False,
                      deserialize=False,
                      serialization="msgpack",
-                     ack_timeout=ACK_TIMEOUT,
-                     raw_data={}):
+                     ack_timeout=ACK_TIMEOUT):
         """
         Sends command to element and waits for acknowledge.
         When acknowledge is received, waits for timeout from acknowledge or until response is received.
@@ -517,11 +507,10 @@ class Element:
         timeout = None
         resp = None
         data = format_redis_py(data)
-        raw_data = format_redis_py(raw_data)
 
         # Send command to element's command stream
         data = ser.serialize(data, method=serialization) if serialize and (data != "") else data
-        cmd = Cmd(self.name, cmd_name, data, **raw_data)
+        cmd = Cmd(self.name, cmd_name, data)
         _pipe = self._rpipeline_pool.get()
         _pipe.xadd(self._make_command_id(element_name), vars(cmd), maxlen=STREAM_LEN)
         cmd_id = _pipe.execute()[-1].decode()
@@ -615,14 +604,8 @@ class Element:
                         except TypeError:
                             self.log(LogLevel.WARNING, "Could not deserialize response.")
 
-                    # Process the raw data
-                    raw_data = {}
-                    for val in response:
-                        ascii_val = val.decode('ascii')
-                        if ascii_val not in RES_RESERVED_KEYS:
-                            raw_data[ascii_val] = response[val]
                     # Make the final response
-                    resp = vars(Response(data=response_data, err_code=err_code, err_str=err_str, raw_data=raw_data))
+                    resp = vars(Response(data=response_data, err_code=err_code, err_str=err_str))
                     break
 
             self._update_response_id_if_older(local_last_id)
