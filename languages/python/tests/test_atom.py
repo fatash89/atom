@@ -621,6 +621,12 @@ class TestAtom:
         ref_data = caller.reference_get(ref_id, deserialize=True)[0]
         assert ref_data == data
 
+    def test_reference_arrow(self, caller):
+        data = {"hello" : "world", "atom" : 123456, "some_obj" : {"references" : "are fun!"} }
+        ref_id = caller.reference_create(data, serialize=True, serialization="arrow")[0]
+        ref_data = caller.reference_get(ref_id)[0]
+        assert ref_data == data
+
     def test_reference_msgpack_dne(self, caller):
         ref_id = "nonexistent"
         ref_data = caller.reference_get(ref_id, deserialize=True)[0]
@@ -743,10 +749,20 @@ class TestAtom:
         stream_name = "test_ref_multiple_keys"
         stream_data = {"key1": {"nested1": "val1"}, "key2" : {"nested2": "val2"}}
         orig_stream_data = copy.deepcopy(stream_data)
-        caller.entry_write(stream_name, stream_data, serialize=True, serialization="arrow")
+        caller.entry_write(stream_name, stream_data, serialize=True)
         key_dict = caller.reference_create_from_stream(caller.name, stream_name, timeout_ms=0)
         for key in key_dict:
             ref_data = caller.reference_get(key_dict[key], deserialize=True)[0]
+            assert ref_data == orig_stream_data[key]
+
+    def test_reference_create_from_stream_multiple_keys_arrow(self, caller):
+        stream_name = "test_ref_multiple_keys"
+        stream_data = {"key1": {"nested1": "val1"}, "key2" : {"nested2": "val2"}}
+        orig_stream_data = copy.deepcopy(stream_data)
+        caller.entry_write(stream_name, stream_data, serialize=True, serialization="arrow")
+        key_dict = caller.reference_create_from_stream(caller.name, stream_name, timeout_ms=0)
+        for key in key_dict:
+            ref_data = caller.reference_get(key_dict[key])[0]
             assert ref_data == orig_stream_data[key]
 
     def test_reference_create_from_stream_multiple_keys_persist(self, caller):

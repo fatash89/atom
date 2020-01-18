@@ -68,7 +68,8 @@ class Response:
         self.__dict__.update(raw_data)
         self.err_code = err_code
         self.err_str = err_str
-        self.ser = serialization if serialize else "none"
+        if serialize:
+            self.ser = serialization
 
 class Entry:
     def __init__(self, field_data_map):

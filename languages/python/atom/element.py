@@ -415,7 +415,7 @@ class Element:
             if not cmd_responses:
                 continue
             stream_name, msgs = cmd_responses[0]
-            msg = msgs[0] #we only read one
+            msg = msgs[0]  # we only read one
             cmd_id, cmd = msg
             # Set the command_last_id to this command's id to keep track of our last read
             self.command_last_id = cmd_id.decode()
@@ -470,7 +470,9 @@ class Element:
                     if response.err_code != 0:
                         response.err_code += ATOM_USER_ERRORS_BEGIN
                 else:
-                    response = Response(err_code=ATOM_CALLBACK_FAILED, err_str=f"Return type of {cmd_name} is not of type Response")
+                    response = Response(err_code=ATOM_CALLBACK_FAILED,
+                                        err_str=f"Return type of {cmd_name} is not of type Response")
+
             kv = vars(response)
             kv["cmd_id"] = cmd_id
             kv["element"] = self.name
@@ -519,7 +521,6 @@ class Element:
 
         # Send command to element's command stream
         data = ser.serialize(data, method=serialization) if serialize and (data != "") else data
-
         cmd = Cmd(self.name, cmd_name, data, **raw_data)
         _pipe = self._rpipeline_pool.get()
         _pipe.xadd(self._make_command_id(element_name), vars(cmd), maxlen=STREAM_LEN)
@@ -545,14 +546,17 @@ class Element:
                     break
                 else:
                     continue
-            stream, msgs = responses[0] #we only read one stream
+
+            stream, msgs = responses[0]  # we only read one stream
             for id, response in msgs:
                 local_last_id = id.decode()
+
                 if b"element" in response and response[b"element"].decode() == element_name \
                 and b"cmd_id" in response and response[b"cmd_id"].decode() == cmd_id \
                 and b"timeout" in response:
                     timeout = int(response[b"timeout"].decode())
                     break
+
                 self._update_response_id_if_older(local_last_id)
 
             # If the response we received wasn't for this command, keep trying until ack timeout
@@ -581,10 +585,12 @@ class Element:
                 err_str = f"Did not receive response from {element_name}."
                 self.log(LogLevel.ERR, err_str)
                 return vars(Response(err_code=ATOM_COMMAND_NO_RESPONSE, err_str=err_str))
-            stream_name, msgs = responses[0] #we only read from one stream
+
+            stream_name, msgs = responses[0]  # we only read from one stream
             for msg in msgs:
                 id, response = msg
                 local_last_id = id.decode()
+
                 if b"element" in response and response[b"element"].decode() == element_name \
                 and b"cmd_id" in response and response[b"cmd_id"].decode() == cmd_id \
                 and b"err_code" in response:
@@ -592,12 +598,22 @@ class Element:
                     err_str = response[b"err_str"].decode() if b"err_str" in response else ""
                     if err_code != ATOM_NO_ERROR:
                         self.log(LogLevel.ERR, err_str)
+
                     response_data = response.get(b"data", "")
-                    try:
-                        response_data = (ser.deserialize(response_data, method=serialization) if
-                                         deserialize and (len(response_data) != 0) else response_data)
-                    except TypeError:
-                        self.log(LogLevel.WARNING, "Could not deserialize response.")
+                    # check response for serialization method; if not present, use user specified method
+                    if b"ser" in response:
+                        ser_method = response.get(b"ser").decode()
+                    elif deserialize:
+                        ser_method = serialization
+                    else:
+                        ser_method = None
+
+                    if ser_method:
+                        try:
+                            response_data = (ser.deserialize(response_data, method=ser_method) if
+                                             (len(response_data) != 0) else response_data)
+                        except TypeError:
+                            self.log(LogLevel.WARNING, "Could not deserialize response.")
 
                     # Process the raw data
                     raw_data = {}
@@ -909,16 +925,18 @@ class Element:
         if type(data) is not list:
             raise ValueError(f"Invalid response from redis: {data}")
 
-        # look for serialization method in reference key
-        try:
-            key_split = key.split(':') if type(key) == str else key.decode().split(':')
-            ser_method = key_split[key_split.index("ser") + 1]
-            return [ser.deserialize(v, method=ser_method) if v is not None else None for v in data]
-        except Exception:
-            pass
+        # look for serialization method in reference key first; if not present use user specified method
+        key_split = key.split(':') if type(key) == str else key.decode().split(':')
 
-        if deserialize:
-            return [ser.deserialize(v, method=serialization) if v is not None else None for v in data]
+        if "ser" in key_split:
+            ser_method = key_split[key_split.index("ser") + 1]
+        elif deserialize:
+            ser_method = serialization
+        else:
+            ser_method = None
+
+        if ser_method:
+            return [ser.deserialize(v, method=ser_method) if v is not None else None for v in data]
         else:
             return data
 
