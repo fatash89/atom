@@ -161,10 +161,10 @@ field_data_map = {"my_field": "my_value"}
 my_element.entry_write("my_stream", field_data_map, maxlen=512)
 
 
-# If you would like to publish non-string data types (int, list, dict, etc.), you can serialize the data using the serialize flag
-# Just remember to pass the deserialize flag when reading the data!
+# If you would like to publish non-string data types (int, list, dict, etc.), you can serialize the data using the serialize flag.
+# A "ser" key will be added to the entry with the serialization method used to serialize ("none" if not serialized).
 field_data_map = {"hello": 0, "atom": ["a", "t", "o", "m"]}
-my_element.entry_write("my_stream", field_data_map, maxlen=512, serialize=True)
+my_element.entry_write("my_stream", field_data_map, maxlen=512, serialize=True, serialization="msgpack")
 ```
 
 Publish a piece of data to a stream.
@@ -314,8 +314,10 @@ enum atom_error_t err = my_element.entryReadN(
 # This gets the 5 most recent entries from your_stream
 entries = my_element.entry_read_n("your_element", "your_stream", 5)
 
-# If the element is publishing serialized entries, they can be deserialized
-entries = my_element.entry_read_n("your_element", "your_stream", 5, deserialize=True)
+# If the element is publishing serialized entries, they can be deserialized.
+# The entry will be checked for a "ser" flag to determine the deserialization method.
+# If not present, the serialization option will be used for deserialization, defaulting to msgpack.
+entries = my_element.entry_read_n("your_element", "your_stream", 5, deserialize=True, serialization="msgpack")
 ```
 
 Reads N entries from a stream in a nonblocking fashion. Returns the N most recent entries.
@@ -403,7 +405,9 @@ enum atom_error_t err = element.entryReadSince(
 # This will get the 10 oldest entries from your_stream since the beginning of time.
 entries = my_element.entry_read_since("your_element", "your_stream", last_id="0", n=10)
 
-# If the element is publishing serialized entries, they can be deserialized
+# If the element is publishing serialized entries, they can be deserialized.
+# The entry will be checked for a "ser" flag to determine the deserialization method.
+# If not present, the serialization option will be used for deserialization, defaulting to msgpack.
 entries = my_element.entry_read_since("your_element", "your_stream", last_id="0", n=10, deserialize=True)
 ```
 
@@ -509,7 +513,9 @@ your_stream_0_handler = StreamHandler("your_element_0", "your_stream_0", print)
 your_stream_1_handler = StreamHandler("your_element_1", "your_stream_1", print)
 my_element.entry_read_loop([your_stream_0_handler, your_stream_1_handler])
 
-# If the element is publishing serialized entries, they can be deserialized
+# If the element is publishing serialized entries, they can be deserialized.
+# The entry will be checked for a "ser" flag to determine the deserialization method.
+# If not present, the serialization option will be used for deserialization, defaulting to msgpack.
 my_element.entry_read_loop([your_stream_0_handler, your_stream_1_handler], deserialize=True)
 ```
 
@@ -751,22 +757,15 @@ def add_1(data):
 my_element.command_add("add_1", add_1, timeout=50)
 
 # Alternatively, we could use serialization to keep from having to convert data types.
+# The serialization method to use can be specified using the serialization option. If
+# serialize is set to True and serialization is not specified, msgpack will be used.
 def add_2(data):
-    return Response(data + 2, serialize=True)
+    return Response(data + 2, serialize=True, serialization="msgpack")
 
-# The deserialize flag will allow the data to be deserialized before it is sent to the add_2 function
+# The deserialize flag will allow the data to be deserialized before it is sent to the add_2 function,
+# and the serialization option again allows the user to specify the (de)serialization method to use.
+# If deserialize=True and no serialization method is specified, msgpack will be used.
 my_element.command_add("add_2", add_2, timeout=50, deserialize=True)
-
-# If we're expecting raw data to be sent from the caller in the event of mixed serialization, we can note that with kwargs in our command handler. Also, we can send raw data in the response with the raw_data kwarg on the Response object. This allows us to still send a primary serialized response but will add raw data to a response dictionary returned to the user.
-def command_with_raw_data(data, raw_key_1=None, raw_key_2=None):
-    """
-    Expects the caller to call command_send with payload of raw_data={"raw_key_1" : some_data, "raw_key_2" : some_other_data}
-
-    The primary data payload here is still serialized using msgpack which is pretty nice.
-    """
-    return Response("success", serialize=True, raw_data={"img" : img.bytes()})
-
-my_element.command_add("raw_data_test", command_with_raw_data, deserialize=True)
 ```
 
 Adds a command to an element. The element will then "support" this command, allowing other elements to call it.
@@ -959,10 +958,9 @@ response = my_element.command_send("your_element", "your_command", data, block=T
 
 # If serialized data is expected by the command, pass the serialize flag to the function.
 # If the response of the command is serialized, it can be deserialized with the deserialize flag.
-response = my_element.command_send("your_element", "your_command", data, block=True, serialize=True, deserialize=True)
-
-# If you'd like to use serialization for _most_ of your command but still would like to send a big chunk of unserialized binary data (common for image-based APIs), then you can do so with the raw_data arg
-response = my_element.command_send("your_element", "your_command", data, block=True, serialize=True, deserialize=True, raw_data={"cmd_img" : img.bytes()})
+# The serialization option allows the user to specify which method of serialization to use, defaulting to "msgpack".
+# Apache Arrow serialization, specified with "arrow", is preferred for array-like data such as images.
+response = my_element.command_send("your_element", "your_command", data, block=True, serialize=True, deserialize=True, serialization="arrow")
 ```
 
 Sends a command to another element
@@ -975,7 +973,6 @@ Sends a command to another element
 | `command` | String | Command we want to call |
 | `data` | binary/unspecified | Optional data payload for the command |
 | `block` | bool | Optional value to wait for the response to the command. If false will only wait for the ACK from the element and not the response packet, else if true will wait for both the ACK and the response |
-| `raw_data` | map/dict | Currently only supported in Python. Writes any additional key:value pairs without serialization to key:value pairs in the stream used for sending commands. This is useful for commands which need mixed serialization, i.e. need serialization for parameters but not for a big data payload such as an image |
 
 ### Return Value
 
@@ -1274,7 +1271,7 @@ data = b'hello, world!'
 ref_ids = my_element.reference_create(data)
 my_element.reference_delete(*ref_ids)
 
-# Serialized reference
+# Serialized reference (msgpack used by default)
 data = {"hello" : "world"}
 ref_ids = my_element.reference_create(data, serialize=True)
 my_element.reference_delete(*ref_ids)
@@ -1306,7 +1303,8 @@ The `timeout_ms` argument is powerful -- it allows you to set a time at which th
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `*data` | Binary/Object | One or more objects to be used for the reference |
-| `serialize` | bool | Whether or not to use `msgpack` to serialize the data specified by the user before storing it in Atom. |
+| `serialize` | bool | Whether or not to serialize the data specified by the user before storing it in Atom. |
+| `serialization` | str | The method of serialization to use; defaults to msgpack. |
 | `timeout_ms` | int | How long the references should exist in Atom. This sets the expiry timeout in redis. Units in milliseconds. Set to 0 for no timeout, i.e. references exist until explicitly deleted. |
 
 ### Return Value
@@ -1361,7 +1359,8 @@ Receive the data from Atom for the given references
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `*keys` | String | One or more Reference IDs |
-| `deserialize` | bool | Whether or not to use `msgpack` to deserialize the data for the reference before returning to the user |
+| `deserialize` | bool | Whether or not to deserialize the data for the reference before returning to the user.
+| `serialization` | str | The deserialization method to use. If the reference key contains a serialization method, that method will be used for deserialization before using this parameter. |
 
 ### Return Value
 
@@ -1374,7 +1373,8 @@ List of data items corresponding with the reference IDs passed as arguments.
 GET $key
 ```
 2. If no data, return None/NULL/error/etc.
-3. If there's data, and `deserialize=True`, deserialize the data
+3. If there's data, checks reference key for deserialization method to deserialize.
+4. If no serialization method in reference key, use `deserialize` and `serialization` parameters to determine deserialization.
 4. Return {$key : data}
 
 ## Delete Reference

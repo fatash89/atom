@@ -607,6 +607,10 @@ class TestAtom:
         assert ref_data == data
 
     def test_reference_arrow(self, caller):
+        """
+        Creates references serialized with Apache Arrow; gets references and deserializes
+        based on serialization method embedded within reference key.
+        """
         data = {"hello" : "world", "atom" : 123456, "some_obj" : {"references" : "are fun!"} }
         ref_id = caller.reference_create(data, serialize=True, serialization="arrow")[0]
         ref_data = caller.reference_get(ref_id)[0]

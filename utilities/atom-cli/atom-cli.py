@@ -26,7 +26,7 @@ class AtomCLI:
         })
         self.session = PromptSession(style=self.style)
         self.print_atom_os_logo()
-        self.serialize = None
+        self.serialize = "msgpack"
         self.cmd_map = {
             "help": self.cmd_help,
             "list": self.cmd_list,

@@ -323,10 +323,10 @@ $ docker exec -it atombot atom-cli
 > help
 ```
 
-> <button class="copy-button" onclick='copyText(this, "msgpack false")'>Copy</button> (CLI) Turn off Msgpack
+> <button class="copy-button" onclick='copyText(this, "serialize none")'>Copy</button> (CLI) Turn off serialization
 
-```msgpack_off
-> msgpack false
+```serialize_off
+> serialize none
 ```
 
 
@@ -418,10 +418,11 @@ Now that our atombot element is running, let's interact with it using `atom-cli`
 - We can control the rate at which the messages are printed by passing in the rate value (hz)
     - `read atombot pos_map 1`
 - By default, atom-cli automatically msgpacks the data that is sent/received
-- If you wish, you can override this with the `msgpack` command
-    - `msgpack False`
+- If you wish, you can override this with the `serialize` command
+    - `serialize none`
     - Now if you try `read atombot pos_map 1`, you should see the raw binary data sent to this stream.
-    - Do `msgpack True` to re-enable msgpack serialization
+    - Do `serialize msgpack` to re-enable msgpack serialization
+    - Do `serialize arrow` to use Apache Arrow serialization
 - We can see the history of our commands by using the `records` command
     - `records cmdres atombot`
 - We can also see all of the logs that have been written so far
