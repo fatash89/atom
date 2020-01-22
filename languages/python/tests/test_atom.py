@@ -104,13 +104,12 @@ class TestAtom:
         """
         for i in range(10):
             data = {"data": i}
-            responder.entry_write("test_stream_serialized", data, serialize=True, serialization="arrow")
+            responder.entry_write("test_stream_arrow_serialized", data, serialize=True, serialization="arrow")
             # Ensure that serialization keeps the original data in tact
             assert data["data"] == i
         entries = caller.entry_read_n("test_responder",
-                                      "test_stream_serialized",
-                                      5,
-                                      deserialize=True)
+                                      "test_stream_arrow_serialized",
+                                      5)
         assert len(entries) == 5
         assert entries[0]["data"] == 9
         assert entries[-1]["data"] == 5
@@ -174,6 +173,24 @@ class TestAtom:
         proc.join()
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == 1
+
+    def test_command_response_arrow_serializeds(self, caller, responder):
+        """
+        Ensures that command and response are serialized correctly based on serialization specified.
+        """
+        def add_1_arrow_serialized(data):
+            return Response(data + 1, serialize=True, serialization="arrow")
+
+        responder.command_add("test_command", add_1_arrow_serialized, deserialize=True, serialization="arrow")
+        assert "test_command" in responder.handler_map
+        assert responder.handler_map["test_command"]["serialization"] == "arrow"
+        proc = Process(target=responder.command_loop)
+        proc.start()
+        response = caller.command_send("test_responder", "test_command", 123, serialize=True, serialization="arrow")
+        proc.terminate()
+        proc.join()
+        assert response["err_code"] == ATOM_NO_ERROR
+        assert response["data"] == 124
 
     def test_listen_on_streams(self, caller):
         """
@@ -810,15 +827,6 @@ class TestAtom:
             correct_data = get_data(9)
             assert ref_data == correct_data[key]
 
-def check_kwargs(data, first_kwarg=None, second_kwarg=None, third_kwarg=None):
-    """
-    Check that the kwargs are correct
-    """
-    assert data["test"] == "kwarg"
-    assert first_kwarg == b"hello"
-    assert second_kwarg == b"world"
-    assert third_kwarg == b""
-    return Response("success", serialize=True, raw_data={"raw_test": "hello, world!"})
 
 def add_1(x):
     return Response(int(x)+1)

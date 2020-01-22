@@ -653,8 +653,14 @@ class Element:
                 for uid, entry in msgs:
                     streams[stream] = uid
                     entry = self._decode_entry(entry)
-                    ser_method = entry.pop("ser").decode() if "ser" in entry.keys() else serialization
-                    entry = self._deserialize_entry(entry, method=ser_method) if deserialize else entry
+                    if "ser" in entry.keys():
+                        ser_method = entry.pop("ser").decode()
+                    elif deserialize:
+                        ser_method = serialization
+                    else:
+                        ser_method = None
+
+                    entry = self._deserialize_entry(entry, method=ser_method) if ser_method else entry
                     entry["id"] = uid.decode()
                     stream_handler_map[stream.decode()](entry)
 
@@ -677,8 +683,14 @@ class Element:
         uid_entries = self._rclient.xrevrange(stream_id, count=n)
         for uid, entry in uid_entries:
             entry = self._decode_entry(entry)
-            ser_method = entry.pop("ser").decode() if "ser" in entry.keys() else serialization
-            entry = self._deserialize_entry(entry, method=ser_method) if deserialize else entry
+            if "ser" in entry.keys():
+                ser_method = entry.pop("ser").decode()
+            elif deserialize:
+                ser_method = serialization
+            else:
+                ser_method = None
+
+            entry = self._deserialize_entry(entry, method=ser_method) if ser_method else entry
             entry["id"] = uid.decode()
             entries.append(entry)
         return entries
@@ -716,8 +728,14 @@ class Element:
             if stream_name.decode() == stream_id:
                 for uid, entry in msgs:
                     entry = self._decode_entry(entry)
-                    ser_method = entry.pop("ser").decode() if "ser" in entry.keys() else serialization
-                    entry = self._deserialize_entry(entry, method=ser_method) if deserialize else entry
+                    if "ser" in entry.keys():
+                        ser_method = entry.pop("ser").decode()
+                    elif deserialize:
+                        ser_method = serialization
+                    else:
+                        ser_method = None
+
+                    entry = self._deserialize_entry(entry, method=ser_method) if ser_method else entry
                     entry["id"] = uid.decode()
                     entries.append(entry)
         return entries
