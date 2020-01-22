@@ -1,6 +1,7 @@
 from msgpack import packb, unpackb
 import pyarrow as pa
 from enum import Enum
+import builtins
 
 
 class msgpack():
@@ -24,9 +25,13 @@ class arrow():
 
     @classmethod
     def serialize(cls, data):
-        if type(data).__name__ not in dir(__builtins__):
-            raise TypeError("Data is not a built-in Python type; Arrow will default to pickle."
-                            "Change data type or choose a different serialization method.")
+        """
+        Serializes data with Apache Arrow if data is a built-in Python type.
+        Raises error if data is not a built-in Python type.
+        """
+        if not hasattr(builtins, type(data).__name__):
+            raise TypeError(f"Data is type {type(data).__name__}, which is not a built-in Python type; Arrow will default "
+                            "to pickle. Change data type or choose a different serialization method.")
         else:
             return pa.serialize(data).to_buffer().to_pybytes()
 

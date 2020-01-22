@@ -114,6 +114,22 @@ class TestAtom:
         assert entries[0]["data"] == 9
         assert entries[-1]["data"] == 5
 
+    def test_add_entry_arrow_serialize_custom_type(self, caller, responder):
+        """
+        Attempts to add an arrow-serialized entry of a custom (not Python built-in) type.
+        Ensures that TypeError is raised.
+        """
+        class CustomClass():
+            pass
+
+        inst = CustomClass()
+
+        with pytest.raises(TypeError) as excinfo:
+            responder.entry_write("test_arrow_custom_type", {"data": inst}, serialize=True, serialization="arrow")
+
+        print(excinfo.value)
+        assert "not a built-in Python type" in str(excinfo.value)
+
     def test_add_command(self, responder):
         """
         Ensures that a command can be added to a responder.
