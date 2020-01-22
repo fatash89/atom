@@ -24,7 +24,11 @@ class arrow():
 
     @classmethod
     def serialize(cls, data):
-        return pa.serialize(data).to_buffer().to_pybytes()
+        if type(data).__name__ not in dir(__builtins__):
+            raise TypeError("Data is not a built-in Python type; Arrow will default to pickle."
+                            "Change data type or choose a different serialization method.")
+        else:
+            return pa.serialize(data).to_buffer().to_pybytes()
 
     @classmethod
     def deserialize(cls, data):
