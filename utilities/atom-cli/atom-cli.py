@@ -26,7 +26,7 @@ class AtomCLI:
         })
         self.session = PromptSession(style=self.style)
         self.print_atom_os_logo()
-        self.serialize = "msgpack"
+        self.serialization = "msgpack"
         self.cmd_map = {
             "help": self.cmd_help,
             "list": self.cmd_list,
@@ -34,7 +34,7 @@ class AtomCLI:
             "command": self.cmd_command,
             "read": self.cmd_read,
             "exit": self.cmd_exit,
-            "serialize": self.cmd_serialize,
+            "serialization": self.cmd_serialization,
         }
         self.usage = {
             "cmd_help": cleandoc("""
@@ -80,13 +80,13 @@ class AtomCLI:
                 Usage:
                   exit"""),
 
-            "cmd_serialize": cleandoc("""
+            "cmd_serialization": cleandoc("""
                 Sets serialization/deserialization setting to either use msgpack,
                 Apache arrow, or no (de)serialization. Defaults to no serialization.
                 This setting is overriden by deserialization keys received in stream.
 
                 Usage:
-                  serialize (msgpack | arrow | none)"""),
+                  serialization (msgpack | arrow | none)"""),
         }
 
     def run(self):
@@ -128,7 +128,7 @@ class AtomCLI:
         for k, v in record.items():
             if type(k) is bytes:
                 k = k.decode()
-            if not self.serialize:
+            if not self.serialization:
                 try:
                     v = v.decode()
                 except:
@@ -269,7 +269,7 @@ class AtomCLI:
                         if not isinstance(value, str):
                             value = value.decode()
                     except:
-                        value = ser.deserialize(value, method=self.serialize)
+                        value = ser.deserialize(value, method=self.serialization)
                     finally:
                         record[key] = value
                 record["type"], record["element"] = stream.split(":")
@@ -286,7 +286,7 @@ class AtomCLI:
         command_name = args[1]
         if len(args) >= 3:
             data = str(" ".join(args[2:]))
-            if self.serialize:
+            if self.serialization:
                 try:
                     data = json.loads(data)
                 except:
@@ -297,9 +297,9 @@ class AtomCLI:
         resp = self.element.command_send(element_name,
                                          command_name,
                                          data,
-                                         serialize=(self.serialize is not None),
-                                         deserialize=(self.serialize is not None),
-                                         serialization=self.serialize)  # shouldn't be used if it's None
+                                         serialize=(self.serialization is not None),
+                                         deserialize=(self.serialization is not None),
+                                         serialization=self.serialization)  # shouldn't be used if it's None
         print(self.format_record(resp))
 
     def cmd_read(self, *args):
@@ -330,8 +330,8 @@ class AtomCLI:
             entries = self.element.entry_read_n(element_name,
                                                 stream_name,
                                                 1,
-                                                deserialize=(self.serialize is not None),
-                                                serialization=self.serialize)  # shouldn't be used if it's None
+                                                deserialize=(self.serialization is not None),
+                                                serialization=self.serialization)  # shouldn't be used if it's None
             if not entries:
                 print(f"No data from {element_name} {stream_name}.")
                 return
@@ -344,8 +344,8 @@ class AtomCLI:
             if rate:
                 time.sleep(max(1 / rate - (time.time() - start_time), 0))
 
-    def cmd_serialize(self, *args):
-        usage = self.usage["cmd_serialize"]
+    def cmd_serialization(self, *args):
+        usage = self.usage["cmd_serialization"]
         if (len(args) != 1):
             print(usage)
             print(f"\nPass one argument: {ser.Serializations.print_values()}.")
@@ -353,15 +353,15 @@ class AtomCLI:
 
         # Otherwise try to get the new setting
         if (args[0].lower() == "msgpack"):
-            self.serialize = "msgpack"
+            self.serialization = "msgpack"
         elif (args[0].lower() == "arrow"):
-            self.serialize = "arrow"
+            self.serialization = "arrow"
         elif (args[0].lower() == "none"):
-            self.serialize = None
+            self.serialization = None
         else:
             print(f"\nArgument must be one of {ser.Serializations.print_values()}.")
 
-        print("Current serialization status is {}".format(self.serialize))
+        print("Current serialization status is {}".format(self.serialization))
 
     def cmd_exit(*args):
         print("Exiting.")
