@@ -4,7 +4,21 @@ from enum import Enum
 import builtins
 
 
-class msgpack():
+class SerializationMethod():
+    """
+    Class containing functions for default serialization method (no serialization).
+    Parent class for all serialization method classes.
+    """
+    @classmethod
+    def serialize(cls, data):
+        return data
+
+    @classmethod
+    def deserialize(cls, data):
+        return data
+
+
+class Msgpack(SerializationMethod):
     """
     Class containing msgpack serialization and deserialization functions.
     """
@@ -18,7 +32,7 @@ class msgpack():
         return unpackb(data, raw=False)
 
 
-class arrow():
+class Arrow(SerializationMethod):
     """
     Class containing Apache Arrow serialization and deserialization functions.
     """
@@ -33,7 +47,7 @@ class arrow():
             raise TypeError(f"Data is type {type(data).__name__}, which is not a built-in Python type; Arrow will default "
                             "to pickle. Change data type or choose a different serialization method.")
         else:
-            return pa.serialize(data).to_buffer().to_pybytes()
+            return memoryview(pa.serialize(data).to_buffer())
 
     @classmethod
     def deserialize(cls, data):
@@ -44,9 +58,9 @@ class Serializations(Enum):
     """
     Enum class that defines available serialization options.
     """
-    msgpack = msgpack
-    arrow   = arrow
-    none    = None
+    msgpack = Msgpack
+    arrow   = Arrow
+    none    = SerializationMethod
 
     @classmethod
     def print_values(cls):
@@ -54,6 +68,14 @@ class Serializations(Enum):
         Returns comma separated string of serialization options for pretty printing.
         """
         return ", ".join([v.name for v in cls])
+
+
+def is_valid_serialization(method):
+    """
+    Checks serialization method string against available serialization options.
+    Returns True/False if method is valid/invalid.
+    """
+    return (method in Serializations.__members__)
 
 
 def serialize(data, method="msgpack"):
@@ -69,13 +91,10 @@ def serialize(data, method="msgpack"):
         ValueError if requested method is not in available serialization options defined
         by Serializations enum.
     """
-    if method not in Serializations.__members__:
+    if not is_valid_serialization(method):
         raise ValueError(f'Invalid serialization method. Must be one of {Serializations.print_values()}.')
 
-    if Serializations[method].value:
-        return Serializations[method].value.serialize(data)
-    else:
-        return data
+    return Serializations[method].value.serialize(data)
 
 
 def deserialize(data, method="msgpack"):
@@ -91,10 +110,7 @@ def deserialize(data, method="msgpack"):
         ValueError if requested method is not in available serialization options defined
         by Serializations enum.
     """
-    if method not in Serializations.__members__:
+    if not is_valid_serialization(method):
         raise ValueError(f'Invalid deserialization method {method}. Must be one of {Serializations.print_values()}.')
 
-    if Serializations[method].value:
-        return Serializations[method].value.deserialize(data)
-    else:
-        return data
+    return Serializations[method].value.deserialize(data)
