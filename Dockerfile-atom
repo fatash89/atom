@@ -7,11 +7,16 @@ FROM elementaryrobotics/$BASE_IMAGE:$BASE_IMAGE_TAG
 ADD . /atom
 
 #
+# Build and install arrow
+#
+WORKDIR /atom/third-party/
+RUN bash ./install_arrow.sh
+
+#
 # Build and install the python library
 #
 WORKDIR /atom/languages/python
 RUN pip3 install -r requirements.txt
-RUN pip3 install pyarrow==0.15.1
 RUN python3 setup.py install
 
 #

@@ -4,3 +4,6 @@
 [submodule "third-party/docker-opengl"]
 	path = third-party/docker-opengl
 	url = https://github.com/thewtex/docker-opengl
+[submodule "third-party/apache-arrow"]
+	path = third-party/apache-arrow
+	url = https://github.com/apache/arrow
