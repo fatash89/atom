@@ -667,6 +667,15 @@ class TestAtom:
         for i in range(len(data)):
             assert ref_data[i] == data[i]
 
+    def test_reference_multiple_mixed_serialization(self, caller):
+        data = [{"hello": "world"}, b'123456']
+        ref_ids = [ ]
+        ref_ids.extend(caller.reference_create(data[0], serialization="msgpack"))
+        ref_ids.extend(caller.reference_create(data[1], serialization="none"))
+        ref_data = caller.reference_get(*ref_ids)
+        for ref, orig in zip(ref_data, data):
+            assert ref == orig
+
     def test_reference_get_timeout_ms(self, caller):
         data = b'hello, world!'
         ref_id = caller.reference_create(data, timeout_ms=1000)[0]

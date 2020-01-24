@@ -377,7 +377,7 @@ class Element:
         if not callable(handler):
             raise TypeError("Passed in handler is not a function!")
         # Handler must return response with 0 error_code to pass healthcheck
-        self.handler_map[HEALTHCHECK_COMMAND] = {"handler": handler, "serialization": None}
+        self.handler_map[HEALTHCHECK_COMMAND] = {"handler": handler, "serialization": "none"}
         self.timeouts[HEALTHCHECK_COMMAND] = RESPONSE_TIMEOUT
 
     def wait_for_elements_healthy(self, element_list, retry_interval=HEALTHCHECK_RETRY_INTERVAL, strict=False):

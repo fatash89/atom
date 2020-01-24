@@ -9,6 +9,7 @@ Atom was architected and developed for Elementary Robotics by [@dpipemazo](https
 - [@angeladong2018](https://github.com/angeladong2018)
 - [@plipay](https://github.com/plipay)
 - [@Cody-G](https://github.com/Cody-G)
+- [@aywaldron](https://github.com/aywaldron)
 
 ## Open Source
 

@@ -261,7 +261,7 @@ commands:
     steps:
       - run:
           name: Python tests
-          command: docker exec -it -w /atom/languages/python << parameters.container >> pytest
+          command: docker exec -it -w /atom/languages/python/tests << parameters.container >> pytest
       - run:
           name: C tests
           command:  docker exec -it -w /atom/languages/c << parameters.container >> make test
