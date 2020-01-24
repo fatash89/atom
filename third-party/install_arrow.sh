@@ -13,9 +13,10 @@ export PYTHON_EXECUTABLE=/usr/bin/python3
 # install requirements
 if [[ `which apt` ]]; then
   export DEBIAN_FRONTEND="noninteractive"
+  apt-get update
   apt-get install -y python3-dev \
+                     libjemalloc-dev libboost-dev \
                      build-essential \
-                     cmake \
                      libboost-filesystem-dev \
                      libboost-regex-dev \
                      libboost-system-dev \
@@ -54,4 +55,4 @@ mkdir -p /atom/third-party/apache-arrow/cpp/build \
   && make install \
   && cd /atom/third-party/apache-arrow/python \
   && python3 setup.py build_ext --build-type=$ARROW_BUILD_TYPE --with-parquet \
-  && python3 setup.py install \
+  && python3 setup.py install
