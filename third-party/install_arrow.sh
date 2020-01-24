@@ -1,9 +1,4 @@
-# Script to build and install arrow on alpine
-
-# build Cody's fork of redis-py
-git clone https://github.com/Cody-G/redis-py.git
-cd redis-py
-python3 setup.py install
+# Script to build and install arrow on alpine or ubuntu
 
 export ARROW_BUILD_TYPE=release
 export ARROW_HOME=/usr/local \
@@ -15,7 +10,8 @@ if [[ `which apt` ]]; then
   export DEBIAN_FRONTEND="noninteractive"
   apt-get update
   apt-get install -y python3-dev \
-                     libjemalloc-dev libboost-dev \
+                     libjemalloc-dev \
+                     libboost-dev \
                      build-essential \
                      libboost-filesystem-dev \
                      libboost-regex-dev \

@@ -7,3 +7,6 @@
 [submodule "third-party/apache-arrow"]
 	path = third-party/apache-arrow
 	url = https://github.com/apache/arrow
+[submodule "languages/python/third-party/redis-py"]
+	path = languages/python/third-party/redis-py
+	url = https://github.com/Cody-G/redis-py.git

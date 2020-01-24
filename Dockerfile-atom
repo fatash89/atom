@@ -11,7 +11,17 @@ ADD . /atom
 #
 WORKDIR /atom/third-party/
 RUN bash ./install_arrow.sh
-ENV LD_LIBRARY_PATH=/usr/local/lib
+
+#
+# Set up the LD_LIBRARY_PATH on the system s.t.
+#   our binaries work as expected
+ENV LD_LIBRARY_PATH /usr/local/lib:${LD_LIBRARY_PATH}
+
+#
+# Install redis-py
+#
+WORKDIR /atom/languages/python/third-party/redis-py
+RUN python3 setup.py install
 
 #
 # Build and install the python library
@@ -38,11 +48,6 @@ RUN make clean && make && make install
 
 WORKDIR /atom/languages/cpp
 RUN make clean && make && make install
-
-#
-# And finally set up the LD_LIBRARY_PATH on the system s.t.
-#   our binaries work as expected
-ENV LD_LIBRARY_PATH /usr/local/lib:${LD_LIBRARY_PATH}
 
 #
 # Install dependencies for atom-cli

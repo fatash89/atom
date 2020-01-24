@@ -26,6 +26,10 @@ RUN cmake -DMSGPACK_CXX11=ON . && make install
 WORKDIR /atom/third-party/
 RUN sh ./install_arrow.sh
 
+# Install redis-py
+WORKDIR /atom/languages/python/third-party/redis-py
+RUN python3 setup.py install
+
 # Build and install python library for atom
 WORKDIR /atom/languages/python
 RUN pip3 install -r requirements.txt
