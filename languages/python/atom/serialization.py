@@ -4,9 +4,9 @@ from enum import Enum
 import builtins
 
 
-class SerializationMethod():
+class GenericSerializationMethod():
     """
-    Class containing functions for default serialization method (no serialization).
+    Class containing generic functions for serialization methods (no serialization).
     Parent class for all serialization method classes.
     """
     @classmethod
@@ -18,7 +18,7 @@ class SerializationMethod():
         return data
 
 
-class Msgpack(SerializationMethod):
+class Msgpack(GenericSerializationMethod):
     """
     Class containing msgpack serialization and deserialization functions.
     """
@@ -32,7 +32,7 @@ class Msgpack(SerializationMethod):
         return unpackb(data, raw=False)
 
 
-class Arrow(SerializationMethod):
+class Arrow(GenericSerializationMethod):
     """
     Class containing Apache Arrow serialization and deserialization functions.
     """
@@ -60,7 +60,7 @@ class Serializations(Enum):
     """
     msgpack = Msgpack
     arrow   = Arrow
-    none    = SerializationMethod
+    none    = GenericSerializationMethod
 
     @classmethod
     def print_values(cls):

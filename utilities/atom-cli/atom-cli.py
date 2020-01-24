@@ -82,7 +82,7 @@ class AtomCLI:
 
             "cmd_serialization": cleandoc("""
                 Sets serialization/deserialization setting to either use msgpack,
-                Apache arrow, or no (de)serialization. Defaults to no serialization.
+                Apache arrow, or no (de)serialization. Defaults to msgpack serialization.
                 This setting is overriden by deserialization keys received in stream.
 
                 Usage:

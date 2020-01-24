@@ -44,7 +44,7 @@ class Cmd:
 
 
 class Response:
-    def __init__(self, data="", err_code=0, err_str="", serialize=False, serialization="msgpack"):
+    def __init__(self, data="", err_code=0, err_str="", serialization="none", serialize=None):
         """
         Specifies the format of a response that an element returns from a command.
 
@@ -52,20 +52,25 @@ class Response:
             data (optional): The data returned from the element's command.
             err_code (int, optional): The error code if error, otherwise 0.
             err_str (str, optional): The error message, if any.
-            serialize (bool, optional): Whether or not to serialize data.
-            serialization (str, optional): If serializing the data, the method of serialization to use;
-                                           defaults to msgpack.
+            serialization (str, optional): Method of serialization to use;
+                                           defaults to "none".
+
+            Deprecated:
+            serialize (bool, optional): Whether or not to serialize data using msgpack.
         """
         if not isinstance(err_code, int):
             raise TypeError("err_code must be an int")
         if not isinstance(err_str, str):
             raise TypeError("err_str must be a str")
 
-        self.data = ser.serialize(data, method=serialization) if serialize else data
+        if serialize is not None:  # check for deprecated legacy mode
+            serialization = "msgpack" if serialize else "none"
+
+        self.data = ser.serialize(data, method=serialization)
+        self.ser = serialization
+
         self.err_code = err_code
         self.err_str = err_str
-        if serialize:
-            self.ser = serialization
 
 class Entry:
     def __init__(self, field_data_map):
