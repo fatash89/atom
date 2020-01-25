@@ -38,12 +38,16 @@ commands:
   # Load image from workspace and log into docker
   load_and_login:
     description: "Load the image from workspace and login"
+    parameters:
+      image_name:
+        type: string
+        default: image
     steps:
       - attach_workspace:
           at: /tmp/workspace
       - run:
           name: Load Docker Image
-          command: docker load -i /tmp/workspace/image.tar
+          command: docker load -i /tmp/workspace/<< parameters.image_name >>.tar
       - docker_login
 
   # Build and launch the docker-compose file
@@ -68,17 +72,20 @@ commands:
   # Store the docker image
   store_image:
     description: "Store the image built"
+    parameters:
+      image_filename:
+        type: string
+        default: image
     steps:
       - run:
           name: Archive Docker image
-          command: docker save -o image.tar ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
+          command: docker save -o << parameters.image_filename >>.tar ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
       - persist_to_workspace:
           root: .
           paths:
-            - ./image.tar
+            - ./ << parameters.image_filename >>.tar
       - store_artifacts:
-          path: ./image.tar
-
+          path: ./ << parameters.image_filename >>.tar
 
   # Create and push image tag
   tag_and_deploy:
@@ -86,13 +93,60 @@ commands:
     parameters:
       tag:
         type: string
+      source_image:
+        type: string
+        default: ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
+      target_image:
+        type: string
+        default: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}
     steps:
       - run:
           name: Docker Tag
-          command: docker tag ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID} ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}:<< parameters.tag >>
+          command: docker tag << parameters.source_image >> << parameters.target_image >>:<< parameters.tag >>
       - run:
           name: Docker Push
-          command: docker push ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}:<< parameters.tag >>
+          command: docker push << parameters.target_image >>:<< parameters.tag >>
+
+  push_dev_image:
+    parameters:
+      image_filename:
+        type: string
+      source_image:
+        type: string
+      target_image:
+        type: string
+    steps:
+      - load_and_login:
+          image_name: << parameters.image_filename >>
+      - tag_and_deploy:
+          tag: development-${CIRCLE_BUILD_NUM}
+          source_image: << parameters.source_image >>
+          target_image: << parameters.target_image >>
+
+  push_master_image:
+    parameters:
+      image_name:
+        type: string
+        default: image
+    steps:
+      - load_and_login:
+          image_name: << parameters.image_name >>
+      - tag_and_deploy:
+          tag: master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
+      - tag_and_deploy:
+          tag: latest
+
+  push_tag_image:
+    parameters:
+      image_name:
+        type: string
+        default: image
+    steps:
+      - load_and_login:
+          image_name: << parameters.image_name >>
+      - tag_and_deploy:
+          tag: ${CIRCLE_TAG}
+
 
 #
 # Jobs that are nice to be able to share between elements
@@ -102,28 +156,36 @@ jobs:
   # Tag and deploy a development image
   deploy-dev:
     executor: build-classic
+    parameters:
+      image_name:
+        type: string
+        default: image
     steps:
-      - load_and_login
-      - tag_and_deploy:
-          tag: development-${CIRCLE_BUILD_NUM}
+      - push_dev_image:
+          image_name: << parameters.image_name >>
 
   # Tag and deploy a master image
   deploy-master:
     executor: build-classic
+    parameters:
+      image_name:
+        type: string
+        default: image
     steps:
-      - load_and_login
-      - tag_and_deploy:
-          tag: master-${CIRCLE_BUILD_NUM}
-      - tag_and_deploy:
-          tag: latest
+      - push_master_image:
+          image_name: << parameters.image_name >>
 
   # Tag and deploy release image with GitHub tag
   deploy-tag:
     executor: build-classic
+    parameters:
+      image_name:
+        type: string
+        default: image
     steps:
-      - load_and_login
-      - tag_and_deploy:
-          tag: ${CIRCLE_TAG}
+      - push_tag_image:
+           image_name: << parameters.image_name >>
+
 
 #
 # Examples
