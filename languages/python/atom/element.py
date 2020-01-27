@@ -226,14 +226,14 @@ class Element:
             decoded_entry[k_str] = entry[k]
         return decoded_entry
 
-    def _deserialize_entry(self, entry, method="none"):
+    def _deserialize_entry(self, entry, method=None):
         """
         Deserializes the binary data of the entry.
 
         Args:
             entry (dict): The entry in dictionary form to deserialize.
             method (str, optional): The method of deserialization to use;
-                                    defaults to "none".
+                                    defaults to None.
         Returns:
             The deserialized entry as a dictionary.
         """
@@ -335,7 +335,7 @@ class Element:
                 command_list.extend([f'{element}:{command}' for command in elem_commands])
         return command_list
 
-    def command_add(self, name, handler, timeout=RESPONSE_TIMEOUT, serialization="none", deserialize=None):
+    def command_add(self, name, handler, timeout=RESPONSE_TIMEOUT, serialization=None, deserialize=None):
         """
         Adds a command to the element for another element to call.
 
@@ -344,7 +344,7 @@ class Element:
             handler (callable): Function to call given the command name.
             timeout (int, optional): Time for the caller to wait for the command to finish.
             serialization (str, optional): The method of serialization to use;
-                                           defaults to "none".
+                                           defaults to None.
 
             Deprecated:
             deserialize (bool, optional): Whether or not to deserialize the data using
@@ -356,7 +356,7 @@ class Element:
             raise ValueError(f"'{name}' is a reserved command name dedicated to {name} commands, choose another name")
 
         if deserialize is not None:  # check for deprecated legacy mode
-            serialization = "msgpack" if deserialize else "none"
+            serialization = "msgpack" if deserialize else None
 
         if not ser.is_valid_serialization(serialization):
             raise ValueError(f"Invalid serialization method \"{serialization}\"."
@@ -377,7 +377,7 @@ class Element:
         if not callable(handler):
             raise TypeError("Passed in handler is not a function!")
         # Handler must return response with 0 error_code to pass healthcheck
-        self.handler_map[HEALTHCHECK_COMMAND] = {"handler": handler, "serialization": "none"}
+        self.handler_map[HEALTHCHECK_COMMAND] = {"handler": handler, "serialization": None}
         self.timeouts[HEALTHCHECK_COMMAND] = RESPONSE_TIMEOUT
 
     def wait_for_elements_healthy(self, element_list, retry_interval=HEALTHCHECK_RETRY_INTERVAL, strict=False):
@@ -463,7 +463,7 @@ class Element:
             else:
                 if cmd_name not in self.reserved_commands:
                     if "deserialize" in self.handler_map[cmd_name]:  # check for deprecated legacy mode
-                        serialization = "msgpack" if self.handler_map[cmd_name]["deserialize"] else "none"
+                        serialization = "msgpack" if self.handler_map[cmd_name]["deserialize"] else None
                     else:
                         serialization = self.handler_map[cmd_name]["serialization"]
 
@@ -499,7 +499,7 @@ class Element:
                      data="",
                      block=True,
                      ack_timeout=ACK_TIMEOUT,
-                     serialization="none",
+                     serialization=None,
                      serialize=None,
                      deserialize=None):
         """
@@ -514,7 +514,7 @@ class Element:
             ack_timeout (int, optional): Time in milliseconds to wait for ack before
                                          timing out, overrides default value.
             serialization (str, optional): Method of serialization to use;
-                                           defaults to "none".
+                                           defaults to None.
 
             Deprecated:
             serialize (bool, optional): Whether or not to serialize the data with msgpack
@@ -533,7 +533,7 @@ class Element:
 
         # Send command to element's command stream
         if serialize is not None:  # check for deprecated legacy mode
-            serialization = "msgpack" if serialize else "none"
+            serialization = "msgpack" if serialize else None
 
         data = ser.serialize(data, method=serialization) if (data != "") else data
 
@@ -620,7 +620,7 @@ class Element:
                     if b"ser" in response:
                         serialization = response[b"ser"].decode()
                     elif deserialize is not None:  # check for deprecated legacy mode
-                        serialization = "msgpack" if deserialize else "none"
+                        serialization = "msgpack" if deserialize else None
 
                     try:
                         response_data = (ser.deserialize(response_data, method=serialization) if
@@ -644,7 +644,7 @@ class Element:
         self.log(LogLevel.ERR, err_str)
         return vars(Response(err_code=ATOM_COMMAND_NO_RESPONSE, err_str=err_str))
 
-    def entry_read_loop(self, stream_handlers, n_loops=None, timeout=MAX_BLOCK, serialization="none", deserialize=None):
+    def entry_read_loop(self, stream_handlers, n_loops=None, timeout=MAX_BLOCK, serialization=None, deserialize=None):
         """
         Listens to streams and pass any received entry to corresponding handler.
 
@@ -653,7 +653,7 @@ class Element:
             n_loops (int): Number of times to send the stream entry to the handlers.
             timeout (int): How long to block on the stream. If surpassed, the function returns.
             serialization (str, optional): If deserializing, the method of serialization
-                                           to use; defaults to "none".
+                                           to use; defaults to None.
 
             Deprecated:
             deserialize (bool, optional): Whether or not to deserialize the entries
@@ -684,13 +684,13 @@ class Element:
                     if "ser" in entry.keys():
                         serialization = entry.pop("ser").decode()
                     elif deserialize is not None:  # check for deprecated legacy mode
-                        serialization = "msgpack" if deserialize else "none"
+                        serialization = "msgpack" if deserialize else None
 
                     entry = self._deserialize_entry(entry, method=serialization)
                     entry["id"] = uid.decode()
                     stream_handler_map[stream.decode()](entry)
 
-    def entry_read_n(self, element_name, stream_name, n, serialization="none", deserialize=None):
+    def entry_read_n(self, element_name, stream_name, n, serialization=None, deserialize=None):
         """
         Gets the n most recent entries from the specified stream.
 
@@ -699,7 +699,7 @@ class Element:
             stream_name (str): Name of the stream to get the entry from.
             n (int): Number of entries to get.
             serialization (str, optional): The method of deserialization to use;
-                                           defaults to "none".
+                                           defaults to None.
 
             Deprecated:
             deserialize (bool, optional): Whether or not to deserialize the entries\
@@ -716,7 +716,7 @@ class Element:
             if "ser" in entry.keys():
                 serialization = entry.pop("ser").decode()
             elif deserialize is not None:  # check for deprecated legacy mode
-                serialization = "msgpack" if deserialize else "none"
+                serialization = "msgpack" if deserialize else None
 
             entry = self._deserialize_entry(entry, method=serialization)
             entry["id"] = uid.decode()
@@ -730,7 +730,7 @@ class Element:
                          last_id="$",
                          n=None,
                          block=None,
-                         serialization="none",
+                         serialization=None,
                          deserialize=None):
         """
         Read entries from a stream since the last_id.
@@ -744,7 +744,7 @@ class Element:
             block (int, optional): Time (ms) to block on the read. If 0, block forever.
                 If None, don't block.
             serialization (str, optional): Method of deserialization to use;
-                                           defaults to "none".
+                                           defaults to None.
 
             Deprecated:
             deserialize (bool, optional): Whether or not to deserialize the entries
@@ -764,14 +764,14 @@ class Element:
                     if "ser" in entry.keys():
                         serialization = entry.pop("ser").decode()
                     elif deserialize is not None:  # check for deprecated legacy mode
-                        serialization = "msgpack" if deserialize else "none"
+                        serialization = "msgpack" if deserialize else None
 
                     entry = self._deserialize_entry(entry, method=serialization)
                     entry["id"] = uid.decode()
                     entries.append(entry)
         return entries
 
-    def entry_write(self, stream_name, field_data_map, maxlen=STREAM_LEN, serialization="none", serialize=None):
+    def entry_write(self, stream_name, field_data_map, maxlen=STREAM_LEN, serialization=None, serialize=None):
         """
         Creates element's stream if it does not exist.
         Adds the fields and data to a Entry and puts it in the element's stream.
@@ -781,7 +781,7 @@ class Element:
             field_data_map (dict): Dict which creates the Entry. See messages.Entry for more usage.
             maxlen (int, optional): The maximum number of data to keep in the stream.
             serialization (str, optional): Method of serialization to use;
-                                           defaults to "none".
+                                           defaults to None.
 
             Deprecated:
             serialize (bool, optional): Whether or not to serialize the entry using
@@ -793,7 +793,7 @@ class Element:
         field_data_map = format_redis_py(field_data_map)
 
         if serialize is not None:  # check for deprecated legacy mode
-            serialization = "msgpack" if serialize else "none"
+            serialization = "msgpack" if serialize else None
 
         ser_field_data_map = {}
         for k, v in field_data_map.items():
@@ -802,7 +802,7 @@ class Element:
                                  " method of an entry")
             ser_field_data_map[k] = ser.serialize(v, method=serialization)
 
-        ser_field_data_map["ser"] = serialization
+        ser_field_data_map["ser"] = str(serialization) if serialization is not None else "none"
         entry = Entry(ser_field_data_map)
 
         _pipe = self._rpipeline_pool.get()
@@ -833,7 +833,7 @@ class Element:
         if stdout:
             print(msg)
 
-    def reference_create(self, *data, serialization="none", serialize=None, timeout_ms=10000):
+    def reference_create(self, *data, serialization=None, serialize=None, timeout_ms=10000):
         """
         Creates one or more expiring references (similar to a pointer) in the atom system.
         This will typically be used when we've gotten a piece of data from a
@@ -848,7 +848,7 @@ class Element:
                         unless otherwise extended/deleted. Set to 0 to have the
                         reference never time out (generally a terrible idea)
             serialization (str, optional): Method of serialization to use;
-                                           defaults to "none".
+                                           defaults to None.
 
             Deprecated:
             serialize (bool, optional): whether or not to serialize the data using
@@ -860,7 +860,7 @@ class Element:
         keys = []
 
         if serialize is not None:  # check for deprecated legacy mode
-            serialization = "msgpack" if serialize else "none"
+            serialization = "msgpack" if serialize else None
 
         _pipe = self._rpipeline_pool.get()
         px_val = timeout_ms if timeout_ms != 0 else None
@@ -871,7 +871,7 @@ class Element:
             # Now, we can go ahead and do the SET in redis for the key
             # Expire as set by the user
             serialized_datum = ser.serialize(datum, method=serialization)
-            key = key + ":ser:" + serialization
+            key = key + ":ser:" + (str(serialization) if serialization is not None else "none")
             _pipe.set(key, serialized_datum, px=px_val, nx=True)
 
             keys.append(key)
@@ -943,7 +943,7 @@ class Element:
 
         return key_dict
 
-    def reference_get(self, *keys, serialization="none", deserialize=None):
+    def reference_get(self, *keys, serialization=None, deserialize=None):
         """
         Gets one or more reference from the atom system. Reads the key(s) from redis
         and returns the data, performing a serialize/deserialize operation on each
@@ -977,7 +977,7 @@ class Element:
             if "ser" in key_split:
                 serialization = key_split[key_split.index("ser") + 1]
             elif deserialize is not None:  # check for deprecated legacy mode
-                serialization = "msgpack" if deserialize else "none"
+                serialization = "msgpack" if deserialize else None
 
             deserialized_data.append(ser.deserialize(ref, method=serialization) if ref is not None else None)
 

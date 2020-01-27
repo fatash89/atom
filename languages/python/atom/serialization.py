@@ -75,22 +75,24 @@ def is_valid_serialization(method):
     Checks serialization method string against available serialization options.
     Returns True/False if method is valid/invalid.
     """
-    return (method in Serializations.__members__)
+    return (method in Serializations.__members__) or (method is None)
 
 
-def serialize(data, method="msgpack"):
+def serialize(data, method="none"):
     """
-    Serializes data using the requested method, defaulting to msgpack.
+    Serializes data using the requested method, defaulting to "none".
 
     Args:
         data: The data to serialize.
-        method (str, optional): The serialization method to use; defaults to msgpack
+        method (str, optional): The serialization method to use; defaults to "none"
     Returns:
         The serialized data.
     Raises:
         ValueError if requested method is not in available serialization options defined
         by Serializations enum.
     """
+    method = "none" if method is None else method
+
     if not is_valid_serialization(method):
         raise ValueError(f'Invalid serialization method. Must be one of {Serializations.print_values()}.')
 
@@ -99,17 +101,19 @@ def serialize(data, method="msgpack"):
 
 def deserialize(data, method="msgpack"):
     """
-    Deserializes data using the requested method, defaulting to msgpack.
+    Deserializes data using the requested method, defaulting to "none".
 
     Args:
         data: The data to deserialize.
-        method (str, optional): The deserialization method to use; defaults to msgpack
+        method (str, optional): The deserialization method to use; defaults to "none"
     Returns:
         The deserialized data.
     Raises:
         ValueError if requested method is not in available serialization options defined
         by Serializations enum.
     """
+    method = "none" if method is None else method
+
     if not is_valid_serialization(method):
         raise ValueError(f'Invalid deserialization method {method}. Must be one of {Serializations.print_values()}.')
 

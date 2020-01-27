@@ -44,7 +44,7 @@ class Cmd:
 
 
 class Response:
-    def __init__(self, data="", err_code=0, err_str="", serialization="none", serialize=None):
+    def __init__(self, data="", err_code=0, err_str="", serialization=None, serialize=None):
         """
         Specifies the format of a response that an element returns from a command.
 
@@ -53,7 +53,7 @@ class Response:
             err_code (int, optional): The error code if error, otherwise 0.
             err_str (str, optional): The error message, if any.
             serialization (str, optional): Method of serialization to use;
-                                           defaults to "none".
+                                           defaults to None.
 
             Deprecated:
             serialize (bool, optional): Whether or not to serialize data using msgpack.
@@ -64,10 +64,10 @@ class Response:
             raise TypeError("err_str must be a str")
 
         if serialize is not None:  # check for deprecated legacy mode
-            serialization = "msgpack" if serialize else "none"
+            serialization = "msgpack" if serialize else None
 
         self.data = ser.serialize(data, method=serialization)
-        self.ser = serialization
+        self.ser = str(serialization) if serialization is not None else "none"
 
         self.err_code = err_code
         self.err_str = err_str
