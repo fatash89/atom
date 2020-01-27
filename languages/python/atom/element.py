@@ -74,13 +74,13 @@ class Element:
             current_major_version = ".".join(VERSION.split(".")[:-1])
             self.command_add(
                 VERSION_COMMAND,
-                lambda: Response(data={"language": LANG, "version": float(current_major_version)}, serialize=True)
+                lambda: Response(data={"language": LANG, "version": float(current_major_version)}, serialization="msgpack")
             )
 
             # Add command to query all commands
             self.command_add(
                 COMMAND_LIST_COMMAND,
-                lambda: Response(data=[k for k in self.handler_map if k not in self.reserved_commands], serialize=True)
+                lambda: Response(data=[k for k in self.handler_map if k not in self.reserved_commands], serialization="msgpack")
             )
 
             # Load lua scripts
