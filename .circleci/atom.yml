@@ -39,7 +39,7 @@ commands:
   load_and_login:
     description: "Load the image from workspace and login"
     parameters:
-      image_name:
+      image_filename:
         type: string
         default: image
     steps:
@@ -47,7 +47,7 @@ commands:
           at: /tmp/workspace
       - run:
           name: Load Docker Image
-          command: docker load -i /tmp/workspace/<< parameters.image_name >>.tar
+          command: docker load -i /tmp/workspace/<< parameters.image_filename >>.tar
       - docker_login
 
   # Build and launch the docker-compose file
@@ -58,16 +58,22 @@ commands:
         type: string
       service:
         type: string
+      image_tag:
+        type: string
+        default: ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
+      build_args:
+        type: string
+        default: ""
     steps:
       - run:
           name: Build Docker Compose File
-          command: docker-compose -p atom -f << parameters.file >> build --no-cache --pull
+          command: << parameters.build_args >> docker-compose -p atom -f << parameters.file >> build --no-cache --pull
       - run:
           name: Tag built service
-          command: docker tag atom_<< parameters.service >>:latest ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
+          command: docker tag atom_<< parameters.service >>:latest << parameters.image_tag >>
       - run:
           name: Launch Docker Compose File
-          command: docker-compose -p atom -f << parameters.file >> up -d
+          command: << parameters.build_args >> docker-compose -p atom -f << parameters.file >> up -d
 
   # Store the docker image
   store_image:
@@ -76,10 +82,13 @@ commands:
       image_filename:
         type: string
         default: image
+      image_tag:
+        type: string
+        default: ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
     steps:
       - run:
           name: Archive Docker image
-          command: docker save -o << parameters.image_filename >>.tar ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
+          command: docker save -o << parameters.image_filename >>.tar << parameters.image_tag >>
       - persist_to_workspace:
           root: .
           paths:
@@ -91,21 +100,22 @@ commands:
   tag_and_deploy:
     description: "Tag the latest docker image and deploy it"
     parameters:
-      tag:
-        type: string
       source_image:
+        description: Old image name including tag
         type: string
-        default: ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
       target_image:
+        description: New image name to push
         type: string
-        default: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}
+      target_tag:
+        description: New tag to push
+        type: string
     steps:
       - run:
           name: Docker Tag
-          command: docker tag << parameters.source_image >> << parameters.target_image >>:<< parameters.tag >>
+          command: docker tag << parameters.source_image >> << parameters.target_image >>:<< parameters.target_tag >>
       - run:
           name: Docker Push
-          command: docker push << parameters.target_image >>:<< parameters.tag >>
+          command: docker push << parameters.target_image >>:<< parameters.target_tag >>
 
   push_dev_image:
     parameters:
@@ -117,35 +127,47 @@ commands:
         type: string
     steps:
       - load_and_login:
-          image_name: << parameters.image_filename >>
+          image_filename: << parameters.image_filename >>
       - tag_and_deploy:
-          tag: development-${CIRCLE_BUILD_NUM}
           source_image: << parameters.source_image >>
           target_image: << parameters.target_image >>
+          target_tag: development-${CIRCLE_BUILD_NUM}
 
   push_master_image:
     parameters:
-      image_name:
+      image_filename:
         type: string
-        default: image
+      source_image:
+        type: string
+      target_image:
+        type: string
     steps:
       - load_and_login:
-          image_name: << parameters.image_name >>
+          image_filename: << parameters.image_filename >>
       - tag_and_deploy:
-          tag: master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
+          source_image: << parameters.source_image >>
+          target_image: << parameters.target_image >>
+          target_tag: master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
       - tag_and_deploy:
-          tag: latest
+          source_image: << parameters.source_image >>
+          target_image: << parameters.target_image >>
+          target_tag: latest
 
   push_tag_image:
     parameters:
-      image_name:
+      image_filename:
         type: string
-        default: image
+      source_image:
+        type: string
+      target_image:
+        type: string
     steps:
       - load_and_login:
-          image_name: << parameters.image_name >>
+          image_filename: << parameters.image_filename >>
       - tag_and_deploy:
-          tag: ${CIRCLE_TAG}
+          source_image: << parameters.source_image >>
+          target_image: << parameters.target_image >>
+          target_tag: ${CIRCLE_TAG}
 
 
 #
@@ -156,36 +178,29 @@ jobs:
   # Tag and deploy a development image
   deploy-dev:
     executor: build-classic
-    parameters:
-      image_name:
-        type: string
-        default: image
     steps:
       - push_dev_image:
-          image_name: << parameters.image_name >>
+          image_filename: image
+          source_image: ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
+          target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}
 
   # Tag and deploy a master image
   deploy-master:
     executor: build-classic
-    parameters:
-      image_name:
-        type: string
-        default: image
     steps:
       - push_master_image:
-          image_name: << parameters.image_name >>
+          image_filename: image
+          source_image: ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
+          target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}
 
   # Tag and deploy release image with GitHub tag
   deploy-tag:
     executor: build-classic
-    parameters:
-      image_name:
-        type: string
-        default: image
     steps:
       - push_tag_image:
-           image_name: << parameters.image_name >>
-
+          image_filename: image
+          source_image: ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
+          target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}
 
 #
 # Examples
