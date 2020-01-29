@@ -61,10 +61,6 @@ jobs:
           file: docker-compose.yml
           service: ${DOCKER_COMPOSE_ATOM_SERVICE_NAME}
           image_tag: ${DOCKERHUB_ATOM_REPO}
-      - run:
-          command: docker image ls
-      - run:
-          command: docker ps
       - atom/store_image:
           image_filename: ${DOCKERHUB_ATOM_REPO}
           image_tag: ${DOCKERHUB_ATOM_REPO}
@@ -112,7 +108,7 @@ jobs:
           image_filename: ${DOCKERHUB_ATOM_OPENGL_REPO}
           image_tag: ${DOCKERHUB_ATOM_OPENGL_REPO}
       - run_tests:
-          container: ${DOCKER_COMPOSE_ATOM_SERVICE_NAME}
+          container: ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME}
 
   build-opengl-cuda:
     executor: atom/build-classic
@@ -131,7 +127,7 @@ jobs:
           image_filename: ${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}
           image_tag: ${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}
       - run_tests:
-          container: ${DOCKER_COMPOSE_ATOM_SERVICE_NAME}
+          container: ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME}
 
   deploy-dev:
     executor: atom/build-classic
@@ -192,8 +188,6 @@ jobs:
           working_directory: doc
           name: Build docker
           command: docker-compose -f docker-compose-test.yml -p ${DOCKER_COMPOSE_PROJECT_NAME} build --pull
-      - run:
-          command: docker image ls
       - atom/store_image:
           image_filename: ${DOCKER_COMPOSE_SERVICE_NAME}
           image_tag: ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME}

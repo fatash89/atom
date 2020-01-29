@@ -92,7 +92,7 @@ commands:
       - persist_to_workspace:
           root: .
           paths:
-            - ./<< parameters.image_filename >>.tar
+            - ./*.tar
       - store_artifacts:
           path: ./<< parameters.image_filename >>.tar
 
