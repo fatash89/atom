@@ -43,7 +43,7 @@ docs_image_names: &docs_image_names
 version: 2
 
 orbs:
-  atom: elementaryrobotics/atom@0.0.1
+  atom: elementaryrobotics/atom@dev:237
 
 jobs:
   build-atom:
