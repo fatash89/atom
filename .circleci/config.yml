@@ -40,7 +40,7 @@ docs_image_names: &docs_image_names
 #
 # Circle config
 #
-version: 2
+version: 2.1
 
 orbs:
   atom: elementaryrobotics/atom@dev:237
@@ -345,4 +345,11 @@ workflows:
               only:
                 - master
     jobs:
-      - docs
+      - build-docs
+      - deploy-dev-docs:
+          requires:
+            - build-docs
+          filters:
+            branches:
+              ignore:
+                - master
