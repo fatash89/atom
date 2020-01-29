@@ -4,6 +4,7 @@
 # Section for setting repeatedly used yaml anchors/aliases
 #
 atom_build_vars: &atom_build_vars
+  DOCKER_COMPOSE_PROJECT_NAME: atom
   DOCKER_COMPOSE_ATOM_SERVICE_NAME: atom
   DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME: nucleus
   DOCKER_COMPOSE_ATOM_CONTAINER_NAME: dev_atom
@@ -26,7 +27,7 @@ opengl_cuda_image_names: &opengl_cuda_image_names
   target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}
 nucleus_image_names: &nucleus_image_names
   image_filename: ${DOCKERHUB_NUCLEUS_REPO}
-  source_image: atom_${DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME}
+  source_image: atom_${DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME}:latest
   target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}
 docs_env_vars: &docs_env
   DOCKER_COMPOSE_PROJECT_NAME: docs
@@ -60,12 +61,17 @@ jobs:
           file: docker-compose.yml
           service: ${DOCKER_COMPOSE_ATOM_SERVICE_NAME}
           image_tag: ${DOCKERHUB_ATOM_REPO}
+      - run:
+          command: docker image ls
+      - run:
+          command: docker ps
       - atom/store_image:
           image_filename: ${DOCKERHUB_ATOM_REPO}
+          image_tag: ${DOCKERHUB_ATOM_REPO}
       # Saves nucleus image
       - atom/store_image:
           image_filename: ${DOCKERHUB_NUCLEUS_REPO}
-          image_tag: atom_${DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME}
+          image_tag: ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME}
 
       - run_tests:
           container: ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME}
@@ -85,6 +91,7 @@ jobs:
           build_args: BASE_IMAGE=atom-cuda-10-base
       - atom/store_image:
           image_filename: ${DOCKERHUB_ATOM_CUDA_10_REPO}
+          image_tag: ${DOCKERHUB_ATOM_CUDA_10_REPO}
       - run_tests:
           container: ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME}
 
@@ -103,6 +110,7 @@ jobs:
           build_args: BASE_IMAGE=atom-opengl-base
       - atom/store_image:
           image_filename: ${DOCKERHUB_ATOM_OPENGL_REPO}
+          image_tag: ${DOCKERHUB_ATOM_OPENGL_REPO}
       - run_tests:
           container: ${DOCKER_COMPOSE_ATOM_SERVICE_NAME}
 
@@ -121,6 +129,7 @@ jobs:
           build_args: BASE_IMAGE=atom-opengl-cuda-10-base
       - atom/store_image:
           image_filename: ${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}
+          image_tag: ${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}
       - run_tests:
           container: ${DOCKER_COMPOSE_ATOM_SERVICE_NAME}
 
@@ -183,8 +192,11 @@ jobs:
           working_directory: doc
           name: Build docker
           command: docker-compose -f docker-compose-test.yml -p ${DOCKER_COMPOSE_PROJECT_NAME} build --pull
+      - run:
+          command: docker image ls
       - atom/store_image:
           image_filename: ${DOCKER_COMPOSE_SERVICE_NAME}
+          image_tag: ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME}
 
   deploy-dev-docs:
     executor: atom/build-classic

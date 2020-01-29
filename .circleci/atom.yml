@@ -92,9 +92,9 @@ commands:
       - persist_to_workspace:
           root: .
           paths:
-            - ./ << parameters.image_filename >>.tar
+            - ./<< parameters.image_filename >>.tar
       - store_artifacts:
-          path: ./ << parameters.image_filename >>.tar
+          path: ./<< parameters.image_filename >>.tar
 
   # Create and push image tag
   tag_and_deploy:
