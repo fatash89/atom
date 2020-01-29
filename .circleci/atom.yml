@@ -35,7 +35,7 @@ commands:
           name: Docker Login
           command: echo ${DOCKERHUB_PASSWORD} | docker login -u ${DOCKERHUB_USER} --password-stdin
 
-  # Load image from workspace and log into docker
+  # Attach workspace, load image, and log into docker
   load_and_login:
     description: "Load the image from workspace and login"
     parameters:
@@ -45,10 +45,21 @@ commands:
     steps:
       - attach_workspace:
           at: /tmp/workspace
+      - load_image:
+          image_filename: << parameters.image_filename >>
+      - docker_login
+
+  # Load image from workspace
+  load_image:
+    description: "Load the image from the workspace"
+    parameters:
+      image_filename:
+        type: string
+        default: image
+    steps:
       - run:
           name: Load Docker Image
           command: docker load -i /tmp/workspace/<< parameters.image_filename >>.tar
-      - docker_login
 
   # Build and launch the docker-compose file
   build_and_launch:
@@ -126,7 +137,7 @@ commands:
       target_image:
         type: string
     steps:
-      - load_and_login:
+      - load_image:
           image_filename: << parameters.image_filename >>
       - tag_and_deploy:
           source_image: << parameters.source_image >>
@@ -142,7 +153,7 @@ commands:
       target_image:
         type: string
     steps:
-      - load_and_login:
+      - load_image:
           image_filename: << parameters.image_filename >>
       - tag_and_deploy:
           source_image: << parameters.source_image >>
@@ -162,7 +173,7 @@ commands:
       target_image:
         type: string
     steps:
-      - load_and_login:
+      - load_image:
           image_filename: << parameters.image_filename >>
       - tag_and_deploy:
           source_image: << parameters.source_image >>
