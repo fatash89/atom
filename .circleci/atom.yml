@@ -136,6 +136,10 @@ commands:
       target_tag:
         description: New tag to push
         type: string
+      output_timeout:
+        description: Elapsed time docker push can run without output
+        type: string  # decimal with unit suffix, such as “20m”, “1.25h”, “5s”
+        default: 15m
     steps:
       - run:
           name: Docker Tag
@@ -143,6 +147,7 @@ commands:
       - run:
           name: Docker Push
           command: docker push << parameters.target_image >>:<< parameters.target_tag >>
+          no_output_timeout: << parameters.output_timeout >>
 
   push_dev_image:
     parameters:
