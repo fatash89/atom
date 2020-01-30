@@ -27,6 +27,22 @@ executors:
 #
 commands:
 
+  # Install Git LFS
+  install_git_lfs:
+    description: Install Git Large File Storage (LFS) in ubuntu
+    steps:
+      - run:
+          name: Download and install Git LFS
+          command: |
+            curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
+            sudo apt-get install -f git-lfs && git lfs install
+      - run:
+          name: Authenticate Git LFS
+          command: |
+            mkdir -p ~/.ssh/ && echo -e "Host github.com\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
+            ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+            ssh git@github.com git-lfs-authenticate "${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}" download
+
   # Log into docker
   docker_login:
     description: "Logs into Dockerhub"
