@@ -1,175 +1,204 @@
-version: 2
-jobs:
-  build:
+# .circleci/config.yml
 
-    # VM we're going to use to build the docker container
-    machine:
-      enabled: true
-      docker_layer_caching: true
-      image: circleci/classic:201808-01
-
-    # Variables that are easier to set up here to propagate through
-    # the build script
-    environment:
-
-      # Name of the service in docker-compose.yml
-      DOCKER_COMPOSE_PROJECT_NAME: test
+#
+# Section for setting repeatedly used yaml anchors/aliases
+#
+aliases:
+  - &atom_build_vars
+      DOCKER_COMPOSE_PROJECT_NAME: atom
       DOCKER_COMPOSE_ATOM_SERVICE_NAME: atom
       DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME: nucleus
       DOCKER_COMPOSE_ATOM_CONTAINER_NAME: dev_atom
       DOCKER_COMPOSE_NUCLEUS_CONTAINER_NAME: dev_nucleus
-
-    steps:
-      - checkout
-
-      # Need to log into docker
-      - run:
-          name: Docker login
-          command: echo ${DOCKERHUB_PASSWORD} | docker login -u ${DOCKERHUB_USER} --password-stdin
-
-      # Need to update submodules
-      - run:
-          name: Update Submodules
-          command: git submodule update --init --recursive
-
-      #
-      # Build docker image
-      #
-      - run:
-          name: Build docker
-          command: docker-compose -p ${DOCKER_COMPOSE_PROJECT_NAME} build
-
-      #
-      # Launch docker items
-      #
-      - run:
-          name: Launch docker
-          command: docker-compose -p ${DOCKER_COMPOSE_PROJECT_NAME} up -d
-
-      #
-      # Run tests
-      #
-      - run:
-          name: Python tests
-          command: docker exec -it -w /atom/languages/python ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME} pytest
-      - run:
-          name: C tests
-          command:  docker exec -it -w /atom/languages/c ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME} make test
-      - run:
-          name: C++ tests
-          command:  docker exec -it -w /atom/languages/cpp ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME} make test
-      - run:
-          name: C++ valgrind check
-          command: docker exec -it -w /atom/languages/cpp ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME} valgrind -v --tool=memcheck --leak-check=full --num-callers=40 --log-file=valgrind.log --error-exitcode=1 test/build/test_atom_cpp
-          environment:
-            G_SLICE: always-malloc
-            G_DEBUG: gc-friendly
-      - run:
-          name: C++ copy valgrind log
-          command: docker cp ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME}:/atom/languages/cpp/valgrind.log /tmp/valgrind.log
-      - store_artifacts:
-          path: /tmp/valgrind.log
-          destination: valgrind.log
-
-      #
-      # Build for OpenGL and cuda / cuDNN
-      #
-      - run:
-          name: Build for OpenGL
-          command: docker build -f Dockerfile-atom --build-arg BASE_IMAGE=atom-opengl-base -t ${DOCKERHUB_ATOM_OPENGL_REPO} .
-      - run:
-          name: Build for cuda / cuDNN
-          command: docker build -f Dockerfile-atom --build-arg BASE_IMAGE=atom-cuda-10-base -t ${DOCKERHUB_ATOM_CUDA_10_REPO} .
-      - run:
-          name: Build for OpenGL + cuda / cuDNN
-          command: docker build -f Dockerfile-atom --build-arg BASE_IMAGE=atom-opengl-cuda-10-base -t ${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO} .
-
-
-      # Push the image back to DockerHub, either under a "development" tag
-      # or under a master tag
-      #
-      - run:
-          name: Docker Tag and Push
-          command: |
-            if [ "${CIRCLE_BRANCH}" == "master" ]
-            then
-
-              # Tag and push atom
-              docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_ATOM_SERVICE_NAME}:latest ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
-              docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_ATOM_SERVICE_NAME}:latest ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:latest
-              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
-              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:latest
-
-              # Tag and push atom for OpenGL
-              docker tag ${DOCKERHUB_ATOM_OPENGL_REPO} ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_REPO}:master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
-              docker tag ${DOCKERHUB_ATOM_OPENGL_REPO} ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_REPO}:latest
-              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_REPO}:master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
-              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_REPO}:latest
-
-              # Tag and push atom for cuda 10
-              docker tag ${DOCKERHUB_ATOM_CUDA_10_REPO} ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}:master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
-              docker tag ${DOCKERHUB_ATOM_CUDA_10_REPO} ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}:latest
-              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}:master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
-              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}:latest
-
-              # Tag and push atom for OpenGL + cuda 10
-              docker tag ${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO} ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}:master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
-              docker tag ${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO} ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}:latest
-              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}:master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
-              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}:latest
-
-              # Tag and push nucleus
-              docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME}:latest ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
-              docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME}:latest ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:latest
-              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
-              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:latest
-
-            else
-
-              # Tag and push atom
-              docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_ATOM_SERVICE_NAME}:latest ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
-              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
-
-              # Tag and push atom for OpenGL
-              docker tag ${DOCKERHUB_ATOM_OPENGL_REPO} ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
-              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
-
-              # Tag and push atom for cuda 10
-              docker tag ${DOCKERHUB_ATOM_CUDA_10_REPO} ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
-              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
-
-              # Tag and push atom for OpenGL + cuda 10
-              docker tag ${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO} ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
-              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
-
-              # Tag and push nucleus
-              docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME}:latest ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
-              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:development-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
-            fi
-
-  docs:
-
-    # VM we're going to use to build the docker container
-    machine:
-      enabled: true
-      docker_layer_caching: true
-      image: circleci/classic:201808-01
-
-    # Variables that are easier to set up here to propagate through
-    # the build script
-    environment:
-
-      # Name of the service in docker-compose.yml
+  - &atom_image_names
+      image_filename: ${DOCKERHUB_ATOM_REPO}
+      source_image: ${DOCKERHUB_ATOM_REPO}-${CIRCLE_WORKFLOW_ID}
+      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
+  - &cuda_image_names
+      image_filename: ${DOCKERHUB_ATOM_CUDA_10_REPO}
+      source_image: ${DOCKERHUB_ATOM_CUDA_10_REPO}-${CIRCLE_WORKFLOW_ID}
+      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}
+  - &opengl_image_names
+      image_filename: ${DOCKERHUB_ATOM_OPENGL_REPO}
+      source_image: ${DOCKERHUB_ATOM_OPENGL_REPO}-${CIRCLE_WORKFLOW_ID}
+      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_REPO}
+  - &opengl_cuda_image_names
+      image_filename: ${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}
+      source_image: ${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}-${CIRCLE_WORKFLOW_ID}
+      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}
+  - &nucleus_image_names
+      image_filename: ${DOCKERHUB_NUCLEUS_REPO}
+      source_image: atom_${DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME}-${CIRCLE_WORKFLOW_ID}
+      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}
+  - &docs_env
       DOCKER_COMPOSE_PROJECT_NAME: docs
       DOCKER_COMPOSE_SERVICE_NAME: docs
+  - &docs_image_names
+      image_filename: ${DOCKER_COMPOSE_SERVICE_NAME}
+      source_image: ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME}-${CIRCLE_WORKFLOW_ID}
+      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}
 
+
+#
+# Circle config
+#
+version: 2.1
+
+orbs:
+  atom: elementaryrobotics/atom@0.0.2
+
+jobs:
+  build-atom:
+    executor: atom/build-classic
+    environment:
+      <<: *atom_build_vars
+    steps:
+      - checkout
+      - update_submodules
+      - atom/docker_login
+
+      # Build, launch, and save docker image
+      - atom/build_and_launch:
+          file: docker-compose.yml
+          service: ${DOCKER_COMPOSE_ATOM_SERVICE_NAME}
+          image_tag: ${DOCKERHUB_ATOM_REPO}-${CIRCLE_WORKFLOW_ID}
+      - atom/store_image:
+          image_filename: ${DOCKERHUB_ATOM_REPO}
+          image_tag: ${DOCKERHUB_ATOM_REPO}-${CIRCLE_WORKFLOW_ID}
+      # Tag and save nucleus image
+      - run:
+          name: Tag nucleus image
+          command: docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME} ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME}-${CIRCLE_WORKFLOW_ID}
+      - atom/store_image:
+          image_filename: ${DOCKERHUB_NUCLEUS_REPO}
+          image_tag: ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME}-${CIRCLE_WORKFLOW_ID}
+
+      - run_tests:
+          container: ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME}
+
+  build-cuda:
+    executor: atom/build-classic
+    environment:
+      <<: *atom_build_vars
+    steps:
+      - checkout
+      - update_submodules
+      - atom/docker_login
+      - atom/build_and_launch:
+          file: docker-compose-circle.yml
+          service: ${DOCKER_COMPOSE_ATOM_SERVICE_NAME}
+          image_tag: ${DOCKERHUB_ATOM_CUDA_10_REPO}-${CIRCLE_WORKFLOW_ID}
+          build_args: BASE_IMAGE=atom-cuda-10-base
+      - atom/store_image:
+          image_filename: ${DOCKERHUB_ATOM_CUDA_10_REPO}
+          image_tag: ${DOCKERHUB_ATOM_CUDA_10_REPO}-${CIRCLE_WORKFLOW_ID}
+      - run_tests:
+          container: ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME}
+
+  build-opengl:
+    executor: atom/build-classic
+    environment:
+      <<: *atom_build_vars
+    steps:
+      - checkout
+      - update_submodules
+      - atom/docker_login
+      - atom/build_and_launch:
+          file: docker-compose-circle.yml
+          service: ${DOCKER_COMPOSE_ATOM_SERVICE_NAME}
+          image_tag: ${DOCKERHUB_ATOM_OPENGL_REPO}-${CIRCLE_WORKFLOW_ID}
+          build_args: BASE_IMAGE=atom-opengl-base
+      - atom/store_image:
+          image_filename: ${DOCKERHUB_ATOM_OPENGL_REPO}
+          image_tag: ${DOCKERHUB_ATOM_OPENGL_REPO}-${CIRCLE_WORKFLOW_ID}
+      - run_tests:
+          container: ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME}
+
+  build-opengl-cuda:
+    executor: atom/build-classic
+    environment:
+      <<: *atom_build_vars
+    steps:
+      - checkout
+      - update_submodules
+      - atom/docker_login
+      - atom/build_and_launch:
+          file: docker-compose-circle.yml
+          service: ${DOCKER_COMPOSE_ATOM_SERVICE_NAME}
+          image_tag: ${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}-${CIRCLE_WORKFLOW_ID}
+          build_args: BASE_IMAGE=atom-opengl-cuda-10-base
+      - atom/store_image:
+          image_filename: ${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}
+          image_tag: ${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}-${CIRCLE_WORKFLOW_ID}
+      - run_tests:
+          container: ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME}
+
+  deploy-dev:
+    executor: atom/build-classic
+    environment:
+      <<: *atom_build_vars
+    steps:
+      - attach_workspace:
+          at: /tmp/workspace
+      - atom/docker_login
+      - atom/push_dev_image:
+          <<: *atom_image_names
+      - atom/push_dev_image:
+          <<: *cuda_image_names
+      - atom/push_dev_image:
+          <<: *opengl_image_names
+      - atom/push_dev_image:
+          <<: *opengl_cuda_image_names
+      - atom/push_dev_image:
+          <<: *nucleus_image_names
+
+  deploy-master:
+    executor: atom/build-classic
+    environment:
+      <<: *atom_build_vars
+    steps:
+      - attach_workspace:
+          at: /tmp/workspace
+      - atom/docker_login
+      - atom/push_master_image:
+          <<: *atom_image_names
+      - atom/push_master_image:
+          <<: *cuda_image_names
+      - atom/push_master_image:
+          <<: *opengl_image_names
+      - atom/push_master_image:
+          <<: *opengl_cuda_image_names
+      - atom/push_master_image:
+          <<: *nucleus_image_names
+
+  deploy-tag:
+    executor: atom/build-classic
+    environment:
+      <<: *atom_build_vars
+    steps:
+      - attach_workspace:
+          at: /tmp/workspace
+      - atom/docker_login
+      - atom/push_tag_image:
+          <<: *atom_image_names
+      - atom/push_tag_image:
+          <<: *cuda_image_names
+      - atom/push_tag_image:
+          <<: *opengl_image_names
+      - atom/push_tag_image:
+          <<: *opengl_cuda_image_names
+      - atom/push_tag_image:
+          <<: *nucleus_image_names
+
+  build-docs:
+    executor: atom/build-classic
+    environment:
+      <<: *docs_env
     steps:
       - checkout
 
       # Need to log into docker
-      - run:
-          name: Docker login
-          command: echo ${DOCKERHUB_PASSWORD} | docker login -u ${DOCKERHUB_USER} --password-stdin
+      - atom/docker_login
 
       #
       # Build docker image
@@ -178,43 +207,172 @@ jobs:
           working_directory: doc
           name: Build docker
           command: docker-compose -f docker-compose-test.yml -p ${DOCKER_COMPOSE_PROJECT_NAME} build --pull
-
-      #
-      # Push the image back to DockerHub, either under a "development" tag
-      # or under a master tag
-      #
       - run:
-          name: Docker Tag and Push
-          working_directory: doc
+          name: Tag Docker Image
+          command: docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME} ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME}-${CIRCLE_WORKFLOW_ID}
+      - atom/store_image:
+          image_filename: ${DOCKER_COMPOSE_SERVICE_NAME}
+          image_tag: ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME}-${CIRCLE_WORKFLOW_ID}
+
+  deploy-dev-docs:
+    executor: atom/build-classic
+    environment:
+      <<: *docs_env
+    steps:
+      - attach_workspace:
+          at: /tmp/workspace
+      - atom/docker_login
+      - atom/push_dev_image:
+          <<: *docs_image_names
+
+  deploy-master-docs:
+    executor: atom/build-classic
+    environment:
+      <<: *docs_env
+    steps:
+      - attach_workspace:
+          at: /tmp/workspace
+      - atom/docker_login
+      - atom/push_master_image:
+          <<: *docs_image_names
+      - heroku_deploy
+
+  deploy-tag-docs:
+    executor: atom/build-classic
+    environment:
+      <<: *docs_env
+    steps:
+      - attach_workspace:
+          at: /tmp/workspace
+      - atom/docker_login
+      - atom/push_tag_image:
+          <<: *docs_image_names
+      - heroku_deploy
+
+
+commands:
+
+  run_tests:
+    parameters:
+      container:
+        type: string
+    steps:
+      - run:
+          name: Python tests
+          command: docker exec -it -w /atom/languages/python << parameters.container >> pytest
+      - run:
+          name: C tests
+          command:  docker exec -it -w /atom/languages/c << parameters.container >> make test
+      - run:
+          name: C++ tests
+          command:  docker exec -it -w /atom/languages/cpp << parameters.container >> make test
+      - run:
+          name: C++ valgrind check
+          command: docker exec -it -w /atom/languages/cpp << parameters.container >> valgrind -v --tool=memcheck --leak-check=full --num-callers=40 --log-file=valgrind.log --error-exitcode=1 test/build/test_atom_cpp
+          environment:
+            G_SLICE: always-malloc
+            G_DEBUG: gc-friendly
+      - run:
+          name: C++ copy valgrind log
+          command: docker cp << parameters.container >>:/atom/languages/cpp/valgrind.log /tmp/valgrind.log
+      - store_artifacts:
+          path: /tmp/valgrind.log
+          destination: valgrind.log
+
+  heroku_deploy:
+    steps:
+      - run:
           command: |
-            if [ "${CIRCLE_BRANCH}" == "master" ]
-            then
+            docker login --username=_ --password=${HEROKU_API_KEY} registry.heroku.com
+            docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME} registry.heroku.com/${HEROKU_APP_NAME}/web
+            docker push registry.heroku.com/${HEROKU_APP_NAME}/web
+            heroku container:release -a ${HEROKU_APP_NAME} web
 
-              # Tag and push
-              docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME} ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}:master-${CIRCLE_BUILD_NUM}
-              docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME} ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}:latest
-              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}:master-${CIRCLE_BUILD_NUM}
-              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}:latest
+  update_submodules:
+    steps:
+      - run:
+          name: Update Submodules
+          command: git submodule update --init --recursive
 
-              # Tag and push to heroku
-              docker login --username=_ --password=${HEROKU_API_KEY} registry.heroku.com
-              docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME} registry.heroku.com/${HEROKU_APP_NAME}/web
-              docker push registry.heroku.com/${HEROKU_APP_NAME}/web
-              heroku container:release -a ${HEROKU_APP_NAME} web
-
-            else
-
-              # Tag and push to dockerhub
-              docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME} ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}:development-${CIRCLE_BUILD_NUM}
-              docker push ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}:development-${CIRCLE_BUILD_NUM}
-            fi
 
 workflows:
   version: 2
   commit:
     jobs:
-      - build
-      - docs
+      - build-atom
+      - build-docs
+
+      # Build special images after tests pass for atom
+      - build-opengl:
+          requires:
+            - build-atom
+      - build-cuda:
+          requires:
+            - build-atom
+      - build-opengl-cuda:
+          requires:
+            - build-atom
+
+      # Deploy all images after all tests pass
+      - deploy-master:
+          requires:
+            - build-opengl
+            - build-cuda
+            - build-opengl-cuda
+          filters:
+            branches:
+              only:
+                - master
+            tags:
+              only: /.*/
+      - deploy-tag:
+          requires:
+            - build-opengl
+            - build-cuda
+            - build-opengl-cuda
+          filters:
+            branches:
+              ignore:
+                - /.*/
+            tags:
+              only: /.*/
+      - deploy-dev:
+          requires:
+            - build-opengl
+            - build-cuda
+            - build-opengl-cuda
+          filters:
+            branches:
+              ignore:
+                - master
+
+      # Deploy docs
+      - deploy-master-docs:
+          requires:
+            - build-docs
+          filters:
+            branches:
+              only:
+                - master
+            tags:
+              only: /.*/
+      - deploy-tag-docs:
+          requires:
+            - build-docs
+          filters:
+            branches:
+              ignore:
+                - /.*/
+            tags:
+              only: /.*/
+      - deploy-dev-docs:
+          requires:
+            - build-docs
+          filters:
+            branches:
+              ignore:
+                - master
+
   nightly:
     triggers:
       - schedule:
@@ -224,4 +382,11 @@ workflows:
               only:
                 - master
     jobs:
-      - docs
+      - build-docs
+      - deploy-dev-docs:
+          requires:
+            - build-docs
+          filters:
+            branches:
+              ignore:
+                - master

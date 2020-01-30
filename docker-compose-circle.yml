@@ -1,0 +1,43 @@
+version: "3.2"
+
+services:
+
+  nucleus:
+    container_name: dev_nucleus
+    build:
+      context: .
+      dockerfile: Dockerfile-nucleus
+    volumes:
+      - type: volume
+        source: shared
+        target: /shared
+        volume:
+          nocopy: true
+
+  atom:
+    container_name: dev_atom
+    build:
+      context: .
+      dockerfile: Dockerfile-atom
+      args:
+        BASE_IMAGE: $BASE_IMAGE
+    volumes:
+      - type: volume
+        source: shared
+        target: /shared
+        volume:
+          nocopy: true
+    # - ".:/atom"
+    depends_on:
+      - "nucleus"
+    ports:
+      - "6080:6080"
+    environment:
+      - "GRAPHICS=1"
+    command: tail -f /dev/null
+
+volumes:
+  shared:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
