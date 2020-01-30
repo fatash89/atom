@@ -134,6 +134,8 @@ jobs:
 
   deploy-dev:
     executor: atom/build-classic
+    environment:
+      <<: *atom_build_vars
     steps:
       - attach_workspace:
           at: /tmp/workspace
@@ -151,6 +153,8 @@ jobs:
 
   deploy-master:
     executor: atom/build-classic
+    environment:
+      <<: *atom_build_vars
     steps:
       - attach_workspace:
           at: /tmp/workspace
@@ -168,6 +172,8 @@ jobs:
 
   deploy-tag:
     executor: atom/build-classic
+    environment:
+      <<: *atom_build_vars
     steps:
       - attach_workspace:
           at: /tmp/workspace
