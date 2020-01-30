@@ -1,3 +1,14 @@
+#
+# Section for setting repeatedly used yaml anchors/aliases
+#
+aliases:
+  - &output_timeout_param
+      description: Elapsed time command can run without output
+      type: string  # decimal with unit suffix, such as “20m”, “1.25h”, “5s”
+      default: 15m
+
+
+
 version: 2.1
 description: Commands useful for building/deploying elements
 
@@ -137,9 +148,7 @@ commands:
         description: New tag to push
         type: string
       output_timeout:
-        description: Elapsed time docker push can run without output
-        type: string  # decimal with unit suffix, such as “20m”, “1.25h”, “5s”
-        default: 15m
+        <<: *output_timeout_param
     steps:
       - run:
           name: Docker Tag
@@ -157,6 +166,8 @@ commands:
         type: string
       target_image:
         type: string
+      output_timeout:
+        <<: *output_timeout_param
     steps:
       - load_image:
           image_filename: << parameters.image_filename >>
@@ -164,6 +175,7 @@ commands:
           source_image: << parameters.source_image >>
           target_image: << parameters.target_image >>
           target_tag: development-${CIRCLE_BUILD_NUM}
+          output_timeout: << parameters.output_timeout >>
 
   push_master_image:
     parameters:
@@ -173,6 +185,8 @@ commands:
         type: string
       target_image:
         type: string
+      output_timeout:
+        <<: *output_timeout_param
     steps:
       - load_image:
           image_filename: << parameters.image_filename >>
@@ -184,6 +198,7 @@ commands:
           source_image: << parameters.source_image >>
           target_image: << parameters.target_image >>
           target_tag: latest
+          output_timeout: << parameters.output_timeout >>
 
   push_tag_image:
     parameters:
@@ -193,6 +208,8 @@ commands:
         type: string
       target_image:
         type: string
+      output_timeout:
+        <<: *output_timeout_param
     steps:
       - load_image:
           image_filename: << parameters.image_filename >>
@@ -200,6 +217,7 @@ commands:
           source_image: << parameters.source_image >>
           target_image: << parameters.target_image >>
           target_tag: ${CIRCLE_TAG}
+          output_timeout: << parameters.output_timeout >>
 
 
 #
@@ -210,36 +228,49 @@ jobs:
   # Tag and deploy a development image
   deploy-dev:
     executor: build-classic
+    parameters:
+      output_timeout:
+        <<: *output_timeout_param
     steps:
       - load_and_login
       - tag_and_deploy:
           source_image: ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
           target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}
           target_tag: development-${CIRCLE_BUILD_NUM}
+          output_timeout: << parameters.output_timeout >>
 
   # Tag and deploy a master image
   deploy-master:
     executor: build-classic
+    parameters:
+      output_timeout:
+        <<: *output_timeout_param
     steps:
       - load_and_login
       - tag_and_deploy:
           source_image: ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
           target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}
           target_tag: master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
+          output_timeout: << parameters.output_timeout >>
       - tag_and_deploy:
           source_image: ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
           target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}
           target_tag: latest
+          output_timeout: << parameters.output_timeout >>
 
   # Tag and deploy release image with GitHub tag
   deploy-tag:
     executor: build-classic
+    parameters:
+      output_timeout:
+        <<: *output_timeout_param
     steps:
       - load_and_login
       - tag_and_deploy:
           source_image: ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
           target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}
           target_tag: ${CIRCLE_TAG}
+          output_timeout: << parameters.output_timeout >>
 
 #
 # Examples
