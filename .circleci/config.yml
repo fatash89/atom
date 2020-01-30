@@ -3,39 +3,40 @@
 #
 # Section for setting repeatedly used yaml anchors/aliases
 #
-atom_build_vars: &atom_build_vars
-  DOCKER_COMPOSE_PROJECT_NAME: atom
-  DOCKER_COMPOSE_ATOM_SERVICE_NAME: atom
-  DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME: nucleus
-  DOCKER_COMPOSE_ATOM_CONTAINER_NAME: dev_atom
-  DOCKER_COMPOSE_NUCLEUS_CONTAINER_NAME: dev_nucleus
-atom_image_names: &atom_image_names
-  image_filename: ${DOCKERHUB_ATOM_REPO}
-  source_image: ${DOCKERHUB_ATOM_REPO}-${CIRCLE_WORKFLOW_ID}
-  target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
-cuda_image_names: &cuda_image_names
-  image_filename: ${DOCKERHUB_ATOM_CUDA_10_REPO}
-  source_image: ${DOCKERHUB_ATOM_CUDA_10_REPO}-${CIRCLE_WORKFLOW_ID}
-  target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}
-opengl_image_names: &opengl_image_names
-  image_filename: ${DOCKERHUB_ATOM_OPENGL_REPO}
-  source_image: ${DOCKERHUB_ATOM_OPENGL_REPO}-${CIRCLE_WORKFLOW_ID}
-  target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_REPO}
-opengl_cuda_image_names: &opengl_cuda_image_names
-  image_filename: ${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}
-  source_image: ${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}-${CIRCLE_WORKFLOW_ID}
-  target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}
-nucleus_image_names: &nucleus_image_names
-  image_filename: ${DOCKERHUB_NUCLEUS_REPO}
-  source_image: atom_${DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME}-${CIRCLE_WORKFLOW_ID}
-  target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}
-docs_env_vars: &docs_env
-  DOCKER_COMPOSE_PROJECT_NAME: docs
-  DOCKER_COMPOSE_SERVICE_NAME: docs
-docs_image_names: &docs_image_names
-  image_filename: ${DOCKER_COMPOSE_SERVICE_NAME}
-  source_image: ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME}-${CIRCLE_WORKFLOW_ID}
-  target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}
+aliases:
+  - &atom_build_vars
+      DOCKER_COMPOSE_PROJECT_NAME: atom
+      DOCKER_COMPOSE_ATOM_SERVICE_NAME: atom
+      DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME: nucleus
+      DOCKER_COMPOSE_ATOM_CONTAINER_NAME: dev_atom
+      DOCKER_COMPOSE_NUCLEUS_CONTAINER_NAME: dev_nucleus
+  - &atom_image_names
+      image_filename: ${DOCKERHUB_ATOM_REPO}
+      source_image: ${DOCKERHUB_ATOM_REPO}-${CIRCLE_WORKFLOW_ID}
+      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
+  - &cuda_image_names
+      image_filename: ${DOCKERHUB_ATOM_CUDA_10_REPO}
+      source_image: ${DOCKERHUB_ATOM_CUDA_10_REPO}-${CIRCLE_WORKFLOW_ID}
+      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}
+  - &opengl_image_names
+      image_filename: ${DOCKERHUB_ATOM_OPENGL_REPO}
+      source_image: ${DOCKERHUB_ATOM_OPENGL_REPO}-${CIRCLE_WORKFLOW_ID}
+      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_REPO}
+  - &opengl_cuda_image_names
+      image_filename: ${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}
+      source_image: ${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}-${CIRCLE_WORKFLOW_ID}
+      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}
+  - &nucleus_image_names
+      image_filename: ${DOCKERHUB_NUCLEUS_REPO}
+      source_image: atom_${DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME}-${CIRCLE_WORKFLOW_ID}
+      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}
+  - &docs_env
+      DOCKER_COMPOSE_PROJECT_NAME: docs
+      DOCKER_COMPOSE_SERVICE_NAME: docs
+  - &docs_image_names
+      image_filename: ${DOCKER_COMPOSE_SERVICE_NAME}
+      source_image: ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME}-${CIRCLE_WORKFLOW_ID}
+      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}
 
 
 #
