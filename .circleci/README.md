@@ -149,15 +149,15 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 
 ### Release Notes
 
-## v0.0.4
-Created 01/31/2020. View [here](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.4).
+## [v0.0.4](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.4)
+Created 01/31/2020.
 
 ##### New features
-- New parameter for allowed time elapsed on docker push without output.
+- New parameter for allowed time elapsed wihtout output on docker push, `output_timeout`.
   - Available from all deploy commands and jobs.
 
-## v0.0.3
-Created 01/30/2020. View [here](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.3).
+## [v0.0.3](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.3)
+Created 01/30/2020.
 
 ##### New Features
 - New command for installing and authentication of Git LFS; use with `atom/install_git_lfs`.
@@ -166,8 +166,8 @@ Created 01/30/2020. View [here](https://circleci.com/orbs/registry/orb/elementar
 - The `deploy-dev`, `deploy-master`, and `deploy-tag` jobs were fixed to include workspace attachment and docker login steps.
 
 
-## v0.0.2
-Created 01/31/2020. View [here](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.2).
+## [v0.0.2](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.2)
+Created 01/31/2020.
 
 ##### New Features
 - Added builds on GitHub tags.
