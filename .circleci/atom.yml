@@ -27,6 +27,22 @@ executors:
 #
 commands:
 
+  # Install Git LFS
+  install_git_lfs:
+    description: Install Git Large File Storage (LFS) in ubuntu
+    steps:
+      - run:
+          name: Download and install Git LFS
+          command: |
+            curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
+            sudo apt-get install -f git-lfs && git lfs install
+      - run:
+          name: Authenticate Git LFS
+          command: |
+            mkdir -p ~/.ssh/ && echo -e "Host github.com\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
+            ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+            ssh git@github.com git-lfs-authenticate "${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}" download
+
   # Log into docker
   docker_login:
     description: "Logs into Dockerhub"
@@ -190,28 +206,35 @@ jobs:
   deploy-dev:
     executor: build-classic
     steps:
-      - push_dev_image:
-          image_filename: image
+      - load_and_login
+      - tag_and_deploy:
           source_image: ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
           target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}
+          target_tag: development-${CIRCLE_BUILD_NUM}
 
   # Tag and deploy a master image
   deploy-master:
     executor: build-classic
     steps:
-      - push_master_image:
-          image_filename: image
+      - load_and_login
+      - tag_and_deploy:
           source_image: ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
           target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}
+          target_tag: master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
+      - tag_and_deploy:
+          source_image: ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
+          target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}
+          target_tag: latest
 
   # Tag and deploy release image with GitHub tag
   deploy-tag:
     executor: build-classic
     steps:
-      - push_tag_image:
-          image_filename: image
+      - load_and_login
+      - tag_and_deploy:
           source_image: ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
           target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}
+          target_tag: ${CIRCLE_TAG}
 
 #
 # Examples
