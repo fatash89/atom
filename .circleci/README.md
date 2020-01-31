@@ -150,21 +150,25 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 ### Release Notes
 
 ## v0.0.3
+Created 01/30/2020. View [here](https://github.com/elementary-robotics/atom/blob/d96d202a510d4b447c0e67e3c23cb8330e7ae366/.circleci/atom.yml).
+
 ##### New Features
-- New command for installing and authentication of Git LFS.
+- New command for installing and authentication of Git LFS; use with `atom/install_git_lfs`.
 
 ##### Bug Fixes
 - The `deploy-dev`, `deploy-master`, and `deploy-tag` jobs were fixed to include workspace attachment and docker login steps.
 
 
 ## v0.0.2
-##### Changes
-- Builds on GitHub tags
-  - Will push Docker images tagged with `<GitHub tag>`, `master-<CircleCI build num>`, and `latest`
-- Orb commands are parameterized for increased flexibility of use
-  - Default parameters have been set so
-- Commands for pushing individual dev/master/tag images without repeating workspace attachment and docker login (as in existing jobs)
-- New `load_image` command for us in the above that does not include workspace attachment or docker login
+Created 01/31/2020. View [here](https://github.com/elementary-robotics/atom/blob/66563a1aa83030016dd990b0f4d073c6ee816cd4/.circleci/atom.yml).
+
+##### New Features
+- Added builds on GitHub tags.
+  - Will push Docker images tagged with `<GitHub tag>`, `master-<CircleCI build num>`, and `latest`.
+- Orb commands parameterized for increased flexibility of use.
+  - Default parameters have been set to preserve existing functionality.
+- Added commands for pushing individual dev/master/tag images without repeating workspace attachment and docker login (as in existing jobs).
+- New `load_image` command for use in the above that does not include workspace attachment or docker login.
 
 ##### Known Bugs
 - The `deploy-dev`, `deploy-master`, and `deploy-tag` jobs do not include workspace attachment or docker login. Orb should be upgraded to v0.0.3 if using these jobs.
