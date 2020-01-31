@@ -33,11 +33,10 @@ aliases:
   - &docs_env
       DOCKER_COMPOSE_PROJECT_NAME: docs
       DOCKER_COMPOSE_SERVICE_NAME: docs
-      IMAGE_TAG: ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}
   - &docs_image_names
       image_filename: ${DOCKER_COMPOSE_SERVICE_NAME}
       source_image: ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME}-${CIRCLE_WORKFLOW_ID}
-      target_image: ${IMAGE_TAG}
+      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}
 
 
 #
@@ -237,7 +236,7 @@ jobs:
       - atom/push_master_image:
           <<: *docs_image_names
       - heroku_deploy:
-          image_tag: ${IMAGE_TAG}
+          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}
 
   deploy-tag-docs:
     executor: atom/build-classic
@@ -250,7 +249,7 @@ jobs:
       - atom/push_tag_image:
           <<: *docs_image_names
       - heroku_deploy:
-          image_tag: ${IMAGE_TAG}
+          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}
 
 
 commands:
