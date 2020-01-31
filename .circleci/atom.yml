@@ -206,28 +206,35 @@ jobs:
   deploy-dev:
     executor: build-classic
     steps:
-      - push_dev_image:
-          image_filename: image
+      - load_and_login
+      - tag_and_deploy:
           source_image: ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
           target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}
+          target_tag: development-${CIRCLE_BUILD_NUM}
 
   # Tag and deploy a master image
   deploy-master:
     executor: build-classic
     steps:
-      - push_master_image:
-          image_filename: image
+      - load_and_login
+      - tag_and_deploy:
           source_image: ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
           target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}
+          target_tag: master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
+      - tag_and_deploy:
+          source_image: ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
+          target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}
+          target_tag: latest
 
   # Tag and deploy release image with GitHub tag
   deploy-tag:
     executor: build-classic
     steps:
-      - push_tag_image:
-          image_filename: image
+      - load_and_login
+      - tag_and_deploy:
           source_image: ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
           target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}
+          target_tag: ${CIRCLE_TAG}
 
 #
 # Examples
