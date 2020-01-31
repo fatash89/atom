@@ -9,7 +9,7 @@ from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESP
 from atom.config import ATOM_COMMAND_UNSUPPORTED, ATOM_CALLBACK_FAILED, ATOM_USER_ERRORS_BEGIN
 from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND, REDIS_PIPELINE_POOL_SIZE, COMMAND_LIST_COMMAND
 from atom.messages import Cmd, Response, StreamHandler, format_redis_py
-from atom.messages import Acknowledge, Entry, Log, LogLevel
+from atom.messages import Acknowledge, Entry, Log, LogLevel, ENTRY_RESERVED_KEYS
 import atom.serialization as ser
 from os import uname
 from queue import Queue
@@ -797,9 +797,8 @@ class Element:
 
         ser_field_data_map = {}
         for k, v in field_data_map.items():
-            if k == "ser":
-                raise ValueError("Invalid key \"ser\": \"ser\" is a reserved key for the serialization"
-                                 " method of an entry")
+            if k in ENTRY_RESERVED_KEYS:
+                raise ValueError(f"Invalid key \"{k}\": \"{k}\" is a reserved entry key")
             ser_field_data_map[k] = ser.serialize(v, method=serialization)
 
         ser_field_data_map["ser"] = str(serialization) if serialization is not None else "none"
