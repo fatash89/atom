@@ -147,43 +147,18 @@ Then, when ready, promote to production (limited to ER staff only)
 circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 ```
 
-### Orb Release Notes
+### Release Notes
 
 ## v0.0.3
-# Upgrade Steps
-- Reference orb in config.yml with
-```
-orbs:
-  atom: elementaryrobotics/atom@0.0.3
-```
-
-Replace Git-LFS install/authentication steps with
-```
-- atom/git_lfs_install
-```
-
-# New Features
+##### New Features
 - New command for installing and authentication of Git LFS.
 
-# Bug Fixes
+##### Bug Fixes
 - The `deploy-dev`, `deploy-master`, and `deploy-tag` jobs were fixed to include workspace attachment and docker login steps.
 
 
 ## v0.0.2
-# Upgrade Steps
-- Reference orb in config.yml with
-```
-orbs:
-  atom: elementaryrobotics/atom@0.0.2
-```
-- Use command parameterization by specifying the parameter as an attribute of the command, e.g.:
-```
-- atom/store_image:
-    image_filename: my_image
-    image_tag: my_image_tag
-```
-
-# Changes
+##### Changes
 - Builds on GitHub tags
   - Will push Docker images tagged with `<GitHub tag>`, `master-<CircleCI build num>`, and `latest`
 - Orb commands are parameterized for increased flexibility of use
@@ -191,5 +166,5 @@ orbs:
 - Commands for pushing individual dev/master/tag images without repeating workspace attachment and docker login (as in existing jobs)
 - New `load_image` command for us in the above that does not include workspace attachment or docker login
 
-# Known Bugs
+##### Known Bugs
 - The `deploy-dev`, `deploy-master`, and `deploy-tag` jobs do not include workspace attachment or docker login. Orb should be upgraded to v0.0.3 if using these jobs.
