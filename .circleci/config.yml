@@ -235,7 +235,8 @@ jobs:
       - atom/docker_login
       - atom/push_master_image:
           <<: *docs_image_names
-      - heroku_deploy
+      - heroku_deploy:
+          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}
 
   deploy-tag-docs:
     executor: atom/build-classic
@@ -247,7 +248,8 @@ jobs:
       - atom/docker_login
       - atom/push_tag_image:
           <<: *docs_image_names
-      - heroku_deploy
+      - heroku_deploy:
+          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}
 
 
 commands:
@@ -280,11 +282,14 @@ commands:
           destination: valgrind.log
 
   heroku_deploy:
+    parameters:
+      image_tag:
+        type: string
     steps:
       - run:
           command: |
             docker login --username=_ --password=${HEROKU_API_KEY} registry.heroku.com
-            docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME} registry.heroku.com/${HEROKU_APP_NAME}/web
+            docker tag << parameters.image_tag >> registry.heroku.com/${HEROKU_APP_NAME}/web
             docker push registry.heroku.com/${HEROKU_APP_NAME}/web
             heroku container:release -a ${HEROKU_APP_NAME} web
 
