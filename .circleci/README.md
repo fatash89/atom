@@ -149,8 +149,15 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 
 ### Release Notes
 
+## v0.0.4
+Created 01/31/2020. View [here](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.4).
+
+##### New features
+- New parameter for allowed time elapsed on docker push without output.
+  - Available from all deploy commands and jobs.
+
 ## v0.0.3
-Created 01/30/2020. View [here](https://github.com/elementary-robotics/atom/blob/d96d202a510d4b447c0e67e3c23cb8330e7ae366/.circleci/atom.yml).
+Created 01/30/2020. View [here](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.3).
 
 ##### New Features
 - New command for installing and authentication of Git LFS; use with `atom/install_git_lfs`.
@@ -160,7 +167,7 @@ Created 01/30/2020. View [here](https://github.com/elementary-robotics/atom/blob
 
 
 ## v0.0.2
-Created 01/31/2020. View [here](https://github.com/elementary-robotics/atom/blob/66563a1aa83030016dd990b0f4d073c6ee816cd4/.circleci/atom.yml).
+Created 01/31/2020. View [here](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.2).
 
 ##### New Features
 - Added builds on GitHub tags.
