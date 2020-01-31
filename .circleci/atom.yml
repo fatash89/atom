@@ -270,7 +270,10 @@ examples:
         version: 2
         build-all:
           jobs:
-            - build
+            - build:
+                filters:
+                  tags:
+                    only: /.*/
             - atom/deploy-master:
                 requires:
                   - build

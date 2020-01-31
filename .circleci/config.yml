@@ -304,19 +304,33 @@ workflows:
   version: 2
   commit:
     jobs:
-      - build-atom
-      - build-docs
-
+      - build-atom:
+          filters:
+            tags:
+              only: /.*/
+      - build-docs:
+          filters:
+            tags:
+              only: /.*/
       # Build special images after tests pass for atom
       - build-opengl:
           requires:
             - build-atom
+          filters:
+            tags:
+              only: /.*/
       - build-cuda:
           requires:
             - build-atom
+          filters:
+            tags:
+              only: /.*/
       - build-opengl-cuda:
           requires:
             - build-atom
+          filters:
+            tags:
+              only: /.*/
 
       # Deploy all images after all tests pass
       - deploy-master:
