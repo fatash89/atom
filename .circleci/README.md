@@ -153,14 +153,14 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 Created 01/31/2020.
 
 ##### New features
-- New parameter for allowed time elapsed wihtout output on docker push, `output_timeout`.
+- New parameter for allowed time elapsed without output on docker push, `output_timeout`.
   - Available from all deploy commands and jobs.
 
 ## [v0.0.3](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.3)
 Created 01/30/2020.
 
 ##### New Features
-- New command for installing and authentication of Git LFS; use with `atom/install_git_lfs`.
+- New command for install and authentication of Git LFS; use with `atom/install_git_lfs`.
 
 ##### Bug Fixes
 - The `deploy-dev`, `deploy-master`, and `deploy-tag` jobs were fixed to include workspace attachment and docker login steps.
