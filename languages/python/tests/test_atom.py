@@ -4,7 +4,7 @@ import gc
 import copy
 from atom import Element
 from multiprocessing import Process, Queue
-from threading import Thread, Lock
+from threading import Thread
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_UNSUPPORTED
 from atom.config import ATOM_COMMAND_NO_RESPONSE, ATOM_CALLBACK_FAILED
 from atom.config import ATOM_USER_ERRORS_BEGIN, HEALTHCHECK_RETRY_INTERVAL
@@ -25,7 +25,6 @@ class TestAtom:
         yield caller
         del caller
         gc.collect()
-
 
     @pytest.fixture
     def responder(self):
@@ -81,10 +80,10 @@ class TestAtom:
         assert entries[0]["data"] == b"9"
         assert entries[-1]["data"] == b"5"
 
-    def test_add_entry_and_get_n_most_recent_serialized(self, caller, responder):
+    def test_add_entry_and_get_n_most_recent_legacy_serialize(self, caller, responder):
         """
-        Adds 10 entries to the responder's stream and makes sure that the
-        proper values are returned from get_n_most_recent.
+        Adds 10 entries to the responder's stream with legacy serialization and makes sure
+        that the proper values are returned from get_n_most_recent.
         """
         for i in range(10):
             data = {"data": i}
@@ -95,6 +94,40 @@ class TestAtom:
         assert len(entries) == 5
         assert entries[0]["data"] == 9
         assert entries[-1]["data"] == 5
+
+    def test_add_entry_and_get_n_most_recent_arrow_serialized(self, caller, responder):
+        """
+        Adds 10 entries to the responder's stream with Apache Arrow serialization and makes sure
+        that the proper values are returned from get_n_most_recent without specifying deserialization
+        method in method call, instead relying on serialization key embedded within entry.
+        """
+        for i in range(10):
+            data = {"data": i}
+            responder.entry_write("test_stream_arrow_serialized", data, serialization="arrow")
+            # Ensure that serialization keeps the original data in tact
+            assert data["data"] == i
+        entries = caller.entry_read_n("test_responder",
+                                      "test_stream_arrow_serialized",
+                                      5)
+        assert len(entries) == 5
+        assert entries[0]["data"] == 9
+        assert entries[-1]["data"] == 5
+
+    def test_add_entry_arrow_serialize_custom_type(self, caller, responder):
+        """
+        Attempts to add an arrow-serialized entry of a custom (not Python built-in) type.
+        Ensures that TypeError is raised.
+        """
+        class CustomClass():
+            pass
+
+        inst = CustomClass()
+
+        with pytest.raises(TypeError) as excinfo:
+            responder.entry_write("test_arrow_custom_type", {"data": inst}, serialization="arrow")
+
+        print(excinfo.value)
+        assert "not a built-in Python type" in str(excinfo.value)
 
     def test_add_command(self, responder):
         """
@@ -139,7 +172,7 @@ class TestAtom:
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == b"1"
 
-    def test_command_response_serialized(self, caller, responder):
+    def test_command_response_legacy_serialized(self, caller, responder):
         """
         Element sends command and responder returns response.
         Tests expected use case of command response.
@@ -156,6 +189,24 @@ class TestAtom:
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == 1
 
+    def test_command_response_mixed_serialization(self, caller, responder):
+        """
+        Ensures that command and response are serialized correctly based on serialization specified.
+        """
+        def add_1_arrow_serialized(data):
+            return Response(data + 1, serialization="arrow")
+
+        responder.command_add("test_command", add_1_arrow_serialized, serialization="msgpack")
+        assert "test_command" in responder.handler_map
+        assert responder.handler_map["test_command"]["serialization"] == "msgpack"
+        proc = Process(target=responder.command_loop)
+        proc.start()
+        response = caller.command_send("test_responder", "test_command", 123, serialization="msgpack")
+        proc.terminate()
+        proc.join()
+        assert response["err_code"] == ATOM_NO_ERROR
+        assert response["data"] == 124
+
     def test_listen_on_streams(self, caller):
         """
         Creates two responders publishing entries on their respective streams with
@@ -169,9 +220,9 @@ class TestAtom:
         def entry_write_loop(responder, stream_name, data):
             # Wait until both responders and the caller are ready
             while -1 not in entries or -2 not in entries:
-                responder.entry_write(stream_name, {"value": data-2}, serialize=True)
+                responder.entry_write(stream_name, {"value": data-2}, serialization="msgpack")
             for i in range(10):
-                responder.entry_write(stream_name, {"value": data}, serialize=True)
+                responder.entry_write(stream_name, {"value": data}, serialization="msgpack")
                 data += 2
 
         def add_entries(data):
@@ -255,13 +306,13 @@ class TestAtom:
         responder_0 = Element("responder_0")
         # NO_OP command responds with whatever data it receives
         def no_op_serialized(data):
-            return Response(data, serialize=True)
-        responder_0.command_add("no_op", no_op_serialized, deserialize=True)
+            return Response(data, serialization="msgpack")
+        responder_0.command_add("no_op", no_op_serialized, serialization="msgpack")
 
         # Entry write loop mimics high volume publisher
         def entry_write_loop(responder):
             for i in range(3000):
-                responder.entry_write("stream_0", {"value": 0}, serialize=True)
+                responder.entry_write("stream_0", {"value": 0}, serialization="msgpack")
                 time.sleep(0.0001)
 
         # Command loop thread to handle incoming commands
@@ -275,7 +326,7 @@ class TestAtom:
         # even while its busy publishing to a stream
         try:
             for i in range(20):
-                response = caller.command_send("responder_0", "no_op", 1, serialize=True, deserialize=True)
+                response = caller.command_send("responder_0", "no_op", 1, serialization="msgpack")
                 assert response["err_code"] == ATOM_NO_ERROR
                 assert response["data"] == 1
         finally:
@@ -373,7 +424,7 @@ class TestAtom:
         """
         proc = Process(target=responder.command_loop)
         proc.start()
-        response = caller.command_send("test_responder", VERSION_COMMAND, deserialize=True)
+        response = caller.command_send("test_responder", VERSION_COMMAND, serialization="msgpack")
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == {"version": float(".".join(VERSION.split(".")[:-1])), "language": LANG}
         response2 = caller.get_element_version("test_responder")
@@ -389,20 +440,20 @@ class TestAtom:
         no_command_responder = Element('no_command_responder')
         command_loop_process = Process(target=no_command_responder.command_loop)
         command_loop_process.start()
-        assert caller.command_send(no_command_responder.name, COMMAND_LIST_COMMAND, deserialize=True)["data"] == []
+        assert caller.command_send(no_command_responder.name, COMMAND_LIST_COMMAND, serialization="msgpack")["data"] == []
         command_loop_process.terminate()
         command_loop_process.join()
         del no_command_responder
 
         # Add commands to responder
         responder.command_add('foo_func1', lambda data: data)
-        responder.command_add('foo_func2', lambda: None, timeout=500, deserialize=True)
-        responder.command_add('foo_func3', lambda x, y: x + y, timeout=1, deserialize=True)
+        responder.command_add('foo_func2', lambda: None, timeout=500, serialization="msgpack")
+        responder.command_add('foo_func3', lambda x, y: x + y, timeout=1, serialization="msgpack")
         command_loop_process = Process(target=responder.command_loop)
         command_loop_process.start()
 
         # Test with three commands
-        response = caller.command_send(responder.name, COMMAND_LIST_COMMAND, deserialize=True)
+        response = caller.command_send(responder.name, COMMAND_LIST_COMMAND, serialization="msgpack")
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == ['foo_func1', 'foo_func2', 'foo_func3']
 
@@ -415,14 +466,14 @@ class TestAtom:
         """
         # Change responder reported version
         responder.handler_map[VERSION_COMMAND]['handler'] = \
-            lambda: Response(data={'language': 'Python', 'version': 0.2}, serialize=True)
+            lambda: Response(data={'language': 'Python', 'version': 0.2}, serialization="msgpack")
         # Create element with normal, supported version
         responder2 = Element('responder2')
 
         # Add commands to both responders and start command loop
         responder.command_add('foo_func0', lambda data: data)
-        responder2.command_add('foo_func0', lambda: None, timeout=500, deserialize=True)
-        responder2.command_add('foo_func1', lambda x, y: x + y, timeout=1, deserialize=True)
+        responder2.command_add('foo_func0', lambda: None, timeout=500, serialization="msgpack")
+        responder2.command_add('foo_func1', lambda x, y: x + y, timeout=1, serialization="msgpack")
         cl_process_1 = Process(target=responder.command_loop)
         cl_process_2 = Process(target=responder2.command_loop)
         cl_process_1.start()
@@ -452,10 +503,10 @@ class TestAtom:
         responder1, responder2 = Element(test_name_1), Element(test_name_2)
 
         proc1_function_data = [('foo_func0', lambda x: x + 3),
-                               ('foo_func1', lambda: None, 10, True),
+                               ('foo_func1', lambda: None, 10, "arrow"),
                                ('foo_func2', lambda x: None)]
         proc2_function_data = [('foo_func0', lambda y: y * 3, 10),
-                               ('other_foo0', lambda y: None, 3, True),
+                               ('other_foo0', lambda y: None, 3, "msgpack"),
                                ('other_foo1', lambda: 5)]
 
         # Add functions
@@ -570,21 +621,6 @@ class TestAtom:
         test_empty = EmptyContractTest()
         assert test_empty.to_data() == ""
 
-    def test_raw_data(self, caller, responder):
-        responder.command_add("check_kwargs", check_kwargs, deserialize=True)
-        proc = Process(target=responder.command_loop)
-        proc.start()
-        response = caller.command_send("test_responder",
-                                        "check_kwargs",
-                                        {"test" : "kwarg"},
-                                        serialize=True, deserialize=True,
-                                        raw_data={"first_kwarg" : "hello", "second_kwarg" : "world", "third_kwarg":None})
-        proc.terminate()
-        proc.join()
-        assert response["err_code"] == ATOM_NO_ERROR
-        assert response["data"] == "success"
-        assert response["raw_test"] == b"hello, world!"
-
     def test_reference_basic(self, caller):
         data = b'hello, world!'
         ref_id = caller.reference_create(data)[0]
@@ -596,15 +632,25 @@ class TestAtom:
         ref_data = caller.reference_get(ref_id)[0]
         assert ref_data is None
 
-    def test_reference_msgpack(self, caller):
+    def test_reference_legacy_serialization(self, caller):
         data = {"hello" : "world", "atom" : 123456, "some_obj" : {"references" : "are fun!"} }
         ref_id = caller.reference_create(data, serialize=True)[0]
         ref_data = caller.reference_get(ref_id, deserialize=True)[0]
         assert ref_data == data
 
+    def test_reference_arrow(self, caller):
+        """
+        Creates references serialized with Apache Arrow; gets references and deserializes
+        based on serialization method embedded within reference key.
+        """
+        data = {"hello" : "world", "atom" : 123456, "some_obj" : {"references" : "are fun!"} }
+        ref_id = caller.reference_create(data, serialization="arrow")[0]
+        ref_data = caller.reference_get(ref_id)[0]
+        assert ref_data == data
+
     def test_reference_msgpack_dne(self, caller):
         ref_id = "nonexistent"
-        ref_data = caller.reference_get(ref_id, deserialize=True)[0]
+        ref_data = caller.reference_get(ref_id, serialization="msgpack")[0]
         assert ref_data is None
 
     def test_reference_multiple(self, caller):
@@ -616,10 +662,19 @@ class TestAtom:
 
     def test_reference_multiple_msgpack(self, caller):
         data = [{"hello" : "world", "atom" : 123456, "some_obj" : {"references" : "are fun!"}}, True]
-        ref_ids = caller.reference_create(*data, serialize=True)
-        ref_data = caller.reference_get(*ref_ids, deserialize=True)
+        ref_ids = caller.reference_create(*data, serialization="msgpack")
+        ref_data = caller.reference_get(*ref_ids)
         for i in range(len(data)):
             assert ref_data[i] == data[i]
+
+    def test_reference_multiple_mixed_serialization(self, caller):
+        data = [{"hello": "world"}, b'123456']
+        ref_ids = [ ]
+        ref_ids.extend(caller.reference_create(data[0], serialization="msgpack"))
+        ref_ids.extend(caller.reference_create(data[1], serialization="none"))
+        ref_data = caller.reference_get(*ref_ids)
+        for ref, orig in zip(ref_data, data):
+            assert ref == orig
 
     def test_reference_get_timeout_ms(self, caller):
         data = b'hello, world!'
@@ -682,25 +737,25 @@ class TestAtom:
 
     def test_reference_delete_msgpack(self, caller):
         data = {"msgpack" : "data"}
-        ref_id = caller.reference_create(data, timeout_ms=0, serialize=True)[0]
-        ref_data = caller.reference_get(ref_id, deserialize=True)[0]
+        ref_id = caller.reference_create(data, timeout_ms=0, serialization="msgpack")[0]
+        ref_data = caller.reference_get(ref_id)[0]
         assert ref_data == data
 
         ref_ms = caller.reference_get_timeout_ms(ref_id)
         assert ref_ms == -1
 
         caller.reference_delete(ref_id)
-        del_data = caller.reference_get(ref_id, deserialize=True)[0]
+        del_data = caller.reference_get(ref_id)[0]
         assert del_data is None
 
     def test_reference_expire(self, caller):
         data = {"msgpack" : "data"}
-        ref_id = caller.reference_create(data, serialize=True, timeout_ms=100)[0]
-        ref_data = caller.reference_get(ref_id, deserialize=True)[0]
+        ref_id = caller.reference_create(data, serialization="msgpack", timeout_ms=100)[0]
+        ref_data = caller.reference_get(ref_id)[0]
         assert ref_data == data
 
         time.sleep(0.2)
-        expired_data = caller.reference_get(ref_id, deserialize=True)[0]
+        expired_data = caller.reference_get(ref_id)[0]
         assert expired_data is None
 
     def test_reference_create_from_stream_single_key(self, caller):
@@ -720,7 +775,7 @@ class TestAtom:
             ref_data = caller.reference_get(key_dict[key])[0]
             assert ref_data == stream_data[key]
 
-    def test_reference_create_from_stream_multiple_keys_msgpack(self, caller):
+    def test_reference_create_from_stream_multiple_keys_legacy_serialization(self, caller):
         stream_name = "test_ref_multiple_keys"
         stream_data = {"key1": {"nested1": "val1"}, "key2" : {"nested2": "val2"}}
         orig_stream_data = copy.deepcopy(stream_data)
@@ -728,6 +783,16 @@ class TestAtom:
         key_dict = caller.reference_create_from_stream(caller.name, stream_name, timeout_ms=0)
         for key in key_dict:
             ref_data = caller.reference_get(key_dict[key], deserialize=True)[0]
+            assert ref_data == orig_stream_data[key]
+
+    def test_reference_create_from_stream_multiple_keys_arrow(self, caller):
+        stream_name = "test_ref_multiple_keys"
+        stream_data = {"key1": {"nested1": "val1"}, "key2" : {"nested2": "val2"}}
+        orig_stream_data = copy.deepcopy(stream_data)
+        caller.entry_write(stream_name, stream_data, serialization="arrow")
+        key_dict = caller.reference_create_from_stream(caller.name, stream_name, timeout_ms=0)
+        for key in key_dict:
+            ref_data = caller.reference_get(key_dict[key])[0]
             assert ref_data == orig_stream_data[key]
 
     def test_reference_create_from_stream_multiple_keys_persist(self, caller):
@@ -761,7 +826,7 @@ class TestAtom:
         ids = []
         for i in range(10):
             stream_data = get_data(i)
-            ids.append(caller.entry_write(stream_name, stream_data, serialize=True))
+            ids.append(caller.entry_write(stream_name, stream_data, serialization="msgpack"))
 
         # Check that we can get each of them individually
         for i, id_val in enumerate(ids):
@@ -772,7 +837,7 @@ class TestAtom:
             # Loop over the references and check the data
             for key in key_dict:
 
-                ref_data = caller.reference_get(key_dict[key], deserialize=True)[0]
+                ref_data = caller.reference_get(key_dict[key])[0]
                 correct_data = get_data(i)
                 assert ref_data == correct_data[key]
 
@@ -782,19 +847,10 @@ class TestAtom:
         # Loop over the references and check the data
         for key in key_dict:
 
-            ref_data = caller.reference_get(key_dict[key], deserialize=True)[0]
+            ref_data = caller.reference_get(key_dict[key])[0]
             correct_data = get_data(9)
             assert ref_data == correct_data[key]
 
-def check_kwargs(data, first_kwarg=None, second_kwarg=None, third_kwarg=None):
-    """
-    Check that the kwargs are correct
-    """
-    assert data["test"] == "kwarg"
-    assert first_kwarg == b"hello"
-    assert second_kwarg == b"world"
-    assert third_kwarg == b""
-    return Response("success", serialize=True, raw_data={"raw_test": "hello, world!"})
 
 def add_1(x):
     return Response(int(x)+1)

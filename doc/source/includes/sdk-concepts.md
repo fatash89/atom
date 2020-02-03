@@ -17,7 +17,7 @@ Issued by an element to execute some functionality of another element.
 Returned by an element to indicate the results of the command to the caller element.
 
 ## Entry
-A timestamped data packet that is published by an element on a stream that can contain multiple fields of data. The atom system is not concerned with the serialization of the data and leaves it as the responsibility of the developers to know how the data was serialized in the element. Our recommendation for serialization is msgpack as it is supported by the major programming languages.
+A timestamped data packet that is published by an element on a stream that can contain multiple fields of data. The atom system will create a "ser" key in the entry with the serialization method, set to "none" if no serialization was used. It will then use this key to deserialize the entry when reading it.
 
 ## Stream
 Data publication and logging system used by atom. A stream keeps track of the previously published entries (up to a user-specified limit) so that elements can ask for an arbitrary number of entries.
@@ -30,4 +30,15 @@ so that it can be passed around between elements with the guarantee that the
 data exists for as long as it's needed, no more, no less. Optimizes data flow
 in the system such that for commands/responses that move around large binary
 data blobs (such as images), the blobs aren't being copied excessively and don't
-make the logs unreadable.
+make the logs unreadable. The serialization method used for the data will be stored
+in the pointer string to be used for automatic deserialization.
+
+## Serialization Options
+
+Below are the serialization methods currently available in Atom. By default, Atom will not serialize any data. Serialization must be specified using the "serialization" option in the API.
+
+|            |                                                                            |
+|------------|----------------------------------------------------------------------------|
+|`"none"`    | default value; no serialization performed                                  |
+|`"msgpack"` | has broad language support; best for all data types except array-like data |
+|`"arrow"`   | Apache Arrow; best for array-like data                                     |

@@ -76,7 +76,7 @@ class AtomBot:
             self.pos_lock.release()
 
         # If successful, we simply return a success string
-        return Response(data=f"Moved left {steps} steps.", serialize=True)
+        return Response(data=f"Moved left {steps} steps.", serialization="msgpack")
 
     def move_right(self, steps):
         """
@@ -99,7 +99,7 @@ class AtomBot:
             self.pos_lock.release()
 
         # If successful, we simply return a success string
-        return Response(data=f"Moved right {steps} steps.", serialize=True)
+        return Response(data=f"Moved right {steps} steps.", serialization="msgpack")
 
     def transform(self, _):
         """
@@ -117,7 +117,7 @@ class AtomBot:
         finally:
             self.bot_lock.release()
 
-        return Response(data=f"Transformed to {self.atombot}!", serialize=True)
+        return Response(data=f"Transformed to {self.atombot}!", serialization="msgpack")
 
     def get_pos(self):
         try:
@@ -159,8 +159,8 @@ if __name__ == "__main__":
 
     # This registers the relevant AtomBot methods as a command in the atom system
     # We set the timeout so the caller will know how long to wait for the command to execute
-    element.command_add("move_left", atombot.move_left, timeout=50, deserialize=True)
-    element.command_add("move_right", atombot.move_right, timeout=50, deserialize=True)
+    element.command_add("move_left", atombot.move_left, timeout=50, serialization="msgpack")
+    element.command_add("move_right", atombot.move_right, timeout=50, serialization="msgpack")
     # Transform takes no inputs, so there's nothing to deserialize
     element.command_add("transform", atombot.transform, timeout=50)
 
@@ -177,8 +177,8 @@ if __name__ == "__main__":
         # We write our position data and the visual of atombot's position to their respective streams
         # The maxlen parameter will determine how many entries atom stores
         # This data is serialized using msgpack
-        element.entry_write("pos", {"data": atombot.get_pos()}, maxlen=10, serialize=True)
-        element.entry_write("pos_map", {"data": atombot.get_pos_map()}, maxlen=10, serialize=True)
+        element.entry_write("pos", {"data": atombot.get_pos()}, maxlen=10, serialization="msgpack")
+        element.entry_write("pos_map", {"data": atombot.get_pos_map()}, maxlen=10, serialization="msgpack")
         # We can also choose to write binary data directly without serializing it
         element.entry_write("pos_binary", {"data": atombot.get_pos()}, maxlen=10)
 
@@ -323,10 +323,10 @@ $ docker exec -it atombot atom-cli
 > help
 ```
 
-> <button class="copy-button" onclick='copyText(this, "msgpack false")'>Copy</button> (CLI) Turn off Msgpack
+> <button class="copy-button" onclick='copyText(this, "serialization none")'>Copy</button> (CLI) Turn off serialization
 
-```msgpack_off
-> msgpack false
+```serialize_off
+> serialization none
 ```
 
 
@@ -418,10 +418,11 @@ Now that our atombot element is running, let's interact with it using `atom-cli`
 - We can control the rate at which the messages are printed by passing in the rate value (hz)
     - `read atombot pos_map 1`
 - By default, atom-cli automatically msgpacks the data that is sent/received
-- If you wish, you can override this with the `msgpack` command
-    - `msgpack False`
+- If you wish, you can override this with the `serialization` command
+    - `serialization none`
     - Now if you try `read atombot pos_map 1`, you should see the raw binary data sent to this stream.
-    - Do `msgpack True` to re-enable msgpack serialization
+    - Do `serialization msgpack` to re-enable msgpack serialization
+    - Do `serialization arrow` to use Apache Arrow serialization
 - We can see the history of our commands by using the `records` command
     - `records cmdres atombot`
 - We can also see all of the logs that have been written so far

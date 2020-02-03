@@ -1,9 +1,13 @@
 from collections import namedtuple
 from enum import Enum
 from msgpack import packb
+import atom.serialization as ser
 
-CMD_RESERVED_KEYS = ("data", "cmd", "element",)
-RES_RESERVED_KEYS = ("data", "err_code", "err_str", "element", "cmd", "cmd_id")
+
+CMD_RESERVED_KEYS = ("data", "cmd", "element", "ser")
+RES_RESERVED_KEYS = ("data", "err_code", "err_str", "element", "cmd", "cmd_id", "ser")
+ENTRY_RESERVED_KEYS = ("ser")
+
 
 def format_redis_py(data):
     if data is None:
@@ -19,8 +23,9 @@ def format_redis_py(data):
     else:
         return data
 
+
 class Cmd:
-    def __init__(self, element, cmd, data, **kwargs):
+    def __init__(self, element, cmd, data):
         """
         Specifies the format of a command that an element sends to another.
 
@@ -33,16 +38,14 @@ class Cmd:
             raise TypeError("element must be a str")
         if not isinstance(cmd, str):
             raise TypeError("cmd must be a str")
-        if any(key in kwargs for key in CMD_RESERVED_KEYS):
-            raise KeyError("invalid key in raw_data")
+
         self.element = element
         self.cmd = cmd
         self.data = data
-        self.__dict__.update(kwargs)
 
 
 class Response:
-    def __init__(self, data="", err_code=0, err_str="", serialize=False, raw_data={}):
+    def __init__(self, data="", err_code=0, err_str="", serialization=None, serialize=None):
         """
         Specifies the format of a response that an element returns from a command.
 
@@ -50,16 +53,23 @@ class Response:
             data (optional): The data returned from the element's command.
             err_code (int, optional): The error code if error, otherwise 0.
             err_str (str, optional): The error message, if any.
+            serialization (str, optional): Method of serialization to use;
+                                           defaults to None.
+
+            Deprecated:
             serialize (bool, optional): Whether or not to serialize data using msgpack.
         """
         if not isinstance(err_code, int):
             raise TypeError("err_code must be an int")
         if not isinstance(err_str, str):
             raise TypeError("err_str must be a str")
-        if any(key in raw_data for key in RES_RESERVED_KEYS):
-            raise KeyError("invalid key in raw_data")
-        self.data = packb(data, use_bin_type=True) if serialize else data
-        self.__dict__.update(raw_data)
+
+        if serialize is not None:  # check for deprecated legacy mode
+            serialization = "msgpack" if serialize else None
+
+        self.data = ser.serialize(data, method=serialization)
+        self.ser = str(serialization) if serialization is not None else "none"
+
         self.err_code = err_code
         self.err_str = err_str
 
