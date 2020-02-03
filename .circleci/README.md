@@ -163,7 +163,7 @@ orbs:
   atom: elementaryrobotics/atom@0.0.4
 ```
 - Use the `output_timeout` parameter to specify a custom timeout on a command or job that performs a docker push and that requires an output timeout longer than the default of 15 mins:
-```
+```diff
   jobs:
     - atom/deploy-master:
 +       output_timeout: 20m
@@ -193,9 +193,9 @@ orbs:
   atom: elementaryrobotics/atom@0.0.3
 ```
 - To call the new `install_git_lfs` command, use the following:
-```
+```diff
 steps:
-  - atom/install_git_lfs
++ - atom/install_git_lfs
 ```
 
 ## [v0.0.2](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.2)
@@ -219,7 +219,7 @@ orbs:
   atom: elementaryrobotics/atom@0.0.2
 ```
 - Add a job for building on GitHub tags with the following:
-```
+```diff
   jobs:
 +   - atom/deploy-tag:
 +       requires:
@@ -232,7 +232,7 @@ orbs:
 +           only: /.*/
 ```
 - Update any `deploy-master` jobs to also run on GitHub tags with the following:
-```
+```diff
   jobs:
     - atom/deploy-master:
         requires:
@@ -245,7 +245,7 @@ orbs:
 +           only: /.*/
 ```
 - Update any jobs upstream of the `deploy-tag` job to also run on tags, for example:
-```
+```diff
   jobs:
 -   - build
 +   - build:
