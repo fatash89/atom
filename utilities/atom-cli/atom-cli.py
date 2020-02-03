@@ -352,12 +352,8 @@ class AtomCLI:
             return
 
         # Otherwise try to get the new setting
-        if (args[0].lower() == "msgpack"):
-            self.serialization = "msgpack"
-        elif (args[0].lower() == "arrow"):
-            self.serialization = "arrow"
-        elif (args[0].lower() == "none"):
-            self.serialization = None
+        if ser.is_valid_serialization(args[0].lower()):
+            self.serialization = args[0].lower() if args[0].lower() != "none" else None
         else:
             print(f"\nArgument must be one of {ser.Serializations.print_values()}.")
 
