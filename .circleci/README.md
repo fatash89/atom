@@ -146,3 +146,111 @@ Then, when ready, promote to production (limited to ER staff only)
 ```
 circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 ```
+
+### Release Notes
+
+## [v0.0.4](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.4)
+Created 01/31/2020.
+
+##### New features
+- New parameter for allowed time elapsed without output on docker push, `output_timeout`.
+  - Available from all deploy commands and jobs. Defaults to 15 minutes.
+
+##### Upgrade Steps
+- Reference the v0.0.4 orb in `config.yml` with
+```
+orbs:
+  atom: elementaryrobotics/atom@0.0.4
+```
+- Use the `output_timeout` parameter to specify a custom timeout on a command or job that performs a docker push and that requires an output timeout longer than the default of 15 mins:
+```diff
+  jobs:
+    - atom/deploy-master:
++       output_timeout: 20m
+        requires:
+          - build
+        filters:
+          branches:
+            only:
+              - master
+          tags:
+            only: /.*/
+```
+
+## [v0.0.3](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.3)
+Created 01/30/2020.
+
+##### New Features
+- New command for install and authentication of Git LFS; use with `atom/install_git_lfs`.
+
+##### Bug Fixes
+- The `deploy-dev`, `deploy-master`, and `deploy-tag` jobs were fixed to include workspace attachment and docker login steps.
+
+##### Upgrade Steps
+- Reference the v0.0.3 orb in `config.yml` with
+```
+orbs:
+  atom: elementaryrobotics/atom@0.0.3
+```
+- To call the new `install_git_lfs` command, use the following:
+```diff
+steps:
++ - atom/install_git_lfs
+```
+
+## [v0.0.2](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.2)
+Created 01/31/2020.
+
+##### New Features
+- Added builds on GitHub tags.
+  - Will push Docker images tagged with `<GitHub tag>`, `master-<CircleCI build num>`, and `latest`.
+- Orb commands parameterized for increased flexibility of use.
+  - Default parameters have been set to preserve existing functionality.
+- Added commands for pushing individual dev/master/tag images without repeating workspace attachment and docker login (as in existing jobs).
+- New `load_image` command for use in the above that does not include workspace attachment or docker login.
+
+##### Known Bugs
+- The `deploy-dev`, `deploy-master`, and `deploy-tag` jobs do not include workspace attachment or docker login. Orb should be upgraded to v0.0.3 if using these jobs.
+
+##### Upgrade Steps
+- Reference the v0.0.2 orb in `config.yml` with
+```
+orbs:
+  atom: elementaryrobotics/atom@0.0.2
+```
+- Add a job for building on GitHub tags with the following:
+```diff
+  jobs:
++   - atom/deploy-tag:
++       requires:
++         - build
++       filters:
++         branches:
++           ignore:
++             - /.*/
++         tags:
++           only: /.*/
+```
+- Update any `deploy-master` jobs to also run on GitHub tags with the following:
+```diff
+  jobs:
+    - atom/deploy-master:
+        requires:
+          - build
+        filters:
+          branches:
+            only:
+              - master
++         tags:
++           only: /.*/
+```
+- Update any jobs upstream of the `deploy-tag` job to also run on tags, for example:
+```diff
+  jobs:
+-   - build
++   - build:
++       filters:
++         tags:
++           only: /.*/
+```
+It is required that all upstream jobs run on tags in order for the `deploy-tag` job to run.
