@@ -149,6 +149,19 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 
 ### Release Notes
 
+## [v0.0.5](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.5)
+Created 02/05/2020.
+
+##### Bug fixes
+- Removed git commit hashes from deployed `master` image tags
+
+##### Upgrade Steps
+- Reference the v0.0.5 orb in `config.yml` with
+```
+orbs:
+  atom: elementaryrobotics/atom@0.0.5
+```
+
 ## [v0.0.4](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.4)
 Created 01/31/2020.
 
