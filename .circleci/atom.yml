@@ -193,7 +193,7 @@ commands:
       - tag_and_deploy:
           source_image: << parameters.source_image >>
           target_image: << parameters.target_image >>
-          target_tag: master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
+          target_tag: master-${CIRCLE_BUILD_NUM}
       - tag_and_deploy:
           source_image: << parameters.source_image >>
           target_image: << parameters.target_image >>
@@ -250,7 +250,7 @@ jobs:
       - tag_and_deploy:
           source_image: ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
           target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}
-          target_tag: master-${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1}
+          target_tag: master-${CIRCLE_BUILD_NUM}
           output_timeout: << parameters.output_timeout >>
       - tag_and_deploy:
           source_image: ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
