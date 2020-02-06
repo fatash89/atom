@@ -239,10 +239,11 @@ class Element:
         """
         for k, v in entry.items():
             if type(v) is bytes:
-                try:
+                try:  # try decoding as bytestring first
+                    entry[k] = entry[k].decode()
+                except Exception:  # if not bytestring, deserialize
                     entry[k] = ser.deserialize(v, method=method)
-                except TypeError:
-                    pass
+
         return entry
 
     def _check_element_version(self, element_name, supported_language_set=None, supported_min_version=None):
