@@ -143,8 +143,6 @@ jobs:
     environment:
       <<: *atom_build_vars
     steps:
-      - attach_workspace:
-          at: /tmp/workspace
       - atom/docker_login
       - atom/push_dev_image:
           <<: *atom_image_names
