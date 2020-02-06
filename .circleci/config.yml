@@ -50,6 +50,7 @@ orbs:
 jobs:
   build-atom:
     executor: atom/build-classic
+    resource_class: large
     environment:
       <<: *atom_build_vars
     steps:
@@ -78,6 +79,7 @@ jobs:
 
   build-cuda:
     executor: atom/build-classic
+    resource_class: large
     environment:
       <<: *atom_build_vars
     steps:
@@ -97,6 +99,7 @@ jobs:
 
   build-opengl:
     executor: atom/build-classic
+    resource_class: large
     environment:
       <<: *atom_build_vars
     steps:
@@ -116,6 +119,7 @@ jobs:
 
   build-opengl-cuda:
     executor: atom/build-classic
+    resource_class: large
     environment:
       <<: *atom_build_vars
     steps:
@@ -135,6 +139,7 @@ jobs:
 
   deploy-dev:
     executor: atom/build-classic
+    resource_class: large
     environment:
       <<: *atom_build_vars
     steps:
