@@ -262,16 +262,10 @@ class AtomCLI:
             streams.append(self.element._make_command_id(element))
         for stream in streams:
             cur_records = self.element.entry_read_since(
-                None, stream, start_time, deserialize=False)
+                None, stream, start_time, serialization=self.serialization)
             for record in cur_records:
                 for key, value in record.items():
-                    try:
-                        if not isinstance(value, str):
-                            value = value.decode()
-                    except:
-                        value = ser.deserialize(value, method=self.serialization)
-                    finally:
-                        record[key] = value
+                    record[key] = value
                 record["type"], record["element"] = stream.split(":")
                 records.append(record)
         return sorted(records, key=lambda x: (x["id"], x["type"]))
