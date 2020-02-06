@@ -105,7 +105,7 @@ commands:
     steps:
       - run:
           name: Build Docker Compose File
-          command: << parameters.build_args >> docker-compose -p atom -f << parameters.file >> build --no-cache --pull
+          command: << parameters.build_args >> docker-compose -p atom -f << parameters.file >> build --pull
       - run:
           name: Tag built service
           command: docker tag atom_<< parameters.service >>:latest << parameters.image_tag >>
