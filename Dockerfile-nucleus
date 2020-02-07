@@ -6,27 +6,28 @@ RUN apk add --no-cache gcc \
                        g++ \
                        make \
                        cmake \
-                       git && \
+                       git \
 
 # Install essentials for python
-  apk add --no-cache python3 && \
-  python3 -m ensurepip && \
-  pip3 install --no-cache-dir --upgrade pip setuptools && \
+  && apk add --no-cache python3 \
+  && python3 -m ensurepip \
+  && pip3 install --upgrade pip setuptools \
 
 # Build and install msgpack
-  pip3 --no-cache-dir install msgpack
+  && pip3 --no-cache-dir install msgpack
 
-# Build and install arrow
-ADD ./third-party /atom/third-party/
 ADD ./.git /atom/.git
 ADD ./.gitmodules /atom/.gitmodules
-RUN cd /atom/third-party/ && \
-    sh ./install_arrow.sh
 
 # Install redis-py
 ADD ./languages/python/third-party /atom/languages/python/third-party
 RUN cd /atom/languages/python/third-party/redis-py && \
     python3 setup.py install
+
+# Build and install arrow
+ADD ./third-party/ /atom/third-party/
+RUN cd /atom/third-party/ && \
+    sh ./install_arrow.sh
 
 ADD . /atom
 
