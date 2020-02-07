@@ -1,44 +1,49 @@
 FROM redis:alpine
 
 # Install required linux packages
-RUN apk add --no-cache gcc musl-dev g++
-RUN apk add --no-cache make cmake git
+RUN apk add --no-cache gcc \
+                       musl-dev \
+                       g++ \
+                       make \
+                       cmake \
+                       git && \
 
 # Install essentials for python
-RUN apk add --no-cache python3
-RUN python3 -m ensurepip
-RUN pip3 install --upgrade pip setuptools
+  apk add --no-cache python3 && \
+  python3 -m ensurepip && \
+  pip3 install --no-cache-dir --upgrade pip setuptools && \
 
 # Build and install msgpack
-RUN pip3 install msgpack
+  pip3 --no-cache-dir install msgpack
 
 # Build and install arrow
 ADD ./third-party /atom/third-party/
 ADD ./.git /atom/.git
-WORKDIR /atom/third-party/
-RUN sh ./install_arrow.sh
+ADD ./.gitmodules /atom/.gitmodules
+RUN cd /atom/third-party/ && \
+    sh ./install_arrow.sh
 
 # Install redis-py
 ADD ./languages/python/third-party /atom/languages/python/third-party
-WORKDIR /atom/languages/python/third-party/redis-py
-RUN python3 setup.py install
+RUN cd /atom/languages/python/third-party/redis-py && \
+    python3 setup.py install
 
 ADD . /atom
 
 # Install depedencies for atom-cli
-WORKDIR /atom/utilities/atom-cli
-RUN pip3 install -r requirements.txt
-RUN cp atom-cli.py /usr/bin/atom-cli
-RUN chmod +x /usr/bin/atom-cli
+RUN cd /atom/utilities/atom-cli && \
+    pip3 install --no-cache-dir -r requirements.txt && \
+    cp atom-cli.py /usr/bin/atom-cli && \
+    chmod +x /usr/bin/atom-cli
 
 # Build and install python library for atom
-WORKDIR /atom/languages/python
-RUN pip3 install -r requirements.txt
-RUN python3 setup.py install
+RUN cd /atom/languages/python && \
+    pip3 install --no-cache-dir -r requirements.txt && \
+    python3 setup.py install
 
 # Change directory to nucleus and chown the launch script
 ADD ./launch_nucleus.sh /nucleus/launch.sh
 ADD ./redis.conf /nucleus/redis.conf
-WORKDIR /nucleus
-RUN chmod +x launch.sh
+RUN cd /nucleus && \
+    chmod +x launch.sh
 CMD ["./launch.sh"]
