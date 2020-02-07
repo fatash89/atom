@@ -1,2 +1,4 @@
 lazycontract==0.9.6
 pytest==3.8.1
+msgpack
+pyarrow
