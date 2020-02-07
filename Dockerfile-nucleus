@@ -1,22 +1,21 @@
 FROM redis:alpine
 
 # Install required linux packages
-RUN apk add --no-cache gcc \
-                       musl-dev \
-                       g++ \
-                       make \
-                       cmake \
-                       git \
+RUN apk add gcc \
+            musl-dev \
+            g++ \
+            make \
+            cmake \
+            git \
 
 # Install essentials for python
-  && apk add --no-cache python3 \
+  && apk add python3 \
   && python3 -m ensurepip \
   && pip3 install --upgrade pip setuptools \
 
 # Build and install msgpack
   && pip3 --no-cache-dir install msgpack
 
-ADD ./.git /atom/.git
 ADD ./.gitmodules /atom/.gitmodules
 
 # Install redis-py
