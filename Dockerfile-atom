@@ -4,7 +4,7 @@ FROM elementaryrobotics/$BASE_IMAGE:$BASE_IMAGE_TAG
 
 # Want to copy over the contents of this repo to the code
 #	section so that we have the source
-ADD . /atom
+ADD ./third-party /atom/third-party/
 
 #
 # Build and install arrow
@@ -16,6 +16,8 @@ RUN bash ./install_arrow.sh
 # Set up the LD_LIBRARY_PATH on the system s.t.
 #   our binaries work as expected
 ENV LD_LIBRARY_PATH /usr/local/lib:${LD_LIBRARY_PATH}
+
+ADD . /atom
 
 #
 # Install redis-py

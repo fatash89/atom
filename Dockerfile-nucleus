@@ -4,7 +4,6 @@ FROM redis:alpine
 #	section so that we have the source
 ADD ./launch_nucleus.sh /nucleus/launch.sh
 ADD ./redis.conf /nucleus/redis.conf
-ADD . /atom
 
 # Install required linux packages
 RUN apk add --no-cache gcc musl-dev g++
@@ -23,8 +22,11 @@ WORKDIR /usr/src/msgpack-c
 RUN cmake -DMSGPACK_CXX11=ON . && make install
 
 # Build and install arrow
+ADD ./third-party /atom/third-party/
 WORKDIR /atom/third-party/
 RUN sh ./install_arrow.sh
+
+ADD . /atom
 
 # Install redis-py
 WORKDIR /atom/languages/python/third-party/redis-py
