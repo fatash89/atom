@@ -169,8 +169,6 @@ commands:
       output_timeout:
         <<: *output_timeout_param
     steps:
-      - load_image:
-          image_filename: << parameters.image_filename >>
       - tag_and_deploy:
           source_image: << parameters.source_image >>
           target_image: << parameters.target_image >>

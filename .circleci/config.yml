@@ -63,17 +63,10 @@ jobs:
           file: docker-compose.yml
           service: ${DOCKER_COMPOSE_ATOM_SERVICE_NAME}
           image_tag: ${DOCKERHUB_ATOM_REPO}-${CIRCLE_WORKFLOW_ID}
-      - atom/store_image:
-          image_filename: ${DOCKERHUB_ATOM_REPO}
-          image_tag: ${DOCKERHUB_ATOM_REPO}-${CIRCLE_WORKFLOW_ID}
       # Tag and save nucleus image
       - run:
           name: Tag nucleus image
           command: docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME} ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME}-${CIRCLE_WORKFLOW_ID}
-      - atom/store_image:
-          image_filename: ${DOCKERHUB_NUCLEUS_REPO}
-          image_tag: ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME}-${CIRCLE_WORKFLOW_ID}
-
       - run_tests:
           container: ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME}
 
@@ -91,9 +84,6 @@ jobs:
           service: ${DOCKER_COMPOSE_ATOM_SERVICE_NAME}
           image_tag: ${DOCKERHUB_ATOM_CUDA_10_REPO}-${CIRCLE_WORKFLOW_ID}
           build_args: BASE_IMAGE=atom-cuda-10-base
-      - atom/store_image:
-          image_filename: ${DOCKERHUB_ATOM_CUDA_10_REPO}
-          image_tag: ${DOCKERHUB_ATOM_CUDA_10_REPO}-${CIRCLE_WORKFLOW_ID}
       - run_tests:
           container: ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME}
 
@@ -111,9 +101,6 @@ jobs:
           service: ${DOCKER_COMPOSE_ATOM_SERVICE_NAME}
           image_tag: ${DOCKERHUB_ATOM_OPENGL_REPO}-${CIRCLE_WORKFLOW_ID}
           build_args: BASE_IMAGE=atom-opengl-base
-      - atom/store_image:
-          image_filename: ${DOCKERHUB_ATOM_OPENGL_REPO}
-          image_tag: ${DOCKERHUB_ATOM_OPENGL_REPO}-${CIRCLE_WORKFLOW_ID}
       - run_tests:
           container: ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME}
 
@@ -131,9 +118,6 @@ jobs:
           service: ${DOCKER_COMPOSE_ATOM_SERVICE_NAME}
           image_tag: ${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}-${CIRCLE_WORKFLOW_ID}
           build_args: BASE_IMAGE=atom-opengl-cuda-10-base
-      - atom/store_image:
-          image_filename: ${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}
-          image_tag: ${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}-${CIRCLE_WORKFLOW_ID}
       - run_tests:
           container: ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME}
 
@@ -213,17 +197,12 @@ jobs:
       - run:
           name: Tag Docker Image
           command: docker tag ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME} ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME}-${CIRCLE_WORKFLOW_ID}
-      - atom/store_image:
-          image_filename: ${DOCKER_COMPOSE_SERVICE_NAME}
-          image_tag: ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME}-${CIRCLE_WORKFLOW_ID}
 
   deploy-dev-docs:
     executor: atom/build-classic
     environment:
       <<: *docs_env
     steps:
-      - attach_workspace:
-          at: /tmp/workspace
       - atom/docker_login
       - atom/push_dev_image:
           <<: *docs_image_names
