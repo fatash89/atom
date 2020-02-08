@@ -8,7 +8,7 @@ FROM $BASE_IMAGE:$BASE_IMAGE_TAG AS builder
 #
 ADD ./languages/python/third-party/redis-py /atom/languages/python/third-party/redis-py
 RUN cd /atom/languages/python/third-party/redis-py \
- && python3 setup.py install
+ && python3 setup.py install --user
 
 #
 # Build and install the c library
@@ -37,8 +37,8 @@ RUN cd /atom/languages/cpp \
 ADD ./languages/python /atom/languages/python
 ADD ./lua-scripts /atom/lua-scripts
 RUN cd /atom/languages/python \
- && pip3 install -r requirements.txt \
- && python3 setup.py install
+ && pip3 install --user --no-cache-dir -r requirements.txt \
+ && python3 setup.py install --user
 
 #
 # Install dependencies for atom-cli
