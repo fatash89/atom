@@ -1,13 +1,13 @@
 ARG BASE_IMAGE_TAG=33e20b3be1d5fa6e7825a8438db4c53c2e15ab65
 ARG BASE_IMAGE=atom-base
-FROM elementaryrobotics/$BASE_IMAGE:$BASE_IMAGE_TAG
+FROM elementaryrobotics/$BASE_IMAGE:$BASE_IMAGE_TAG AS builder
 
 #
 # Install redis-py
 #
 ADD ./languages/python/third-party/redis-py /atom/languages/python/third-party/redis-py
 RUN cd /atom/languages/python/third-party/redis-py \
- && python3 setup.py install
+ && python3 setup.py install --user
 
 #
 # Build and install the c library
@@ -36,15 +36,25 @@ RUN cd /atom/languages/cpp \
 ADD ./languages/python /atom/languages/python
 ADD ./lua-scripts /atom/lua-scripts
 RUN cd /atom/languages/python \
- && pip3 install -r requirements.txt \
- && python3 setup.py install
+ && pip3 install --user --no-cache-dir -r requirements.txt \
+ && python3 setup.py install --user
 
 #
 # Install dependencies for atom-cli
 #
 ADD ./utilities/atom-cli /atom/utilities/atom-cli
 RUN cd /atom/utilities/atom-cli \
- && pip3 install -r requirements.txt \
+ && pip3 install --user --no-cache-dir -r requirements.txt
+
+
+FROM elementaryrobotics/$BASE_IMAGE:$BASE_IMAGE_TAG
+
+COPY --from=builder /root/.local /root/.local
+ENV PATH=/root/.local/bin:$PATH
+# Need to copy over C builds here
+
+ADD ./utilities/atom-cli /atom/utilities/atom-cli
+RUN cd /atom/utilities/atom-cli \
  && cp atom-cli.py /usr/bin/atom-cli \
  && chmod +x /usr/bin/atom-cli
 
