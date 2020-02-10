@@ -35,7 +35,7 @@ aliases:
       DOCKER_COMPOSE_SERVICE_NAME: docs
   - &docs_image_names
       image_filename: ${DOCKER_COMPOSE_SERVICE_NAME}
-      source_image: ${DOCKER_COMPOSE_PROJECT_NAME}_${DOCKER_COMPOSE_SERVICE_NAME}-${CIRCLE_WORKFLOW_ID}
+      source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}:build-${CIRCLE_WORKFLOW_ID}
       target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}
 
 
@@ -50,7 +50,7 @@ orbs:
 jobs:
   build-atom:
     executor: atom/build-classic
-    # resource_class: large
+    resource_class: large
     environment:
       <<: *atom_build_vars
     steps:
@@ -72,7 +72,7 @@ jobs:
 
   build-cuda:
     executor: atom/build-classic
-    # resource_class: large
+    resource_class: large
     environment:
       <<: *atom_build_vars
     steps:
@@ -89,7 +89,7 @@ jobs:
 
   build-opengl:
     executor: atom/build-classic
-    # resource_class: large
+    resource_class: large
     environment:
       <<: *atom_build_vars
     steps:
@@ -106,7 +106,7 @@ jobs:
 
   build-opengl-cuda:
     executor: atom/build-classic
-    # resource_class: large
+    resource_class: large
     environment:
       <<: *atom_build_vars
     steps:
@@ -123,7 +123,7 @@ jobs:
 
   deploy-dev:
     executor: atom/build-classic
-    # resource_class: large
+    resource_class: large
     environment:
       <<: *atom_build_vars
     steps:
