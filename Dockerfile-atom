@@ -1,6 +1,7 @@
-ARG BASE_IMAGE_TAG=33e20b3be1d5fa6e7825a8438db4c53c2e15ab65
+ARG BASE_IMAGE_TAG=dev
 ARG BASE_IMAGE=atom-base
-FROM elementaryrobotics/$BASE_IMAGE:$BASE_IMAGE_TAG
+
+FROM $BASE_IMAGE:$BASE_IMAGE_TAG AS builder
 
 #
 # Install redis-py
@@ -44,7 +45,21 @@ RUN cd /atom/languages/python \
 #
 ADD ./utilities/atom-cli /atom/utilities/atom-cli
 RUN cd /atom/utilities/atom-cli \
- && pip3 install -r requirements.txt \
+ && pip3 install --user --no-cache-dir -r requirements.txt
+
+
+FROM python:3.8-slim-buster
+
+# Copy installed python libs
+COPY --from=builder /root/.local /root/.local
+ENV PATH=/root/.local/bin:$PATH
+
+# Copy C builds to install
+COPY --from=builder /usr/local/lib /usr/local/lib
+COPY --from=builder /usr/local/include /usr/local/include
+
+ADD ./utilities/atom-cli /atom/utilities/atom-cli
+RUN cd /atom/utilities/atom-cli \
  && cp atom-cli.py /usr/bin/atom-cli \
  && chmod +x /usr/bin/atom-cli
 

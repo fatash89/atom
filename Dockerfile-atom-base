@@ -1,5 +1,5 @@
 
-ARG BASE_IMAGE=ubuntu:18.04
+ARG BASE_IMAGE=python:3.8-slim-buster
 FROM $BASE_IMAGE
 
 # Noninteractive frontend
@@ -26,7 +26,7 @@ WORKDIR /root
 RUN apt-get install -y valgrind
 
 # Install msgpack
-RUN pip3 install msgpack
+RUN pip3 install --user msgpack
 WORKDIR /usr/src
 RUN git clone https://github.com/msgpack/msgpack-c.git
 WORKDIR /usr/src/msgpack-c
