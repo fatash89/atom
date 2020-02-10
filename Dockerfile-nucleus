@@ -1,43 +1,34 @@
-FROM redis:buster AS builder
+FROM redis:buster
 
 # Install required linux packages
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends gcc \
-                                               musl-dev \
-                                               g++ \
-                                               make \
-                                               cmake \
-                                               git \
+                                             musl-dev \
+                                             g++ \
+                                             make \
+                                             cmake \
+                                             git \
 # Install essentials for python
   && apt-get install -y python3-minimal python3-pip \
-  && pip3 install --user --no-cache-dir --upgrade pip setuptools
+  && pip3 install --upgrade pip setuptools
 
 # Install redis-py
 ADD ./languages/python/third-party /atom/languages/python/third-party
 RUN cd /atom/languages/python/third-party/redis-py && \
-    python3 setup.py install --user
+    python3 setup.py install
 
 # Build and install python library for atom
 ADD ./languages/python /atom/languages/python
 RUN cd /atom/languages/python && \
-    pip3 install --user --no-cache-dir -r requirements.txt && \
-    python3 setup.py install --user
+    pip3 install --no-cache-dir -r requirements.txt && \
+    python3 setup.py install
 
 # Install depedencies for atom-cli
 ADD ./utilities/atom-cli /atom/utilities/atom-cli
 RUN cd /atom/utilities/atom-cli && \
-    pip3 install --user --no-cache-dir -r requirements.txt
-
-
-FROM redis:buster
-
-COPY --from=builder /root/.local /root/.local
-ENV PATH=/root/.local/bin:$PATH
-
-ADD ./utilities/atom-cli /atom/utilities/atom-cli
-RUN cd /atom/utilities/atom-cli \
- && cp atom-cli.py /usr/bin/atom-cli \
- && chmod +x /usr/bin/atom-cli
+    pip3 install --no-cache-dir -r requirements.txt && \
+    cp atom-cli.py /usr/bin/atom-cli && \
+    chmod +x /usr/bin/atom-cli
 
 # Change directory to nucleus and chown the launch script
 ADD ./launch_nucleus.sh /nucleus/launch.sh
