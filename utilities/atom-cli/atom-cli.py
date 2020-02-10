@@ -241,7 +241,7 @@ class AtomCLI:
         """
         records = []
         all_records = self.element.entry_read_since(
-            None, "log", start_time, deserialize=False)
+            None, "log", start_time, serialization=None)
         for record in all_records:
             if not elements or record["element"].decode() in elements:
                 record = {key: (value if isinstance(value, str) else value.decode(
