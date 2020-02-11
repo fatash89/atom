@@ -134,6 +134,16 @@ commands:
       - store_artifacts:
           path: ./<< parameters.image_filename >>.tar
 
+  pull_image:
+    description: "Pull image from registry"
+    parameters:
+      image_tag:
+        type: string
+    steps:
+      - run:
+          name: Pull Docker image
+          command: docker pull << parameters.image_tag >>
+
   # Create and push image tag
   tag_and_deploy:
     description: "Tag the latest docker image and deploy it"
@@ -160,8 +170,6 @@ commands:
 
   push_dev_image:
     parameters:
-      image_filename:
-        type: string
       source_image:
         type: string
       target_image:
@@ -169,6 +177,9 @@ commands:
       output_timeout:
         <<: *output_timeout_param
     steps:
+      - docker_login
+      - pull_image:
+          image_tag: << parameters.source_image >>
       - tag_and_deploy:
           source_image: << parameters.source_image >>
           target_image: << parameters.target_image >>
@@ -177,8 +188,6 @@ commands:
 
   push_master_image:
     parameters:
-      image_filename:
-        type: string
       source_image:
         type: string
       target_image:
@@ -186,12 +195,14 @@ commands:
       output_timeout:
         <<: *output_timeout_param
     steps:
-      - load_image:
-          image_filename: << parameters.image_filename >>
+      - docker_login
+      - pull_image:
+          image_tag: << parameters.source_image >>
       - tag_and_deploy:
           source_image: << parameters.source_image >>
           target_image: << parameters.target_image >>
           target_tag: master-${CIRCLE_BUILD_NUM}
+          output_timeout: << parameters.output_timeout >>
       - tag_and_deploy:
           source_image: << parameters.source_image >>
           target_image: << parameters.target_image >>
@@ -200,8 +211,6 @@ commands:
 
   push_tag_image:
     parameters:
-      image_filename:
-        type: string
       source_image:
         type: string
       target_image:
@@ -209,8 +218,9 @@ commands:
       output_timeout:
         <<: *output_timeout_param
     steps:
-      - load_image:
-          image_filename: << parameters.image_filename >>
+      - docker_login
+      - pull_image:
+          image_tag: << parameters.source_image >>
       - tag_and_deploy:
           source_image: << parameters.source_image >>
           target_image: << parameters.target_image >>
