@@ -19,6 +19,7 @@ RUN cd /atom/languages/python/third-party/redis-py && \
 
 # Build and install python library for atom
 ADD ./languages/python /atom/languages/python
+ADD ./lua-scripts /atom/lua-scripts
 RUN cd /atom/languages/python && \
     pip3 install --no-cache-dir -r requirements.txt && \
     python3 setup.py install
