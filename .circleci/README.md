@@ -149,7 +149,7 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 
 ### Release Notes
 
-## [v0.0.6](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.6)
+#### [v0.0.6](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.6)
 Created 02/10/2020.
 
 ##### New features
@@ -187,7 +187,7 @@ orbs:
 ```
 These target params will be automatically used by the deploy jobs to pull this build image, re-tag it, and push to production.
 
-## [v0.0.5](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.5)
+#### [v0.0.5](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.5)
 Created 02/05/2020.
 
 ##### Bug fixes
@@ -200,7 +200,7 @@ orbs:
   atom: elementaryrobotics/atom@0.0.5
 ```
 
-## [v0.0.4](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.4)
+#### [v0.0.4](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.4)
 Created 01/31/2020.
 
 ##### New features
@@ -228,7 +228,7 @@ orbs:
             only: /.*/
 ```
 
-## [v0.0.3](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.3)
+#### [v0.0.3](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.3)
 Created 01/30/2020.
 
 ##### New Features
@@ -249,7 +249,7 @@ steps:
 + - atom/install_git_lfs
 ```
 
-## [v0.0.2](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.2)
+#### [v0.0.2](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.2)
 Created 01/31/2020.
 
 ##### New Features
