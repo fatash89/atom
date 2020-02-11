@@ -2,60 +2,51 @@ ARG BASE_IMAGE_TAG=33e20b3be1d5fa6e7825a8438db4c53c2e15ab65
 ARG BASE_IMAGE=atom-base
 FROM elementaryrobotics/$BASE_IMAGE:$BASE_IMAGE_TAG
 
-# Want to copy over the contents of this repo to the code
-#	section so that we have the source
-ADD . /atom
-
-#
-# Build and install arrow
-#
-WORKDIR /atom/third-party/
-RUN bash ./install_arrow.sh
-
-#
-# Set up the LD_LIBRARY_PATH on the system s.t.
-#   our binaries work as expected
-ENV LD_LIBRARY_PATH /usr/local/lib:${LD_LIBRARY_PATH}
-
 #
 # Install redis-py
 #
-WORKDIR /atom/languages/python/third-party/redis-py
-RUN python3 setup.py install
-
-#
-# Build and install the python library
-#
-WORKDIR /atom/languages/python
-RUN pip3 install -r requirements.txt
-RUN python3 setup.py install
+ADD ./languages/python/third-party/redis-py /atom/languages/python/third-party/redis-py
+RUN cd /atom/languages/python/third-party/redis-py \
+ && python3 setup.py install
 
 #
 # Build and install the c library
 #
 
 # Need to first build hiredis
-WORKDIR /atom/languages/c/third-party/hiredis
-RUN make clean && make && make install LIBRARY_PATH=lib
+ADD ./languages/c/third-party/hiredis /atom/languages/c/third-party/hiredis
+RUN cd /atom/languages/c/third-party/hiredis \
+ && make && make install LIBRARY_PATH=lib
 
 # And build the C library
-WORKDIR /atom/languages/c
-RUN make clean && make && make install
+ADD ./languages/c /atom/languages/c
+RUN cd /atom/languages/c \
+ && make clean && make && make install
 
 #
 # Build and install the c++ library
 #
+ADD ./languages/cpp /atom/languages/cpp
+RUN cd /atom/languages/cpp \
+ && make clean && make && make install
 
-WORKDIR /atom/languages/cpp
-RUN make clean && make && make install
+#
+# Build and install the python library
+#
+ADD ./languages/python /atom/languages/python
+ADD ./lua-scripts /atom/lua-scripts
+RUN cd /atom/languages/python \
+ && pip3 install -r requirements.txt \
+ && python3 setup.py install
 
 #
 # Install dependencies for atom-cli
 #
-WORKDIR /atom/utilities/atom-cli
-RUN pip3 install -r requirements.txt
-RUN cp atom-cli.py /usr/bin/atom-cli
-RUN chmod +x /usr/bin/atom-cli
+ADD ./utilities/atom-cli /atom/utilities/atom-cli
+RUN cd /atom/utilities/atom-cli \
+ && pip3 install -r requirements.txt \
+ && cp atom-cli.py /usr/bin/atom-cli \
+ && chmod +x /usr/bin/atom-cli
 
 # Change working directory back to atom location
 WORKDIR /atom
