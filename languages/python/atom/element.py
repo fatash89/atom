@@ -241,7 +241,7 @@ class Element:
             if type(v) is bytes:
                 try:
                     entry[k] = ser.deserialize(v, method=method)
-                except TypeError:
+                except:
                     pass
         return entry
 
