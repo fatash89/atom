@@ -285,13 +285,13 @@ examples:
             - atom/build_and_launch:
                 file: docker-compose.yml
                 service: ${DOCKER_COMPOSE_SERVICE_NAME}
-                image_tag: ${DOCKERHUB_REPO_REGISTRY}-${CIRCLE_WORKFLOW_ID}
+                image_tag: ${DOCKERHUB_REPO}-${CIRCLE_WORKFLOW_ID}
             - run:
                 name: Unit Tests
                 command: docker exec -it ${DOCKER_COMPOSE_SERVICE_NAME} $my_unit_test_command
             - atom/tag_and_deploy:
-                source_image: ${DOCKERHUB_REPO_REGISTRY}-${CIRCLE_WORKFLOW_ID}
-                target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO_REGISTRY}
+                source_image: ${DOCKERHUB_REPO}-${CIRCLE_WORKFLOW_ID}
+                target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}
                 target_tag: build-${CIRCLE_WORKFLOW_ID}
 
       workflows:

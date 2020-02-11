@@ -149,6 +149,44 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 
 ### Release Notes
 
+## [v0.0.6](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.6)
+Created 02/10/2020.
+
+##### New features
+- Since our CircleCI plan now allows for docker layer caching, removed the `--no-cache` flag from the docker build command.
+- Replaced docker image save to and load from CircleCI workspace for transferring images between jobs with push to and pull from our docker registry.
+  - Timing tests showed the push/pull from the registry to be faster than saving/loading from the workspace.
+
+##### Upgrade Steps
+- Reference the v0.0.6 orb in `config.yml` with
+```
+orbs:
+  atom: elementaryrobotics/atom@0.0.6
+```
+- In order to have the docker push/pull between jobs work correctly, replace the `store_image` step in the build job with a `tag_and_deploy` step with the following `target_image` and `target_tag` params:
+```diff
+  build:
+    executor: atom/build-classic
+    steps:
+      - checkout
+      - update_submodules
+      - atom/docker_login
+      - atom/build_and_launch:
+          file: docker-compose-circle.yml
+          service: ${DOCKER_COMPOSE_SERVICE}
+          image_tag: ${DOCKERHUB_REPO}-${CIRCLE_WORKFLOW_ID}
+-     - atom/store_image:
+-         image_filename: ${DOCKERHUB_REPO}
+-         image_tag: ${DOCKERHUB_REPO}-${CIRCLE_WORKFLOW_ID}
+      - run_tests:
+          container: ${DOCKER_COMPOSE_CONTAINER}
++     - atom/tag_and_deploy:
++         source_image: ${DOCKERHUB_REPO}-${CIRCLE_WORKFLOW_ID}
++         target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}
++         target_tag: build-${CIRCLE_WORKFLOW_ID}
+```
+These target params will be automatically used by the deploy jobs to pull this build image, re-tag it, and push to production.
+
 ## [v0.0.5](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.5)
 Created 02/05/2020.
 
