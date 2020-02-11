@@ -87,27 +87,6 @@ commands:
           name: Launch Docker Compose File
           command: << parameters.build_args >> docker-compose -p atom -f << parameters.file >> up -d
 
-  # Store the docker image
-  store_image:
-    description: "Store the image built"
-    parameters:
-      image_filename:
-        type: string
-        default: image
-      image_tag:
-        type: string
-        default: ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
-    steps:
-      - run:
-          name: Archive Docker image
-          command: docker save -o << parameters.image_filename >>.tar << parameters.image_tag >>
-      - persist_to_workspace:
-          root: .
-          paths:
-            - ./*.tar
-      - store_artifacts:
-          path: ./<< parameters.image_filename >>.tar
-
   pull_image:
     description: "Pull image from registry"
     parameters:
