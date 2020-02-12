@@ -48,5 +48,8 @@ RUN cd /atom/utilities/atom-cli \
  && cp atom-cli.py /usr/bin/atom-cli \
  && chmod +x /usr/bin/atom-cli
 
+# Add .circleci for docs build
+ADD ./.circleci /atom/.circleci
+
 # Change working directory back to atom location
 WORKDIR /atom
