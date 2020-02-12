@@ -4,6 +4,7 @@ import gc
 import copy
 from atom import Element
 from multiprocessing import Process, Queue
+import numpy as np
 from threading import Thread
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_UNSUPPORTED
 from atom.config import ATOM_COMMAND_NO_RESPONSE, ATOM_CALLBACK_FAILED
@@ -113,6 +114,22 @@ class TestAtom:
         assert entries[0]["data"] == 9
         assert entries[-1]["data"] == 5
 
+    def test_add_entry_and_get_n_most_recent_arrow_numpy_serialized(self, caller, responder):
+        """
+        Adds 10 entries to the responder's stream with Apache Arrow serialization and makes sure
+        that the proper values are returned from get_n_most_recent without specifying deserialization
+        method in method call, instead relying on serialization key embedded within entry.
+        """
+        for i in range(10):
+            data = {"data":np.ones((3,3)) * i}
+            responder.entry_write("test_stream_arrow_numpy_serialized", data, serialization="arrow")
+        entries = caller.entry_read_n("test_responder",
+                                      "test_stream_arrow_numpy_serialized",
+                                      5)
+        assert len(entries) == 5
+        assert np.array_equal(entries[0]["data"], np.ones((3,3)) * 9)
+        assert np.array_equal(entries[-1]["data"], np.ones((3,3)) * 5)
+
     def test_add_entry_arrow_serialize_custom_type(self, caller, responder):
         """
         Attempts to add an arrow-serialized entry of a custom (not Python built-in) type.
@@ -127,7 +144,14 @@ class TestAtom:
             responder.entry_write("test_arrow_custom_type", {"data": inst}, serialization="arrow")
 
         print(excinfo.value)
-        assert "not a built-in Python type" in str(excinfo.value)
+        assert "not serializeable by pyarrow without pickling" in str(excinfo.value)
+
+        #   Test collection containing non-serializeable type
+        with pytest.raises(TypeError) as excinfo:
+            responder.entry_write("test_arrow_custom_type", {"data": [inst]}, serialization="arrow")
+
+        print(excinfo.value)
+        assert "not serializeable by pyarrow without pickling" in str(excinfo.value)
 
     def test_add_command(self, responder):
         """
