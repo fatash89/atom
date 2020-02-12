@@ -146,6 +146,13 @@ class TestAtom:
         print(excinfo.value)
         assert "not serializeable by pyarrow without pickling" in str(excinfo.value)
 
+        #   Test collection containing non-serializeable type
+        with pytest.raises(TypeError) as excinfo:
+            responder.entry_write("test_arrow_custom_type", {"data": [inst]}, serialization="arrow")
+
+        print(excinfo.value)
+        assert "not serializeable by pyarrow without pickling" in str(excinfo.value)
+
     def test_add_command(self, responder):
         """
         Ensures that a command can be added to a responder.
