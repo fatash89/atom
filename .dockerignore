@@ -1,7 +1,12 @@
-doc
-examples
-template
-docker-compose.yml
-.dockerignore
-.git
-demo
+# ignore everything
+**
+
+# except
+!/languages/**
+!/lua-scripts/**
+!/third-party/**
+!/utilities/**
+!/.circleci/**
+
+!/launch_nucleus.sh
+!/redis.conf

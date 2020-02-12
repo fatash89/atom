@@ -1,44 +1,54 @@
 FROM redis:buster AS builder
 
 # Install required linux packages
-RUN apt-get update -y \
- && apt-get install -y --no-install-recommends gcc \
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends apt-utils \
+                                               gcc \
                                                musl-dev \
                                                g++ \
                                                make \
                                                cmake \
                                                git \
 # Install essentials for python
-  && apt-get install -y python3-minimal python3-pip \
-  && pip3 install --user --no-cache-dir --upgrade pip setuptools
+  && apt-get install -y python3-minimal python3-pip python3-venv\
+  && pip3 install --no-cache-dir --upgrade pip setuptools
+
+# Create and activate python virtualenv
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
 # Install redis-py
 ADD ./languages/python/third-party /atom/languages/python/third-party
-RUN cd /atom/languages/python/third-party/redis-py && \
-    python3 setup.py install --user
+RUN cd /atom/languages/python/third-party/redis-py \
+ && python3 setup.py install
 
 # Build and install python library for atom
 ADD ./languages/python /atom/languages/python
 ADD ./lua-scripts /atom/lua-scripts
-RUN cd /atom/languages/python && \
-    pip3 install --user --no-cache-dir -r requirements.txt && \
-    python3 setup.py install --user
+RUN cd /atom/languages/python \
+ && pip3 install --no-cache-dir -r requirements.txt \
+ && python3 setup.py install
 
 # Install depedencies for atom-cli
+ADD ./utilities/atom-cli/requirements.txt /atom/utilities/atom-cli/requirements.txt
+RUN pip3 install --no-cache-dir -r /atom/utilities/atom-cli/requirements.txt
+
+# Install atom-cli
 ADD ./utilities/atom-cli /atom/utilities/atom-cli
-RUN cd /atom/utilities/atom-cli && \
-    pip3 install --user --no-cache-dir -r requirements.txt
+RUN cp /atom/utilities/atom-cli/atom-cli.py /opt/venv/bin/atom-cli \
+ && chmod +x /opt/venv/bin/atom-cli
+
 
 
 FROM redis:buster
 
-COPY --from=builder /root/.local /root/.local
-ENV PATH=/root/.local/bin:$PATH
+# Install python essentials
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends python3-minimal python3-venv
 
-ADD ./utilities/atom-cli /atom/utilities/atom-cli
-RUN cd /atom/utilities/atom-cli \
- && cp atom-cli.py /usr/bin/atom-cli \
- && chmod +x /usr/bin/atom-cli
+# Copy contents of python virtualenv and activate
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
 # Change directory to nucleus and chown the launch script
 ADD ./launch_nucleus.sh /nucleus/launch.sh

@@ -1,70 +1,153 @@
-ARG BASE_IMAGE_TAG=dev
-ARG BASE_IMAGE=atom-base
+FROM python:3.8-slim-buster as base
 
-FROM $BASE_IMAGE:$BASE_IMAGE_TAG AS builder
+ARG DEBIAN_FRONTEND=noninteractive
 
-#
+RUN apt-get update -y \
+ && apt-get install -y --no-install-recommends apt-utils \
+                                               git autoconf \
+                                               libtool \
+                                               cmake \
+                                               build-essential
+
+# Install msgpack
+RUN pip3 install --user --no-cache-dir msgpack \
+ && cd /usr/src && git clone https://github.com/msgpack/msgpack-c.git \
+ && cd /usr/src/msgpack-c && cmake -DMSGPACK_CXX11=ON . && make install
+
 # Install redis-py
-#
 ADD ./languages/python/third-party/redis-py /atom/languages/python/third-party/redis-py
 RUN cd /atom/languages/python/third-party/redis-py \
  && python3 setup.py install --user
 
-#
-# Build and install the c library
-#
-
-# Need to first build hiredis
+# Build hiredis for C library
 ADD ./languages/c/third-party/hiredis /atom/languages/c/third-party/hiredis
 RUN cd /atom/languages/c/third-party/hiredis \
  && make && make install LIBRARY_PATH=lib
 
-# And build the C library
+# Build the C library
 ADD ./languages/c /atom/languages/c
 RUN cd /atom/languages/c \
  && make clean && make && make install
 
-#
 # Build and install the c++ library
-#
 ADD ./languages/cpp /atom/languages/cpp
 RUN cd /atom/languages/cpp \
  && make clean && make && make install
 
-#
 # Build and install the python library
-#
+# Add and install requirements first to use DLC
+ADD ./languages/python/requirements.txt /atom/languages/python/requirements.txt
+RUN pip3 install --user --no-cache-dir -r /atom/languages/python/requirements.txt
+ADD ./utilities/atom-cli/requirements.txt /atom/utilities/atom-cli/requirements.txt
+RUN pip3 install --user --no-cache-dir -r /atom/utilities/atom-cli/requirements.txt
+
+# Install atom-cli
+ADD ./utilities/atom-cli /atom/utilities/atom-cli
+RUN cp /atom/utilities/atom-cli/atom-cli.py /usr/local/bin/atom-cli \
+ && chmod +x /usr/local/bin/atom-cli
+
 ADD ./languages/python /atom/languages/python
 ADD ./lua-scripts /atom/lua-scripts
 RUN cd /atom/languages/python \
- && pip3 install --user --no-cache-dir -r requirements.txt \
  && python3 setup.py install --user
 
-#
-# Install dependencies for atom-cli
-#
-ADD ./utilities/atom-cli /atom/utilities/atom-cli
-RUN cd /atom/utilities/atom-cli \
- && pip3 install --user --no-cache-dir -r requirements.txt
+# for graphics
+RUN pip3 install --user --no-cache-dir supervisor-stdout
+
+# Change working directory back to atom location
+WORKDIR /atom
 
 
-FROM python:3.8-slim-buster
+
+FROM python:3.8-slim-buster as prod
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update -y && apt-get install -y --no-install-recommends apt-utils
+
+# Install graphics - this should happen before adding atom in base image...
+RUN apt-get install -y --no-install-recommends \
+      libgl1-mesa-dri \
+      menu \
+      net-tools \
+      openbox \
+      supervisor \
+      tint2 \
+      x11-xserver-utils \
+      x11vnc \
+      xinit \
+      xserver-xorg-video-dummy \
+      xserver-xorg-input-void \
+      websockify \
+      git \
+      sudo \
+ && rm -f /usr/share/applications/x11vnc.desktop \
+# VNC
+ && git clone https://github.com/kanaka/noVNC.git /opt/noVNC \
+ && cd /opt/noVNC \
+ && git checkout 6a90803feb124791960e3962e328aa3cfb729aeb \
+ && ln -s vnc_auto.html index.html \
+ && apt-get -y remove \
+ && apt-get -y autoremove \
+ && apt-get -y clean \
+ && rm -rf /var/lib/apt/lists/*
+
+# noVNC (http server) is on 6080, and the VNC server is on 5900
+EXPOSE 6080 5900
+COPY third-party/docker-opengl/etc/skel/.xinitrc /etc/skel/.xinitrc
+
+RUN useradd -m -s /bin/bash user
+USER user
+RUN cp /etc/skel/.xinitrc /home/user/
+USER root
+RUN echo "user ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/user
+
+COPY third-party/docker-opengl/etc /etc
+COPY third-party/docker-opengl/usr /usr
+
+ENV DISPLAY :0#
 
 # Copy installed python libs
-COPY --from=builder /root/.local /root/.local
+COPY --from=base /root/.local /root/.local
 ENV PATH=/root/.local/bin:$PATH
 
-# Copy C builds to install
-COPY --from=builder /usr/local/lib /usr/local/lib
-COPY --from=builder /usr/local/include /usr/local/include
+# Copy C builds
+COPY --from=base /usr/local/lib /usr/local/lib
+COPY --from=base /usr/local/include /usr/local/include
 
-ADD ./utilities/atom-cli /atom/utilities/atom-cli
-RUN cd /atom/utilities/atom-cli \
- && cp atom-cli.py /usr/bin/atom-cli \
- && chmod +x /usr/bin/atom-cli
+# Copy atom-cli
+COPY --from=base /usr/local/bin/atom-cli /usr/local/bin/atom-cli
 
 # Add .circleci for docs build
 ADD ./.circleci /atom/.circleci
 
 # Change working directory back to atom location
 WORKDIR /atom
+
+
+
+FROM prod as test
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update -y && apt-get install -y --no-install-recommends apt-utils
+
+#
+# Install test dependencies
+#
+
+# Add code
+COPY ./languages/c/ /atom/languages/c
+COPY ./languages/cpp/ /atom/languages/cpp
+COPY ./languages/python/tests /atom/languages/python/tests
+
+# Install googletest
+RUN apt-get install -y --no-install-recommends libgtest-dev cmake build-essential \
+ && cd /usr/src/gtest \
+ && cmake CMakeLists.txt && make -j16 && cp *.a /usr/lib
+
+# Install valgrind
+RUN apt-get install -y --no-install-recommends valgrind
+
+# Install pytest
+RUN pip3 install --no-cache-dir pytest
