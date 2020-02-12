@@ -1,4 +1,5 @@
 from msgpack import packb, unpackb
+import numpy as np
 import pyarrow as pa
 from enum import Enum
 import builtins
@@ -38,16 +39,38 @@ class Arrow(GenericSerializationMethod):
     """
 
     @classmethod
+    def _type_check(cls, data):
+        """
+        Check that data is serializeable by pyarrow. Specifically check that
+        data is a built-in Python type, numpy array, or a built-in
+        container of those. Only lists, tuples, and dict container types are
+        supported. Raises error if data is not serializeable by pyarrow.
+        Note that pyarrow supports pickling of arbitary objects, but the intent
+        of this function is to forbid pickling altogether in order to
+        maximize interoperability with non-Python code.
+        """
+        if isinstance(data, dict):
+            for item in data.items():
+                cls._type_check(item)
+        elif isinstance(data, list) or isinstance(data, tuple):
+            for item in data:
+                cls._type_check(item)
+        else:
+            if (not hasattr(builtins, type(data).__name__)
+                and not isinstance(data, np.ndarray)
+                or isinstance(data, type(lambda:()))
+                or isinstance(data, type)):
+                raise TypeError(f"Data is type {type(data).__name__}, which is not serializeable by pyarrow without "
+                    "pickling; Change data type or choose a different serialization method.")
+
+    @classmethod
     def serialize(cls, data):
         """
         Serializes data with Apache Arrow if data is a built-in Python type.
         Raises error if data is not a built-in Python type.
         """
-        if not hasattr(builtins, type(data).__name__):
-            raise TypeError(f"Data is type {type(data).__name__}, which is not a built-in Python type; Arrow will default "
-                            "to pickle. Change data type or choose a different serialization method.")
-        else:
-            return memoryview(pa.serialize(data).to_buffer())
+        cls._type_check(data)
+        return memoryview(pa.serialize(data).to_buffer())
 
     @classmethod
     def deserialize(cls, data):
