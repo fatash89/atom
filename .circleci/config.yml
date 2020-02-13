@@ -234,7 +234,7 @@ jobs:
       - atom/push_tag_image:
           <<: *docs_image_names
       - heroku_deploy:
-          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}
+          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}:${CIRCLE_TAG}
 
 
 commands:

@@ -159,11 +159,14 @@ Created 02/10/2020.
 
 ##### Upgrade Steps
 - Reference the v0.0.6 orb in `config.yml` with
+
 ```
 orbs:
   atom: elementaryrobotics/atom@0.0.6
 ```
+
 - In order to have the docker push/pull between jobs work correctly, replace the `store_image` step in the build job with a `tag_and_deploy` step with the following `target_image` and `target_tag` params:
+
 ```diff
   build:
     executor: atom/build-classic
@@ -185,6 +188,7 @@ orbs:
 +         target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}
 +         target_tag: build-${CIRCLE_WORKFLOW_ID}
 ```
+
 These target params will be automatically used by the deploy jobs to pull this build image, re-tag it, and push to production.
 
 #### [v0.0.5](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.5)
@@ -195,6 +199,7 @@ Created 02/05/2020.
 
 ##### Upgrade Steps
 - Reference the v0.0.5 orb in `config.yml` with
+
 ```
 orbs:
   atom: elementaryrobotics/atom@0.0.5
@@ -209,11 +214,14 @@ Created 01/31/2020.
 
 ##### Upgrade Steps
 - Reference the v0.0.4 orb in `config.yml` with
+
 ```
 orbs:
   atom: elementaryrobotics/atom@0.0.4
 ```
+
 - Use the `output_timeout` parameter to specify a custom timeout on a command or job that performs a docker push and that requires an output timeout longer than the default of 15 mins:
+
 ```diff
   jobs:
     - atom/deploy-master:
@@ -239,11 +247,14 @@ Created 01/30/2020.
 
 ##### Upgrade Steps
 - Reference the v0.0.3 orb in `config.yml` with
+
 ```
 orbs:
   atom: elementaryrobotics/atom@0.0.3
 ```
+
 - To call the new `install_git_lfs` command, use the following:
+
 ```diff
 steps:
 + - atom/install_git_lfs
@@ -265,11 +276,14 @@ Created 01/31/2020.
 
 ##### Upgrade Steps
 - Reference the v0.0.2 orb in `config.yml` with
+
 ```
 orbs:
   atom: elementaryrobotics/atom@0.0.2
 ```
+
 - Add a job for building on GitHub tags with the following:
+
 ```diff
   jobs:
 +   - atom/deploy-tag:
@@ -282,7 +296,9 @@ orbs:
 +         tags:
 +           only: /.*/
 ```
+
 - Update any `deploy-master` jobs to also run on GitHub tags with the following:
+
 ```diff
   jobs:
     - atom/deploy-master:
@@ -295,7 +311,9 @@ orbs:
 +         tags:
 +           only: /.*/
 ```
+
 - Update any jobs upstream of the `deploy-tag` job to also run on tags, for example:
+
 ```diff
   jobs:
 -   - build
@@ -304,4 +322,5 @@ orbs:
 +         tags:
 +           only: /.*/
 ```
+
 It is required that all upstream jobs run on tags in order for the `deploy-tag` job to run.
