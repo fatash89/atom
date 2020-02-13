@@ -176,6 +176,7 @@ Publish a piece of data to a stream.
 | `name` | string | Stream name |
 | `data` | map | key:value pairs of data to publish |
 | `maxlen` | int | Maximum length of stream. Optional. Default 1024 |
+| `serialization` | string | Type of serialization to use when publishing the entry |
 
 ### Return Value
 
@@ -329,6 +330,9 @@ Reads N entries from a stream in a nonblocking fashion. Returns the N most recen
 | `element` | string | Element whose stream we want to read |
 | `name` | string | Stream name |
 | `n` | int | How many entries to read |
+| `serialization` | str | The deserialization method to use (defaults to None). If the reference key contains a serialization method, that method will be used for deserialization before using this parameter. |
+| `force_serialization` | bool | If True, explicitly override the auto-serialization and use the user-specified form of serialization |
+
 
 ### Return Value
 
@@ -429,6 +433,9 @@ This API can be used to traverse the stream in a blocking pub-sub fashion if `bl
 | `n` | int | How many entries to read |
 | `last_id` | string | Optional. If passed, Redis ID of last entry we read. If not passed we will return the first piece of data that is written to the stream after this call is made.  |
 | `block` | bool | If true, will block until we can return at least 1 piece of data. If false, can return with no data if none has been written. |
+| `serialization` | str | The deserialization method to use (defaults to None). If the reference key contains a serialization method, that method will be used for deserialization before using this parameter. |
+| `force_serialization` | bool | If True, explicitly override the auto-serialization and use the user-specified form of serialization |
+
 
 ### Return Value
 
@@ -528,6 +535,9 @@ This API is used to monitor multiple streams with a single thread. The user regi
 | `handlers` | map | Map of (element, stream) keys to handler values. Could also be a list of (element, stream, handler) tuples |
 | `n_loops` | int | Optional. Maximum number of loops. If passed, function will return after `n_loops` XREADS. Note that this doesn't necessarily guarantee that `n_loops` pieces of data have been read on a given stream, since each `XREAD` can yield multiple pieces of data on a given stream. |
 | `timeout` | int | Optional. Max timeout between calls to `XREAD`. If 0, will never time out. Otherwise, max number of milliseconds to wait for any data after which we'll return an error. Default 0, i.e. no timeout |
+| `serialization` | str | The deserialization method to use (defaults to None). If the reference key contains a serialization method, that method will be used for deserialization before using this parameter. |
+| `force_serialization` | bool | If True, explicitly override the auto-serialization and use the user-specified form of serialization |
+
 
 ### Return Value
 
@@ -1300,7 +1310,7 @@ The `timeout_ms` argument is powerful -- it allows you to set a time at which th
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `*data` | Binary/Object | One or more objects to be used for the reference |
-| `serialization` | str | The method of serialization to use; defaults to "none". |
+| `serialization` | str | The method of serialization to use; defaults to None. |
 | `timeout_ms` | int | How long the references should exist in Atom. This sets the expiry timeout in redis. Units in milliseconds. Set to 0 for no timeout, i.e. references exist until explicitly deleted. |
 
 ### Return Value
@@ -1355,7 +1365,8 @@ Receive the data from Atom for the given references
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `*keys` | String | One or more Reference IDs |
-| `serialization` | str | The deserialization method to use (defaults to "none"). If the reference key contains a serialization method, that method will be used for deserialization before using this parameter. |
+| `serialization` | str | The deserialization method to use (defaults to None). If the reference key contains a serialization method, that method will be used for deserialization before using this parameter. |
+| `force_serialization` | bool | If True, explicitly override the auto-serialization and use the user-specified form of serialization |
 
 ### Return Value
 

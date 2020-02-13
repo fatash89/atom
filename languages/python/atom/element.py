@@ -281,6 +281,18 @@ class Element:
         3. If the `ser` key is not present and the `deserialize` param is
             present then the type is `msgpack`
         4. Else, leave the data alone
+
+        Args:
+            data (dict): set of keys through which to search for special
+                serialization key "ser".
+            user_serialization (none/str): User-passed argument to API
+            force_serializstion (bool): Boolean to ignore "ser" key if found
+                in favor of the user-passed serialization. This can be useful
+                if data is being read from atom in order to then move it
+                through another transport layer which still needs the
+                serialization
+            deserialize (none/bool): Legacy param. If not equal to none, implies
+                user_serialization = "msgpack"
         """
 
         serialization = user_serialization
