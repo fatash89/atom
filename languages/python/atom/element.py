@@ -287,7 +287,9 @@ class Element:
 
         if not force_serialization:
             if "ser" in data.keys():
-                serialization = data.pop("ser").decode()
+                serialization = data.pop("ser")
+                if type(serialization) != str:
+                    serialization = serialization.decode()
             elif deserialize is not None:  # check for deprecated legacy mode
                 serialization = "msgpack" if deserialize else None
 
