@@ -269,6 +269,44 @@ class Element:
             return False
         return True
 
+    def _get_serialization_method(self, data, user_serialization, force_serialization, deserialize=None):
+        """
+        Helper function to make a unified serialization decision based off of
+        common user arguments. The serialization method returned will
+        be a string, that will be based on the following logic:
+
+        1. If `force_serialization` is true, then return the user-passed
+            serialization method
+        2. If the `ser` key is present in the data, go with that
+        3. If the `ser` key is not present and the `deserialize` param is
+            present then the type is `msgpack`
+        4. Else, leave the data alone
+
+        Args:
+            data (dict): set of keys through which to search for special
+                serialization key "ser".
+            user_serialization (none/str): User-passed argument to API
+            force_serializstion (bool): Boolean to ignore "ser" key if found
+                in favor of the user-passed serialization. This can be useful
+                if data is being read from atom in order to then move it
+                through another transport layer which still needs the
+                serialization
+            deserialize (none/bool): Legacy param. If not equal to none, implies
+                user_serialization = "msgpack"
+        """
+
+        serialization = user_serialization
+
+        if not force_serialization:
+            if "ser" in data.keys():
+                serialization = data.pop("ser")
+                if type(serialization) != str:
+                    serialization = serialization.decode()
+            elif deserialize is not None:  # check for deprecated legacy mode
+                serialization = "msgpack" if deserialize else None
+
+        return serialization
+
     def get_all_elements(self):
         """
         Gets the names of all the elements connected to the Redis server.
@@ -644,7 +682,7 @@ class Element:
         self.log(LogLevel.ERR, err_str)
         return vars(Response(err_code=ATOM_COMMAND_NO_RESPONSE, err_str=err_str))
 
-    def entry_read_loop(self, stream_handlers, n_loops=None, timeout=MAX_BLOCK, serialization=None, deserialize=None):
+    def entry_read_loop(self, stream_handlers, n_loops=None, timeout=MAX_BLOCK, serialization=None, force_serialization=False, deserialize=None):
         """
         Listens to streams and pass any received entry to corresponding handler.
 
@@ -681,16 +719,12 @@ class Element:
                 for uid, entry in msgs:
                     streams[stream] = uid
                     entry = self._decode_entry(entry)
-                    if "ser" in entry.keys():
-                        serialization = entry.pop("ser").decode()
-                    elif deserialize is not None:  # check for deprecated legacy mode
-                        serialization = "msgpack" if deserialize else None
-
+                    serialization = self._get_serialization_method(entry, serialization, force_serialization, deserialize)
                     entry = self._deserialize_entry(entry, method=serialization)
                     entry["id"] = uid.decode()
                     stream_handler_map[stream.decode()](entry)
 
-    def entry_read_n(self, element_name, stream_name, n, serialization=None, deserialize=None):
+    def entry_read_n(self, element_name, stream_name, n, serialization=None, force_serialization=False, deserialize=None):
         """
         Gets the n most recent entries from the specified stream.
 
@@ -713,11 +747,7 @@ class Element:
         uid_entries = self._rclient.xrevrange(stream_id, count=n)
         for uid, entry in uid_entries:
             entry = self._decode_entry(entry)
-            if "ser" in entry.keys():
-                serialization = entry.pop("ser").decode()
-            elif deserialize is not None:  # check for deprecated legacy mode
-                serialization = "msgpack" if deserialize else None
-
+            serialization = self._get_serialization_method(entry, serialization, force_serialization, deserialize)
             entry = self._deserialize_entry(entry, method=serialization)
             entry["id"] = uid.decode()
             entries.append(entry)
@@ -731,6 +761,7 @@ class Element:
                          n=None,
                          block=None,
                          serialization=None,
+                         force_serialization=False,
                          deserialize=None):
         """
         Read entries from a stream since the last_id.
@@ -761,11 +792,7 @@ class Element:
             if stream_name.decode() == stream_id:
                 for uid, entry in msgs:
                     entry = self._decode_entry(entry)
-                    if "ser" in entry.keys():
-                        serialization = entry.pop("ser").decode()
-                    elif deserialize is not None:  # check for deprecated legacy mode
-                        serialization = "msgpack" if deserialize else None
-
+                    serialization = self._get_serialization_method(entry, serialization, force_serialization, deserialize)
                     entry = self._deserialize_entry(entry, method=serialization)
                     entry["id"] = uid.decode()
                     entries.append(entry)
@@ -942,7 +969,7 @@ class Element:
 
         return key_dict
 
-    def reference_get(self, *keys, serialization=None, deserialize=None):
+    def reference_get(self, *keys, serialization=None, force_serialization=False, deserialize=None):
         """
         Gets one or more reference from the atom system. Reads the key(s) from redis
         and returns the data, performing a serialize/deserialize operation on each
@@ -973,11 +1000,22 @@ class Element:
             # look for serialization method in reference key first; if not present use user specified method
             key_split = key.split(':') if type(key) == str else key.decode().split(':')
 
+            # Need to reformat the data into a dictionary with a "ser"
+            #   key like it comes in on entries to use the shared logic function
+            get_serialization_data = {}
             if "ser" in key_split:
-                serialization = key_split[key_split.index("ser") + 1]
-            elif deserialize is not None:  # check for deprecated legacy mode
-                serialization = "msgpack" if deserialize else None
+                get_serialization_data["ser"] = key_split[key_split.index("ser") + 1]
 
+            # Use the serialization data to get the method for deserializing
+            #   according to the user's preference
+            serialization = self._get_serialization_method(
+                get_serialization_data,
+                serialization,
+                force_serialization,
+                deserialize
+            )
+
+            # Deserialize the data
             deserialized_data.append(ser.deserialize(ref, method=serialization) if ref is not None else None)
 
         return deserialized_data

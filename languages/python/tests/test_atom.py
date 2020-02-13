@@ -12,6 +12,7 @@ from atom.config import ATOM_USER_ERRORS_BEGIN, HEALTHCHECK_RETRY_INTERVAL
 from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND, LANG, VERSION, COMMAND_LIST_COMMAND
 from atom.messages import Response, StreamHandler, LogLevel
 from atom.contracts import RawContract, EmptyContract, BinaryProperty
+from msgpack import packb, unpackb
 
 
 class TestAtom:
@@ -874,6 +875,28 @@ class TestAtom:
             ref_data = caller.reference_get(key_dict[key])[0]
             correct_data = get_data(9)
             assert ref_data == correct_data[key]
+
+    def test_entry_read_n_ignore_serialization(self, caller):
+        test_data = {"some_key" : "some_val"}
+        caller.entry_write("test_stream", {"data": test_data}, serialization="msgpack")
+        entries = caller.entry_read_n("test_caller", "test_stream", 1, serialization=None, force_serialization=True)
+        assert test_data == unpackb(entries[0]["data"], raw=False)
+
+    def test_entry_read_since_ignore_serialization(self, caller):
+        test_data_1 = {"some_key" : "some_val"}
+        test_data_2 = {"some_other_key" : "some_other_val"}
+        data_1_id = caller.entry_write("test_stream", {"data": test_data_1}, serialization="msgpack")
+        data_2_id = caller.entry_write("test_stream", {"data": test_data_2}, serialization="msgpack")
+
+        entries = caller.entry_read_since("test_caller", "test_stream", last_id=data_1_id, serialization=None, force_serialization=True)
+        assert test_data_2 == unpackb(entries[0]["data"], raw=False)
+
+    def test_reference_ignore_serialization(self, caller):
+        data = [{"hello" : "world", "atom" : 123456, "some_obj" : {"references" : "are fun!"}}, True]
+        ref_ids = caller.reference_create(*data, serialization="msgpack")
+        ref_data = caller.reference_get(*ref_ids, serialization=None, force_serialization=True)
+        for i in range(len(data)):
+            assert unpackb(ref_data[i], raw=False) == data[i]
 
 
 def add_1(x):
