@@ -985,7 +985,18 @@ class Element:
         for key, ref in zip(keys, data):
             # look for serialization method in reference key first; if not present use user specified method
             key_split = key.split(':') if type(key) == str else key.decode().split(':')
-            serialization = self._get_serialization_method(key_split, serialization, force_serialization, deserialize)
+
+            # Need to reformat the data into a dictionary with a "ser"
+            #   key like it comes in on entries to use the shared logic function
+            if "ser" in key_split:
+                serialization = self._get_serialization_method(
+                    {"ser" : key_split[key_split.index("ser") + 1]},
+                    serialization,
+                    force_serialization,
+                    deserialize
+                )
+
+            # Deserialize the data
             deserialized_data.append(ser.deserialize(ref, method=serialization) if ref is not None else None)
 
         return deserialized_data
