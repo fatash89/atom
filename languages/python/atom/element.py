@@ -1002,13 +1002,18 @@ class Element:
 
             # Need to reformat the data into a dictionary with a "ser"
             #   key like it comes in on entries to use the shared logic function
+            get_serialization_data = {}
             if "ser" in key_split:
-                serialization = self._get_serialization_method(
-                    {"ser" : key_split[key_split.index("ser") + 1]},
-                    serialization,
-                    force_serialization,
-                    deserialize
-                )
+                get_serialization_data["ser"] = key_split[key_split.index("ser") + 1]
+
+            # Use the serialization data to get the method for deserializing
+            #   according to the user's preference
+            serialization = self._get_serialization_method(
+                get_serialization_data,
+                serialization,
+                force_serialization,
+                deserialize
+            )
 
             # Deserialize the data
             deserialized_data.append(ser.deserialize(ref, method=serialization) if ref is not None else None)
