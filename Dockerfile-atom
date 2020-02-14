@@ -51,15 +51,12 @@ ADD ./lua-scripts /atom/lua-scripts
 RUN cd /atom/languages/python \
  && python3 setup.py install --user
 
-# for graphics
-RUN pip3 install --user --no-cache-dir supervisor-stdout
-
 # Change working directory back to atom location
 WORKDIR /atom
 
 
 
-FROM python:3.8-slim-buster as prod
+FROM python:3.8-slim-buster as prod1
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -90,7 +87,8 @@ RUN apt-get install -y --no-install-recommends \
  && apt-get -y remove \
  && apt-get -y autoremove \
  && apt-get -y clean \
- && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/* \
+ && pip3 install --user --no-cache-dir supervisor-stdout
 
 # noVNC (http server) is on 6080, and the VNC server is on 5900
 EXPOSE 6080 5900
@@ -106,6 +104,10 @@ COPY third-party/docker-opengl/etc /etc
 COPY third-party/docker-opengl/usr /usr
 
 ENV DISPLAY :0#
+
+
+
+FROM prod1 as prod_final
 
 # Copy installed python libs
 COPY --from=base /root/.local /root/.local
@@ -126,7 +128,7 @@ WORKDIR /atom
 
 
 
-FROM prod as test
+FROM prod1 as test
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -135,11 +137,6 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends apt-utils
 #
 # Install test dependencies
 #
-
-# Add code
-COPY ./languages/c/ /atom/languages/c
-COPY ./languages/cpp/ /atom/languages/cpp
-COPY ./languages/python/tests /atom/languages/python/tests
 
 # Install googletest
 RUN apt-get install -y --no-install-recommends libgtest-dev cmake build-essential \
@@ -151,3 +148,20 @@ RUN apt-get install -y --no-install-recommends valgrind
 
 # Install pytest
 RUN pip3 install --no-cache-dir pytest
+
+# Add code
+
+# Copy installed python libs
+COPY --from=base /root/.local /root/.local
+ENV PATH=/root/.local/bin:$PATH
+
+# Copy C builds
+COPY --from=base /usr/local/lib /usr/local/lib
+COPY --from=base /usr/local/include /usr/local/include
+
+# Copy atom-cli
+COPY --from=base /usr/local/bin/atom-cli /usr/local/bin/atom-cli
+
+COPY ./languages/c/ /atom/languages/c
+COPY ./languages/cpp/ /atom/languages/cpp
+COPY ./languages/python/tests /atom/languages/python/tests

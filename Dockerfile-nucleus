@@ -1,4 +1,4 @@
-FROM redis:buster AS builder
+FROM redis:buster AS base
 
 # Install required linux packages
 RUN apt-get update \
@@ -40,14 +40,14 @@ RUN cp /atom/utilities/atom-cli/atom-cli.py /opt/venv/bin/atom-cli \
 
 
 
-FROM redis:buster
+FROM redis:buster AS prod
 
 # Install python essentials
 RUN apt-get update \
  && apt-get install -y --no-install-recommends python3-minimal python3-venv
 
 # Copy contents of python virtualenv and activate
-COPY --from=builder /opt/venv /opt/venv
+COPY --from=base /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Change directory to nucleus and chown the launch script
