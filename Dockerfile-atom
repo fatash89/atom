@@ -1,4 +1,5 @@
-FROM python:3.8-slim-buster as base
+ARG BASE_IMAGE=debian:buster-slim
+FROM $BASE_IMAGE as base
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -7,17 +8,25 @@ RUN apt-get update -y \
                                                git autoconf \
                                                libtool \
                                                cmake \
-                                               build-essential
+                                               build-essential \
+                                               python3-minimal \
+                                               python3-pip \
+                                               python3-venv \
+ && pip3 install --no-cache-dir --upgrade pip setuptools
+
+# Create and activate python virtualenv
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
 # Install msgpack
-RUN pip3 install --user --no-cache-dir msgpack \
+RUN pip3 install --no-cache-dir msgpack \
  && cd /usr/src && git clone https://github.com/msgpack/msgpack-c.git \
  && cd /usr/src/msgpack-c && cmake -DMSGPACK_CXX11=ON . && make install
 
 # Install redis-py
 ADD ./languages/python/third-party/redis-py /atom/languages/python/third-party/redis-py
 RUN cd /atom/languages/python/third-party/redis-py \
- && python3 setup.py install --user
+ && python3 setup.py install
 
 # Build hiredis for C library
 ADD ./languages/c/third-party/hiredis /atom/languages/c/third-party/hiredis
@@ -37,9 +46,9 @@ RUN cd /atom/languages/cpp \
 # Build and install the python library
 # Add and install requirements first to use DLC
 ADD ./languages/python/requirements.txt /atom/languages/python/requirements.txt
-RUN pip3 install --user --no-cache-dir -r /atom/languages/python/requirements.txt
+RUN pip3 install --no-cache-dir -r /atom/languages/python/requirements.txt
 ADD ./utilities/atom-cli/requirements.txt /atom/utilities/atom-cli/requirements.txt
-RUN pip3 install --user --no-cache-dir -r /atom/utilities/atom-cli/requirements.txt
+RUN pip3 install --no-cache-dir -r /atom/utilities/atom-cli/requirements.txt
 
 # Install atom-cli
 ADD ./utilities/atom-cli /atom/utilities/atom-cli
@@ -49,18 +58,72 @@ RUN cp /atom/utilities/atom-cli/atom-cli.py /usr/local/bin/atom-cli \
 ADD ./languages/python /atom/languages/python
 ADD ./lua-scripts /atom/lua-scripts
 RUN cd /atom/languages/python \
- && python3 setup.py install --user
+ && python3 setup.py install
 
 # Change working directory back to atom location
 WORKDIR /atom
 
 
 
-FROM python:3.8-slim-buster as prod1
+
+FROM $BASE_IMAGE as prod
+
+# Install python
+RUN apt-get update -y \
+ && apt-get install -y --no-install-recommends apt-utils \
+                                               python3-minimal \
+                                               python3-pip
+
+# Copy contents of python virtualenv and activate
+COPY --from=base /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy C builds
+COPY --from=base /usr/local/lib /usr/local/lib
+COPY --from=base /usr/local/include /usr/local/include
+
+# Copy atom-cli
+COPY --from=base /usr/local/bin/atom-cli /usr/local/bin/atom-cli
+
+# Add .circleci for docs build
+ADD ./.circleci /atom/.circleci
+
+# Change working directory back to atom location
+WORKDIR /atom
+
+
+
+
+FROM prod as test
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update -y && apt-get install -y --no-install-recommends apt-utils
+#
+# Install test dependencies
+#
+
+# Install googletest
+RUN apt-get install -y --no-install-recommends libgtest-dev cmake build-essential \
+ && cd /usr/src/gtest \
+ && cmake CMakeLists.txt && make -j16 && cp *.a /usr/lib
+
+# Install valgrind
+RUN apt-get install -y --no-install-recommends valgrind
+
+# Install pytest
+RUN pip3 install --no-cache-dir pytest
+
+# Copy source code
+COPY ./languages/c/ /atom/languages/c
+COPY ./languages/cpp/ /atom/languages/cpp
+COPY ./languages/python/tests /atom/languages/python/tests
+
+
+
+
+FROM prod as graphics
+
+ARG DEBIAN_FRONTEND=noninteractive
 
 # Install graphics - this should happen before adding atom in base image...
 RUN apt-get install -y --no-install-recommends \
@@ -105,63 +168,3 @@ COPY third-party/docker-opengl/usr /usr
 
 ENV DISPLAY :0#
 
-
-
-FROM prod1 as prod_final
-
-# Copy installed python libs
-COPY --from=base /root/.local /root/.local
-ENV PATH=/root/.local/bin:$PATH
-
-# Copy C builds
-COPY --from=base /usr/local/lib /usr/local/lib
-COPY --from=base /usr/local/include /usr/local/include
-
-# Copy atom-cli
-COPY --from=base /usr/local/bin/atom-cli /usr/local/bin/atom-cli
-
-# Add .circleci for docs build
-ADD ./.circleci /atom/.circleci
-
-# Change working directory back to atom location
-WORKDIR /atom
-
-
-
-FROM prod1 as test
-
-ARG DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update -y && apt-get install -y --no-install-recommends apt-utils
-
-#
-# Install test dependencies
-#
-
-# Install googletest
-RUN apt-get install -y --no-install-recommends libgtest-dev cmake build-essential \
- && cd /usr/src/gtest \
- && cmake CMakeLists.txt && make -j16 && cp *.a /usr/lib
-
-# Install valgrind
-RUN apt-get install -y --no-install-recommends valgrind
-
-# Install pytest
-RUN pip3 install --no-cache-dir pytest
-
-# Add code
-
-# Copy installed python libs
-COPY --from=base /root/.local /root/.local
-ENV PATH=/root/.local/bin:$PATH
-
-# Copy C builds
-COPY --from=base /usr/local/lib /usr/local/lib
-COPY --from=base /usr/local/include /usr/local/include
-
-# Copy atom-cli
-COPY --from=base /usr/local/bin/atom-cli /usr/local/bin/atom-cli
-
-COPY ./languages/c/ /atom/languages/c
-COPY ./languages/cpp/ /atom/languages/cpp
-COPY ./languages/python/tests /atom/languages/python/tests
