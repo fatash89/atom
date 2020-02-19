@@ -72,8 +72,8 @@ jobs:
       # Tag and push atom build images
       - atom/push_image:
           image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}
-   #   - atom/push_image:
-   #       image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-test:build-${CIRCLE_WORKFLOW_ID}
+      - atom/push_image:
+          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-test:build-${CIRCLE_WORKFLOW_ID}
 
   build-nucleus:
     executor: atom/build-classic
@@ -110,15 +110,7 @@ jobs:
 
     steps:
       - checkout
-      - update_submodules
       - atom/docker_login
-
-      # temporarily build test here
-      - atom/build_stage:
-          file: Dockerfile-atom
-          stage: test
-          image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-test
-          image_tag: build-${CIRCLE_WORKFLOW_ID}
 
       # Launch containers for testing
       - atom/run_compose:
@@ -208,6 +200,7 @@ jobs:
     resource_class: large
     environment:
       <<: *atom_build_vars
+      BASE_IMAGE_TAG: 33e20b3be1d5fa6e7825a8438db4c53c2e15ab65
     steps:
       - checkout
       - update_submodules
@@ -215,7 +208,7 @@ jobs:
 
       # Build base image
       - atom/pull_image:
-          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}-base:33e20b3be1d5fa6e7825a8438db4c53c2e15ab65
+          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}-base:${BASE_IMAGE_TAG}
 
       # Build graphics and test stages
       - atom/build_stage:
@@ -223,13 +216,13 @@ jobs:
           stage: graphics
           image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}
           image_tag: build-${CIRCLE_WORKFLOW_ID}
-          build_args: "BASE_IMAGE=${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}-base:build-${CIRCLE_WORKFLOW_ID}"
+          build_args: "BASE_IMAGE=${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}-base:${BASE_IMAGE_TAG}"
       - atom/build_stage:
           file: Dockerfile-atom
           stage: test
           image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}-test
           image_tag: build-${CIRCLE_WORKFLOW_ID}
-          build_args: "BASE_IMAGE=${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}-base:build-${CIRCLE_WORKFLOW_ID}"
+          build_args: "BASE_IMAGE=${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}-base:${BASE_IMAGE_TAG}"
 
       # Launch containers for testing
       - atom/run_compose:
