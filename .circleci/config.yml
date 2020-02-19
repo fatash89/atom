@@ -72,8 +72,8 @@ jobs:
       # Tag and push atom build images
       - atom/push_image:
           image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}
-     # - atom/push_image:
-     #     image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-test:build-${CIRCLE_WORKFLOW_ID}
+      - atom/push_image:
+          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-test:build-${CIRCLE_WORKFLOW_ID}
 
   build-nucleus:
     executor: atom/build-classic
@@ -110,15 +110,7 @@ jobs:
 
     steps:
       - checkout
-      - update_submodules
       - atom/docker_login
-
-      # temporarily build test here
-      - atom/build_stage:
-          file: Dockerfile-atom
-          stage: test
-          image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-test
-          image_tag: build-${CIRCLE_WORKFLOW_ID}
 
       # Launch containers for testing
       - atom/run_compose:
@@ -214,9 +206,8 @@ jobs:
       - atom/docker_login
 
       # Build base image
-      - run:
-          name: Build base image for opengl/cuda image
-          command: docker build -f Dockerfile-install-cudnn -t ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}-base:build-${CIRCLE_WORKFLOW_ID} .
+      - atom/pull_image:
+          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}-base
 
       # Build graphics and test stages
       - atom/build_stage:
