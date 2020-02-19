@@ -125,7 +125,8 @@ FROM prod as graphics
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-# Install graphics - this should happen before adding atom in base image...
+# Install graphics
+# Note: supervisor-stdout must be installed with pip2 and not pip3
 RUN apt-get install -y --no-install-recommends \
       libgl1-mesa-dri \
       menu \
@@ -141,17 +142,19 @@ RUN apt-get install -y --no-install-recommends \
       websockify \
       git \
       sudo \
+      python-pip \
  && rm -f /usr/share/applications/x11vnc.desktop \
 # VNC
  && git clone https://github.com/kanaka/noVNC.git /opt/noVNC \
  && cd /opt/noVNC \
  && git checkout 6a90803feb124791960e3962e328aa3cfb729aeb \
  && ln -s vnc_auto.html index.html \
- && apt-get -y remove \
+ && pip2 install --no-cache-dir setuptools \
+ && pip2 install --no-cache-dir supervisor-stdout \
+ && apt-get -y remove python-pip git \
  && apt-get -y autoremove \
  && apt-get -y clean \
- && rm -rf /var/lib/apt/lists/* \
- && pip3 install --user --no-cache-dir supervisor-stdout
+ && rm -rf /var/lib/apt/lists/*
 
 # noVNC (http server) is on 6080, and the VNC server is on 5900
 EXPOSE 6080 5900
