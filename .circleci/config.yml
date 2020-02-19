@@ -82,6 +82,10 @@ jobs:
       <<: *atom_build_vars
 
     steps:
+      - checkout
+      - update_submodules
+      - atom/docker_login
+
       # Build all stages of nucleus image
       - atom/build_stage:
           file: Dockerfile-nucleus
@@ -105,6 +109,10 @@ jobs:
       <<: *atom_build_vars
 
     steps:
+      - checkout
+      - update_submodules
+      - atom/docker_login
+
       # temporarily build test here
       - atom/build_stage:
           file: Dockerfile-atom

@@ -82,7 +82,7 @@ commands:
         default: ""
     steps:
       - run:
-          name: Build and tag stage
+          name: Build and tag << parameters.stage >> stage
           command: docker build -f << parameters.file >> -t << parameters.image_name >>:<< parameters.image_tag >> --target=<< parameters.stage >> --build-arg << parameters.build_args >> --pull .
 
   run_compose:
