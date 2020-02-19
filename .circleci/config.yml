@@ -215,7 +215,7 @@ jobs:
 
       # Build base image
       - atom/pull_image:
-          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}-base
+          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}-base:33e20b3be1d5fa6e7825a8438db4c53c2e15ab65
 
       # Build graphics and test stages
       - atom/build_stage:
