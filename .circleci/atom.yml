@@ -96,9 +96,6 @@ commands:
         default: ""
     steps:
       - run:
-          name: Pull missing images
-          command: << parameters.build_args >> docker-compose -p atom -f << parameters.file >> pull
-      - run:
           name: Launch docker-compose
           command: << parameters.build_args >> docker-compose -p atom -f << parameters.file >> up -d
 
