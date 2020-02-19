@@ -52,7 +52,7 @@ jobs:
       - update_submodules
       - atom/docker_login
 
-      # Build all stages of atom image
+      # Build base, prod and test stages of atom image
       - atom/build_stage:
           file: Dockerfile-atom
           stage: base
@@ -68,19 +68,12 @@ jobs:
           stage: test
           image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-test
           image_tag: build-${CIRCLE_WORKFLOW_ID}
-      - atom/build_stage:
-          file: Dockerfile-atom
-          stage: graphics
-          image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-graphics
-          image_tag: build-${CIRCLE_WORKFLOW_ID}
 
       # Tag and push atom build images
       - atom/push_image:
           image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}
-      - atom/push_image:
-          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-base:build-${CIRCLE_WORKFLOW_ID}
-      - atom/push_image:
-          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-graphics:build-${CIRCLE_WORKFLOW_ID}
+     # - atom/push_image:
+     #     image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-test:build-${CIRCLE_WORKFLOW_ID}
 
   build-nucleus:
     executor: atom/build-classic
@@ -101,7 +94,7 @@ jobs:
           image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}
           image_tag: build-${CIRCLE_WORKFLOW_ID}
 
-      # Tag and push nucleus build image
+      # Tag and push nucleus prod image
       - atom/push_image:
           image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID}
 
@@ -112,6 +105,13 @@ jobs:
       <<: *atom_build_vars
 
     steps:
+      # temporarily build test here
+      - atom/build_stage:
+          file: Dockerfile-atom
+          stage: test
+          image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-test
+          image_tag: build-${CIRCLE_WORKFLOW_ID}
+
       # Launch containers for testing
       - atom/run_compose:
           file: .circleci/docker-compose-circle.yml
