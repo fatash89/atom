@@ -169,5 +169,5 @@ RUN echo "user ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/user
 COPY third-party/docker-opengl/etc /etc
 COPY third-party/docker-opengl/usr /usr
 
-ENV DISPLAY :0#
+ENV DISPLAY :0
 
