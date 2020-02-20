@@ -81,7 +81,7 @@ docker-compose up -d
 docker exec -it dev_atom bash
 ```
 
-This will open up a shell within the most recent dev_atom you've built (or you can specify a tag or an atom-test container if
+This will open up a shell within the most recent dev_atom you've built (or you can specify a tag or an `atom-test` image if
 you'd like) and mount your current source folder in `/development`.
 Then you may compile/run code (such as unit tests of a new feature)
 from within the container while editing the source in a different shell session running outside of the container.
