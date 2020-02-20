@@ -200,7 +200,7 @@ jobs:
     resource_class: large
     environment:
       <<: *atom_build_vars
-      BASE_IMAGE_TAG: 33e20b3be1d5fa6e7825a8438db4c53c2e15ab65
+      BASE_IMAGE_TAG: v1.0.0
     steps:
       - checkout
       - update_submodules
@@ -456,7 +456,7 @@ workflows:
           requires:
             - build-opengl
             - build-cuda
-          #  - build-opengl-cuda
+            - build-opengl-cuda
           filters:
             branches:
               ignore:
