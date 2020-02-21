@@ -39,7 +39,7 @@ aliases:
 version: 2.1
 
 orbs:
-  atom:  elementaryrobotics/atom@dev:256
+  atom:  elementaryrobotics/atom@0.0.7
 
 jobs:
   build-atom:
