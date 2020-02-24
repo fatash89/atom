@@ -286,7 +286,7 @@ class Element:
             data (dict): set of keys through which to search for special
                 serialization key "ser".
             user_serialization (none/str): User-passed argument to API
-            force_serializstion (bool): Boolean to ignore "ser" key if found
+            force_serialization (bool): Boolean to ignore "ser" key if found
                 in favor of the user-passed serialization. This can be useful
                 if data is being read from atom in order to then move it
                 through another transport layer which still needs the
@@ -692,6 +692,8 @@ class Element:
             timeout (int): How long to block on the stream. If surpassed, the function returns.
             serialization (str, optional): If deserializing, the method of serialization
                                            to use; defaults to None.
+            force_serialization (bool): Boolean to ignore "ser" key if found
+                in favor of the user-passed serialization. Defaults to false.
 
             Deprecated:
             deserialize (bool, optional): Whether or not to deserialize the entries
@@ -734,6 +736,8 @@ class Element:
             n (int): Number of entries to get.
             serialization (str, optional): The method of deserialization to use;
                                            defaults to None.
+            force_serialization (bool): Boolean to ignore "ser" key if found
+                in favor of the user-passed serialization. Defaults to false.
 
             Deprecated:
             deserialize (bool, optional): Whether or not to deserialize the entries\
@@ -776,6 +780,8 @@ class Element:
                 If None, don't block.
             serialization (str, optional): Method of deserialization to use;
                                            defaults to None.
+            force_serialization (bool): Boolean to ignore "ser" key if found
+                in favor of the user-passed serialization. Defaults to false.
 
             Deprecated:
             deserialize (bool, optional): Whether or not to deserialize the entries
@@ -978,6 +984,8 @@ class Element:
         Args:
             keys (str): One or more keys of references to get from Atom
             serialization (str, optional): If deserializing, the method of serialization to use; defaults to msgpack.
+            force_serialization (bool): Boolean to ignore "ser" key if found
+                in favor of the user-passed serialization. Defaults to false.
 
             Deprecated:
             deserialize (bool, optional): Whether or not to deserialize reference; defaults to False.
