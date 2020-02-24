@@ -3,9 +3,7 @@ FROM redis:buster AS base
 # Install required linux packages
 RUN apt-get update \
  && apt-get install -y --no-install-recommends apt-utils \
-                                               gcc \
                                                musl-dev \
-                                               g++ \
                                                make \
                                                cmake \
                                                git \
