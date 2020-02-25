@@ -38,6 +38,13 @@ Note that you'll need to execute this command again _after every reboot_, so you
 3. Add these entries to the docker-compose file under `environment`: `"DISPLAY"` and `"QT_X11_NO_MITSHM=1"`
 4. Build and start your containers using the `docker-compose` command as usual.
 
+<aside class="notice">
+The `DISPLAY` environment variable is set to `:0` in the image by default -- this is required for use of graphics through VNC. If you want to run graphics locally, setting `DISPLAY`
+in the `environments` section of your docker-compose file without a value will forward your local `DISPLAY` environment variable to the element. If you want to run graphics with VNC,
+you should either not include it in the docker-compose file so that the default
+value of `:0` within the image is used, or redundantly set it to `DISPLAY=:0` in docker-compose.
+</aside>
+
 For better performance you can render to an X11 window _using a graphics card_ (currently only Nvidia hardware is supported).
 In addition to the steps above, perform the following to make use of a graphics card for rendering in an X11 window:
 

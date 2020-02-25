@@ -149,6 +149,47 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 
 ### Release Notes
 
+#### [v0.0.7](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.7)
+Created 02/19/2020.
+
+##### New features
+- Added a command for building a specific stage of a multi-stage docker image.
+- Added a command for launching a docker-compose file without building any images.
+- Added a command for pushing an image.
+
+##### Upgrade Steps
+- Reference the v0.0.7 orb in `config.yml` with
+
+```
+orbs:
+  atom: elementaryrobotics/atom@0.0.7
+```
+
+- Use the new command for building a stage of an image:
+
+```
+  - atom/build_stage:
+      file: Dockerfile-atom
+      stage: prod
+      image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
+      image_tag: build-${CIRCLE_WORKFLOW_ID}
+```
+
+- Use the new command for launching a docker-compose file without building:
+
+```
+  - atom/run_compose:
+      file: .circleci/docker-compose-circle.yml
+      build_args: ""
+```
+
+- Use the new command for pushing an image:
+
+```
+  - atom/push_image:
+      image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}:build-${CIRCLE_WORKFLOW_ID}
+```
+
 #### [v0.0.6](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.6)
 Created 02/10/2020.
 

@@ -4,7 +4,7 @@
 
 This repo contains the following:
 
-1. Docker files to create `atom-base`, `atom` and `nucleus` docker images
+1. Docker files to create `atom` and `nucleus` docker images
 2. Source code for all `atom` language libraries
 3. Examples for how to use `atom` in creating elements and apps.
 4. Source documentation for the [Atom Docs Site](https://atomdocs.io)
@@ -66,7 +66,7 @@ continue development in there until you're ready to rebuild.
 For more details refer to [Atom's docker-compose docs](https://github.com/elementary-robotics/atom/blob/26ff146fb23e12071a2743e12bc71c15023d23b3/doc/source/includes/docker-compose.md
 ).
 
-For example, mount your local Atom source directory to `/development` 
+For example, mount your local Atom source directory to `/development`
 in the atom image by adding a volume entry to the atom service in the docker-compose file:
 
 ```yaml
@@ -81,11 +81,11 @@ docker-compose up -d
 docker exec -it dev_atom bash
 ```
 
-This will open up a shell within the most recent dev_atom you've built (or you can specify a tag or even the atom-base container if
+This will open up a shell within the most recent dev_atom you've built (or you can specify a tag or an `atom-test` image if
 you'd like) and mount your current source folder in `/development`.
-Then you may compile/run code (such as unit tests of a new feature) 
+Then you may compile/run code (such as unit tests of a new feature)
 from within the container while editing the source in a different shell session running outside of the container.
-Note that typically you'll need to restart/reinstall the service that you're developing from within the container 
+Note that typically you'll need to restart/reinstall the service that you're developing from within the container
 in order for your code edits to take effect (For example, run `python3 setup.py install` between edits to the Python3 language client).
 
 #### Debugging with gdb
@@ -186,14 +186,14 @@ To create a new language client, you must do the following:
 
 1. Add a folder in `languages` for the new language client
 2. Implement the `atom` spec atop a redis client for the language.
-3. Modify `dockerfile-atom-base` to compile `msgpack` for the language.
-4. Modify `dockerfile-atom` to compile/install the language into the
-docker image. You will also need to bump the tag for `dockerfile-atom-base` in
-this file.
-5. Write a `README` on how to use the language client
-6. Write unit tests for the language client
-7. Modify `.circleci/config.yml` to run the unit tests for the language client.
-8. Open a PR with the above changes.
+3. Modify `Dockerfile-atom` to compile `msgpack` for the language in the `base` stage.
+4. Modify `Dockerfile-atom` to compile/install the language into the
+docker image in the `base` stage.
+5. Copy over the installed libraries in `prod` stage of `Dockerfile-atom`.
+6. Write a `README` on how to use the language client
+7. Write unit tests for the language client
+8. Modify `.circleci/config.yml` to run the unit tests for the language client.
+9. Open a PR with the above changes.
 
 ## Creating an app or element
 
@@ -218,31 +218,30 @@ your element/app. An example of what could be put in this file would be:
 python3 my_element.py
 ```
 
-## Base Dockerfile
+## Atom Dockerfile
 
-The `atom` dockerfile is developed atop the `atom-base` dockerfile which
-isn't built in CI. This dockerfile contains things which are more static such
-as basic ubuntu installs using `apt-get` and the installation of msgpack.
-This saves us time on our CI rebuild changes. The process for updating the
-`atom-base` docker container if needed are:
+The `atom` Dockerfile is a multi-stage Dockerfile, meaning it contains multiple build stages that result in
+different images that may be built from each other. Currently the `atom` build has the following stages:
 
-1. Commit any changes to the base dockerfile. You MUST commit the changes since 
-the image tag will depend on the latest git hash.
-2. Rebuild the `atom-base` image _and the OpenGL/cuda base images (see next section)_.  For example,
-rebuild atom-base using:
+1. `base` - this image is used to build and install any production dependencies.
+2. `prod` - this image is built from the base OS image, and installed production dependencies are copied in
+from the `base` stage. This prevents build dependencies from taking up space in our production image. Additionally,
+since the `prod` stage is not built directly from the `base` stage, changes in the `base` stage will not invalidate
+use of docker layer caching in our build process of the `prod` stage.
+3. `test` - this image is built from the `prod` image and adds in test dependencies.
+4. `graphics` - this image is built from the `prod` image and adds in graphics dependencies for VNC/noVNC.
+
+To build a specific stage of `atom`, use the `--target` option with `docker build` and an appropriate tag:
 ```
-docker build --no-cache -f Dockerfile-atom-base -t elementaryrobotics/atom-base:"$(git rev-parse HEAD)" .
+docker build --no-cache -f Dockerfile-atom -t elementaryrobotics/atom-test:dev --target=test .
 ```
-3. Push the new `atom-base` image _and the OpenGL/cuda base images (see next section)_ to dockerhub.
-For example, push `atom-base` to `elementaryrobotics/atom-base` with the command below:
-```
-docker push elementaryrobotics/atom-base:"$(git rev-parse HEAD)"
-```
-4. Bump the dependency in `Dockerfile-atom` to use the new tag from `atom-base`.
+
+The `prod` stage will be pushed to dockerhub through the CircleCI build process as just `atom`, while the `test`
+stage will be pushed as `atom-test`.
 
 ### OpenGL and Cuda support
 
-We also build base versions of the dockerfile for OpenGL and cuda / cuDNN. To build for these versions, pass `BASE_IMAGE=$X` the following to the above docker build command:
+We also build base versions of the dockerfile for OpenGL and cuda / cuDNN. To build for these versions, pass `BASE_IMAGE=$X` to the above docker build command:
 
 | Cuda Version | cuDNN Version | Dockerhub repo | Base Image |
 |--------------|--------------|----------------|------------|
@@ -252,11 +251,12 @@ We also build base versions of the dockerfile for OpenGL and cuda / cuDNN. To bu
 
 An example to build for Cuda 10 / cudnn would be:
 ```
-docker build --no-cache -f Dockerfile-atom-base -t elementaryrobotics/atom-cuda-10-base:"$(git rev-parse HEAD)" --build-arg BASE_IMAGE=nvidia/cuda:10.0-cudnn7-runtime-ubuntu18.04 .
+docker build --no-cache -f Dockerfile-atom -t elementaryrobotics/atom-cuda-10-base:dev --target=prod --build-arg BASE_IMAGE=nvidia/cuda:10.0-cudnn7-runtime-ubuntu18.04 .
 ```
 
+Any image using OpenGL should be built with `--target=graphics` so that the graphics dependencies are available in the image.
 The combined OpenGL/cuda/cuDNN base image can be built in two steps, with the first step utilizing the included dockerfile `Dockerfile-install-cudnn` (modify this file for cuDNN version updates):
 ```
 docker build --no-cache -f Dockerfile-install-cudnn -t opengl-cuda-10-base .
-docker build --no-cache -f Dockerfile-atom-base -t elementaryrobotics/atom-opengl-cuda-10-base:"$(git rev-parse HEAD)" --build-arg BASE_IMAGE=opengl-cuda-10-base .
+docker build --no-cache -f Dockerfile-atom -t elementaryrobotics/atom-opengl-cuda-10-base:dev --target=graphics --build-arg BASE_IMAGE=opengl-cuda-10-base .
 ```
