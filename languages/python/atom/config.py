@@ -1,4 +1,6 @@
-VERSION = "0.3.0"
+from atom.version import get_git_version
+
+VERSION = get_git_version()
 
 LANG = "Python"
 ACK_TIMEOUT = 1000
