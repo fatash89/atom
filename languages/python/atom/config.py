@@ -1,7 +1,3 @@
-from atom.version import get_git_version
-
-VERSION = get_git_version()
-
 LANG = "Python"
 ACK_TIMEOUT = 1000
 RESPONSE_TIMEOUT = 1000
@@ -26,3 +22,4 @@ ATOM_COMMAND_UNSUPPORTED = 6
 ATOM_CALLBACK_FAILED = 7
 ATOM_LANGUAGE_ERRORS_BEGIN = 100
 ATOM_USER_ERRORS_BEGIN = 1000
+
