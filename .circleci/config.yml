@@ -50,6 +50,9 @@ jobs:
     steps:
       - checkout
       - update_submodules
+      - run:
+          name: Add atom version to config file
+          command: pyenv global 3.7.0 && python3 languages/python/version.py
       - atom/docker_login
 
       # Build base, prod and test stages of atom image
