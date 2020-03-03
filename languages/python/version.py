@@ -8,11 +8,15 @@ passed in as an argument.
 from pathlib import Path
 import subprocess
 import argparse
+import re
 
 CONFIG_FILE = Path(__file__).parent / "atom/config.py"
 
 
 def call_git_describe(abbrev):
+    """
+    Returns latest git tag if available.
+    """
     p = subprocess.run(['git', 'describe', '--tags', '--abbrev=%d' % abbrev],
                        stdout=subprocess.PIPE)
     line = str(p.stdout, 'utf-8').strip()
@@ -21,7 +25,9 @@ def call_git_describe(abbrev):
 
 
 def is_dirty():
-    # check if there are commits since last tag
+    """
+    Returns True/False if there are commits since the last tag.
+    """
     try:
         p = subprocess.run(["git", "diff-index", "--name-only", "HEAD"],
                            stdout=subprocess.PIPE)
@@ -31,7 +37,11 @@ def is_dirty():
 
 
 def get_git_version(abbrev=7):
-    # try to get the current version using “git describe”.
+    """
+    Calls "git describe" to get current version; adds "dirty" if there have
+    been extra commits since the latest tag. Will return empty list if no
+    .git information is available.
+    """
     version = call_git_describe(abbrev)
     if is_dirty():
         version += "-dirty"
@@ -39,16 +49,31 @@ def get_git_version(abbrev=7):
     return version
 
 
-def replace_version_config(file, replacement):
+def get_existing_config_line():
+    """
+    Returns configs and line of version in config.py;
+    Returns None if version not present in config.py.
+    """
     with open(CONFIG_FILE, "r") as file:
         configs = file.readlines()
 
     version_bools = [x.startswith("VERSION =") for x in configs]
-    # replace existing configuration or add it if its not present
+
     try:
-        version_index = version_bools.index(True)
-        configs[version_index] = replacement
-    except ValueError:
+        return configs, version_bools.index(True)
+    except Exception:
+        return configs, None
+
+
+def replace_version_config(replacement):
+    """
+    Replace existing configuration or add it if its not present
+    """
+    configs, line_num = get_existing_config_line()
+
+    if line_num:
+        configs[line_num] = replacement
+    else:
         configs.append(replacement)
 
     with open(CONFIG_FILE, "w") as file:
@@ -62,7 +87,7 @@ def main(version=None):
     # replace version config if there's a new one
     if version:
         version_str = f"VERSION = \"{version}\"\n"
-        replace_version_config(CONFIG_FILE, version_str)
+        replace_version_config(version_str)
 
     return version
 
