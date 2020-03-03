@@ -1,5 +1,12 @@
 import setuptools
-from atom import __version__
+import version
+
+
+try:
+    from atom import __version__
+except Exception:
+    __version__ = version.main()
+
 
 setuptools.setup(
     name="atom",
