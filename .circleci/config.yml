@@ -50,9 +50,7 @@ jobs:
     steps:
       - checkout
       - update_submodules
-      - run:
-          name: Add atom version to config file
-          command: pyenv global 3.7.0 && python3 languages/python/version.py
+      - set_atom_version
       - atom/docker_login
 
       # Build base, prod and test stages of atom image
@@ -87,6 +85,7 @@ jobs:
     steps:
       - checkout
       - update_submodules
+      - set_atom_version
       - atom/docker_login
 
       # Build all stages of nucleus image
@@ -132,6 +131,7 @@ jobs:
     steps:
       - checkout
       - update_submodules
+      - set_atom_version
       - atom/docker_login
 
       # Build prod and test stages
@@ -169,6 +169,7 @@ jobs:
     steps:
       - checkout
       - update_submodules
+      - set_atom_version
       - atom/docker_login
 
       # Build graphics and test stages
@@ -207,6 +208,7 @@ jobs:
     steps:
       - checkout
       - update_submodules
+      - set_atom_version
       - atom/docker_login
 
       # Build base image
@@ -386,6 +388,13 @@ commands:
       - run:
           name: Update Submodules
           command: git submodule update --init --recursive
+
+  set_atom_version:
+    steps:
+      - run:
+          name: Add atom version to config file
+          command: |
+            pyenv global 3.7.0 && python3 languages/python/version.py
 
 
 workflows:
