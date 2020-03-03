@@ -86,7 +86,7 @@ def main(version=None):
 
     # replace version config if there's a new one
     if version:
-        version_str = f"VERSION = \"{version}\"\n"
+        version_str = f"\nVERSION = \"{version}\"\n"
         replace_version_config(version_str)
 
     return version
