@@ -374,8 +374,6 @@ examples:
                   branches:
                     only:
                       - master
-                  tags:
-                    only: /.*/
             - atom/deploy-tag:
                 requires:
                   - build
