@@ -68,6 +68,8 @@ WORKDIR /atom
 
 FROM $BASE_IMAGE as prod
 
+ENV LAST_UPDATED 2019-03-06
+
 # Install python
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends apt-utils \
