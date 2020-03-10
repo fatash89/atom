@@ -233,11 +233,18 @@ use of docker layer caching in our build process of the `prod` stage.
 
 To build a specific stage of `atom`, use the `--target` option with `docker build` and an appropriate tag:
 ```
-docker build --no-cache -f Dockerfile-atom -t elementaryrobotics/atom-test:dev --target=test .
+docker build -f Dockerfile-atom -t elementaryrobotics/atom-test:dev --target=test .
 ```
 
 The `prod` stage will be pushed to dockerhub through the CircleCI build process as just `atom`, while the `test`
 stage will be pushed as `atom-test`.
+
+If a build fails due to a third-party dependency "not found" error, it might be because the image layer that does the
+`apt-get update` has been cached, and so an `apt-get install` command is trying to install a library version that is
+no longer available. To break the cache of this layer, either run the entire build process with the `--no-cache` flag
+if building locally, or update the `LAST_UPDATED` environment variable in the Dockerfile to the current date in order to
+invalidate the cache on any subsequent commands. If necessary, `LAST_UPDATED` environment variables can be added at any
+point within the Dockerfile to invalidate all subsequent caching.
 
 ### OpenGL and Cuda support
 
