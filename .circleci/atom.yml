@@ -54,6 +54,38 @@ commands:
             ssh-keyscan -H github.com >> ~/.ssh/known_hosts
             ssh git@github.com git-lfs-authenticate "${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}" download
 
+  # Run flake8 format check
+  check_flake8:
+    description: Check that code conforms with flake8 formatting
+    parameters:
+      exclude:
+        description: Comma separated list of directories to exclude when running flake8
+        type: string
+        default: ""
+      directory:
+        description: Directory to run flake8 format check from
+        type: string
+        default: "."
+    steps:
+      - run:
+          name: Create .flake8 config file
+          command: |
+            echo "[flake8]" > .flake8
+            echo "exclude = << parameters.exclude >>" >> .flake8
+            echo "max-line-length = 120" >> .flake8
+            echo "max-doc-length = 80" >> .flake8
+            echo "select = C,E,F,W,B" >> .flake8
+            echo "ignore = E203,W503" >> .flake8
+            cat .flake8
+      - run:
+          name: Install flake8
+          command: python3 -m venv ~/venv && . ~/venv/bin/activate && pip install flake8
+      - run:
+          name: Run flake8 check
+          command: |
+            export LC_ALL=C.UTF-8 && export LANG=C.UTF-8
+            . ~/venv/bin/activate && flake8 << parameters.directory >>
+
   # Log into docker
   docker_login:
     description: "Logs into Dockerhub"
@@ -312,6 +344,8 @@ examples:
             DOCKER_COMPOSE_SERVICE_NAME: some_service
           steps:
             - checkout
+            - atom/check_flake8:
+                exclude: doc,*third-party
             - atom/docker_login
             - atom/build_and_launch:
                 file: docker-compose.yml

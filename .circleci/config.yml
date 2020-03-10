@@ -39,7 +39,7 @@ aliases:
 version: 2.1
 
 orbs:
-  atom:  elementaryrobotics/atom@0.0.7
+  atom:  elementaryrobotics/atom@0.0.8
 
 jobs:
   build-atom:
@@ -51,6 +51,9 @@ jobs:
       - checkout
       - update_submodules
       - set_atom_version
+      - atom/check_flake8:
+          # not currently checking any atom code (it does not pass)
+          exclude: demo,doc,examples,utilities,*third-party,languages
       - atom/docker_login
 
       # Build base, prod and test stages of atom image
