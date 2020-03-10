@@ -163,15 +163,14 @@ orbs:
   atom: elementaryrobotics/atom@0.0.8
 ```
 
-- Use the new command for installing and running `flake8`, optionally specifying which directory to run it in and which directories to exclude from the check:
+- Use the new command for installing and running `flake8`, optionally specifying which directory to run it in and which directories to exclude from the check.
+  As when running `flake8` locally, the directory to run it from must have a trailing slash. It is recommended to test `flake8` locally before configuring the build.
 
 ```
   - atom/check_flake8:
       directory: src/
-      exclude: doc,*/third-party/*,third-party
+      exclude: doc,*third-party
 ```
-  - As when running `flake8` locally, the directory to run it from must have a trailing slash. It is recommended to
-    test `flake8` locally before configuring the build.
 
 #### [v0.0.7](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.7)
 Created 02/19/2020.

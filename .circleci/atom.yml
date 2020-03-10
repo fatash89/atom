@@ -344,6 +344,8 @@ examples:
             DOCKER_COMPOSE_SERVICE_NAME: some_service
           steps:
             - checkout
+            - atom/check_flake8:
+                exclude: doc,*third-party
             - atom/docker_login
             - atom/build_and_launch:
                 file: docker-compose.yml
