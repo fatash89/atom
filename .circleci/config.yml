@@ -454,8 +454,6 @@ workflows:
             branches:
               only:
                 - master
-            tags:
-              only: /.*/
       - deploy-tag:
           requires:
             - build-opengl
@@ -485,8 +483,6 @@ workflows:
             branches:
               only:
                 - master
-            tags:
-              only: /.*/
       - deploy-tag-docs:
           requires:
             - build-docs
