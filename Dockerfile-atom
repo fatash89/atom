@@ -106,8 +106,13 @@ ARG DEBIAN_FRONTEND=noninteractive
 # Install test dependencies
 #
 
+# Cache buster env var - change date to invalidate subsequent caching
+# See the atom README "Atom Dockerfile" section for more information
+ENV LAST_UPDATED 2019-03-12
+
 # Install googletest
-RUN apt-get install -y --no-install-recommends libgtest-dev cmake build-essential \
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libgtest-dev cmake build-essential \
  && cd /usr/src/gtest \
  && cmake CMakeLists.txt && make -j16 && cp *.a /usr/lib
 
