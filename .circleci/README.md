@@ -149,6 +149,51 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 
 ### Release Notes
 
+#### [v0.0.9](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.9)
+Created 03/12/2020.
+
+##### New features
+- Changed the flake8 format check command to a job that is run within the [`alpine/flake8` docker image](https://hub.docker.com/r/alpine/flake8).
+
+##### Upgrade Steps
+- Reference the v0.0.9 orb in `config.yml` with
+
+```
+orbs:
+  atom: elementaryrobotics/atom@0.0.9
+```
+
+- Use the job for running `flake8` in your build config's workflow, preferably first requiring the build/test step to pass, and
+  then requiring the `flake8` job to pass before deploying any images, as shown below. The job now runs in the `alpine/flake8`
+  docker image, and the python version to use can be passed in as a parameter that will also be used as the docker image tag.
+  Available python versions/image tags can be viewed on dockerhub [here](https://hub.docker.com/r/alpine/flake8/tags).
+
+```diff
+  jobs:
+    - build:
+        filters:
+          tags:
+            only: /.*/
++   - atom/check_flake8:
++       requires:
++         - build
++       version: 3.7.0
++       exclude: doc,*third-party
++       filters:
++         tags:
++           only: /.*/
+    - atom/deploy-master:
+        requires:
+-         - build
++         - atom/check_flake8
+        filters:
+          branches:
+            only:
+              - master
+          tags:
+            only: /.*/
+```
+
 #### [v0.0.8](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.8)
 Created 03/09/2020.
 
