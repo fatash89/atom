@@ -39,7 +39,7 @@ aliases:
 version: 2.1
 
 orbs:
-  atom:  elementaryrobotics/atom@0.0.8
+  atom:  elementaryrobotics/atom@0.0.9
 
 jobs:
   build-atom:
@@ -51,9 +51,6 @@ jobs:
       - checkout
       - update_submodules
       - set_atom_version
-      - atom/check_flake8:
-          # not currently checking any atom code (it does not pass)
-          exclude: demo,doc,examples,utilities,*third-party,languages
       - atom/docker_login
 
       # Build base, prod and test stages of atom image
@@ -423,23 +420,31 @@ workflows:
           filters:
             tags:
               only: /.*/
+      - atom/check_flake8:
+          version: 3.7.0
+          exclude: demo,doc,examples,utilities,*third-party,languages
+          requires:
+            - test-atom
+          filters:
+            tags:
+              only: /.*/
 
       # Build special images after tests pass for atom
       - build-opengl:
           requires:
-            - test-atom
+            - atom/check_flake8
           filters:
             tags:
               only: /.*/
       - build-cuda:
           requires:
-            - test-atom
+            - atom/check_flake8
           filters:
             tags:
               only: /.*/
       - build-opengl-cuda:
           requires:
-            - test-atom
+            - atom/check_flake8
           filters:
             tags:
               only: /.*/
