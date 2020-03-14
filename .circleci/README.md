@@ -149,6 +149,40 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 
 ### Release Notes
 
+#### [v0.0.10](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.10)
+Created 03/12/2020.
+
+##### New features
+- Added `update_submodules` command so that all elements with submodules don't have to write their own.
+- Parallelized `update_submodules` across 8 jobs s.t. it speeds up the clone a bit to save some build time/$$.
+
+##### Upgrade Steps
+- Reference the v0.0.10 orb in `config.yml` with
+
+```
+orbs:
+  atom: elementaryrobotics/atom@0.0.10
+```
+
+- You can now use `atom/update_submodules` as a command in order to clone all submodules in your build. This
+is typically done after the `checkout` step.
+
+```diff
+ build-atom:
+     executor: atom/build-classic
+     resource_class: large
+     environment:
+       <<: *atom_build_vars
+     steps:
+       - checkout
++      - atom/update_submodules
+       - set_atom_version
+       - atom/docker_login
+
+       ...
+
+```
+
 #### [v0.0.9](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.9)
 Created 03/12/2020.
 
