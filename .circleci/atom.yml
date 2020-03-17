@@ -54,6 +54,13 @@ commands:
             ssh-keyscan -H github.com >> ~/.ssh/known_hosts
             ssh git@github.com git-lfs-authenticate "${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}" download
 
+  # Update submodules (parallelized)
+  update_submodules:
+    steps:
+      - run:
+          name: Update Submodules
+          command: git submodule update --init --recursive --jobs 8
+
   # Log into docker
   docker_login:
     description: "Logs into Dockerhub"

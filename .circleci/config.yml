@@ -39,7 +39,7 @@ aliases:
 version: 2.1
 
 orbs:
-  atom:  elementaryrobotics/atom@0.0.9
+  atom:  elementaryrobotics/atom@dev:286
 
 jobs:
   build-atom:
@@ -49,7 +49,7 @@ jobs:
       <<: *atom_build_vars
     steps:
       - checkout
-      - update_submodules
+      - atom/update_submodules
       - set_atom_version
       - atom/docker_login
 
@@ -84,7 +84,7 @@ jobs:
 
     steps:
       - checkout
-      - update_submodules
+      - atom/update_submodules
       - set_atom_version
       - atom/docker_login
 
@@ -130,7 +130,7 @@ jobs:
       <<: *atom_build_vars
     steps:
       - checkout
-      - update_submodules
+      - atom/update_submodules
       - set_atom_version
       - atom/docker_login
 
@@ -168,7 +168,7 @@ jobs:
       <<: *atom_build_vars
     steps:
       - checkout
-      - update_submodules
+      - atom/update_submodules
       - set_atom_version
       - atom/docker_login
 
@@ -207,7 +207,7 @@ jobs:
       BASE_IMAGE_TAG: v1.0.0
     steps:
       - checkout
-      - update_submodules
+      - atom/update_submodules
       - set_atom_version
       - atom/docker_login
 
@@ -382,12 +382,6 @@ commands:
             docker tag << parameters.image_tag >> registry.heroku.com/${HEROKU_APP_NAME}/web
             docker push registry.heroku.com/${HEROKU_APP_NAME}/web
             heroku container:release -a ${HEROKU_APP_NAME} web
-
-  update_submodules:
-    steps:
-      - run:
-          name: Update Submodules
-          command: git submodule update --init --recursive
 
   set_atom_version:
     steps:
