@@ -248,7 +248,7 @@ jobs:
   # Run flake8 format check
   check_flake8:
     docker:
-      - image: alpine/flake8:<< parameters.version >>
+      - image: elementaryrobotics/atom-flake8
     description: Check that code conforms with flake8 formatting
     parameters:
       version:
