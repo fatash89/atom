@@ -149,6 +149,20 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 
 ### Release Notes
 
+#### [v0.0.11](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.11)
+Created 04/07/2020.
+
+##### Bug fixes
+- Run flake8 format check in custom docker image with git and ssh installed to fix failed builds on tags.
+
+##### Upgrade Steps
+- Reference the v0.0.11 orb in `config.yml` with
+
+```
+orbs:
+  atom: elementaryrobotics/atom@0.0.11
+```
+
 #### [v0.0.10](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.10)
 Created 03/12/2020.
 
