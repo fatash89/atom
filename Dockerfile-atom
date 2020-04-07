@@ -82,6 +82,9 @@ RUN apt-get update -y \
 COPY --from=base /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
+# Set up LD_LIBRARY_PATH s.t. the C/C++ binaries can be found
+ENV LD_LIBRARY_PATH /lib:/usr/local/lib
+
 # Copy C builds
 COPY --from=base /usr/local/lib /usr/local/lib
 COPY --from=base /usr/local/include /usr/local/include
@@ -183,4 +186,3 @@ RUN var='#!/usr/bin/env python2' \
  && sed -i "1s@.*@${var}@" /usr/bin/graphical-app-launcher.py
 
 ENV DISPLAY :0
-
