@@ -264,6 +264,13 @@ jobs:
         type: string
         default: "."
     steps:
+      # Temporary workaround for https://discuss.circleci.com/t/22437
+      - run: |
+          apk add git openssh
+      #     if [ -n "$CIRCLE_TAG" ]
+      #     then
+      #       git fetch --force origin "refs/tags/${CIRCLE_TAG}:refs/tags/${CIRCLE_TAG}"
+      #     fi
       - checkout
       - run:
           name: Create .flake8 config file
