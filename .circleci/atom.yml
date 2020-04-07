@@ -264,6 +264,9 @@ jobs:
         type: string
         default: "."
     steps:
+      - run:
+          name: Install git and ssh
+          command: apk add git openssh
       - checkout
       - run:
           name: Create .flake8 config file
