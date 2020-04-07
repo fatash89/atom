@@ -1,0 +1,3 @@
+FROM alpine/atom-flake8:3.7.0
+
+RUN apk add git openssh

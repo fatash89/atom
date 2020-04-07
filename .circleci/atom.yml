@@ -248,7 +248,7 @@ jobs:
   # Run flake8 format check
   check_flake8:
     docker:
-      - image: alpine/flake8:<< parameters.version >>
+      - image: elementaryrobotics/atom-flake8
     description: Check that code conforms with flake8 formatting
     parameters:
       version:
@@ -264,9 +264,6 @@ jobs:
         type: string
         default: "."
     steps:
-      - run:
-          name: Install git and ssh
-          command: apk add git openssh
       - checkout
       - run:
           name: Create .flake8 config file
