@@ -48,8 +48,12 @@ RUN cd /atom/languages/cpp \
 # Install numpy. It's required in a few places
 # and quite a large build. By installing it here
 # we can separate it from the other requirements and also
-# effectively parallelize the build.
-RUN apt-get install -y python3-numpy
+# effectively parallelize the build. Numpy also requires
+# Cython to be built/installed
+ADD ./languages/python /atom/languages/python
+WORKDIR /atom/languages/python/third-party/cython
+WORKDIR /atom/languages/python/third-party/numpy
+RUN python3 setup.py build -j16 install
 
 # Build and install the python library
 # Add and install requirements first to use DLC
@@ -63,7 +67,6 @@ ADD ./utilities/atom-cli /atom/utilities/atom-cli
 RUN cp /atom/utilities/atom-cli/atom-cli.py /usr/local/bin/atom-cli \
  && chmod +x /usr/local/bin/atom-cli
 
-ADD ./languages/python /atom/languages/python
 ADD ./lua-scripts /atom/lua-scripts
 RUN cd /atom/languages/python \
  && python3 setup.py install
