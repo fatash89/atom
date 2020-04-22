@@ -29,7 +29,6 @@ ADD ./languages/c /atom/languages/c
 RUN cd /atom/languages/c/third-party && make
 
 # Build the C library
-ADD ./languages/c /atom/languages/c
 RUN cd /atom/languages/c \
  && make clean && make -j16 && make install
 
