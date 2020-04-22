@@ -3,6 +3,10 @@ FROM $BASE_IMAGE as base
 
 ARG DEBIAN_FRONTEND=noninteractive
 
+#
+# System-level installs
+#
+
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends \
       apt-utils \
@@ -16,43 +20,55 @@ RUN apt-get update -y \
       python3-dev \
  && pip3 install --no-cache-dir --upgrade pip setuptools
 
-# Create and activate python virtualenv
-RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+#
+# C client
+#
 
-# Install msgpack
-RUN pip3 install --no-cache-dir msgpack \
- && cd /usr/src && git clone https://github.com/msgpack/msgpack-c.git \
- && cd /usr/src/msgpack-c && cmake -DMSGPACK_CXX11=ON . && make -j16 install
-
-# Install redis-py
-ADD ./languages/python/third-party/redis-py /atom/languages/python/third-party/redis-py
-RUN cd /atom/languages/python/third-party/redis-py \
- && python3 setup.py install
-
-# Build hiredis for C library
-ADD ./languages/c/third-party/hiredis /atom/languages/c/third-party/hiredis
-RUN cd /atom/languages/c/third-party/hiredis \
- && make -j16 && make install LIBRARY_PATH=lib
+# Build third-party C dependencies
+ADD ./languages/c /atom/languages/c
+RUN cd /atom/languages/c/third-party && make
 
 # Build the C library
 ADD ./languages/c /atom/languages/c
 RUN cd /atom/languages/c \
  && make clean && make -j16 && make install
 
+#
+# C++ client
+#
+
 # Build and install the c++ library
 ADD ./languages/cpp /atom/languages/cpp
 RUN cd /atom/languages/cpp \
  && make clean && make -j16 && make install
 
-# Install numpy. It's required in a few places
-# and quite a large build. By installing it here
-# we can separate it from the other requirements and also
-# effectively parallelize the build. Numpy also requires
-# Cython to be built/installed
+#
+# Python client
+#
+
+# Create and activate python virtualenv
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install custom third-party deps. We need to build
+# some of these separately as opposed to installing
+# from pip
+#
+# Install list:
+#   1. redis-py (needs support for memoryviews)
+#   2. Cython (needs to be x-compiled for aarch64)
+#   3. numpy (needs to be x-compiled for aarch64)
 ADD ./languages/python /atom/languages/python
+
+# Redis-py
+RUN cd /atom/languages/python/third-party/redis-py \
+ && python3 setup.py install
+
+# Cython
 WORKDIR /atom/languages/python/third-party/cython
 RUN python3 setup.py build -j16 install
+
+# Numpy
 WORKDIR /atom/languages/python/third-party/numpy
 RUN python3 setup.py build -j16 install
 

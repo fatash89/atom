@@ -19,3 +19,6 @@
 [submodule "third-party/noVNC"]
 	path = third-party/noVNC
 	url = https://github.com/kanaka/noVNC.git
+[submodule "languages/c/third-party/msgpack-c/msgpack-c"]
+	path = languages/c/third-party/msgpack-c/msgpack-c
+	url = https://github.com/msgpack/msgpack-c.git
