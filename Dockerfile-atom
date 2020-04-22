@@ -22,11 +22,20 @@ RUN apt-get update -y \
  && pip3 install --no-cache-dir --upgrade pip setuptools
 
 #
+# Add in atom source. This is OK since we'll be
+#     removing it in the production container. Need
+#     to re-initialize the submodules since they're
+#     now in a container
+#
+ADD . /atom
+WORKDIR /atom
+RUN git submodule deinit -f . && git submodule update --init --recursive
+
+#
 # C client
 #
 
 # Build third-party C dependencies
-ADD ./languages/c /atom/languages/c
 RUN cd /atom/languages/c/third-party && make
 
 # Build the C library
@@ -38,7 +47,6 @@ RUN cd /atom/languages/c \
 #
 
 # Build and install the c++ library
-ADD ./languages/cpp /atom/languages/cpp
 RUN cd /atom/languages/cpp \
  && make clean && make -j16 && make install
 
@@ -58,7 +66,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 #   1. redis-py (needs support for memoryviews)
 #   2. Cython (needs to be x-compiled for aarch64)
 #   3. numpy (needs to be x-compiled for aarch64)
-ADD ./languages/python /atom/languages/python
+#   4. pyarrow (needs to be x-compiled for aarch64)
 
 # Redis-py
 RUN cd /atom/languages/python/third-party/redis-py \
@@ -72,26 +80,30 @@ RUN python3 setup.py build -j16 install
 WORKDIR /atom/languages/python/third-party/numpy
 RUN python3 setup.py build -j16 install
 
+# Pyarrow
+WORKDIR /atom/third-party/apache-arrow/python
+# RUN python3 setup.py build -j16 install
+
 # Build and install the python library
 # Add and install requirements first to use DLC
-ADD ./languages/python/requirements.txt /atom/languages/python/requirements.txt
-RUN pip3 install --no-cache-dir -r /atom/languages/python/requirements.txt
-ADD ./utilities/atom-cli/requirements.txt /atom/utilities/atom-cli/requirements.txt
-RUN pip3 install --no-cache-dir -r /atom/utilities/atom-cli/requirements.txt
+#ADD ./languages/python/requirements.txt /atom/languages/python/requirements.txt
+#RUN pip3 install --no-cache-dir -r /atom/languages/python/requirements.txt
+#ADD ./utilities/atom-cli/requirements.txt /atom/utilities/atom-cli/requirements.txt
+#RUN pip3 install --no-cache-dir -r /atom/utilities/atom-cli/requirements.txt
 
 # Install atom-cli
-ADD ./utilities/atom-cli /atom/utilities/atom-cli
-RUN cp /atom/utilities/atom-cli/atom-cli.py /usr/local/bin/atom-cli \
- && chmod +x /usr/local/bin/atom-cli
+#ADD ./utilities/atom-cli /atom/utilities/atom-cli
+#RUN cp /atom/utilities/atom-cli/atom-cli.py /usr/local/bin/atom-cli \
+# && chmod +x /usr/local/bin/atom-cli
 
-ADD ./lua-scripts /atom/lua-scripts
-RUN cd /atom/languages/python \
- && python3 setup.py install
+#ADD ./lua-scripts /atom/lua-scripts
+#RUN cd /atom/languages/python \
+# && python3 setup.py install
 
 # Change working directory back to atom location
 WORKDIR /atom
 
-
+CMD ["tail", "-f", "/dev/null"]
 
 
 FROM $BASE_IMAGE as prod
