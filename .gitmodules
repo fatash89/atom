@@ -16,3 +16,6 @@
 [submodule "languages/python/third-party/cython"]
 	path = languages/python/third-party/cython
 	url = git@github.com:cython/cython.git
+[submodule "third-party/noVNC"]
+	path = third-party/noVNC
+	url = https://github.com/kanaka/noVNC.git

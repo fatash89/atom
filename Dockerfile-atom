@@ -146,6 +146,9 @@ FROM prod as graphics
 
 ARG DEBIAN_FRONTEND=noninteractive
 
+# Add in noVNC to /opt/noVNC
+ADD third-party/noVNC /opt/noVNC
+
 # Install graphics
 # Note: supervisor-stdout must be installed with pip2 and not pip3
 RUN apt-get install -y --no-install-recommends \
@@ -166,9 +169,7 @@ RUN apt-get install -y --no-install-recommends \
       python-pip \
  && rm -f /usr/share/applications/x11vnc.desktop \
 # VNC
- && git clone https://github.com/kanaka/noVNC.git /opt/noVNC \
  && cd /opt/noVNC \
- && git checkout 6a90803feb124791960e3962e328aa3cfb729aeb \
  && ln -s vnc_auto.html index.html \
  && pip2 install --no-cache-dir setuptools \
  && pip2 install --no-cache-dir supervisor-stdout \
