@@ -52,6 +52,7 @@ RUN cd /atom/languages/cpp \
 # Cython to be built/installed
 ADD ./languages/python /atom/languages/python
 WORKDIR /atom/languages/python/third-party/cython
+RUN python3 setup.py build -j16 install
 WORKDIR /atom/languages/python/third-party/numpy
 RUN python3 setup.py build -j16 install
 

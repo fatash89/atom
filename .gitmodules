@@ -13,3 +13,6 @@
 [submodule "languages/python/third-party/numpy"]
 	path = languages/python/third-party/numpy
 	url = git@github.com:numpy/numpy.git
+[submodule "languages/python/third-party/cython"]
+	path = languages/python/third-party/cython
+	url = git@github.com:cython/cython.git
