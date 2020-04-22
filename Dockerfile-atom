@@ -10,7 +10,8 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends \
       apt-utils \
-      git autoconf \
+      git \
+      autoconf \
       libtool \
       cmake \
       build-essential \
@@ -19,6 +20,13 @@ RUN apt-get update -y \
       python3-venv \
       python3-dev \
       libopenblas-dev \
+      flex \
+      bison \
+      curl \
+      build-base \
+      boost-dev \
+      zlib-dev \
+      libressl-dev \
  && pip3 install --no-cache-dir --upgrade pip setuptools
 
 #
@@ -82,7 +90,23 @@ RUN python3 setup.py build -j16 install
 
 # Pyarrow
 WORKDIR /atom/third-party/apache-arrow/python
-# RUN python3 setup.py build -j16 install
+RUN mkdir -p /atom/third-party/apache-arrow/cpp/build \
+  && cd /atom/third-party/apache-arrow/cpp/build \
+  && cmake -DCMAKE_BUILD_TYPE=release \
+           -DOPENSSL_ROOT_DIR=/usr/local/ssl \
+           -DCMAKE_INSTALL_LIBDIR=lib \
+           -DCMAKE_INSTALL_PREFIX=/usr/local \
+           -DARROW_PARQUET=ON \
+           -DARROW_PYTHON=ON \
+           -DARROW_PLASMA=ON \
+           -DARROW_BUILD_TESTS=OFF \
+           -DPYTHON_EXECUTABLE=/opt/venv/bin/python3 \
+           .. \
+  && make -j16 \
+  && make install \
+  && cd /atom/third-party/apache-arrow/python \
+  && python3 setup.py build_ext -j 16 --build-type=release --with-parquet \
+  && python3 setup.py install
 
 # Build and install the python library
 # Add and install requirements first to use DLC
