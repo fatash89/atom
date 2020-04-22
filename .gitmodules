@@ -10,3 +10,6 @@
 [submodule "languages/python/third-party/redis-py"]
 	path = languages/python/third-party/redis-py
 	url = https://github.com/andymccurdy/redis-py.git
+[submodule "languages/python/third-party/numpy"]
+	path = languages/python/third-party/numpy
+	url = git@github.com:numpy/numpy.git
