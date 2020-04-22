@@ -4,14 +4,16 @@ FROM $BASE_IMAGE as base
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update -y \
- && apt-get install -y --no-install-recommends apt-utils \
-                                               git autoconf \
-                                               libtool \
-                                               cmake \
-                                               build-essential \
-                                               python3-minimal \
-                                               python3-pip \
-                                               python3-venv \
+ && apt-get install -y --no-install-recommends \
+      apt-utils \
+      git autoconf \
+      libtool \
+      cmake \
+      build-essential \
+      python3-minimal \
+      python3-pip \
+      python3-venv \
+      python3-dev \
  && pip3 install --no-cache-dir --upgrade pip setuptools
 
 # Create and activate python virtualenv
@@ -46,6 +48,7 @@ RUN cd /atom/languages/cpp \
 # Build and install the python library
 # Add and install requirements first to use DLC
 ADD ./languages/python/requirements.txt /atom/languages/python/requirements.txt
+ENV NPY_NUM_BUILD_JOBS=16
 RUN pip3 install --no-cache-dir -r /atom/languages/python/requirements.txt
 ADD ./utilities/atom-cli/requirements.txt /atom/utilities/atom-cli/requirements.txt
 RUN pip3 install --no-cache-dir -r /atom/utilities/atom-cli/requirements.txt
