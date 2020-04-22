@@ -45,10 +45,15 @@ ADD ./languages/cpp /atom/languages/cpp
 RUN cd /atom/languages/cpp \
  && make clean && make -j16 && make install
 
+# Install numpy. It's required in a few places
+# and quite a large build. By installing it here
+# we can separate it from the other requirements and also
+# effectively parallelize the build.
+RUN apt-get install -y python3-numpy
+
 # Build and install the python library
 # Add and install requirements first to use DLC
 ADD ./languages/python/requirements.txt /atom/languages/python/requirements.txt
-ENV NPY_NUM_BUILD_JOBS=16
 RUN pip3 install --no-cache-dir -r /atom/languages/python/requirements.txt
 ADD ./utilities/atom-cli/requirements.txt /atom/utilities/atom-cli/requirements.txt
 RUN pip3 install --no-cache-dir -r /atom/utilities/atom-cli/requirements.txt
