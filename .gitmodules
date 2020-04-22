@@ -19,3 +19,6 @@
 [submodule "languages/c/third-party/msgpack-c/msgpack-c"]
 	path = languages/c/third-party/msgpack-c/msgpack-c
 	url = https://github.com/msgpack/msgpack-c.git
+[submodule "languages/python/third-party/redis-py"]
+	path = languages/python/third-party/redis-py
+	url = git@github.com:andymccurdy/redis-py.git
