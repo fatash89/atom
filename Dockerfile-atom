@@ -21,7 +21,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Install msgpack
 RUN pip3 install --no-cache-dir msgpack \
  && cd /usr/src && git clone https://github.com/msgpack/msgpack-c.git \
- && cd /usr/src/msgpack-c && cmake -DMSGPACK_CXX11=ON . && make install
+ && cd /usr/src/msgpack-c && cmake -DMSGPACK_CXX11=ON . && make -j16 install
 
 # Install redis-py
 ADD ./languages/python/third-party/redis-py /atom/languages/python/third-party/redis-py
@@ -31,17 +31,17 @@ RUN cd /atom/languages/python/third-party/redis-py \
 # Build hiredis for C library
 ADD ./languages/c/third-party/hiredis /atom/languages/c/third-party/hiredis
 RUN cd /atom/languages/c/third-party/hiredis \
- && make && make install LIBRARY_PATH=lib
+ && make -j16 && make install LIBRARY_PATH=lib
 
 # Build the C library
 ADD ./languages/c /atom/languages/c
 RUN cd /atom/languages/c \
- && make clean && make && make install
+ && make clean && make -j16 && make install
 
 # Build and install the c++ library
 ADD ./languages/cpp /atom/languages/cpp
 RUN cd /atom/languages/cpp \
- && make clean && make && make install
+ && make clean && make -j16 && make install
 
 # Build and install the python library
 # Add and install requirements first to use DLC
@@ -183,4 +183,3 @@ RUN var='#!/usr/bin/env python2' \
  && sed -i "1s@.*@${var}@" /usr/bin/graphical-app-launcher.py
 
 ENV DISPLAY :0
-
