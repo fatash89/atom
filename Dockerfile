@@ -191,6 +191,23 @@ WORKDIR /atom
 
 ################################################################################
 #
+# Nucleus image. Copies out only binary of redis-server
+#
+################################################################################
+
+FROM atom as nucleus
+
+# Add in redis-server
+COPY --from=atom-base /usr/local/bin/redis-server /usr/local/bin/redis-server
+
+ADD ./launch_nucleus.sh /nucleus/launch.sh
+ADD ./redis.conf /nucleus/redis.conf
+WORKDIR /nucleus
+RUN chmod +x launch.sh
+CMD ["./launch.sh"]
+
+################################################################################
+#
 # Test image. Based off of production, adds in test dependencies
 #
 ################################################################################
@@ -285,38 +302,3 @@ RUN var='#!/usr/bin/env python2' \
  && sed -i "1s@.*@${var}@" /usr/bin/graphical-app-launcher.py
 
 ENV DISPLAY :0
-
-################################################################################
-#
-# Nucleus image. Copies out only binary of redis-server
-#
-################################################################################
-
-FROM $BASE_IMAGE as nucleus
-
-# Install python
-RUN apt-get update -y \
- && apt-get install -y --no-install-recommends apt-utils \
-                                               python3-minimal \
-                                               python3-pip
-
-# Copy contents of python virtualenv and activate
-COPY --from=atom-base /opt/venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
-# Copy C builds
-COPY --from=atom-base /usr/local/lib /usr/local/lib
-COPY --from=atom-base /usr/local/include /usr/local/include
-
-# Copy atom-cli
-COPY --from=atom-base /usr/local/bin/atom-cli /usr/local/bin/atom-cli
-
-# Copy redis-server and redis-cli
-COPY --from=atom-base /usr/local/bin/redis-server /usr/local/bin/redis-server
-COPY --from=atom-base /usr/local/bin/redis-cli /usr/local/bin/redis-cli
-
-ADD ./launch_nucleus.sh /nucleus/launch.sh
-ADD ./redis.conf /nucleus/redis.conf
-WORKDIR /nucleus
-RUN chmod +x launch.sh
-CMD ["./launch.sh"]
