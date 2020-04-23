@@ -142,12 +142,12 @@ WORKDIR /atom
 
 ################################################################################
 #
-# Production image. Strips out source. Only includes libraries, headers
+# Production atom image. Strips out source. Only includes libraries, headers
 #     and Python venv.
 #
 ################################################################################
 
-FROM $BASE_IMAGE as prod
+FROM $BASE_IMAGE as atom
 
 # Cache buster env var - change date to invalidate subsequent caching
 # See the atom README "Atom Dockerfile" section for more information
@@ -182,7 +182,7 @@ WORKDIR /atom
 #
 ################################################################################
 
-FROM prod as test
+FROM atom as test
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -218,7 +218,7 @@ COPY ./languages/python/tests /atom/languages/python/tests
 #
 ################################################################################
 
-FROM prod as graphics
+FROM atom as graphics
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -272,3 +272,14 @@ RUN var='#!/usr/bin/env python2' \
  && sed -i "1s@.*@${var}@" /usr/bin/graphical-app-launcher.py
 
 ENV DISPLAY :0
+
+################################################################################
+#
+# Nucleus base image. From the atom image with everything installed
+#     but adds in a redis server and overrides the default command. We
+#     will add in the redis-server source, then strip it in a later image
+#     for compactness
+#
+################################################################################
+
+FROM atom as nucleus-base

@@ -25,3 +25,6 @@
 [submodule "third-party/OpenBLAS"]
 	path = third-party/OpenBLAS
 	url = git@github.com:xianyi/OpenBLAS.git
+[submodule "third-party/redis"]
+	path = third-party/redis
+	url = git@github.com:antirez/redis.git
