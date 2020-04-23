@@ -53,19 +53,16 @@ jobs:
       - set_atom_version
       - atom/docker_login
 
-      # Build base, prod and test stages of atom image
+      # Build base, atom and test stages of atom image
       - atom/build_stage:
-          file: Dockerfile-atom
           stage: base
           image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-base
           image_tag: build-${CIRCLE_WORKFLOW_ID}
       - atom/build_stage:
-          file: Dockerfile-atom
-          stage: prod
+          stage: atom
           image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
           image_tag: build-${CIRCLE_WORKFLOW_ID}
       - atom/build_stage:
-          file: Dockerfile-atom
           stage: test
           image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-test
           image_tag: build-${CIRCLE_WORKFLOW_ID}
@@ -90,17 +87,15 @@ jobs:
 
       # Build all stages of nucleus image
       - atom/build_stage:
-          file: Dockerfile-nucleus
           stage: base
           image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}-base
           image_tag: build-${CIRCLE_WORKFLOW_ID}
       - atom/build_stage:
-          file: Dockerfile-nucleus
-          stage: prod
+          stage: nucleus
           image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}
           image_tag: build-${CIRCLE_WORKFLOW_ID}
 
-      # Tag and push nucleus prod image
+      # Tag and push nucleus image
       - atom/push_image:
           image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID}
 
@@ -134,15 +129,13 @@ jobs:
       - set_atom_version
       - atom/docker_login
 
-      # Build prod and test stages
+      # Build atom and test stages
       - atom/build_stage:
-          file: Dockerfile-atom
-          stage: prod
+          stage: atom
           image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}
           image_tag: build-${CIRCLE_WORKFLOW_ID}
           build_args: "BASE_IMAGE=nvidia/cuda:10.0-cudnn7-runtime-ubuntu18.04"
       - atom/build_stage:
-          file: Dockerfile-atom
           stage: test
           image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}-test
           image_tag: build-${CIRCLE_WORKFLOW_ID}
@@ -174,13 +167,11 @@ jobs:
 
       # Build graphics and test stages
       - atom/build_stage:
-          file: Dockerfile-atom
           stage: graphics
           image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_REPO}
           image_tag: build-${CIRCLE_WORKFLOW_ID}
           build_args: "BASE_IMAGE=nvidia/opengl:1.0-glvnd-runtime-ubuntu18.04"
       - atom/build_stage:
-          file: Dockerfile-atom
           stage: test
           image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_REPO}-test
           image_tag: build-${CIRCLE_WORKFLOW_ID}
@@ -217,13 +208,11 @@ jobs:
 
       # Build graphics and test stages
       - atom/build_stage:
-          file: Dockerfile-atom
           stage: graphics
           image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}
           image_tag: build-${CIRCLE_WORKFLOW_ID}
           build_args: "BASE_IMAGE=${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}-base:${BASE_IMAGE_TAG}"
       - atom/build_stage:
-          file: Dockerfile-atom
           stage: test
           image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}-test
           image_tag: build-${CIRCLE_WORKFLOW_ID}
