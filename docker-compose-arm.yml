@@ -2,12 +2,9 @@ version: "2.3"
 
 services:
 
-  nucleus:
-    container_name: nucleus
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: nucleus
+  nucleus-arm:
+    container_name: nucleus-arm
+    image: elementaryrobotics/nucleus:arm-test
     volumes:
       - type: volume
         source: shared
@@ -16,12 +13,9 @@ services:
           nocopy: true
     command: tail -f /dev/null
 
-  atom:
-    container_name: atom
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: base
+  atom-arm:
+    container_name: atom-arm
+    image: elementaryrobotics/atom:arm-test
     volumes:
       - type: volume
         source: shared
@@ -30,7 +24,7 @@ services:
           nocopy: true
       - ".:/atom"
     depends_on:
-      - "nucleus"
+      - "nucleus-arm"
     ports:
       - "6080:6080"
     environment:
