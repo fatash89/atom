@@ -1,3 +1,9 @@
+################################################################################
+#
+# Base image. Contains all third-party dependencies and all source
+#
+################################################################################
+
 FROM redis:buster AS base
 
 # Install required linux packages
@@ -16,7 +22,7 @@ RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Install redis-py
-ADD ./languages/python/third-party /atom/languages/python/third-party
+ADD ./languages/python/third-party/redis-py /atom/languages/python/third-party/redis-py
 RUN cd /atom/languages/python/third-party/redis-py \
  && python3 setup.py install
 
