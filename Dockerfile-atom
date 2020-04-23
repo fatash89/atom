@@ -90,6 +90,7 @@ RUN cd /atom/third-party/OpenBLAS \
 
 # Numpy
 ADD ./languages/python/third-party/numpy /atom/languages/python/third-party/numpy
+ADD ./languages/python/third-party/numpy.site.cfg /atom/languages/python/third-party/numpy/site.cfg
 WORKDIR /atom/languages/python/third-party/numpy
 RUN python3 setup.py build -j16 install
 
