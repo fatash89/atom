@@ -167,7 +167,8 @@ ENV LAST_UPDATED 2019-03-06
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends apt-utils \
                                                python3-minimal \
-                                               python3-pip
+                                               python3-pip \
+                                               libatomic1
 
 # Copy contents of python virtualenv and activate
 COPY --from=atom-base /opt/venv /opt/venv

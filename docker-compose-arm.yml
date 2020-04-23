@@ -4,6 +4,12 @@ services:
 
   nucleus-arm:
     container_name: nucleus-arm
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    #   target: nucleus
+    #   args:
+    #     platform: linux/aarch64
     image: elementaryrobotics/nucleus:arm-test
     volumes:
       - type: volume
@@ -11,10 +17,15 @@ services:
         target: /shared
         volume:
           nocopy: true
-    command: tail -f /dev/null
 
   atom-arm:
     container_name: atom-arm
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    #   target: test
+    #   args:
+    #     platform: linux/aarch64
     image: elementaryrobotics/atom:arm-test
     volumes:
       - type: volume
