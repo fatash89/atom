@@ -26,23 +26,15 @@ RUN apt-get update -y \
  && pip3 install --no-cache-dir --upgrade pip setuptools
 
 #
-# Add in atom source. This is OK since we'll be
-#     removing it in the production container. Need
-#     to re-initialize the submodules since they're
-#     now in a container
-#
-ADD . /atom
-WORKDIR /atom
-RUN git submodule deinit -f . && git submodule update --init --recursive
-
-#
 # C client
 #
 
 # Build third-party C dependencies
+ADD ./languages/c/third-party /atom/languages/c/third-party
 RUN cd /atom/languages/c/third-party && make
 
 # Build the C library
+ADD ./languages/c /atom/languages/c
 RUN cd /atom/languages/c \
  && make clean && make -j16 && make install
 
@@ -51,6 +43,7 @@ RUN cd /atom/languages/c \
 #
 
 # Build and install the c++ library
+ADD ./languages/cpp /atom/languages/cpp
 RUN cd /atom/languages/cpp \
  && make clean && make -j16 && make install
 
@@ -73,18 +66,22 @@ ENV PATH="/opt/venv/bin:$PATH"
 #   4. pyarrow (needs to be x-compiled for aarch64)
 
 # Redis-py
+ADD ./languages/python/third-party/redis-py /atom/languages/python/third-party/redis-py
 RUN cd /atom/languages/python/third-party/redis-py \
  && python3 setup.py install
 
 # Cython
+ADD ./languages/python/third-party/cython /atom/languages/python/third-party/cython
 WORKDIR /atom/languages/python/third-party/cython
 RUN python3 setup.py build -j16 install
 
 # Numpy
+ADD ./languages/python/third-party/numpy /atom/languages/python/third-party/numpy
 WORKDIR /atom/languages/python/third-party/numpy
 RUN python3 setup.py build -j16 install
 
 # Pyarrow
+ADD ./languages/third-party/apache-arrow /atom/languages/third-party/apache-arrow
 WORKDIR /atom/third-party/apache-arrow/python
 RUN apt-get install -y pkg-config
 RUN mkdir -p /atom/third-party/apache-arrow/cpp/build \
@@ -118,6 +115,7 @@ RUN cp /atom/utilities/atom-cli/atom-cli.py /usr/local/bin/atom-cli \
  && chmod +x /usr/local/bin/atom-cli
 
 ADD ./lua-scripts /atom/lua-scripts
+ADD ./languages/python /atom/languages/python
 RUN cd /atom/languages/python \
  && python3 setup.py install
 
