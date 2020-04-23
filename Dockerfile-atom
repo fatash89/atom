@@ -1,3 +1,9 @@
+################################################################################
+#
+# Base image. Contains all third-party dependencies and all source
+#
+################################################################################
+
 ARG BASE_IMAGE=debian:buster-slim
 FROM $BASE_IMAGE as base
 
@@ -23,6 +29,7 @@ RUN apt-get update -y \
       flex \
       bison \
       curl \
+      pkg-config \
  && pip3 install --no-cache-dir --upgrade pip setuptools
 
 #
@@ -81,9 +88,8 @@ WORKDIR /atom/languages/python/third-party/numpy
 RUN python3 setup.py build -j16 install
 
 # Pyarrow
-ADD ./languages/third-party/apache-arrow /atom/languages/third-party/apache-arrow
+ADD ./third-party/apache-arrow /atom/third-party/apache-arrow
 WORKDIR /atom/third-party/apache-arrow/python
-RUN apt-get install -y pkg-config
 RUN mkdir -p /atom/third-party/apache-arrow/cpp/build \
   && cd /atom/third-party/apache-arrow/cpp/build \
   && cmake -DCMAKE_BUILD_TYPE=release \
@@ -99,28 +105,40 @@ RUN mkdir -p /atom/third-party/apache-arrow/cpp/build \
   && make -j16 \
   && make install
 RUN cd /atom/third-party/apache-arrow/python \
-  && python3 setup.py build_ext -j 16 --build-type=release --with-parquet \
-  && python3 setup.py install
+  && SETUPTOOLS_SCM_PRETEND_VERSION="apache-arrow-0.14.1" python3 setup.py build_ext -j 16 --build-type=release --with-parquet install
 
 # Build and install the python library
 # Add and install requirements first to use DLC
 ADD ./languages/python/requirements.txt /atom/languages/python/requirements.txt
 RUN pip3 install --no-cache-dir -r /atom/languages/python/requirements.txt
-ADD ./utilities/atom-cli/requirements.txt /atom/utilities/atom-cli/requirements.txt
-RUN pip3 install --no-cache-dir -r /atom/utilities/atom-cli/requirements.txt
-
-# Install atom-cli
-ADD ./utilities/atom-cli /atom/utilities/atom-cli
-RUN cp /atom/utilities/atom-cli/atom-cli.py /usr/local/bin/atom-cli \
- && chmod +x /usr/local/bin/atom-cli
-
 ADD ./lua-scripts /atom/lua-scripts
 ADD ./languages/python /atom/languages/python
 RUN cd /atom/languages/python \
  && python3 setup.py install
 
+#
+# Command-line utility
+#
+
+ADD ./utilities/atom-cli/requirements.txt /atom/utilities/atom-cli/requirements.txt
+RUN pip3 install --no-cache-dir -r /atom/utilities/atom-cli/requirements.txt
+ADD ./utilities/atom-cli /atom/utilities/atom-cli
+RUN cp /atom/utilities/atom-cli/atom-cli.py /usr/local/bin/atom-cli \
+ && chmod +x /usr/local/bin/atom-cli
+
+#
+# Finish up
+#
+
 # Change working directory back to atom location
 WORKDIR /atom
+
+################################################################################
+#
+# Production image. Strips out source. Only includes libraries, headers
+#     and Python venv.
+#
+################################################################################
 
 FROM $BASE_IMAGE as prod
 
@@ -151,8 +169,11 @@ ADD ./.circleci /atom/.circleci
 # Change working directory back to atom location
 WORKDIR /atom
 
-
-
+################################################################################
+#
+# Test image. Based off of production, adds in test dependencies
+#
+################################################################################
 
 FROM prod as test
 
@@ -183,8 +204,12 @@ COPY ./languages/c/ /atom/languages/c
 COPY ./languages/cpp/ /atom/languages/cpp
 COPY ./languages/python/tests /atom/languages/python/tests
 
-
-
+################################################################################
+#
+# Graphics image. Based off of production, adds in support for various
+#     graphics packages and VNC.
+#
+################################################################################
 
 FROM prod as graphics
 

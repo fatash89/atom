@@ -1,4 +1,4 @@
-version: "3.2"
+version: "2.3"
 
 services:
 
@@ -19,6 +19,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile-atom
+      target: test
     volumes:
       - type: volume
         source: shared
