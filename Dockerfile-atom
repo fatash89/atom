@@ -66,16 +66,11 @@ ENV PATH="/opt/venv/bin:$PATH"
 # from pip
 #
 # Install list:
-#   1. redis-py (needs support for memoryviews)
-#   2. Cython (needs to be x-compiled for aarch64)
-#   3. OpenBLAS (needs to be x-compiled for aarch64/ARM CPU)
-#   4. numpy (needs to be x-compiled for aarch64)
-#   5. pyarrow (needs to be x-compiled for aarch64)
-
-# Redis-py
-ADD ./languages/python/third-party/redis-py /atom/languages/python/third-party/redis-py
-RUN cd /atom/languages/python/third-party/redis-py \
- && python3 setup.py install
+#   1. Cython (needs to be x-compiled for aarch64)
+#   2. OpenBLAS (needs to be x-compiled for aarch64/ARM CPU)
+#   3. numpy (needs to be x-compiled for aarch64)
+#   4. pyarrow (needs to be x-compiled for aarch64)
+#   5. redis-py (needs support for memoryviews)
 
 # Cython
 ADD ./languages/python/third-party/cython /atom/languages/python/third-party/cython
@@ -113,6 +108,11 @@ RUN mkdir -p /atom/third-party/apache-arrow/cpp/build \
   && make install
 RUN cd /atom/third-party/apache-arrow/python \
   && SETUPTOOLS_SCM_PRETEND_VERSION="apache-arrow-0.14.1" python3 setup.py build_ext -j 16 --build-type=release --with-parquet install
+
+# Redis-py
+ADD ./languages/python/third-party/redis-py /atom/languages/python/third-party/redis-py
+RUN cd /atom/languages/python/third-party/redis-py \
+ && python3 setup.py install
 
 # Build and install the python library
 # Add and install requirements first to use DLC
