@@ -389,6 +389,8 @@ workflows:
             tags:
               only: /.*/
       - build-nucleus:
+          requires:
+            - build-atom
           filters:
             tags:
               only: /.*/
