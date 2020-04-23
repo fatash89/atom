@@ -1,11 +1,7 @@
 import setuptools
-import version
 
 
-try:
-    from atom import __version__
-except Exception:
-    __version__ = version.main()
+__version__ = "1.2.3"
 
 
 setuptools.setup(

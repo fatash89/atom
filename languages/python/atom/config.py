@@ -11,6 +11,9 @@ HEALTHCHECK_COMMAND = "healthcheck"
 VERSION_COMMAND = "version"
 COMMAND_LIST_COMMAND = "command_list"
 
+
+VERSION = "1.2.3dev2-34-g5c2e1bb-dirty"
+
 # Error codes
 ATOM_NO_ERROR = 0
 ATOM_INTERNAL_ERROR = 1
