@@ -6,7 +6,7 @@ services:
     container_name: nucleus
     build:
       context: .
-      dockerfile: dockerfile
+      dockerfile: Dockerfile
       target: nucleus
     volumes:
       - type: volume
@@ -20,7 +20,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: est
+      target: test
     volumes:
       - type: volume
         source: shared

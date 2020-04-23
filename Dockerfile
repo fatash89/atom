@@ -134,6 +134,16 @@ RUN cp /atom/utilities/atom-cli/atom-cli.py /usr/local/bin/atom-cli \
  && chmod +x /usr/local/bin/atom-cli
 
 #
+# Redis itself. Need this in the atom image s.t. we have redis-cli in all of
+# the atom containers for inspecting redis. We will also use this to copy
+# the redis-server into the Nucleus
+#
+
+# Build redis
+ADD ./third-party/redis /atom/third-party/redis
+RUN cd /atom/third-party/redis && make -j16 && make PREFIX=/usr/local install
+
+#
 # Finish up
 #
 
@@ -169,6 +179,9 @@ COPY --from=atom-base /usr/local/include /usr/local/include
 
 # Copy atom-cli
 COPY --from=atom-base /usr/local/bin/atom-cli /usr/local/bin/atom-cli
+
+# Copy redis-cli
+COPY --from=atom-base /usr/local/bin/redis-cli /usr/local/bin/redis-cli
 
 # Add .circleci for docs build
 ADD ./.circleci /atom/.circleci
@@ -275,29 +288,32 @@ ENV DISPLAY :0
 
 ################################################################################
 #
-# Nucleus base image. From the atom image with everything installed
-#     but adds in a redis server and overrides the default command. We
-#     will add in the redis-server source, then strip it in a later image
-#     for compactness
-#
-################################################################################
-
-FROM atom as nucleus-base
-
-# Build redis
-ADD ./third-party/redis /atom/third-party/redis
-RUN cd /atom/third-party/redis && make -j16 && make PREFIX=/usr/local/bin install
-
-################################################################################
-#
 # Nucleus image. Copies out only binary of redis-server
 #
 ################################################################################
 
-FROM atom as nucleus
+FROM $BASE_IMAGE as nucleus
 
-# Copy redis-server
-COPY --from=nucleus-base /usr/local/bin/redis-server /usr/local/bin/redis-server
+# Install python
+RUN apt-get update -y \
+ && apt-get install -y --no-install-recommends apt-utils \
+                                               python3-minimal \
+                                               python3-pip
+
+# Copy contents of python virtualenv and activate
+COPY --from=atom-base /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy C builds
+COPY --from=atom-base /usr/local/lib /usr/local/lib
+COPY --from=atom-base /usr/local/include /usr/local/include
+
+# Copy atom-cli
+COPY --from=atom-base /usr/local/bin/atom-cli /usr/local/bin/atom-cli
+
+# Copy redis-server and redis-cli
+COPY --from=atom-base /usr/local/bin/redis-server /usr/local/bin/redis-server
+COPY --from=atom-base /usr/local/bin/redis-cli /usr/local/bin/redis-cli
 
 ADD ./launch_nucleus.sh /nucleus/launch.sh
 ADD ./redis.conf /nucleus/redis.conf
