@@ -6,7 +6,8 @@ services:
     container_name: nucleus
     build:
       context: .
-      dockerfile: Dockerfile-nucleus
+      dockerfile: dockerfile
+      target: nucleus
     volumes:
       - type: volume
         source: shared
@@ -18,8 +19,8 @@ services:
     container_name: atom
     build:
       context: .
-      dockerfile: Dockerfile-atom
-      target: test
+      dockerfile: Dockerfile
+      target: est
     volumes:
       - type: volume
         source: shared

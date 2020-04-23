@@ -5,7 +5,7 @@
 ################################################################################
 
 ARG BASE_IMAGE=debian:buster-slim
-FROM $BASE_IMAGE as base
+FROM $BASE_IMAGE as atom-base
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -160,15 +160,15 @@ RUN apt-get update -y \
                                                python3-pip
 
 # Copy contents of python virtualenv and activate
-COPY --from=base /opt/venv /opt/venv
+COPY --from=atom-base /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy C builds
-COPY --from=base /usr/local/lib /usr/local/lib
-COPY --from=base /usr/local/include /usr/local/include
+COPY --from=atom-base /usr/local/lib /usr/local/lib
+COPY --from=atom-base /usr/local/include /usr/local/include
 
 # Copy atom-cli
-COPY --from=base /usr/local/bin/atom-cli /usr/local/bin/atom-cli
+COPY --from=atom-base /usr/local/bin/atom-cli /usr/local/bin/atom-cli
 
 # Add .circleci for docs build
 ADD ./.circleci /atom/.circleci
@@ -283,3 +283,24 @@ ENV DISPLAY :0
 ################################################################################
 
 FROM atom as nucleus-base
+
+# Build redis
+ADD ./third-party/redis /atom/third-party/redis
+RUN cd /atom/third-party/redis && make -j16 && make PREFIX=/usr/local/bin install
+
+################################################################################
+#
+# Nucleus image. Copies out only binary of redis-server
+#
+################################################################################
+
+FROM atom as nucleus
+
+# Copy redis-server
+COPY --from=nucleus-base /usr/local/bin/redis-server /usr/local/bin/redis-server
+
+ADD ./launch_nucleus.sh /nucleus/launch.sh
+ADD ./redis.conf /nucleus/redis.conf
+WORKDIR /nucleus
+RUN chmod +x launch.sh
+CMD ["./launch.sh"]

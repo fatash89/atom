@@ -1,3 +1,3 @@
 #!/bin/sh
 
-redis-server redis.conf
+/usr/local/bin/redis-server redis.conf
