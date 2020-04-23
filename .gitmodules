@@ -22,3 +22,6 @@
 [submodule "languages/python/third-party/redis-py"]
 	path = languages/python/third-party/redis-py
 	url = git@github.com:andymccurdy/redis-py.git
+[submodule "third-party/OpenBLAS"]
+	path = third-party/OpenBLAS
+	url = git@github.com:xianyi/OpenBLAS.git

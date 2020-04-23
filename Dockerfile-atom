@@ -25,7 +25,6 @@ RUN apt-get update -y \
       python3-pip \
       python3-venv \
       python3-dev \
-      libopenblas-dev \
       flex \
       bison \
       curl \
@@ -69,8 +68,9 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Install list:
 #   1. redis-py (needs support for memoryviews)
 #   2. Cython (needs to be x-compiled for aarch64)
-#   3. numpy (needs to be x-compiled for aarch64)
-#   4. pyarrow (needs to be x-compiled for aarch64)
+#   3. OpenBLAS (needs to be x-compiled for aarch64/ARM CPU)
+#   4. numpy (needs to be x-compiled for aarch64)
+#   5. pyarrow (needs to be x-compiled for aarch64)
 
 # Redis-py
 ADD ./languages/python/third-party/redis-py /atom/languages/python/third-party/redis-py
@@ -81,6 +81,12 @@ RUN cd /atom/languages/python/third-party/redis-py \
 ADD ./languages/python/third-party/cython /atom/languages/python/third-party/cython
 WORKDIR /atom/languages/python/third-party/cython
 RUN python3 setup.py build -j16 install
+
+# OpenBLAS
+ADD ./third-party/OpenBLAS /atom/third-party/OpenBLAS
+RUN cd /atom/third-party/OpenBLAS \
+  && make -j16 \
+  && make PREFIX=/usr/local install
 
 # Numpy
 ADD ./languages/python/third-party/numpy /atom/languages/python/third-party/numpy
