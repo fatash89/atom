@@ -7,8 +7,6 @@
 !/third-party/**
 !/utilities/**
 !/.circleci/**
-!/.git/**
-!/.gitmodules
 
 !/launch_nucleus.sh
 !/redis.conf
