@@ -3,7 +3,7 @@ version: "2.3"
 services:
 
   nucleus:
-    container_name: dev_nucleus
+    container_name: nucleus
     build:
       context: .
       dockerfile: Dockerfile-nucleus
@@ -15,7 +15,7 @@ services:
           nocopy: true
 
   atom:
-    container_name: dev_atom
+    container_name: atom
     build:
       context: .
       dockerfile: Dockerfile-atom
@@ -26,7 +26,7 @@ services:
         target: /shared
         volume:
           nocopy: true
-    # - ".:/atom"
+      - ".:/atom"
     depends_on:
       - "nucleus"
     ports:
