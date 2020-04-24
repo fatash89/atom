@@ -60,6 +60,7 @@ RUN cd /atom/languages/cpp \
 # Create and activate python virtualenv
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
+ENV LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
 
 # Install custom third-party deps. We need to build
 # some of these separately as opposed to installing
