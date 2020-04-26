@@ -108,7 +108,7 @@ RUN mkdir -p /atom/third-party/apache-arrow/cpp/build \
   && make -j16 \
   && make install
 RUN cd /atom/third-party/apache-arrow/python \
-  && SETUPTOOLS_SCM_PRETEND_VERSION="0.17.0" python3 setup.py build_ext -j 16 --build-type=release --extra-cmake-args=-DARROW_ARMV8_ARCH=armv8-a --with-parquet install
+  && ARROW_HOME=/usr/local SETUPTOOLS_SCM_PRETEND_VERSION="0.17.0" python3 setup.py build_ext -j 16 --build-type=release --extra-cmake-args=-DARROW_ARMV8_ARCH=armv8-a --with-parquet install
 
 # Redis-py
 ADD ./languages/python/third-party/redis-py /atom/languages/python/third-party/redis-py
