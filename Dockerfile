@@ -42,7 +42,7 @@ RUN cd /atom/languages/c/third-party && make
 # Build the C library
 ADD ./languages/c /atom/languages/c
 RUN cd /atom/languages/c \
- && make clean && make -j16 && make install
+ && make clean && make -j8 && make install
 
 #
 # C++ client
@@ -51,7 +51,7 @@ RUN cd /atom/languages/c \
 # Build and install the c++ library
 ADD ./languages/cpp /atom/languages/cpp
 RUN cd /atom/languages/cpp \
- && make clean && make -j16 && make install
+ && make clean && make -j8 && make install
 
 #
 # Python client
@@ -76,19 +76,19 @@ ENV LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
 # Cython
 ADD ./languages/python/third-party/cython /atom/languages/python/third-party/cython
 WORKDIR /atom/languages/python/third-party/cython
-RUN python3 setup.py build -j16 install
+RUN python3 setup.py build -j8 install
 
 # OpenBLAS
 ADD ./third-party/OpenBLAS /atom/third-party/OpenBLAS
 RUN cd /atom/third-party/OpenBLAS \
-  && make -j16 \
+  && make -j8 \
   && make PREFIX=/usr/local install
 
 # Numpy
 ADD ./languages/python/third-party/numpy /atom/languages/python/third-party/numpy
 ADD ./languages/python/third-party/numpy.site.cfg /atom/languages/python/third-party/numpy/site.cfg
 WORKDIR /atom/languages/python/third-party/numpy
-RUN python3 setup.py build -j16 install
+RUN python3 setup.py build -j8 install
 
 # Pyarrow
 ADD ./third-party/apache-arrow /atom/third-party/apache-arrow
@@ -105,10 +105,10 @@ RUN mkdir -p /atom/third-party/apache-arrow/cpp/build \
            -DARROW_BUILD_TESTS=OFF \
            -DPYTHON_EXECUTABLE=/opt/venv/bin/python3 \
            .. \
-  && make -j16 \
+  && make -j8 \
   && make install
 RUN cd /atom/third-party/apache-arrow/python \
-  && ARROW_HOME=/usr/local SETUPTOOLS_SCM_PRETEND_VERSION="0.17.0" python3 setup.py build_ext -j 16 --build-type=release --extra-cmake-args=-DARROW_ARMV8_ARCH=armv8-a --with-parquet install
+  && ARROW_HOME=/usr/local SETUPTOOLS_SCM_PRETEND_VERSION="0.17.0" python3 setup.py build_ext -j 8 --build-type=release --extra-cmake-args=-DARROW_ARMV8_ARCH=armv8-a --with-parquet install
 
 # Redis-py
 ADD ./languages/python/third-party/redis-py /atom/languages/python/third-party/redis-py
@@ -142,7 +142,7 @@ RUN cp /atom/utilities/atom-cli/atom-cli.py /usr/local/bin/atom-cli \
 
 # Build redis
 ADD ./third-party/redis /atom/third-party/redis
-RUN cd /atom/third-party/redis && make -j16 && make PREFIX=/usr/local install
+RUN cd /atom/third-party/redis && make -j8 && make PREFIX=/usr/local install
 
 #
 # Finish up
@@ -230,7 +230,7 @@ ENV LAST_UPDATED 2019-03-12
 RUN apt-get update \
  && apt-get install -y --no-install-recommends libgtest-dev cmake build-essential \
  && cd /usr/src/gtest \
- && cmake CMakeLists.txt && make -j16 && cp *.a /usr/lib
+ && cmake CMakeLists.txt && make -j8 && cp *.a /usr/lib
 
 # Install valgrind
 RUN apt-get install -y --no-install-recommends valgrind
