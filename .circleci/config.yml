@@ -91,7 +91,7 @@ jobs:
       - atom/update_submodules
       - set_atom_version
       - atom/docker_login
-      - atom/prep_buildx
+      - atom/enable_buildx
 
       # Build base, atom and test stages of atom image
       - atom/build_stage_aarch64:
@@ -148,7 +148,7 @@ jobs:
     steps:
       - checkout
       - atom/docker_login
-      - atom/prep_buildx
+      - atom/enable_buildx
 
       # Launch containers for testing
       - atom/run_compose:
