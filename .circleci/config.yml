@@ -230,6 +230,9 @@ commands:
       platform:
         type: string
         default: linux/amd64
+      build_args:
+        type: string
+        default: ""
     steps:
 
       # Build atom and test stages
@@ -239,6 +242,7 @@ commands:
           image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
           image_tag: build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>-base<<parameters.tag>>
           platform: << parameters.platform >>
+          build_args: << parameters.build_args >>
 
       # Push build image
       - atom/push_image:
@@ -338,6 +342,7 @@ jobs:
       - build_atom_base_variant:
           tag: "aarch64"
           platform: linux/aarch64
+          build_args: "--build-arg BLAS_TARGET_CPU=ARMV8 --build-arg PYARROW_EXTRA_CMAKE_ARGS=-DARROW_ARMV8_ARCH=armv8-a"
 
   deploy-dev:
     executor: atom/build-ubuntu
