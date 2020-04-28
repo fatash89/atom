@@ -95,6 +95,14 @@ commands:
           command: |
             python3 languages/python/version.py
 
+  build_shared_init:
+    steps:
+      - checkout
+      - atom/update_submodules
+      - set_atom_version
+      - atom/docker_login
+      - atom/enable_buildx
+
   test_atom_variant:
     parameters:
       compose:
@@ -106,8 +114,6 @@ commands:
       container:
         type: string
     steps:
-      - checkout
-      - atom/docker_login
 
       # Launch containers for testing
       - atom/run_compose:
@@ -129,11 +135,6 @@ commands:
         type: string
         default: ""
     steps:
-      - checkout
-      - atom/update_submodules
-      - set_atom_version
-      - atom/docker_login
-      - atom/enable_buildx
 
       # Build base, atom and test stages of atom image
       - atom/build_stage_buildx:
@@ -193,22 +194,20 @@ commands:
         type: string
         default: ""
     steps:
-      - checkout
-      - atom/update_submodules
-      - set_atom_version
-      - atom/docker_login
 
       # Build atom and test stages
-      - atom/build_stage:
+      - atom/build_stage_buildx:
           stage: << parameters.target >>
           image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
           image_tag: build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>
           build_args: << parameters.build_args >>
-      - atom/build_stage:
+          platform: << parameters.platform >>
+      - atom/build_stage_buildx:
           stage: test
           image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
           image_tag: build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>-test
           build_args: << parameters.build_args >>
+          platform: << parameters.platform >>
 
       # Push build image
       - atom/push_image:
@@ -223,6 +222,34 @@ commands:
           atom: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>-test
           container: ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME}
 
+  build_atom_base_variant:
+    parameters:
+      tag:
+        type: string
+        default: ""
+      platform:
+        type: string
+        default: linux/amd64
+    steps:
+
+      # Build atom and test stages
+      - atom/build_stage_buildx:
+          file: Dockerfile-base
+          image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
+          image_tag: build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>-base<<parameters.tag>>
+          build_args: << parameters.build_args >>
+          platform: << parameters.platform >>
+
+      # Push build image
+      - atom/push_image:
+          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-base<< parameters.tag >>
+
+      # Build the atom variant with the base
+      - build_atom_with_nucleus_variant:
+          tag: << parameters.tag >>
+          platform: << parameters.platform >>
+          build_args: "BASE_IMAGE=${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}/build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>-base<<parameters.tag>>"
+
 jobs:
   build-atom:
     executor: atom/build-ubuntu
@@ -231,6 +258,7 @@ jobs:
       <<: *atom_build_vars
       DOCKER_CLI_EXPERIMENTAL: enabled
     steps:
+      - build_shared_init
       - build_atom_with_nucleus_variant:
           tag: ""
           platform: linux/amd64
@@ -242,6 +270,7 @@ jobs:
       <<: *atom_build_vars
       DOCKER_CLI_EXPERIMENTAL: enabled
     steps:
+      - build_shared_init
       - build_atom_with_nucleus_variant:
           tag: "aarch64"
           platform: linux/aarch64
@@ -253,6 +282,7 @@ jobs:
       <<: *atom_build_vars
       DOCKER_CLI_EXPERIMENTAL: enabled
     steps:
+      - build_shared_init
       - build_atom_variant:
           tag: "cuda"
           platform: linux/amd64
@@ -265,6 +295,7 @@ jobs:
       <<: *atom_build_vars
       DOCKER_CLI_EXPERIMENTAL: enabled
     steps:
+      - build_shared_init
       - build_atom_variant:
           tag: "opengl"
           platform: linux/amd64
@@ -278,10 +309,35 @@ jobs:
       BASE_IMAGE_TAG: v1.0.0
       DOCKER_CLI_EXPERIMENTAL: enabled
     steps:
+      - build_shared_init
       - build_atom_variant:
           tag: "opengl-cuda"
           platform: linux/amd64
           build_args: "BASE_IMAGE=${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-base:${BASE_IMAGE_TAG}"
+
+  build-atom-base:
+    executor: atom/build-ubuntu-nocache
+    resource_class: large
+    environment:
+      <<: *atom_build_vars
+      DOCKER_CLI_EXPERIMENTAL: enabled
+    steps:
+      - build_shared_init
+      - build_atom_base_variant:
+          tag: ""
+          platform: linux/amd64
+
+  build-atom-aarch64-base:
+    executor: atom/build-ubuntu-nocache
+    resource_class: large
+    environment:
+      <<: *atom_build_vars
+      DOCKER_CLI_EXPERIMENTAL: enabled
+    steps:
+      - build_shared_init
+      - build_atom_base_variant:
+          tag: "aarch64"
+          platform: linux/aarch64
 
   deploy-dev:
     executor: atom/build-ubuntu
@@ -400,14 +456,22 @@ workflows:
   version: 2
   commit:
     jobs:
+      # Build the main/vanilla variant of atom
       - build-atom:
           filters:
             tags:
-              only: /.*/
+              only:
+                - /.*/
+            branches:
+              ignore:
+                - /.*-build-base/
       - build-docs:
           filters:
             tags:
               only: /.*/
+            branches:
+              ignore:
+                - /.*-build-base/
       - atom/check_flake8:
           version: 3.7.0
           exclude: demo,doc,examples,utilities,*third-party,languages
@@ -415,7 +479,11 @@ workflows:
             - build-atom
           filters:
             tags:
-              only: /.*/
+              only:
+                - /.*/
+            branches:
+              ignore:
+                - /.*-build-base/
 
       # Build special images after tests pass for atom
       - build-opengl:
@@ -423,25 +491,41 @@ workflows:
             - atom/check_flake8
           filters:
             tags:
-              only: /.*/
+              only:
+                - /.*/
+            branches:
+              ignore:
+                - /.*-build-base/
       - build-cuda:
           requires:
             - atom/check_flake8
           filters:
             tags:
-              only: /.*/
+              only:
+                - /.*/
+            branches:
+              ignore:
+                - /.*-build-base/
       - build-opengl-cuda:
           requires:
             - atom/check_flake8
           filters:
             tags:
-              only: /.*/
+              only:
+                - /.*/
+            branches:
+              ignore:
+                - /.*-build-base/
       - build-atom-aarch64:
           requires:
             - atom/check_flake8
           filters:
             tags:
-              only: /.*/
+              only:
+                - /.*/
+            branches:
+              ignore:
+                - /.*-build-base/
 
       # Deploy all images after all tests pass
       - deploy-master:
@@ -501,6 +585,18 @@ workflows:
             branches:
               ignore:
                 - master
+
+      # Build base images
+      - build-atom-base:
+          filters:
+            branches:
+              only: /.*-build-base/
+      - build-atom-aarch64-base:
+          requires:
+            - build-atom-base
+          filters:
+            branches:
+              only: /.*-build-base/
 
   nightly:
     triggers:

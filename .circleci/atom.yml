@@ -26,6 +26,13 @@ executors:
       docker_layer_caching: true
       image: circleci/classic:201808-01
 
+  # Machine used to build docker containers using the
+  # CircleCI classic image
+  build-classic-nocache:
+    machine:
+      enabled: true
+      image: circleci/classic:201808-01
+
   # Ubuntu 16.04 machine used to build some images
   # comes with Docker 19.03.8 and docker-compose 1.25.5
   # This is useful since `buildx`, which is required in order
@@ -43,7 +50,6 @@ executors:
   build-ubuntu-nocache:
     machine:
       enabled: true
-      docker_layer_caching: true
       image: ubuntu-1604:202004-01
 
 
