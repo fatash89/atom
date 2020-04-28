@@ -633,7 +633,7 @@ workflows:
 
       - deploy-atom-base:
           requires:
-            - build_atom_base
+            - build-atom-base
           filters:
             branches:
               only: /.*-build-base/
