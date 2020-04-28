@@ -237,7 +237,6 @@ commands:
           file: Dockerfile-base
           image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
           image_tag: build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>-base<<parameters.tag>>
-          build_args: << parameters.build_args >>
           platform: << parameters.platform >>
 
       # Push build image
