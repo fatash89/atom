@@ -5,7 +5,7 @@
 ################################################################################
 
 ARG BASE_IMAGE=debian:buster-slim
-FROM $BASE_IMAGE
+FROM $BASE_IMAGE as base
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG BLAS_TARGET_CPU=""

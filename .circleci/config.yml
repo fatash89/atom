@@ -234,6 +234,7 @@ commands:
 
       # Build atom and test stages
       - atom/build_stage_buildx:
+          stage: base
           file: Dockerfile-base
           image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
           image_tag: build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>-base<<parameters.tag>>
