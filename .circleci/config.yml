@@ -469,8 +469,6 @@ workflows:
             tags:
               only: /.*/
       - build-atom-aarch64:
-          requires:
-            - atom/check_flake8
           filters:
             tags:
               only: /.*/
