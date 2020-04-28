@@ -237,12 +237,15 @@ commands:
           command: docker push << parameters.target_image >>:<< parameters.target_tag >>
           no_output_timeout: << parameters.output_timeout >>
 
-  push_dev_image:
+  deploy_image:
     parameters:
       source_image:
         type: string
       target_image:
         type: string
+      target_tag:
+        type: string
+        default: ""
       output_timeout:
         <<: *output_timeout_param
     steps:
@@ -252,7 +255,25 @@ commands:
       - tag_and_deploy:
           source_image: << parameters.source_image >>
           target_image: << parameters.target_image >>
-          target_tag: development-${CIRCLE_BUILD_NUM}
+          target_tag: << parameters.target_tag >>
+          output_timeout: << parameters.output_timeout >>
+
+  push_dev_image:
+    parameters:
+      source_image:
+        type: string
+      target_image:
+        type: string
+      target_tag:
+        type: string
+        default: ""
+      output_timeout:
+        <<: *output_timeout_param
+    steps:
+      - deploy_image:
+          source_image: << parameters.source_image >>
+          target_image: << parameters.target_image >>
+          target_tag: << parameters.target_tag >>development-${CIRCLE_BUILD_NUM}
           output_timeout: << parameters.output_timeout >>
 
   push_master_image:
@@ -261,18 +282,18 @@ commands:
         type: string
       target_image:
         type: string
+      target_tag:
+        type: string
+        default: ""
       output_timeout:
         <<: *output_timeout_param
     steps:
-      - docker_login
-      - pull_image:
-          image_tag: << parameters.source_image >>
-      - tag_and_deploy:
+      - deploy_image:
           source_image: << parameters.source_image >>
           target_image: << parameters.target_image >>
-          target_tag: master-${CIRCLE_BUILD_NUM}
+          target_tag: << parameters.target_tag >>master-${CIRCLE_BUILD_NUM}
           output_timeout: << parameters.output_timeout >>
-      - tag_and_deploy:
+      - deploy_image:
           source_image: << parameters.source_image >>
           target_image: << parameters.target_image >>
           target_tag: latest
@@ -284,16 +305,16 @@ commands:
         type: string
       target_image:
         type: string
+      target_tag:
+        type: string
+        default: ""
       output_timeout:
         <<: *output_timeout_param
     steps:
-      - docker_login
-      - pull_image:
-          image_tag: << parameters.source_image >>
-      - tag_and_deploy:
+      - deploy_image:
           source_image: << parameters.source_image >>
           target_image: << parameters.target_image >>
-          target_tag: ${CIRCLE_TAG}
+          target_tag: << parameters.target_tag >>${CIRCLE_TAG}
           output_timeout: << parameters.output_timeout >>
 
 
