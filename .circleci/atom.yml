@@ -118,7 +118,7 @@ commands:
           command: docker buildx create --use --name build-buildx
 
   # Build a stage for aarch64
-  build_stage_aarch64:
+  build_stage_buildx:
     description: "Build and tag a stage of a multi-stage Docker build for aarch64"
     parameters:
       file:
@@ -135,10 +135,13 @@ commands:
       build_args:
         type: string
         default: ""
+      platform:
+        type: string
+        default: ""
     steps:
       - run:
           name: Build and tag << parameters.stage >> stage
-          command: docker buildx build --platform=linux/aarch64 --progress plain --load -f << parameters.file >> -t << parameters.image_name >>:<< parameters.image_tag >> --target=<< parameters.stage >> --build-arg << parameters.build_args >> --pull .
+          command: docker buildx build --platform=<< parameters.platform >> --progress plain --load -f << parameters.file >> -t << parameters.image_name >>:<< parameters.image_tag >> --target=<< parameters.stage >> --build-arg << parameters.build_args >> --pull .
 
   run_compose:
     description: "Launch docker-compose"
