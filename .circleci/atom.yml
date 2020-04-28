@@ -27,11 +27,14 @@ executors:
       image: circleci/classic:201808-01
 
   # Ubuntu 16.04 machine used to build some images
+  # comes with Docker 19.03.8 and docker-compose 1.25.5
+  # This is useful since `buildx`, which is required in order
+  # to cross-compile images, comes standard in Docker 19.03
   build-ubuntu:
     machine:
       enabled: true
       docker_layer_caching: true
-      image: ubuntu-1604:201903-01
+      image: ubuntu-1604:202004-01
 
 #
 # Commands that are useful for build and deploy
@@ -91,6 +94,40 @@ commands:
       - run:
           name: Build and tag << parameters.stage >> stage
           command: docker build -f << parameters.file >> -t << parameters.image_name >>:<< parameters.image_tag >> --target=<< parameters.stage >> --build-arg << parameters.build_args >> --pull .
+
+  # Prepare the machine for buildx based builds
+  enable_buildx:
+    description: "Prepare the CircleCI machine for cross-compiling ARM images"
+    steps:
+      - run:
+          name: Turn on experimental docker CLI
+          command: export DOCKER_CLI_EXPERIMENTAL=enabled
+      - run:
+          name: Switch to the multi-arch builder
+          command: docker buildx create --use --name build-buildx
+
+  # Build a stage for aarch64
+  build_stage_aarch64:
+    description: "Build and tag a stage of a multi-stage Docker build for aarch64"
+    parameters:
+      file:
+        type: string
+        default: Dockerfile
+      stage:
+        type: string
+      image_name:
+        type: string
+        default: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}-<< parameters.stage >>
+      image_tag:
+        type: string
+        default: build-${CIRCLE_WORKFLOW_ID}
+      build_args:
+        type: string
+        default: ""
+    steps:
+      - run:
+          name: Build and tag << parameters.stage >> stage
+          command: docker buildx build --platform=linux/aarch64 --progress plain --load -f << parameters.file >> -t << parameters.image_name >>:<< parameters.image_tag >> --target=<< parameters.stage >> --build-arg << parameters.build_args >> --pull .
 
   run_compose:
     description: "Launch docker-compose"

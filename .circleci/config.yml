@@ -39,7 +39,7 @@ aliases:
 version: 2.1
 
 orbs:
-  atom:  elementaryrobotics/atom@0.0.11
+  atom:  elementaryrobotics/atom@dev:296-multi-arch
 
 jobs:
   build-atom:
@@ -81,6 +81,46 @@ jobs:
       - atom/push_image:
           image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID}
 
+  build-atom-aarch64:
+    executor: atom/build-ubuntu
+    resource_class: large
+    environment:
+      <<: *atom_build_vars
+    steps:
+      - checkout
+      - atom/update_submodules
+      - set_atom_version
+      - atom/docker_login
+      - atom/prep_buildx
+
+      # Build base, atom and test stages of atom image
+      - atom/build_stage_aarch64:
+          stage: atom-base
+          image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-base
+          image_tag: build-${CIRCLE_WORKFLOW_ID}-aarch64
+      - atom/build_stage_aarch64:
+          stage: atom
+          image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
+          image_tag: build-${CIRCLE_WORKFLOW_ID}-aarch64
+      - atom/build_stage_aarch64:
+          stage: nucleus
+          image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}
+          image_tag: build-${CIRCLE_WORKFLOW_ID}-aarch64
+      - atom/build_stage_aarch64:
+          stage: test
+          image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-test
+          image_tag: build-${CIRCLE_WORKFLOW_ID}-aarch64
+
+      # Tag and push atom build images
+      - atom/push_image:
+          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-aarch64
+      - atom/push_image:
+          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-test:build-${CIRCLE_WORKFLOW_ID}-aarch64
+
+      # Tag and push nucleus image
+      - atom/push_image:
+          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID}-aarch64
+
   test-atom:
     executor: atom/build-classic
     resource_class: large
@@ -95,10 +135,30 @@ jobs:
       - atom/run_compose:
           file: .circleci/docker-compose-circle.yml
           build_args: "NUCLEUS_IMAGE=${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID} ATOM_IMAGE=${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-test:build-${CIRCLE_WORKFLOW_ID}"
+      # Run atom unit tests
+      - run_tests:
+          container: ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME}
+
+  test-atom-aarch64:
+    executor: atom/build-ubuntu
+    resource_class: large
+    environment:
+      <<: *atom_build_vars
+
+    steps:
+      - checkout
+      - atom/docker_login
+      - atom/prep_buildx
+
+      # Launch containers for testing
+      - atom/run_compose:
+          file: .circleci/docker-compose-circle.yml
+          build_args: "NUCLEUS_IMAGE=${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID}-aarch64 ATOM_IMAGE=${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-test:build-${CIRCLE_WORKFLOW_ID}-aarch64"
 
       # Run atom unit tests
       - run_tests:
           container: ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME}
+
 
   build-cuda:
     executor: atom/build-classic
@@ -408,6 +468,18 @@ workflows:
           filters:
             tags:
               only: /.*/
+      - build-atom-aarch64:
+          requires:
+            - atom/check_flake8
+          filters:
+            tags:
+              only: /.*/
+      - test-atom-aarch64:
+          requires:
+            - build-atom-aarch64
+          filters:
+            tags:
+              only: /.*/
 
       # Deploy all images after all tests pass
       - deploy-master:
@@ -415,6 +487,7 @@ workflows:
             - build-opengl
             - build-cuda
             - build-opengl-cuda
+            - test-atom-aarch64
           filters:
             branches:
               only:
@@ -424,6 +497,7 @@ workflows:
             - build-opengl
             - build-cuda
             - build-opengl-cuda
+            - test-atom-aarch64
           filters:
             branches:
               ignore:
@@ -435,6 +509,7 @@ workflows:
             - build-opengl
             - build-cuda
             - build-opengl-cuda
+            - test-atom-aarch64
           filters:
             branches:
               ignore:
