@@ -50,7 +50,7 @@ jobs:
     steps:
       - checkout
       - atom/update_submodules
-      - set_atom_version
+      #- set_atom_version
       - atom/docker_login
 
       # Build base, atom and test stages of atom image
@@ -89,7 +89,7 @@ jobs:
     steps:
       - checkout
       - atom/update_submodules
-      - set_atom_version
+      #- set_atom_version
       - atom/docker_login
       - atom/enable_buildx
 
@@ -168,7 +168,7 @@ jobs:
     steps:
       - checkout
       - atom/update_submodules
-      - set_atom_version
+      #- set_atom_version
       - atom/docker_login
 
       # Build atom and test stages
@@ -204,7 +204,7 @@ jobs:
     steps:
       - checkout
       - atom/update_submodules
-      - set_atom_version
+      #- set_atom_version
       - atom/docker_login
 
       # Build graphics and test stages
@@ -241,7 +241,7 @@ jobs:
     steps:
       - checkout
       - atom/update_submodules
-      - set_atom_version
+      #- set_atom_version
       - atom/docker_login
 
       # Build base image
