@@ -8,7 +8,7 @@ ARG BASE_IMAGE=elementaryrobotics/atom:base
 FROM $BASE_IMAGE as atom-base
 
 ARG DEBIAN_FRONTEND=noninteractive
-
+ARG BLAS_TARGET=""
 
 #
 # C client

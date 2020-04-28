@@ -13,18 +13,24 @@ aliases:
   - &atom_image_names
       source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}
       target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
+  - &atom_aarch64_image_names
+      source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-aarch64
+      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-aarch64
   - &cuda_image_names
-      source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}:build-${CIRCLE_WORKFLOW_ID}
-      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}
+      source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-cuda
+      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-cuda
   - &opengl_image_names
-      source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_REPO}:build-${CIRCLE_WORKFLOW_ID}
-      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_REPO}
+      source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-opngl
+      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-opengl
   - &opengl_cuda_image_names
-      source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}:build-${CIRCLE_WORKFLOW_ID}
-      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}
+      source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-opengl-cuda
+      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-cuda-opengl
   - &nucleus_image_names
       source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID}
       target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}
+  - &nucleus_aarch64_image_names
+      source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID}-aarch64
+      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}-aarch64
   - &docs_env
       DOCKER_COMPOSE_PROJECT_NAME: docs
       DOCKER_COMPOSE_SERVICE_NAME: docs
@@ -41,53 +47,87 @@ version: 2.1
 orbs:
   atom:  elementaryrobotics/atom@dev:296-multi-arch
 
-jobs:
-  build-atom:
-    executor: atom/build-ubuntu
-    resource_class: large
-    environment:
-      <<: *atom_build_vars
+commands:
+
+  run_tests:
+    parameters:
+      container:
+        type: string
+    steps:
+      - run:
+          name: Python tests
+          command: docker exec -it -w /atom/languages/python/tests << parameters.container >> pytest
+      - run:
+          name: C tests
+          command:  docker exec -it -w /atom/languages/c << parameters.container >> make test
+      - run:
+          name: C++ tests
+          command:  docker exec -it -w /atom/languages/cpp << parameters.container >> make test
+      - run:
+          name: C++ valgrind check
+          command: docker exec -it -w /atom/languages/cpp << parameters.container >> valgrind -v --tool=memcheck --leak-check=full --num-callers=40 --log-file=valgrind.log --error-exitcode=1 test/build/test_atom_cpp
+          environment:
+            G_SLICE: always-malloc
+            G_DEBUG: gc-friendly
+      - run:
+          name: C++ copy valgrind log
+          command: docker cp << parameters.container >>:/atom/languages/cpp/valgrind.log /tmp/valgrind.log
+      - store_artifacts:
+          path: /tmp/valgrind.log
+          destination: valgrind.log
+
+  heroku_deploy:
+    parameters:
+      image_tag:
+        type: string
+    steps:
+      - run:
+          command: |
+            docker login --username=_ --password=${HEROKU_API_KEY} registry.heroku.com
+            docker tag << parameters.image_tag >> registry.heroku.com/${HEROKU_APP_NAME}/web
+            docker push registry.heroku.com/${HEROKU_APP_NAME}/web
+            heroku container:release -a ${HEROKU_APP_NAME} web
+
+  set_atom_version:
+    steps:
+      - run:
+          name: Add atom version to config file
+          command: |
+            python3 languages/python/version.py
+
+  test_atom_variant:
+    parameters:
+      compose:
+        type: string
+      nucleus:
+        type: string
+      atom:
+        type: string
+      container:
+        type: string
     steps:
       - checkout
-      - atom/update_submodules
-      - set_atom_version
       - atom/docker_login
 
-      # Build base, atom and test stages of atom image
-      - atom/build_stage:
-          stage: atom-base
-          image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-base
-          image_tag: build-${CIRCLE_WORKFLOW_ID}
-      - atom/build_stage:
-          stage: atom
-          image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
-          image_tag: build-${CIRCLE_WORKFLOW_ID}
-      - atom/build_stage:
-          stage: nucleus
-          image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}
-          image_tag: build-${CIRCLE_WORKFLOW_ID}
-      - atom/build_stage:
-          stage: test
-          image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-test
-          image_tag: build-${CIRCLE_WORKFLOW_ID}
+      # Launch containers for testing
+      - atom/run_compose:
+          file: << parameters.compose >>
+          build_args: "NUCLEUS_IMAGE=<< parameters.nucleus >> ATOM_IMAGE=<< parameters.atom >>"
+      # Run atom unit tests
+      - run_tests:
+          container: << parameters.container >>
 
-      # Tag and push atom build images
-      - atom/push_image:
-          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}
-      - atom/push_image:
-          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-test:build-${CIRCLE_WORKFLOW_ID}
-
-      # Tag and push nucleus image
-      - atom/push_image:
-          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID}
-
-  build-atom-aarch64:
-    executor: atom/build-ubuntu
-    resource_class: large
-    environment:
-      <<: *atom_build_vars
-      DOCKER_CLI_EXPERIMENTAL: enabled
-
+  build_atom_with_nucleus_variant:
+    parameters:
+      tag:
+        type: string
+        default: ""
+      platform:
+        type: string
+        default: linux/amd64
+      build_args:
+        type: string
+        default: ""
     steps:
       - checkout
       - atom/update_submodules
@@ -99,79 +139,59 @@ jobs:
       - atom/build_stage_buildx:
           stage: atom-base
           image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-base
-          image_tag: build-${CIRCLE_WORKFLOW_ID}-aarch64
-          platform: linux/aarch64
+          image_tag: build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>
+          platform: << parameters.platform >>
+          build_args: << parameters.build_args >>
       - atom/build_stage_buildx:
           stage: atom
           image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
-          image_tag: build-${CIRCLE_WORKFLOW_ID}-aarch64
-          platform: linux/aarch64
+          image_tag: build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>
+          platform: << parameters.platform >>
+          build_args: << parameters.build_args >>
       - atom/build_stage_buildx:
           stage: nucleus
           image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}
-          image_tag: build-${CIRCLE_WORKFLOW_ID}-aarch64
-          platform: linux/aarch64
+          image_tag: build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>
+          platform: << parameters.platform >>
+          build_args: << parameters.build_args >>
       - atom/build_stage_buildx:
           stage: test
-          image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-test
-          image_tag: build-${CIRCLE_WORKFLOW_ID}-aarch64
-          platform: linux/aarch64
+          image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
+          image_tag: build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>-test
+          platform: << parameters.platform >>
+          build_args: << parameters.build_args >>
 
       # Tag and push atom build images
       - atom/push_image:
-          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-aarch64
+          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>
       - atom/push_image:
-          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-test:build-${CIRCLE_WORKFLOW_ID}-aarch64
+          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>-test
 
       # Tag and push nucleus image
       - atom/push_image:
-          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID}-aarch64
+          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>
 
-  test-atom:
-    executor: atom/build-ubuntu
-    resource_class: large
-    environment:
-      <<: *atom_build_vars
-
-    steps:
-      - checkout
-      - atom/docker_login
-
-      # Launch containers for testing
-      - atom/run_compose:
-          file: .circleci/docker-compose-circle.yml
-          build_args: "NUCLEUS_IMAGE=${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID} ATOM_IMAGE=${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-test:build-${CIRCLE_WORKFLOW_ID}"
-      # Run atom unit tests
-      - run_tests:
+      # Run Tests
+      - test_atom_variant:
+          compose: docker-compose-circle.yml
+          nucleus: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>
+          atom: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>-test
           container: ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME}
 
-  test-atom-aarch64:
-    executor: atom/build-ubuntu
-    resource_class: large
-    environment:
-      <<: *atom_build_vars
-      DOCKER_CLI_EXPERIMENTAL: enabled
-
-    steps:
-      - checkout
-      - atom/docker_login
-      - atom/enable_buildx
-
-      # Launch containers for testing
-      - atom/run_compose:
-          file: .circleci/docker-compose-circle.yml
-          build_args: "NUCLEUS_IMAGE=${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID}-aarch64 ATOM_IMAGE=${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-test:build-${CIRCLE_WORKFLOW_ID}-aarch64"
-
-      # Run atom unit tests
-      - run_tests:
-          container: ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME}
-
-
-  build-cuda:
-    executor: atom/build-ubuntu
-    resource_class: large
-    environment:
-      <<: *atom_build_vars
+  build_atom_variant:
+    parameters:
+      target:
+        type: string
+        default: atom
+      tag:
+        type: string
+        default: ""
+      platform:
+        type: string
+        default: linux/amd64
+      build_args:
+        type: string
+        default: ""
     steps:
       - checkout
       - atom/update_submodules
@@ -180,64 +200,75 @@ jobs:
 
       # Build atom and test stages
       - atom/build_stage:
-          stage: atom
-          image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}
-          image_tag: build-${CIRCLE_WORKFLOW_ID}
-          build_args: "BASE_IMAGE=nvidia/cuda:10.0-cudnn7-runtime-ubuntu18.04"
+          stage: << parameters.target >>
+          image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
+          image_tag: build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>
+          build_args: << parameters.build_args >>
       - atom/build_stage:
           stage: test
-          image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}-test
-          image_tag: build-${CIRCLE_WORKFLOW_ID}
-          build_args: "BASE_IMAGE=nvidia/cuda:10.0-cudnn7-runtime-ubuntu18.04"
-
-      # Launch containers for testing
-      - atom/run_compose:
-          file: .circleci/docker-compose-circle.yml
-          build_args: "NUCLEUS_IMAGE=${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID} ATOM_IMAGE=${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}-test:build-${CIRCLE_WORKFLOW_ID}"
-
-      # Run atom unit tests
-      - run_tests:
-          container: ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME}
+          image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
+          image_tag: build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>-test
+          build_args: << parameters.build_args >>
 
       # Push build image
       - atom/push_image:
-          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}:build-${CIRCLE_WORKFLOW_ID}
+          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>
+      - atom/push_image:
+          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>-test
+
+      # Run Tests
+      - test_atom_variant:
+          compose: docker-compose-circle.yml
+          nucleus: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>
+          atom: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>-test
+          container: ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME}
+
+jobs:
+  build-atom:
+    executor: atom/build-ubuntu
+    resource_class: large
+    environment:
+      <<: *atom_build_vars
+      DOCKER_CLI_EXPERIMENTAL: enabled
+    steps:
+      - build_atom_with_nucleus_variant:
+          tag: ""
+          platform: linux/amd64
+
+  build-atom-aarch64:
+    executor: atom/build-ubuntu
+    resource_class: large
+    environment:
+      <<: *atom_build_vars
+      DOCKER_CLI_EXPERIMENTAL: enabled
+    steps:
+      - build_atom_with_nucleus_variant:
+          tag: "aarch64"
+          platform: linux/aarch64
+
+  build-cuda:
+    executor: atom/build-ubuntu
+    resource_class: large
+    environment:
+      <<: *atom_build_vars
+      DOCKER_CLI_EXPERIMENTAL: enabled
+    steps:
+      - build_atom_variant:
+          tag: "cuda"
+          platform: linux/amd64
+          build_args: "BASE_IMAGE=nvidia/cuda:10.0-cudnn7-runtime-ubuntu18.04"
 
   build-opengl:
     executor: atom/build-ubuntu
     resource_class: large
     environment:
       <<: *atom_build_vars
+      DOCKER_CLI_EXPERIMENTAL: enabled
     steps:
-      - checkout
-      - atom/update_submodules
-      - set_atom_version
-      - atom/docker_login
-
-      # Build graphics and test stages
-      - atom/build_stage:
-          stage: graphics
-          image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_REPO}
-          image_tag: build-${CIRCLE_WORKFLOW_ID}
+      - build_atom_variant:
+          tag: "opengl"
+          platform: linux/amd64
           build_args: "BASE_IMAGE=nvidia/opengl:1.0-glvnd-runtime-ubuntu18.04"
-      - atom/build_stage:
-          stage: test
-          image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_REPO}-test
-          image_tag: build-${CIRCLE_WORKFLOW_ID}
-          build_args: "BASE_IMAGE=nvidia/opengl:1.0-glvnd-runtime-ubuntu18.04"
-
-      # Launch containers for testing
-      - atom/run_compose:
-          file: .circleci/docker-compose-circle.yml
-          build_args: "NUCLEUS_IMAGE=${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID} ATOM_IMAGE=${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_REPO}-test:build-${CIRCLE_WORKFLOW_ID}"
-
-      # Run atom unit tests
-      - run_tests:
-          container: ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME}
-
-      # Push build image
-      - atom/push_image:
-          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_REPO}:build-${CIRCLE_WORKFLOW_ID}
 
   build-opengl-cuda:
     executor: atom/build-ubuntu
@@ -245,40 +276,12 @@ jobs:
     environment:
       <<: *atom_build_vars
       BASE_IMAGE_TAG: v1.0.0
+      DOCKER_CLI_EXPERIMENTAL: enabled
     steps:
-      - checkout
-      - atom/update_submodules
-      - set_atom_version
-      - atom/docker_login
-
-      # Build base image
-      - atom/pull_image:
-          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}-base:${BASE_IMAGE_TAG}
-
-      # Build graphics and test stages
-      - atom/build_stage:
-          stage: graphics
-          image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}
-          image_tag: build-${CIRCLE_WORKFLOW_ID}
-          build_args: "BASE_IMAGE=${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}-base:${BASE_IMAGE_TAG}"
-      - atom/build_stage:
-          stage: test
-          image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}-test
-          image_tag: build-${CIRCLE_WORKFLOW_ID}
-          build_args: "BASE_IMAGE=${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}-base:${BASE_IMAGE_TAG}"
-
-      # Launch containers for testing
-      - atom/run_compose:
-          file: .circleci/docker-compose-circle.yml
-          build_args: "NUCLEUS_IMAGE=${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID} ATOM_IMAGE=${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}-test:build-${CIRCLE_WORKFLOW_ID}"
-
-      # Run atom unit tests
-      - run_tests:
-          container: ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME}
-
-      # Push build image
-      - atom/push_image:
-          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}:build-${CIRCLE_WORKFLOW_ID}
+      - build_atom_variant:
+          tag: "opengl-cuda"
+          platform: linux/amd64
+          build_args: "BASE_IMAGE=${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-base:${BASE_IMAGE_TAG}"
 
   deploy-dev:
     executor: atom/build-ubuntu
@@ -289,6 +292,8 @@ jobs:
       - atom/push_dev_image:
           <<: *atom_image_names
       - atom/push_dev_image:
+          <<: *atom_aarch64_image_names
+      - atom/push_dev_image:
           <<: *cuda_image_names
       - atom/push_dev_image:
           <<: *opengl_image_names
@@ -296,6 +301,8 @@ jobs:
           <<: *opengl_cuda_image_names
       - atom/push_dev_image:
           <<: *nucleus_image_names
+      - atom/push_dev_image:
+          <<: *nucleus_aarch64_image_names
 
   deploy-master:
     executor: atom/build-ubuntu
@@ -305,6 +312,8 @@ jobs:
       - atom/push_master_image:
           <<: *atom_image_names
       - atom/push_master_image:
+          <<: *atom_aarch64_image_names
+      - atom/push_master_image:
           <<: *cuda_image_names
       - atom/push_master_image:
           <<: *opengl_image_names
@@ -312,6 +321,8 @@ jobs:
           <<: *opengl_cuda_image_names
       - atom/push_master_image:
           <<: *nucleus_image_names
+      - atom/push_dev_image:
+          <<: *nucleus_aarch64_image_names
 
   deploy-tag:
     executor: atom/build-ubuntu
@@ -321,6 +332,8 @@ jobs:
       - atom/push_tag_image:
           <<: *atom_image_names
       - atom/push_tag_image:
+          <<: *atom_aarch64_image_names
+      - atom/push_tag_image:
           <<: *cuda_image_names
       - atom/push_tag_image:
           <<: *opengl_image_names
@@ -328,6 +341,9 @@ jobs:
           <<: *opengl_cuda_image_names
       - atom/push_tag_image:
           <<: *nucleus_image_names
+      - atom/push_tag_image:
+          <<: *nucleus_aarch64_image_names
+
 
   build-docs:
     executor: atom/build-ubuntu
@@ -380,55 +396,6 @@ jobs:
           image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}:${CIRCLE_TAG}
 
 
-commands:
-
-  run_tests:
-    parameters:
-      container:
-        type: string
-    steps:
-      - run:
-          name: Python tests
-          command: docker exec -it -w /atom/languages/python/tests << parameters.container >> pytest
-      - run:
-          name: C tests
-          command:  docker exec -it -w /atom/languages/c << parameters.container >> make test
-      - run:
-          name: C++ tests
-          command:  docker exec -it -w /atom/languages/cpp << parameters.container >> make test
-      - run:
-          name: C++ valgrind check
-          command: docker exec -it -w /atom/languages/cpp << parameters.container >> valgrind -v --tool=memcheck --leak-check=full --num-callers=40 --log-file=valgrind.log --error-exitcode=1 test/build/test_atom_cpp
-          environment:
-            G_SLICE: always-malloc
-            G_DEBUG: gc-friendly
-      - run:
-          name: C++ copy valgrind log
-          command: docker cp << parameters.container >>:/atom/languages/cpp/valgrind.log /tmp/valgrind.log
-      - store_artifacts:
-          path: /tmp/valgrind.log
-          destination: valgrind.log
-
-  heroku_deploy:
-    parameters:
-      image_tag:
-        type: string
-    steps:
-      - run:
-          command: |
-            docker login --username=_ --password=${HEROKU_API_KEY} registry.heroku.com
-            docker tag << parameters.image_tag >> registry.heroku.com/${HEROKU_APP_NAME}/web
-            docker push registry.heroku.com/${HEROKU_APP_NAME}/web
-            heroku container:release -a ${HEROKU_APP_NAME} web
-
-  set_atom_version:
-    steps:
-      - run:
-          name: Add atom version to config file
-          command: |
-            python3 languages/python/version.py
-
-
 workflows:
   version: 2
   commit:
@@ -441,17 +408,11 @@ workflows:
           filters:
             tags:
               only: /.*/
-      - test-atom:
-          requires:
-            - build-atom
-          filters:
-            tags:
-              only: /.*/
       - atom/check_flake8:
           version: 3.7.0
           exclude: demo,doc,examples,utilities,*third-party,languages
           requires:
-            - test-atom
+            - build-atom
           filters:
             tags:
               only: /.*/
@@ -481,12 +442,6 @@ workflows:
           filters:
             tags:
               only: /.*/
-      - test-atom-aarch64:
-          requires:
-            - build-atom-aarch64
-          filters:
-            tags:
-              only: /.*/
 
       # Deploy all images after all tests pass
       - deploy-master:
@@ -494,7 +449,7 @@ workflows:
             - build-opengl
             - build-cuda
             - build-opengl-cuda
-            - test-atom-aarch64
+            - build-atom-aarch64
           filters:
             branches:
               only:
@@ -504,7 +459,7 @@ workflows:
             - build-opengl
             - build-cuda
             - build-opengl-cuda
-            - test-atom-aarch64
+            - build-atom-aarch64
           filters:
             branches:
               ignore:
@@ -516,7 +471,7 @@ workflows:
             - build-opengl
             - build-cuda
             - build-opengl-cuda
-            - test-atom-aarch64
+            - build-atom-aarch64
           filters:
             branches:
               ignore:

@@ -8,6 +8,8 @@ ARG BASE_IMAGE=debian:buster-slim
 FROM $BASE_IMAGE
 
 ARG DEBIAN_FRONTEND=noninteractive
+ARG BLAS_TARGET_CPU=""
+ARG PYARROW_EXTRA_CMAKE_ARGS=""
 
 #
 # System-level installs
@@ -82,7 +84,7 @@ RUN python3 setup.py build -j8 install
 ADD ./third-party/OpenBLAS /atom/third-party/OpenBLAS
 RUN cd /atom/third-party/OpenBLAS \
   && make -j8 \
-  && make PREFIX=/usr/local install
+  && make PREFIX=/usr/local TARGET=${BLAS_TARGET_CPU} install
 
 # Numpy
 ADD ./languages/python/third-party/numpy /atom/languages/python/third-party/numpy
@@ -108,7 +110,7 @@ RUN mkdir -p /atom/third-party/apache-arrow/cpp/build \
   && make -j8 \
   && make install
 RUN cd /atom/third-party/apache-arrow/python \
-  && ARROW_HOME=/usr/local SETUPTOOLS_SCM_PRETEND_VERSION="0.17.0" python3 setup.py build_ext -j 8 --build-type=release --extra-cmake-args=-DARROW_ARMV8_ARCH=armv8-a --with-parquet install
+  && ARROW_HOME=/usr/local SETUPTOOLS_SCM_PRETEND_VERSION="0.17.0" python3 setup.py build_ext -j 8 --build-type=release --extra-cmake-args=${PYARROW_EXTRA_CMAKE_ARGS} --with-parquet install
 
 # Redis-py
 ADD ./languages/python/third-party/redis-py /atom/languages/python/third-party/redis-py
