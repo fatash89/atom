@@ -83,8 +83,8 @@ RUN python3 setup.py build -j8 install
 # OpenBLAS
 ADD ./third-party/OpenBLAS /atom/third-party/OpenBLAS
 RUN cd /atom/third-party/OpenBLAS \
-  && make -j8 \
-  && make PREFIX=/usr/local TARGET=${BLAS_TARGET_CPU} install
+  && make TARGET=${BLAS_TARGET_CPU} -j8 \
+  && make PREFIX=/usr/local install
 
 # Numpy
 ADD ./languages/python/third-party/numpy /atom/languages/python/third-party/numpy
