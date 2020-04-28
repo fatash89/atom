@@ -355,7 +355,7 @@ jobs:
     steps:
       - build_shared_init
       - build_atom_base_variant:
-          tag: "aarch64"
+          tag: "-aarch64"
           platform: linux/aarch64
           build_args: "--build-arg BLAS_TARGET_CPU=ARMV8 --build-arg PYARROW_EXTRA_CMAKE_ARGS=-DARROW_ARMV8_ARCH=armv8-a"
 
