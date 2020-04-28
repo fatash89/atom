@@ -43,7 +43,7 @@ orbs:
 
 jobs:
   build-atom:
-    executor: atom/build-classic
+    executor: atom/build-ubuntu-nocache
     resource_class: large
     environment:
       <<: *atom_build_vars
@@ -82,7 +82,7 @@ jobs:
           image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID}
 
   build-atom-aarch64:
-    executor: atom/build-ubuntu
+    executor: atom/build-ubuntu-nocache
     resource_class: large
     environment:
       <<: *atom_build_vars
@@ -122,7 +122,7 @@ jobs:
           image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID}-aarch64
 
   test-atom:
-    executor: atom/build-classic
+    executor: atom/build-ubuntu-nocache
     resource_class: large
     environment:
       <<: *atom_build_vars
@@ -140,7 +140,7 @@ jobs:
           container: ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME}
 
   test-atom-aarch64:
-    executor: atom/build-ubuntu
+    executor: atom/build-ubuntu-nocache
     resource_class: large
     environment:
       <<: *atom_build_vars
@@ -161,7 +161,7 @@ jobs:
 
 
   build-cuda:
-    executor: atom/build-classic
+    executor: atom/build-ubuntu-nocache
     resource_class: large
     environment:
       <<: *atom_build_vars
@@ -197,7 +197,7 @@ jobs:
           image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_CUDA_10_REPO}:build-${CIRCLE_WORKFLOW_ID}
 
   build-opengl:
-    executor: atom/build-classic
+    executor: atom/build-ubuntu-nocache
     resource_class: large
     environment:
       <<: *atom_build_vars
@@ -233,7 +233,7 @@ jobs:
           image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_REPO}:build-${CIRCLE_WORKFLOW_ID}
 
   build-opengl-cuda:
-    executor: atom/build-classic
+    executor: atom/build-ubuntu-nocache
     resource_class: large
     environment:
       <<: *atom_build_vars
@@ -274,7 +274,7 @@ jobs:
           image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO}:build-${CIRCLE_WORKFLOW_ID}
 
   deploy-dev:
-    executor: atom/build-classic
+    executor: atom/build-ubuntu-nocache
     resource_class: large
     environment:
       <<: *atom_build_vars
@@ -291,7 +291,7 @@ jobs:
           <<: *nucleus_image_names
 
   deploy-master:
-    executor: atom/build-classic
+    executor: atom/build-ubuntu-nocache
     environment:
       <<: *atom_build_vars
     steps:
@@ -307,7 +307,7 @@ jobs:
           <<: *nucleus_image_names
 
   deploy-tag:
-    executor: atom/build-classic
+    executor: atom/build-ubuntu-nocache
     environment:
       <<: *atom_build_vars
     steps:
@@ -323,7 +323,7 @@ jobs:
           <<: *nucleus_image_names
 
   build-docs:
-    executor: atom/build-classic
+    executor: atom/build-ubuntu-nocache
     environment:
       <<: *docs_env
     steps:
@@ -345,7 +345,7 @@ jobs:
           target_tag: build-${CIRCLE_WORKFLOW_ID}
 
   deploy-dev-docs:
-    executor: atom/build-classic
+    executor: atom/build-ubuntu-nocache
     environment:
       <<: *docs_env
     steps:
@@ -353,7 +353,7 @@ jobs:
           <<: *docs_image_names
 
   deploy-master-docs:
-    executor: atom/build-classic
+    executor: atom/build-ubuntu-nocache
     environment:
       <<: *docs_env
     steps:
@@ -363,7 +363,7 @@ jobs:
           image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}
 
   deploy-tag-docs:
-    executor: atom/build-classic
+    executor: atom/build-ubuntu-nocache
     environment:
       <<: *docs_env
     steps:
@@ -469,6 +469,8 @@ workflows:
             tags:
               only: /.*/
       - build-atom-aarch64:
+          requires:
+            - atom/check_flake8
           filters:
             tags:
               only: /.*/
