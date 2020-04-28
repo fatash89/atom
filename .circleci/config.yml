@@ -86,6 +86,8 @@ jobs:
     resource_class: large
     environment:
       <<: *atom_build_vars
+      DOCKER_CLI_EXPERIMENTAL: enabled
+
     steps:
       - checkout
       - atom/update_submodules
@@ -144,6 +146,7 @@ jobs:
     resource_class: large
     environment:
       <<: *atom_build_vars
+      DOCKER_CLI_EXPERIMENTAL: enabled
 
     steps:
       - checkout
