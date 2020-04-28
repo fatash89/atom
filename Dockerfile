@@ -1,43 +1,18 @@
 ################################################################################
 #
-# Base image. Contains all third-party dependencies and all source
+# Build in the source
 #
 ################################################################################
 
-ARG BASE_IMAGE=debian:buster-slim
+ARG BASE_IMAGE=elementaryrobotics/atom:base
 FROM $BASE_IMAGE as atom-base
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-#
-# System-level installs
-#
-
-RUN apt-get update -y \
- && apt-get install -y --no-install-recommends \
-      apt-utils \
-      git \
-      autoconf \
-      libtool \
-      cmake \
-      build-essential \
-      python3-minimal \
-      python3-pip \
-      python3-venv \
-      python3-dev \
-      flex \
-      bison \
-      curl \
-      pkg-config \
- && pip3 install --no-cache-dir --upgrade pip setuptools
 
 #
 # C client
 #
-
-# Build third-party C dependencies
-ADD ./languages/c/third-party /atom/languages/c/third-party
-RUN cd /atom/languages/c/third-party && make
 
 # Build the C library
 ADD ./languages/c /atom/languages/c
@@ -57,64 +32,6 @@ RUN cd /atom/languages/cpp \
 # Python client
 #
 
-# Create and activate python virtualenv
-RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-ENV LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
-
-# Install custom third-party deps. We need to build
-# some of these separately as opposed to installing
-# from pip
-#
-# Install list:
-#   1. Cython (needs to be x-compiled for aarch64)
-#   2. OpenBLAS (needs to be x-compiled for aarch64/ARM CPU)
-#   3. numpy (needs to be x-compiled for aarch64)
-#   4. pyarrow (needs to be x-compiled for aarch64)
-#   5. redis-py (needs support for memoryviews)
-
-# Cython
-ADD ./languages/python/third-party/cython /atom/languages/python/third-party/cython
-WORKDIR /atom/languages/python/third-party/cython
-RUN python3 setup.py build -j8 install
-
-# OpenBLAS
-ADD ./third-party/OpenBLAS /atom/third-party/OpenBLAS
-RUN cd /atom/third-party/OpenBLAS \
-  && make -j8 \
-  && make PREFIX=/usr/local install
-
-# Numpy
-ADD ./languages/python/third-party/numpy /atom/languages/python/third-party/numpy
-ADD ./languages/python/third-party/numpy.site.cfg /atom/languages/python/third-party/numpy/site.cfg
-WORKDIR /atom/languages/python/third-party/numpy
-RUN python3 setup.py build -j8 install
-
-# Pyarrow
-ADD ./third-party/apache-arrow /atom/third-party/apache-arrow
-WORKDIR /atom/third-party/apache-arrow/python
-RUN mkdir -p /atom/third-party/apache-arrow/cpp/build \
-  && cd /atom/third-party/apache-arrow/cpp/build \
-  && cmake -DCMAKE_BUILD_TYPE=release \
-           -DOPENSSL_ROOT_DIR=/usr/local/ssl \
-           -DCMAKE_INSTALL_LIBDIR=lib \
-           -DCMAKE_INSTALL_PREFIX=/usr/local \
-           -DARROW_PARQUET=ON \
-           -DARROW_PYTHON=ON \
-           -DARROW_PLASMA=ON \
-           -DARROW_BUILD_TESTS=OFF \
-           -DPYTHON_EXECUTABLE=/opt/venv/bin/python3 \
-           .. \
-  && make -j8 \
-  && make install
-RUN cd /atom/third-party/apache-arrow/python \
-  && ARROW_HOME=/usr/local SETUPTOOLS_SCM_PRETEND_VERSION="0.17.0" python3 setup.py build_ext -j 8 --build-type=release --extra-cmake-args=-DARROW_ARMV8_ARCH=armv8-a --with-parquet install
-
-# Redis-py
-ADD ./languages/python/third-party/redis-py /atom/languages/python/third-party/redis-py
-RUN cd /atom/languages/python/third-party/redis-py \
- && python3 setup.py install
-
 # Build and install the python library
 # Add and install requirements first to use DLC
 ADD ./languages/python/requirements.txt /atom/languages/python/requirements.txt
@@ -133,16 +50,6 @@ RUN pip3 install --no-cache-dir -r /atom/utilities/atom-cli/requirements.txt
 ADD ./utilities/atom-cli /atom/utilities/atom-cli
 RUN cp /atom/utilities/atom-cli/atom-cli.py /usr/local/bin/atom-cli \
  && chmod +x /usr/local/bin/atom-cli
-
-#
-# Redis itself. Need this in the atom image s.t. we have redis-cli in all of
-# the atom containers for inspecting redis. We will also use this to copy
-# the redis-server into the Nucleus
-#
-
-# Build redis
-ADD ./third-party/redis /atom/third-party/redis
-RUN cd /atom/third-party/redis && make -j8 && make PREFIX=/usr/local install
 
 #
 # Finish up
