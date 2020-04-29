@@ -146,10 +146,26 @@ commands:
         default: ""
       output_timeout:
         <<: *output_timeout_param
+      cache_repo:
+        type: string
+        default: elementaryrobotics/atom-cache
+      cache_tag:
+        type: string
+        default: ""
     steps:
       - run:
           name: Build and tag << parameters.stage >> stage
-          command: docker buildx build --platform=<< parameters.platform >> --progress plain --load -f << parameters.file >> -t << parameters.image_name >>:<< parameters.image_tag >> --target=<< parameters.stage >> << parameters.build_args >> --pull .
+          command: docker buildx build \
+            --platform=<< parameters.platform >> \
+            --progress plain \
+            --load \
+            -f << parameters.file >> \
+            -t << parameters.image_name >>:<< parameters.image_tag >> \
+            --target=<< parameters.stage >> << parameters.build_args >> \
+            --pull \
+            --cache-from=type=registry,ref=<< parameters.cache_repo >>:<< parameters.cache_tag >> \
+            --cache-to=type=registry,ref=<< parameters.cache_repo >>:<< parameters.cache_tag >>,mode=max \
+            .
           no_output_timeout: << parameters.output_timeout >>
 
   run_compose:
