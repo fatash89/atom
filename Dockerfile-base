@@ -120,7 +120,7 @@ RUN mkdir -p /atom/third-party/apache-arrow/cpp/build \
   && make -j8 \
   && make install
 RUN cd /atom/third-party/apache-arrow/python \
-  && ARROW_HOME=/usr/local SETUPTOOLS_SCM_PRETEND_VERSION="0.17.0" python3 setup.py build_ext -j 8 --build-type=release --extra-cmake-args="${PYARROW_EXTRA_CMAKE_ARGS} install
+  && ARROW_HOME=/usr/local SETUPTOOLS_SCM_PRETEND_VERSION="0.17.0" python3 setup.py build_ext -j 8 --build-type=release --extra-cmake-args=${PYARROW_EXTRA_CMAKE_ARGS} install
 
 # Redis-py
 ADD ./languages/python/third-party/redis-py /atom/languages/python/third-party/redis-py
