@@ -722,28 +722,33 @@ workflows:
       - build-atom-base:
           filters:
             branches:
-              only: /.*-build-base-all/
-              only: /.*-build-base/
+              only:
+                - /.*-build-base-all/
+                - /.*-build-base/
       - build-atom-aarch64-base:
           filters:
             branches:
-              only: /.*-build-base-all/
-              only: /.*-build-base-aarch64/
+              only:
+                - /.*-build-base-all/
+                - /.*-build-base-aarch64/
       - build-atom-opengl-base:
           filters:
             branches:
-              only: /.*-build-base-all/
-              only: /.*-build-base-opengl/
+              only:
+                - /.*-build-base-all/
+                - /.*-build-base-opengl/
       - build-atom-cuda-base:
           filters:
             branches:
-              only: /.*-build-base-all/
-              only: /.*-build-base-cuda/
+              only:
+                - /.*-build-base-all/
+                - /.*-build-base-cuda/
       - build-atom-opengl-cuda-base:
           filters:
             branches:
-              only: /.*-build-base-all/
-              only: /.*-build-base-opengl-cuda/
+              only:
+                - /.*-build-base-all/
+                - /.*-build-base-opengl-cuda/
 
       # Deploy base images. Don't need branch filters since they depend
       # on base builds with the branch filters
