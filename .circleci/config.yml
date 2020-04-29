@@ -306,7 +306,7 @@ jobs:
       - build_atom_with_nucleus_variant:
           tag: ""
           platform: linux/amd64
-          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-2792"
+          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-2972"
 
   build-atom-aarch64:
     executor: atom/build-ubuntu-nocache
