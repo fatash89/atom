@@ -10,7 +10,7 @@ FROM $BASE_IMAGE as base
 ARG DEBIAN_FRONTEND=noninteractive
 ARG BLAS_TARGET_CPU=""
 ARG PYARROW_EXTRA_CMAKE_ARGS=""
-ARG CUDNN_VERSION=""
+ARG INSTALL_OPENGL=""
 
 #
 # System-level installs
@@ -34,8 +34,14 @@ RUN apt-get update -y \
       pkg-config \
  && pip3 install --no-cache-dir --upgrade pip setuptools
 
-# Potentially install CUDA
-RUN if [ ! -z "${CUDNN_VERSION}" ]; then apt-get install -y --no-install-recommends libcudnn7=${CUDNN_VERSION}; fi
+# Potentially install opengl
+RUN if [ ! -z "${INSTALL_OPENGL}" ]; then apt-get update && apt-get install -y \
+  --no-install-recommends \
+  libglvnd0 libglvnd0:i386 \
+  libgl1 libgl1:i386 \
+  libglx0 libglx0:i386 \
+  libegl1 libegl1:i386 \
+  libgles2 libgles2:i386; fi
 
 #
 # C client

@@ -374,7 +374,7 @@ jobs:
       - build_atom_base_variant:
           tag: "-opengl-cuda"
           platform: linux/aarch64
-          build_args: "--build-arg BASE_IMAGE=nvidia/opengl:1.0-glvnd-runtime-ubuntu18.04 --build-arg CUDNN_VERSION=7.6.5.32-1+cuda10.1"
+          build_args: "--build-arg BASE_IMAGE=nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04 --build-arg INSTALL_OPENGL=y"
 
   deploy-dev:
     executor: atom/build-ubuntu
