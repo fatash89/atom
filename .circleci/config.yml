@@ -421,7 +421,7 @@ jobs:
 
   build-atom-aarch64-base:
     executor: atom/build-ubuntu-nocache
-    resource_class: large
+    resource_class: xlarge
     environment:
       <<: *atom_build_vars
       DOCKER_CLI_EXPERIMENTAL: enabled
