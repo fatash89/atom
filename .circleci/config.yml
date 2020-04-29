@@ -722,55 +722,46 @@ workflows:
       - build-atom-base:
           filters:
             branches:
+              only: /.*-build-base-all/
               only: /.*-build-base/
       - build-atom-aarch64-base:
           filters:
             branches:
-              only: /.*-build-base/
+              only: /.*-build-base-all/
+              only: /.*-build-base-aarch64/
       - build-atom-opengl-base:
           filters:
             branches:
-              only: /.*-build-base/
+              only: /.*-build-base-all/
+              only: /.*-build-base-opengl/
       - build-atom-cuda-base:
           filters:
             branches:
-              only: /.*-build-base/
+              only: /.*-build-base-all/
+              only: /.*-build-base-cuda/
       - build-atom-opengl-cuda-base:
           filters:
             branches:
-              only: /.*-build-base/
+              only: /.*-build-base-all/
+              only: /.*-build-base-opengl-cuda/
 
-      # Deploy base images
+      # Deploy base images. Don't need branch filters since they depend
+      # on base builds with the branch filters
       - deploy-atom-base:
           requires:
             - build-atom-base
-          filters:
-            branches:
-              only: /.*-build-base/
       - deploy-atom-aarch64-base:
           requires:
             - build-atom-aarch64-base
-          filters:
-            branches:
-              only: /.*-build-base/
       - deploy-atom-opengl-base:
           requires:
             - build-atom-opengl-base
-          filters:
-            branches:
-              only: /.*-build-base/
       - deploy-atom-cuda-base:
           requires:
             - build-atom-cuda-base
-          filters:
-            branches:
-              only: /.*-build-base/
       - deploy-atom-opengl-cuda-base:
           requires:
             - build-atom-opengl-cuda-base
-          filters:
-            branches:
-              only: /.*-build-base/
 
   nightly:
     triggers:
