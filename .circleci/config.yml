@@ -50,6 +50,14 @@ aliases:
       source_image:  ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-base-aarch64
       target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
       target_tag: base-aarch64-${CIRCLE_BUILD_NUM}
+  - &atom_opengl_base_image_names
+      source_image:  ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-base-opengl
+      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
+      target_tag: base-opengl-cuda-${CIRCLE_BUILD_NUM}
+  - &atom_cuda_base_image_names
+      source_image:  ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-base-cuda
+      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
+      target_tag: base-opengl-cuda-${CIRCLE_BUILD_NUM}
   - &atom_opengl_cuda_base_image_names
       source_image:  ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-base-opengl-cuda
       target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
@@ -372,6 +380,45 @@ jobs:
           tag: ""
           platform: linux/amd64
 
+  build-atom-opengl-base:
+    executor: atom/build-ubuntu-nocache
+    resource_class: large
+    environment:
+      <<: *atom_build_vars
+      DOCKER_CLI_EXPERIMENTAL: enabled
+    steps:
+      - build_shared_init
+      - build_atom_base_variant:
+          tag: "-opengl"
+          platform: linux/amd64
+          build_args: "--build-arg BASE_IMAGE=nvidia/opengl:1.0-glvnd-runtime-ubuntu18.04"
+
+  build-atom-cuda-base:
+    executor: atom/build-ubuntu-nocache
+    resource_class: large
+    environment:
+      <<: *atom_build_vars
+      DOCKER_CLI_EXPERIMENTAL: enabled
+    steps:
+      - build_shared_init
+      - build_atom_base_variant:
+          tag: "-cuda"
+          platform: linux/amd64
+          build_args: "--build-arg BASE_IMAGE=nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04"
+
+  build-atom-opengl-cuda-base:
+    executor: atom/build-ubuntu-nocache
+    resource_class: large
+    environment:
+      <<: *atom_build_vars
+      DOCKER_CLI_EXPERIMENTAL: enabled
+    steps:
+      - build_shared_init
+      - build_atom_base_variant:
+          tag: "-opengl-cuda"
+          platform: linux/amd64
+          build_args: "--build-arg BASE_IMAGE=nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04 --build-arg INSTALL_OPENGL=y"
+
   build-atom-aarch64-base:
     executor: atom/build-ubuntu-nocache
     resource_class: large
@@ -384,19 +431,6 @@ jobs:
           tag: "-aarch64"
           platform: linux/aarch64
           build_args: "--build-arg BLAS_TARGET_CPU=ARMV8 --build-arg PYARROW_EXTRA_CMAKE_ARGS=-DARROW_ARMV8_ARCH=armv8-a"
-
-  build-atom-opengl-cuda-base:
-    executor: atom/build-ubuntu-nocache
-    resource_class: large
-    environment:
-      <<: *atom_build_vars
-      DOCKER_CLI_EXPERIMENTAL: enabled
-    steps:
-      - build_shared_init
-      - build_atom_base_variant:
-          tag: "-opengl-cuda"
-          platform: linux/aarch64
-          build_args: "--build-arg BASE_IMAGE=nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04 --build-arg INSTALL_OPENGL=y"
 
   deploy-dev:
     executor: atom/build-ubuntu
@@ -467,13 +501,21 @@ jobs:
       - atom/deploy_image:
           <<: *atom_base_image_names
 
-  deploy-atom-aarch64-base:
+  deploy-atom-opengl-base:
     executor: atom/build-ubuntu
     environment:
       <<: *atom_build_vars
     steps:
       - atom/deploy_image:
-          <<: *atom_aarch64_base_image_names
+          <<: *atom_opengl_base_image_names
+
+  deploy-atom-cuda-base:
+    executor: atom/build-ubuntu
+    environment:
+      <<: *atom_build_vars
+    steps:
+      - atom/deploy_image:
+          <<: *atom_cuda_base_image_names
 
   deploy-atom-opengl-cuda-base:
     executor: atom/build-ubuntu
@@ -482,6 +524,14 @@ jobs:
     steps:
       - atom/deploy_image:
           <<: *atom_opengl_cuda_base_image_names
+
+  deploy-atom-aarch64-base:
+    executor: atom/build-ubuntu
+    environment:
+      <<: *atom_build_vars
+    steps:
+      - atom/deploy_image:
+          <<: *atom_aarch64_base_image_names
 
   build-docs:
     executor: atom/build-ubuntu
@@ -677,11 +727,20 @@ workflows:
           filters:
             branches:
               only: /.*-build-base/
+      - build-atom-opengl-base:
+          filters:
+            branches:
+              only: /.*-build-base/
+      - build-atom-cuda-base:
+          filters:
+            branches:
+              only: /.*-build-base/
       - build-atom-opengl-cuda-base:
           filters:
             branches:
               only: /.*-build-base/
 
+      # Deploy base images
       - deploy-atom-base:
           requires:
             - build-atom-base
@@ -694,13 +753,24 @@ workflows:
           filters:
             branches:
               only: /.*-build-base/
+      - deploy-atom-opengl-base:
+          requires:
+            - build-atom-opengl-base
+          filters:
+            branches:
+              only: /.*-build-base/
+      - deploy-atom-cuda-base:
+          requires:
+            - build-atom-cuda-base
+          filters:
+            branches:
+              only: /.*-build-base/
       - deploy-atom-opengl-cuda-base:
           requires:
             - build-atom-opengl-cuda-base
           filters:
             branches:
               only: /.*-build-base/
-
 
   nightly:
     triggers:
