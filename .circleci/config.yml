@@ -263,7 +263,7 @@ commands:
       # Run Tests
       - test_atom_variant:
           compose: .circleci/docker-compose-circle.yml
-          nucleus: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>
+          nucleus: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID}
           atom: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-test<< parameters.tag >>
           container: ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME}
 
