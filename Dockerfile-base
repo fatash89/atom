@@ -37,11 +37,11 @@ RUN apt-get update -y \
 # Potentially install opengl
 RUN if [ ! -z "${INSTALL_OPENGL}" ]; then apt-get update && apt-get install -y \
   --no-install-recommends \
-  libglvnd0 libglvnd0:i386 \
-  libgl1 libgl1:i386 \
-  libglx0 libglx0:i386 \
-  libegl1 libegl1:i386 \
-  libgles2 libgles2:i386; fi
+  libglvnd0 \
+  libgl1 \
+  libglx0 \
+  libegl1 \
+  libgles2; fi
 
 #
 # C client
