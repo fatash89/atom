@@ -144,10 +144,13 @@ commands:
       platform:
         type: string
         default: ""
+      output_timeout:
+        <<: *output_timeout_param
     steps:
       - run:
           name: Build and tag << parameters.stage >> stage
           command: docker buildx build --platform=<< parameters.platform >> --progress plain --load -f << parameters.file >> -t << parameters.image_name >>:<< parameters.image_tag >> --target=<< parameters.stage >> << parameters.build_args >> --pull .
+          no_output_timeout: << parameters.output_timeout >>
 
   run_compose:
     description: "Launch docker-compose"
