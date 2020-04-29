@@ -163,7 +163,7 @@ commands:
           platform: << parameters.platform >>
           build_args: << parameters.build_args >>
           cache_repo: elementaryrobotics/atom-cache
-          cache_tag: << parameters.tag >>
+          cache_tag: atom<< parameters.tag >>
       - atom/build_stage_buildx:
           stage: atom
           image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
@@ -171,7 +171,7 @@ commands:
           platform: << parameters.platform >>
           build_args: << parameters.build_args >>
           cache_repo: elementaryrobotics/atom-cache
-          cache_tag: << parameters.tag >>
+          cache_tag: atom<< parameters.tag >>
       - atom/build_stage_buildx:
           stage: nucleus
           image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}
@@ -179,7 +179,7 @@ commands:
           platform: << parameters.platform >>
           build_args: << parameters.build_args >>
           cache_repo: elementaryrobotics/atom-cache
-          cache_tag: << parameters.tag >>
+          cache_tag: atom<< parameters.tag >>
       - atom/build_stage_buildx:
           stage: test
           image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
@@ -187,7 +187,7 @@ commands:
           platform: << parameters.platform >>
           build_args: << parameters.build_args >>
           cache_repo: elementaryrobotics/atom-cache
-          cache_tag: << parameters.tag >>
+          cache_tag: atom<< parameters.tag >>
 
       # Tag and push atom build images
       - atom/push_image:
@@ -230,7 +230,7 @@ commands:
           build_args: << parameters.build_args >>
           platform: << parameters.platform >>
           cache_repo: elementaryrobotics/atom-cache
-          cache_tag: << parameters.tag >>
+          cache_tag: atom<< parameters.tag >>
       - atom/build_stage_buildx:
           stage: test
           image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
@@ -238,7 +238,7 @@ commands:
           build_args: << parameters.build_args >>
           platform: << parameters.platform >>
           cache_repo: elementaryrobotics/atom-cache
-          cache_tag: << parameters.tag >>
+          cache_tag: atom<< parameters.tag >>
 
       # Push build image
       - atom/push_image:
