@@ -596,14 +596,14 @@ workflows:
                 - /.*/
             branches:
               ignore:
-                - /.*-build-base/
+                - /.*-build-base.*/
       - build-docs:
           filters:
             tags:
               only: /.*/
             branches:
               ignore:
-                - /.*-build-base/
+                - /.*-build-base.*/
       - atom/check_flake8:
           version: 3.7.0
           exclude: demo,doc,examples,utilities,*third-party,languages
@@ -615,7 +615,7 @@ workflows:
                 - /.*/
             branches:
               ignore:
-                - /.*-build-base/
+                - /.*-build-base.*/
 
       # Build special images after tests pass for atom
       - build-opengl:
@@ -627,7 +627,7 @@ workflows:
                 - /.*/
             branches:
               ignore:
-                - /.*-build-base/
+                - /.*-build-base.*/
       - build-cuda:
           requires:
             - atom/check_flake8
@@ -637,7 +637,7 @@ workflows:
                 - /.*/
             branches:
               ignore:
-                - /.*-build-base/
+                - /.*-build-base.*/
       - build-opengl-cuda:
           requires:
             - atom/check_flake8
@@ -647,7 +647,7 @@ workflows:
                 - /.*/
             branches:
               ignore:
-                - /.*-build-base/
+                - /.*-build-base.*/
       - build-atom-aarch64:
           requires:
             - atom/check_flake8
@@ -657,7 +657,7 @@ workflows:
                 - /.*/
             branches:
               ignore:
-                - /.*-build-base/
+                - /.*-build-base.*/
 
       # Deploy all images after all tests pass
       - deploy-master:
