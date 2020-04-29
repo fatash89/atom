@@ -335,7 +335,7 @@ jobs:
           build_args: "--build-arg BASE_IMAGE=${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-base:${BASE_IMAGE_TAG}"
 
   build-atom-base:
-    executor: atom/build-ubuntu
+    executor: atom/build-ubuntu-nocache
     resource_class: large
     environment:
       <<: *atom_build_vars
@@ -347,7 +347,7 @@ jobs:
           platform: linux/amd64
 
   build-atom-aarch64-base:
-    executor: atom/build-ubuntu
+    executor: atom/build-ubuntu-nocache
     resource_class: large
     environment:
       <<: *atom_build_vars
