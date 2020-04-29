@@ -44,29 +44,15 @@ RUN if [ ! -z "${INSTALL_OPENGL}" ]; then apt-get update && apt-get install -y \
   libgles2; fi
 
 #
-# C client
+# C/C++ deps
 #
 
 # Build third-party C dependencies
 ADD ./languages/c/third-party /atom/languages/c/third-party
 RUN cd /atom/languages/c/third-party && make
 
-# Build the C library
-ADD ./languages/c /atom/languages/c
-RUN cd /atom/languages/c \
- && make clean && make -j8 && make install
-
 #
-# C++ client
-#
-
-# Build and install the c++ library
-ADD ./languages/cpp /atom/languages/cpp
-RUN cd /atom/languages/cpp \
- && make clean && make -j8 && make install
-
-#
-# Python client
+# Python deps
 #
 
 # Create and activate python virtualenv
