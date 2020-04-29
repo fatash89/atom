@@ -35,7 +35,7 @@ RUN apt-get update -y \
  && pip3 install --no-cache-dir --upgrade pip setuptools
 
 # Potentially install CUDA
-RUN if [ -z ${CUDNN_VERSION} ]; then apt-get install -y --no-install-recommends libcudnn7=${CUDNN_VERSION}; fi
+RUN if [ -z "${CUDNN_VERSION}" ]; then apt-get install -y --no-install-recommends libcudnn7=${CUDNN_VERSION}; fi
 
 #
 # C client
