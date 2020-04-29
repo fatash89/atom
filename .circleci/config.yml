@@ -4,6 +4,8 @@
 # Section for setting repeatedly used yaml anchors/aliases
 #
 aliases:
+
+  # Atom build
   - &atom_build_vars
       DOCKER_COMPOSE_PROJECT_NAME: atom
       DOCKER_COMPOSE_ATOM_SERVICE_NAME: atom
@@ -23,7 +25,7 @@ aliases:
       target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
       target_tag: -cuda-
   - &opengl_image_names
-      source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-opngl
+      source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-opengl
       target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
       target_tag: -opengl-
   - &opengl_cuda_image_names
@@ -38,6 +40,8 @@ aliases:
       source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID}-aarch64
       target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}
       target_tag: -aarch64-
+
+  # Base Build
   - &atom_base_image_names
       source_image:  ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-base
       target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
@@ -50,6 +54,8 @@ aliases:
       source_image:  ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-base-opengl-cuda
       target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
       target_tag: base-opengl-cuda-${CIRCLE_BUILD_NUM}
+
+  # Docs build
   - &docs_env
       DOCKER_COMPOSE_PROJECT_NAME: docs
       DOCKER_COMPOSE_SERVICE_NAME: docs
@@ -157,9 +163,9 @@ commands:
 
       # Build base, atom and test stages of atom image
       - atom/build_stage_buildx:
-          stage: atom-base
-          image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}-base
-          image_tag: build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>
+          stage: atom-source
+          image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
+          image_tag: build-${CIRCLE_WORKFLOW_ID}-source<< parameters.tag >>
           platform: << parameters.platform >>
           build_args: << parameters.build_args >>
           cache_repo: elementaryrobotics/atom-cache
@@ -290,7 +296,7 @@ commands:
 
 jobs:
   build-atom:
-    executor: atom/build-ubuntu
+    executor: atom/build-ubuntu-nocache
     resource_class: large
     environment:
       <<: *atom_build_vars
@@ -300,9 +306,10 @@ jobs:
       - build_atom_with_nucleus_variant:
           tag: ""
           platform: linux/amd64
+          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-2792"
 
   build-atom-aarch64:
-    executor: atom/build-ubuntu
+    executor: atom/build-ubuntu-nocache
     resource_class: large
     environment:
       <<: *atom_build_vars
@@ -310,11 +317,12 @@ jobs:
     steps:
       - build_shared_init
       - build_atom_with_nucleus_variant:
-          tag: "aarch64"
+          tag: "-aarch64"
           platform: linux/aarch64
+          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-aarch64-X"
 
   build-cuda:
-    executor: atom/build-ubuntu
+    executor: atom/build-ubuntu-nocache
     resource_class: large
     environment:
       <<: *atom_build_vars
@@ -322,12 +330,12 @@ jobs:
     steps:
       - build_shared_init
       - build_atom_variant:
-          tag: "cuda"
+          tag: "-cuda"
           platform: linux/amd64
-          build_args: "--build-arg BASE_IMAGE=nvidia/cuda:10.0-cudnn7-runtime-ubuntu18.04"
+          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-cuda-X"
 
   build-opengl:
-    executor: atom/build-ubuntu
+    executor: atom/build-ubuntu-nocache
     resource_class: large
     environment:
       <<: *atom_build_vars
@@ -335,23 +343,22 @@ jobs:
     steps:
       - build_shared_init
       - build_atom_variant:
-          tag: "opengl"
+          tag: "-opengl"
           platform: linux/amd64
-          build_args: "--build-arg BASE_IMAGE=nvidia/opengl:1.0-glvnd-runtime-ubuntu18.04"
+          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-opengl-X"
 
   build-opengl-cuda:
-    executor: atom/build-ubuntu
+    executor: atom/build-ubuntu-nocache
     resource_class: large
     environment:
       <<: *atom_build_vars
-      BASE_IMAGE_TAG: v1.0.0
       DOCKER_CLI_EXPERIMENTAL: enabled
     steps:
       - build_shared_init
       - build_atom_variant:
-          tag: "opengl-cuda"
+          tag: "-opengl-cuda"
           platform: linux/amd64
-          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-opengl-cuda"
+          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-opengl-cuda-2973"
 
   build-atom-base:
     executor: atom/build-ubuntu-nocache

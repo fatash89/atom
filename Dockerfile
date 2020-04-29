@@ -5,7 +5,7 @@
 ################################################################################
 
 ARG BASE_IMAGE=elementaryrobotics/atom:base
-FROM $BASE_IMAGE as atom-base
+FROM $BASE_IMAGE as atom-source
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -78,18 +78,18 @@ RUN apt-get update -y \
                                                libatomic1
 
 # Copy contents of python virtualenv and activate
-COPY --from=atom-base /opt/venv /opt/venv
+COPY --from=atom-source /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy C builds
-COPY --from=atom-base /usr/local/lib /usr/local/lib
-COPY --from=atom-base /usr/local/include /usr/local/include
+COPY --from=atom-source /usr/local/lib /usr/local/lib
+COPY --from=atom-source /usr/local/include /usr/local/include
 
 # Copy atom-cli
-COPY --from=atom-base /usr/local/bin/atom-cli /usr/local/bin/atom-cli
+COPY --from=atom-source /usr/local/bin/atom-cli /usr/local/bin/atom-cli
 
 # Copy redis-cli
-COPY --from=atom-base /usr/local/bin/redis-cli /usr/local/bin/redis-cli
+COPY --from=atom-source /usr/local/bin/redis-cli /usr/local/bin/redis-cli
 
 # Add .circleci for docs build
 ADD ./.circleci /atom/.circleci
@@ -106,7 +106,7 @@ WORKDIR /atom
 FROM atom as nucleus
 
 # Add in redis-server
-COPY --from=atom-base /usr/local/bin/redis-server /usr/local/bin/redis-server
+COPY --from=atom-source /usr/local/bin/redis-server /usr/local/bin/redis-server
 
 ADD ./launch_nucleus.sh /nucleus/launch.sh
 ADD ./redis.conf /nucleus/redis.conf
