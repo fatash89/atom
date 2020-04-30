@@ -72,6 +72,17 @@ Contributions of issues and pull requests are welcome!
 
 ## Building Docker Images
 
+### Update Submodules
+
+Atom depends on a few third-party dependencies which are all included as
+submodules in these repos. From the top-level in this repo, run:
+
+```
+git submodule update --init --recursive
+```
+
+This will pull all of the proper dependencies.
+
 ### Atom and Nucleus
 
 If you'd prefer to develop by building the atom Docker containers, this
