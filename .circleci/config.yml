@@ -404,61 +404,23 @@ jobs:
           platform: linux/amd64
           build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-opengl-cuda-3053"
 
-  build-atom-base:
-    executor: atom/build-ubuntu-nocache
-    resource_class: large
-    environment:
-      <<: *atom_build_vars
-      DOCKER_CLI_EXPERIMENTAL: enabled
-    steps:
-      - build_shared_init
-      - build_atom_base_variant:
-          tag: ""
-          platform: linux/amd64
-
-  build-atom-opengl-base:
-    executor: atom/build-ubuntu-nocache
-    resource_class: large
-    environment:
-      <<: *atom_build_vars
-      DOCKER_CLI_EXPERIMENTAL: enabled
-    steps:
-      - build_shared_init
-      - build_atom_base_variant:
-          tag: "-opengl"
-          platform: linux/amd64
-          build_args: "--build-arg BASE_IMAGE=nvidia/opengl:1.0-glvnd-runtime-ubuntu18.04"
-
-  build-atom-cuda-base:
-    executor: atom/build-ubuntu-nocache
-    resource_class: large
-    environment:
-      <<: *atom_build_vars
-      DOCKER_CLI_EXPERIMENTAL: enabled
-    steps:
-      - build_shared_init
-      - build_atom_base_variant:
-          tag: "-cuda"
-          platform: linux/amd64
-          build_args: "--build-arg BASE_IMAGE=nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04"
-
-  build-atom-opengl-cuda-base:
-    executor: atom/build-ubuntu-nocache
-    resource_class: large
-    environment:
-      <<: *atom_build_vars
-      DOCKER_CLI_EXPERIMENTAL: enabled
-    steps:
-      - build_shared_init
-      - build_atom_base_variant:
-          tag: "-opengl-cuda"
-          platform: linux/amd64
-          build_args: "--build-arg BASE_IMAGE=nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04 --build-arg INSTALL_OPENGL=y"
-
-  build-atom-aarch64-base:
+  build-base:
     parameters:
+      tag:
+        type: string
+        default: ""
+      platform:
+        type: string
+        default: "linux/amd64"
+      build_args:
+        type: string
+        default: ""
+      cache_repo:
+        type: string
+        default: elementaryrobotics/atom-cache
       test_valgrind:
         type: boolean
+        default: true
     executor: atom/build-ubuntu-nocache
     resource_class: large
     environment:
@@ -472,6 +434,7 @@ jobs:
           build_args: "--build-arg BLAS_TARGET_CPU=ARMV8 --build-arg PYARROW_EXTRA_CMAKE_ARGS=-DARROW_ARMV8_ARCH=armv8-a"
           cache_repo: elementaryrobotics/atom-cache-aarch64
           test_valgrind: << parameters.test_valgrind >> # TODO: segfaulting on aarch64/qemu
+
 
   deploy-dev:
     executor: atom/build-ubuntu
@@ -534,45 +497,22 @@ jobs:
       - atom/push_tag_image:
           <<: *nucleus_aarch64_image_names
 
-  deploy-atom-base:
+  deploy-base:
     executor: atom/build-ubuntu
+    params:
+      source_image:
+        type: string
+      target_image:
+        type: string
+      target_tag:
+        type: string
     environment:
       <<: *atom_build_vars
     steps:
-      - atom/deploy_image:
-          <<: *atom_base_image_names
-
-  deploy-atom-opengl-base:
-    executor: atom/build-ubuntu
-    environment:
-      <<: *atom_build_vars
-    steps:
-      - atom/deploy_image:
-          <<: *atom_opengl_base_image_names
-
-  deploy-atom-cuda-base:
-    executor: atom/build-ubuntu
-    environment:
-      <<: *atom_build_vars
-    steps:
-      - atom/deploy_image:
-          <<: *atom_cuda_base_image_names
-
-  deploy-atom-opengl-cuda-base:
-    executor: atom/build-ubuntu
-    environment:
-      <<: *atom_build_vars
-    steps:
-      - atom/deploy_image:
-          <<: *atom_opengl_cuda_base_image_names
-
-  deploy-atom-aarch64-base:
-    executor: atom/build-ubuntu
-    environment:
-      <<: *atom_build_vars
-    steps:
-      - atom/deploy_image:
-          <<: *atom_aarch64_base_image_names
+      atom/deploy_image:
+        source_image: << params.source_image >>
+        target_image: << params.target_image >>
+        target_tag: << params.target_tag >>
 
   build-docs:
     executor: atom/build-ubuntu
@@ -761,32 +701,56 @@ workflows:
                 - master
 
       # Build base images
-      - build-atom-base:
+      - build-base:
+          name: "build-atom-base"
+          tag: ""
+          platform: linux/amd64
           filters:
             branches:
               only:
                 - /.*-build-base-all/
                 - /.*-build-base-atom/
-      - build-atom-aarch64-base:
-          test_valgrind: false
+
+      - build-base:
+          name: "build-atom-aarch64-base"
+          tag: "-aarch64"
+          platform: linux/aarch64
+          build_args: "--build-arg BLAS_TARGET_CPU=ARMV8 --build-arg PYARROW_EXTRA_CMAKE_ARGS=-DARROW_ARMV8_ARCH=armv8-a"
+          cache_repo: elementaryrobotics/atom-cache-aarch64
+          test_valgrind: << parameters.test_valgrind >> # TODO: segfaulting on aarch64/qemu
           filters:
             branches:
               only:
                 - /.*-build-base-all/
                 - /.*-build-base-aarch64/
-      - build-atom-opengl-base:
+
+      - build-base:
+          name: "build-opengl-base"
+          tag: "-opengl"
+          platform: linux/amd64
+          build_args: "--build-arg BASE_IMAGE=nvidia/opengl:1.0-glvnd-runtime-ubuntu18.04"
           filters:
             branches:
               only:
                 - /.*-build-base-all/
                 - /.*-build-base-opengl/
-      - build-atom-cuda-base:
+
+      - build-base:
+          name: "build-atom-cuda-base"
+          tag: "-cuda"
+          platform: linux/amd64
+          build_args: "--build-arg BASE_IMAGE=nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04"
           filters:
             branches:
               only:
                 - /.*-build-base-all/
                 - /.*-build-base-cuda/
-      - build-atom-opengl-cuda-base:
+
+      - build-base:
+          name: "build-opengl-cuda-base"
+          tag: "-opengl-cuda"
+          platform: linux/amd64
+          build_args: "--build-arg BASE_IMAGE=nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04 --build-arg INSTALL_OPENGL=y"
           filters:
             branches:
               only:
@@ -795,21 +759,40 @@ workflows:
 
       # Deploy base images. Don't need branch filters since they depend
       # on base builds with the branch filters
-      - deploy-atom-base:
+      - deploy-base:
+          name: "deploy-atom-base"
           requires:
             - build-atom-base
-      - deploy-atom-aarch64-base:
+          params:
+            <<: *atom_base_image_names
+
+      - deploy-base:
+          name: "deploy-atom-aarch64-base"
           requires:
             - build-atom-aarch64-base
-      - deploy-atom-opengl-base:
+          params:
+            <<: *atom_aarch64_base_image_names
+
+      - deploy-base:
+          name: "deploy-atom-opengl-base"
           requires:
             - build-atom-opengl-base
-      - deploy-atom-cuda-base:
+          params:
+            <<: *atom_opengl_base_image_names
+
+      - deploy-base:
+          name: "deploy-atom-cuda-base"
           requires:
             - build-atom-cuda-base
-      - deploy-atom-opengl-cuda-base:
+          params:
+            <<: *atom_cuda_base_image_names
+
+      - deploy-base:
+          name: "deploy-atom-opengl-cuda-base"
           requires:
             - build-atom-opengl-cuda-base
+          params:
+            <<: *atom_opengl_cuda_base_image_names
 
   nightly:
     triggers:
