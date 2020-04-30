@@ -345,7 +345,7 @@ jobs:
       - build_atom_with_nucleus_variant:
           tag: ""
           platform: linux/amd64
-          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-3027"
+          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-3050"
 
   build-atom-aarch64:
     executor: atom/build-ubuntu-nocache
@@ -373,7 +373,7 @@ jobs:
       - build_atom_variant:
           tag: "-cuda"
           platform: linux/amd64
-          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-cuda-3030"
+          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-cuda-3052"
 
   build-opengl:
     executor: atom/build-ubuntu-nocache
@@ -386,7 +386,7 @@ jobs:
       - build_atom_variant:
           tag: "-opengl"
           platform: linux/amd64
-          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-opengl-3028"
+          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-opengl-3051"
 
   build-opengl-cuda:
     executor: atom/build-ubuntu-nocache
@@ -399,7 +399,7 @@ jobs:
       - build_atom_variant:
           tag: "-opengl-cuda"
           platform: linux/amd64
-          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-opengl-cuda-3029"
+          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-opengl-cuda-3053"
 
   build-atom-base:
     executor: atom/build-ubuntu-nocache

@@ -346,10 +346,10 @@ For each base, please find below the latest/recommended tag to use:
 
 | base | tag |
 |------|-----|
-| `base` | `base-3027` |
-| `base-cuda` | `base-cuda-3030` |
-| `base-opengl` | `base-opengl-3028` |
-| `base-opengl-cuda` | `base-opengl-cuda-3029` |
+| `base` | `base-3050` |
+| `base-cuda` | `base-cuda-3052` |
+| `base-opengl` | `base-opengl-3051` |
+| `base-opengl-cuda` | `base-opengl-cuda-3053` |
 | `base-aarch64` | `base-aarch64-3048` |
 
 
