@@ -146,6 +146,18 @@ and take a long time to build from source and/or install.
 | `base-opengl-cuda` | `nvidia/cuda` | `amd64` | Build dependencies for Atom + OpenGL + CUDA |
 | `base-aarch64` | `debian:buster-slim` | `aarch64` | Build dependencies for Atom cross-comiled for aarch64/ARMv8 |
 
+#### Latest Tag
+
+For each base, please find below the latest/recommended tag to use:
+
+| base | tag |
+|------|-----|
+| `base` | `base-3027` |
+| `base-cuda` | `base-cuda-3030` |
+| `base-opengl` | `base-opengl-3028` |
+| `base-opengl-cuda` | `base-opengl-cuda-3029` |
+| `base-aarch64` | `base-aarch64-TODO` |
+
 
 ### Updating a Base Image
 
