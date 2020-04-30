@@ -25,6 +25,7 @@ aliases:
       target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
       target_tag: cuda-
   - &opengl_image_names
+
       source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-opengl
       target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
       target_tag: opengl-
@@ -491,7 +492,7 @@ jobs:
 
   deploy-base:
     executor: atom/build-ubuntu
-    params:
+    parameters:
       source_image:
         type: string
       target_image:
@@ -502,9 +503,9 @@ jobs:
       <<: *atom_build_vars
     steps:
       atom/deploy_image:
-        source_image: << params.source_image >>
-        target_image: << params.target_image >>
-        target_tag: << params.target_tag >>
+        source_image: << parameters.source_image >>
+        target_image: << parameters.target_image >>
+        target_tag: << parameters.target_tag >>
 
   build-docs:
     executor: atom/build-ubuntu
@@ -802,36 +803,31 @@ workflows:
           name: "deploy-atom-base"
           requires:
             - build-atom-base
-          params:
-            <<: *atom_base_image_names
+          <<: *atom_base_image_names
 
       - deploy-base:
           name: "deploy-atom-aarch64-base"
           requires:
             - build-atom-aarch64-base
-          params:
-            <<: *atom_aarch64_base_image_names
+          <<: *atom_aarch64_base_image_names
 
       - deploy-base:
           name: "deploy-atom-opengl-base"
           requires:
             - build-atom-opengl-base
-          params:
-            <<: *atom_opengl_base_image_names
+          <<: *atom_opengl_base_image_names
 
       - deploy-base:
           name: "deploy-atom-cuda-base"
           requires:
             - build-atom-cuda-base
-          params:
-            <<: *atom_cuda_base_image_names
+          <<: *atom_cuda_base_image_names
 
       - deploy-base:
           name: "deploy-atom-opengl-cuda-base"
           requires:
             - build-atom-opengl-cuda-base
-          params:
-            <<: *atom_opengl_cuda_base_image_names
+          <<: *atom_opengl_cuda_base_image_names
 
   #
   # Nightly rebuild/redeploy of docs sites
