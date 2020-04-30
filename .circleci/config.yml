@@ -86,6 +86,9 @@ commands:
     parameters:
       container:
         type: string
+      test_valgrind:
+        type: boolean
+        default: true
     steps:
       - run:
           name: Python tests
@@ -102,9 +105,12 @@ commands:
           environment:
             G_SLICE: always-malloc
             G_DEBUG: gc-friendly
-      - run:
-          name: C++ copy valgrind log
-          command: docker cp << parameters.container >>:/atom/languages/cpp/valgrind.log /tmp/valgrind.log
+      - when:
+          condition: << parameters.test_valgrind >>
+          steps:
+            - run:
+                name: C++ copy valgrind log
+                command: docker cp << parameters.container >>:/atom/languages/cpp/valgrind.log /tmp/valgrind.log
       - store_artifacts:
           path: /tmp/valgrind.log
           destination: valgrind.log
@@ -146,6 +152,9 @@ commands:
         type: string
       container:
         type: string
+      test_valgrind:
+        type: boolean
+        default: true
     steps:
 
       # Launch containers for testing
@@ -155,6 +164,7 @@ commands:
       # Run atom unit tests
       - run_tests:
           container: << parameters.container >>
+          test_valgrind: << parameters.test_valgrind >>
 
   build_atom_with_nucleus_variant:
     parameters:
@@ -167,6 +177,9 @@ commands:
       build_args:
         type: string
         default: ""
+      test_valgrind:
+        type: boolean
+        default: true
     steps:
 
       # Build base, atom and test stages of atom image
@@ -219,6 +232,7 @@ commands:
           nucleus: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>
           atom: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-test<< parameters.tag >>
           container: ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME}
+          test_valgrind: << parameters.test_valgrind >>
 
   build_atom_variant:
     parameters:
@@ -234,6 +248,9 @@ commands:
       build_args:
         type: string
         default: ""
+      test_valgrind:
+        type: boolean
+        default: true
     steps:
 
       # Build atom and test stages
@@ -266,6 +283,7 @@ commands:
           nucleus: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID}
           atom: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-test<< parameters.tag >>
           container: ${DOCKER_COMPOSE_ATOM_CONTAINER_NAME}
+          test_valgrind: << parameters.test_valgrind >>
 
   build_atom_base_variant:
     parameters:
@@ -281,6 +299,9 @@ commands:
       cache_repo:
         type: string
         default: elementaryrobotics/atom-cache
+      test_valgrind:
+        type: boolean
+        default: true
     steps:
 
       # Build atom and test stages
@@ -304,6 +325,7 @@ commands:
           tag: << parameters.tag >>
           platform: << parameters.platform >>
           build_args: "--build-arg BASE_IMAGE=${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-base<< parameters.tag >>"
+          test_valgrind: << parameters.test_valgrind >>
 
 jobs:
   build-atom:
@@ -331,6 +353,7 @@ jobs:
           tag: "-aarch64"
           platform: linux/aarch64
           build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-aarch64-3048"
+          test_valgrind: false # TODO: segfaulting on aarch64/qemu
 
   build-cuda:
     executor: atom/build-ubuntu-nocache
@@ -435,6 +458,7 @@ jobs:
           platform: linux/aarch64
           build_args: "--build-arg BLAS_TARGET_CPU=ARMV8 --build-arg PYARROW_EXTRA_CMAKE_ARGS=-DARROW_ARMV8_ARCH=armv8-a"
           cache_repo: elementaryrobotics/atom-cache-aarch64
+          test_valgrind: false # TODO: segfaulting on aarch64/qemu
 
   deploy-dev:
     executor: atom/build-ubuntu
