@@ -19,19 +19,19 @@ aliases:
   - &atom_aarch64_image_names
       source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-aarch64
       target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
-      target_tag: -aarch64-
+      target_tag: aarch64-
   - &cuda_image_names
       source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-cuda
       target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
-      target_tag: -cuda-
+      target_tag: cuda-
   - &opengl_image_names
       source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-opengl
       target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
-      target_tag: -opengl-
+      target_tag: opengl-
   - &opengl_cuda_image_names
       source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-opengl-cuda
       target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
-      target_tag: -cuda-opengl-
+      target_tag: cuda-opengl-
   - &nucleus_image_names
       source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID}
       target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}
@@ -39,7 +39,7 @@ aliases:
   - &nucleus_aarch64_image_names
       source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID}-aarch64
       target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}
-      target_tag: -aarch64-
+      target_tag: aarch64-
 
   # Base Build
   - &atom_base_image_names
