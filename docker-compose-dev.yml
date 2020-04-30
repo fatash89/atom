@@ -9,7 +9,7 @@ services:
       dockerfile: Dockerfile
       target: nucleus
       args:
-        BASE_IMAGE=elementaryrobotics/atom:base
+        BASE_IMAGE: elementaryrobotics/atom:base
     volumes:
       - type: volume
         source: shared
@@ -24,7 +24,7 @@ services:
       dockerfile: Dockerfile
       target: test
       args:
-        BASE_IMAGE=elementaryrobotics/atom:base
+        BASE_IMAGE: elementaryrobotics/atom:base
     volumes:
       - type: volume
         source: shared
