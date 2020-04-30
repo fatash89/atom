@@ -66,6 +66,10 @@ After working through the quickstart, it's recommended to try rebuilding the
 Atom docker images in order to test changes. Following that, it's recommended
 to check out the [guide to making your first element](ELEMENT_DEVELOPMENT.md)
 
+### Contributing
+
+Contributions of issues and pull requests are welcome!
+
 ## Building Docker Images
 
 ### Atom and Nucleus
@@ -101,7 +105,7 @@ atop your new base with:
 $ docker-compose -f docker-compose-dev.yml build
 ```
 
-### ARM support
+### ARM Images
 
 Atom works cross-platform on ARM by compiling the same Dockerfiles. In order
 to build and test for ARM a few additional steps are needed.
@@ -164,7 +168,7 @@ default     docker
   default   default                     running linux/amd64, linux/386
 ```
 
-#### Build Atom Image for ARM
+#### Atom Image for ARM
 
 An example command to build the atom image for ARM can be seen below:
 
@@ -186,7 +190,7 @@ elsehwere in this README. You can also choose to build the base
 image yourself if you wish but note it will take approximately 2-4 hours on a
 reasonable intel-based developer machine.
 
-#### Build Nucleus Image for ARM
+#### Nucleus Image for ARM
 
 An example command to build the atom image for ARM can be seen below:
 
@@ -196,7 +200,7 @@ $ docker buildx build \
     --progress plain \
     --load \
     -f Dockerfile \
-    -t elementaryrobotics/atom:aarch64 \
+    -t elementaryrobotics/nucleus:aarch64 \
     --target=nucleus \
     --build-arg BASE_IMAGE=elementaryrobotics/atom:base-aarch64-3048 \
     --pull \
@@ -206,7 +210,7 @@ $ docker buildx build \
 Generally the same command as building the Atom image, but with a different
 target in the multi-stage Dockerfile.
 
-#### Build Base Image for ARM
+#### Base Image for ARM
 
 It's not recommended to do this often, but the base image can be rebuilt
 with the following command:
@@ -237,6 +241,48 @@ can run the following tests:
 | C Unit Tests | `/atom/languages/c` | `make -j8 test` |
 | C++ Unit Tests | `/atom/languages/cpp` | `make -j8 test` |
 | C++ Memory Check | `/atom/languages/cpp` | `valgrind -v --tool=memcheck --leak-check=full --num-callers=40 --log-file=valgrind.log --error-exitcode=1 test/build/test_atom_cpp` |
+
+### Testing Atom Builds
+
+In order to build and test your code in an environment identical to production,
+it's recommended that you run the following initial steps:
+(example shown for Python)
+
+```
+$ docker-compose -f docker-compose-dev.yml build
+$ docker-compose -f docker-compose-dev.yml up -d
+$ docker exec -it atom bash
+# cd /atom/languages/python/tests
+# pytest
+```
+
+You should see all tests pass.
+
+### Testing ARM Builds
+
+Similarly, you can test your ARM builds even from an Intel-based laptop!
+
+Follow, the steps to build the atom + nucleus stages for ARM as covered
+in the docs above, then:
+
+```
+$ docker-compose -f docker-compose-arm.yml up -d
+$ docker exec -it atom-arm bash
+# cd /atom/languages/python/tests
+# pytest
+```
+
+You should see all tests pass. Also interesting to note/confirm is that
+if you run the command below while in the Docker container for the ARM atom
+image:
+
+```
+# uname -a
+Linux 2b4919a2e614 4.15.0-96-generic #97~16.04.1-Ubuntu SMP Wed Apr 1 03:03:31 UTC 2020 aarch64 GNU/Linux
+```
+
+Note that this is indeed an `aarch64` build of linux being run on an intel
+PC through the QEMU simulator.
 
 ## Docker Images
 
