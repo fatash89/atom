@@ -304,7 +304,7 @@ For each base, please find below the latest/recommended tag to use:
 | `base-cuda` | `base-cuda-3030` |
 | `base-opengl` | `base-opengl-3028` |
 | `base-opengl-cuda` | `base-opengl-cuda-3029` |
-| `base-aarch64` | `base-aarch64-TODO` |
+| `base-aarch64` | `base-aarch64-3048` |
 
 
 ### Updating a Base Image

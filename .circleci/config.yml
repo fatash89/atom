@@ -330,7 +330,7 @@ jobs:
       - build_atom_with_nucleus_variant:
           tag: "-aarch64"
           platform: linux/aarch64
-          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-aarch64-X"
+          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-aarch64-3048"
 
   build-cuda:
     executor: atom/build-ubuntu-nocache
