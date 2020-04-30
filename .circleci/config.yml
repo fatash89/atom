@@ -334,23 +334,24 @@ commands:
           test_valgrind: << parameters.test_valgrind >>
 
 jobs:
-  build-atom:
-    executor: atom/build-ubuntu-nocache
-    resource_class: large
-    environment:
-      <<: *atom_build_vars
-      DOCKER_CLI_EXPERIMENTAL: enabled
-    steps:
-      - build_shared_init
-      - build_atom_with_nucleus_variant:
-          tag: ""
-          platform: linux/amd64
-          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-3050"
 
-  build-atom-aarch64:
+  build-atom-with-nucleus:
     parameters:
+      tag:
+        type: string
+        default: ""
+      platform:
+        type: string
+        default: "linux/amd64"
+      build_args:
+        type: string
+        default: ""
+      cache_repo:
+        type: string
+        default: elementaryrobotics/atom-cache
       test_valgrind:
         type: boolean
+        default: true
     executor: atom/build-ubuntu-nocache
     resource_class: large
     environment:
@@ -359,13 +360,29 @@ jobs:
     steps:
       - build_shared_init
       - build_atom_with_nucleus_variant:
-          tag: "-aarch64"
-          platform: linux/aarch64
-          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-aarch64-3048"
+          tag: << parameters.tag >>
+          platform: << parameters.platform >>
+          build_args: << parameters.build_args >>
           test_valgrind: << parameters.test_valgrind >>
-          cache_repo: elementaryrobotics/atom-cache-aarch64
+          cache_repo: << parameters.cache_repo >>
 
-  build-cuda:
+  build-atom:
+    parameters:
+      tag:
+        type: string
+        default: ""
+      platform:
+        type: string
+        default: "linux/amd64"
+      build_args:
+        type: string
+        default: ""
+      cache_repo:
+        type: string
+        default: elementaryrobotics/atom-cache
+      test_valgrind:
+        type: boolean
+        default: true
     executor: atom/build-ubuntu-nocache
     resource_class: large
     environment:
@@ -374,35 +391,11 @@ jobs:
     steps:
       - build_shared_init
       - build_atom_variant:
-          tag: "-cuda"
-          platform: linux/amd64
-          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-cuda-3052"
-
-  build-opengl:
-    executor: atom/build-ubuntu-nocache
-    resource_class: large
-    environment:
-      <<: *atom_build_vars
-      DOCKER_CLI_EXPERIMENTAL: enabled
-    steps:
-      - build_shared_init
-      - build_atom_variant:
-          tag: "-opengl"
-          platform: linux/amd64
-          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-opengl-3051"
-
-  build-opengl-cuda:
-    executor: atom/build-ubuntu-nocache
-    resource_class: large
-    environment:
-      <<: *atom_build_vars
-      DOCKER_CLI_EXPERIMENTAL: enabled
-    steps:
-      - build_shared_init
-      - build_atom_variant:
-          tag: "-opengl-cuda"
-          platform: linux/amd64
-          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-opengl-cuda-3053"
+          tag: << parameters.tag >>
+          platform: << parameters.platform >>
+          build_args: << parameters.build_args >>
+          test_valgrind: << parameters.test_valgrind >>
+          cache_repo: << parameters.cache_repo >>
 
   build-base:
     parameters:
@@ -429,10 +422,10 @@ jobs:
     steps:
       - build_shared_init
       - build_atom_base_variant:
-          tag: "-aarch64"
-          platform: linux/aarch64
-          build_args: "--build-arg BLAS_TARGET_CPU=ARMV8 --build-arg PYARROW_EXTRA_CMAKE_ARGS=-DARROW_ARMV8_ARCH=armv8-a"
-          cache_repo: elementaryrobotics/atom-cache-aarch64
+          tag: << parameters.tag >>
+          platform: << parameters.platform >>
+          build_args: << parameters.build_args >>
+          cache_repo: << parameters.cache_repo >>
           test_valgrind: << parameters.test_valgrind >> # TODO: segfaulting on aarch64/qemu
 
 
@@ -570,7 +563,11 @@ workflows:
   commit:
     jobs:
       # Build the main/vanilla variant of atom
-      - build-atom:
+      - build-atom-with-nucleus:
+          name: "build-atom"
+          tag: ""
+          platform: linux/amd64
+          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-3050"
           filters:
             tags:
               only:
@@ -599,7 +596,11 @@ workflows:
                 - /.*-build-base.*/
 
       # Build special images after tests pass for atom
-      - build-opengl:
+      - build-atom:
+          name: "build-opengl"
+          tag: "-opengl"
+          platform: linux/amd64
+          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-opengl-3051"
           requires:
             - atom/check_flake8
           filters:
@@ -609,7 +610,11 @@ workflows:
             branches:
               ignore:
                 - /.*-build-base.*/
-      - build-cuda:
+      - build-atom:
+          name: "build-cuda"
+          tag: "-cuda"
+          platform: linux/amd64
+          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-cuda-3052"
           requires:
             - atom/check_flake8
           filters:
@@ -619,7 +624,11 @@ workflows:
             branches:
               ignore:
                 - /.*-build-base.*/
-      - build-opengl-cuda:
+      - build-atom:
+          name: "build-opengl-cuda"
+          tag: "-opengl-cuda"
+          platform: linux/amd64
+          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-opengl-cuda-3053"
           requires:
             - atom/check_flake8
           filters:
@@ -629,8 +638,13 @@ workflows:
             branches:
               ignore:
                 - /.*-build-base.*/
-      - build-atom-aarch64:
+      - build-atom-with-nucleus:
+          name: "build-atom-aarch64"
+          tag: "-aarch64"
+          platform: linux/aarch64
+          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-aarch64-3048"
           test_valgrind: false
+          cache_repo: elementaryrobotics/atom-cache-aarch64
           requires:
             - atom/check_flake8
           filters:
