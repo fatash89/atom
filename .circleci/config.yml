@@ -724,7 +724,7 @@ workflows:
             branches:
               only:
                 - /.*-build-base-all/
-                - /.*-build-base/
+                - /.*-build-base-atom/
       - build-atom-aarch64-base:
           filters:
             branches:
