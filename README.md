@@ -51,25 +51,31 @@ supplied in this repo through code similar to the below.
 The recommended workflow for development is then to execute:
 
 ```
-docker-compose pull
-docker-compose up -d
-docker exec -it atom bash
+$ docker-compose pull
+$ docker-compose up -d
+$ docker exec -it atom bash
 ```
 
 This will open up a shell within the most recent build of atom. This repo
 will be mounted into the container at `/atom` and from there you can test
 changes to the code.
 
-### Rebuilding the Atom Docker Images
+### Next Steps
+
+After working through the quickstart, it's recommended to try rebuilding the
+Atom docker images in order to test changes. Following that, it's recommended
+to check out the [guide to making your first element](ELEMENT_DEVELOPMENT.md)
+
+## Building Docker Images
+
+### Atom and Nucleus
 
 If you'd prefer to develop by building the atom Docker containers, this
 can be done fairly easily as well by using the [`docker-compose-dev.yml`](docker-compose-dev.yml)
 compose file.
 
 ```
-docker-compose build
-docker-compose up -d
-docker exec -it atom bash
+$ docker-compose -f docker-compose-dev.yml build
 ```
 
 Everything is the same as in the quickstart, except for a few things:
@@ -77,7 +83,149 @@ Everything is the same as in the quickstart, except for a few things:
 run `pytest` `googletest`, etc.
 2. The `atom` container will be built from the atom client source in this repo.
 
-### Testing
+### Atom Base
+
+The Atom docker images are built atop a base, where the base contains the
+parts of the build that typically don't change frequently and are long/expensive
+to rebuild. Occasionally we'd like to add something new to the base and will
+need to rebuild the base as well. To do so:
+
+```
+$ docker build -f Dockerfile-base -t elementaryrobotics/atom:base .
+```
+
+Then, after rebuilding the base, you can rebuild the atom/nucleus images
+atop your new base with:
+
+```
+$ docker-compose -f docker-compose-dev.yml build
+```
+
+### ARM support
+
+Atom works cross-platform on ARM by compiling the same Dockerfiles. In order
+to build and test for ARM a few additional steps are needed.
+
+
+#### Set up buildx
+
+This requires `buildx`, the new Docker builder that comes with Docker 19.03+.
+Begin by installing Docker version 19.03+ on your machine. Once this is done,
+proceed to the next steps.
+
+Next, we need to enable the experimental Docker CLI:
+
+```
+$ export DOCKER_CLI_EXPERIMENTAL=enabled
+```
+
+And confirm we have `buildx` set up
+
+```
+$ docker buildx version
+github.com/docker/buildx v0.3.1-tp-docker 6db68d029599c6710a32aa7adcba8e5a344795a7
+```
+
+Next, we need to enable `binfmt_misc` in order to run non-native Docker
+images. This will set up `qemu` to run any `arm64` binary through the
+`qemu_user_static` simulator so that it can be run on your intel-based machine.
+
+```
+docker run --rm --privileged docker/binfmt:66f9012c56a8316f9244ffd7622d7c21c1f6f28d
+```
+
+You should then be able to verify that everything is set up correctly:
+
+```
+$ cat /proc/sys/fs/binfmt_misc/qemu-aarch64
+enabled
+interpreter /usr/bin/qemu-aarch64
+flags: OCF
+offset 0
+magic 7f454c460201010000000000000000000200b7
+mask ffffffffffffff00fffffffffffffffffeffff
+```
+
+Finally, set up Docker to use the `buildx` builder as opposed to the
+normal Docker builder:
+
+```
+$ docker buildx create --use --name atombuilder
+```
+
+And we should be able to verify that our builder is in use
+
+```
+$ docker buildx ls
+NAME/NODE   DRIVER/ENDPOINT             STATUS  PLATFORMS
+atombuilder *  docker-container
+  atombuilder0 unix:///var/run/docker.sock running linux/amd64, linux/386, linux/arm64, linux/ppc64le, linux/s390x, linux/arm/v7, linux/arm/v6
+default     docker
+  default   default                     running linux/amd64, linux/386
+```
+
+#### Build Atom Image for ARM
+
+An example command to build the atom image for ARM can be seen below:
+
+```
+$ docker buildx build \
+    --platform=linux/aarch64 \
+    --progress plain \
+    --load \
+    -f Dockerfile \
+    -t elementaryrobotics/atom:aarch64 \
+    --target=test \
+    --build-arg BASE_IMAGE=elementaryrobotics/atom:base-aarch64-3048 \
+    --pull \
+    .
+```
+
+Please be sure to always use to most recent `BASE_IMAGE` from the table
+elsehwere in this README. You can also choose to build the base
+image yourself if you wish but note it will take approximately 2-4 hours on a
+reasonable intel-based developer machine.
+
+#### Build Nucleus Image for ARM
+
+An example command to build the atom image for ARM can be seen below:
+
+```
+$ docker buildx build \
+    --platform=linux/aarch64 \
+    --progress plain \
+    --load \
+    -f Dockerfile \
+    -t elementaryrobotics/atom:aarch64 \
+    --target=nucleus \
+    --build-arg BASE_IMAGE=elementaryrobotics/atom:base-aarch64-3048 \
+    --pull \
+    .
+```
+
+Generally the same command as building the Atom image, but with a different
+target in the multi-stage Dockerfile.
+
+#### Build Base Image for ARM
+
+It's not recommended to do this often, but the base image can be rebuilt
+with the following command:
+
+```
+$ docker buildx build \
+    --platform=linux/aarch64 \
+    --progress plain \
+    --load \
+    -f Dockerfile-base \
+    -t elementaryrobotics/atom:base-aarch64 \
+    --target=base \
+    --build-arg BLAS_TARGET_CPU=ARMV8 \
+    --build-arg PYARROW_EXTRA_CMAKE_ARGS=-DARROW_ARMV8_ARCH=armv8-a \
+    --pull \
+    .
+```
+
+## Testing
 
 In order to run tests, you'll want to develop with the "Rebuilding the Docker
 Images" method as described above. Once you're in the `atom` container, you

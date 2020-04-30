@@ -4,13 +4,7 @@ services:
 
   nucleus-arm:
     container_name: nucleus-arm
-    # build:
-    #   context: .
-    #   dockerfile: Dockerfile
-    #   target: nucleus
-    #   args:
-    #     platform: linux/aarch64
-    image: elementaryrobotics/nucleus:arm-test
+    image: elementaryrobotics/nucleus:aarch64
     volumes:
       - type: volume
         source: shared
@@ -20,13 +14,7 @@ services:
 
   atom-arm:
     container_name: atom-arm
-    # build:
-    #   context: .
-    #   dockerfile: Dockerfile
-    #   target: test
-    #   args:
-    #     platform: linux/aarch64
-    image: elementaryrobotics/atom:arm-test
+    image: elementaryrobotics/atom:aarch64
     volumes:
       - type: volume
         source: shared
