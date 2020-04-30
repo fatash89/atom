@@ -99,15 +99,15 @@ commands:
       - run:
           name: C++ tests
           command:  docker exec -it -w /atom/languages/cpp << parameters.container >> make test
-      - run:
-          name: C++ valgrind check
-          command: docker exec -it -w /atom/languages/cpp << parameters.container >> valgrind -v --tool=memcheck --leak-check=full --num-callers=40 --log-file=valgrind.log --error-exitcode=1 test/build/test_atom_cpp
-          environment:
-            G_SLICE: always-malloc
-            G_DEBUG: gc-friendly
       - when:
           condition: << parameters.test_valgrind >>
           steps:
+            - run:
+                name: C++ valgrind check
+                command: docker exec -it -w /atom/languages/cpp << parameters.container >> valgrind -v --tool=memcheck --leak-check=full --num-callers=40 --log-file=valgrind.log --error-exitcode=1 test/build/test_atom_cpp
+                environment:
+                  G_SLICE: always-malloc
+                  G_DEBUG: gc-friendly
             - run:
                 name: C++ copy valgrind log
                 command: docker cp << parameters.container >>:/atom/languages/cpp/valgrind.log /tmp/valgrind.log
