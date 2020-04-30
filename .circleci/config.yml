@@ -348,6 +348,9 @@ jobs:
           build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-3050"
 
   build-atom-aarch64:
+    parameters:
+      test_valgrind:
+        type: boolean
     executor: atom/build-ubuntu-nocache
     resource_class: large
     environment:
@@ -359,7 +362,7 @@ jobs:
           tag: "-aarch64"
           platform: linux/aarch64
           build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-aarch64-3048"
-          test_valgrind: false # TODO: segfaulting on aarch64/qemu
+          test_valgrind: << parameters.test_valgrind >>
           cache_repo: elementaryrobotics/atom-cache-aarch64
 
   build-cuda:
@@ -453,6 +456,9 @@ jobs:
           build_args: "--build-arg BASE_IMAGE=nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04 --build-arg INSTALL_OPENGL=y"
 
   build-atom-aarch64-base:
+    parameters:
+      test_valgrind:
+        type: boolean
     executor: atom/build-ubuntu-nocache
     resource_class: large
     environment:
@@ -465,7 +471,7 @@ jobs:
           platform: linux/aarch64
           build_args: "--build-arg BLAS_TARGET_CPU=ARMV8 --build-arg PYARROW_EXTRA_CMAKE_ARGS=-DARROW_ARMV8_ARCH=armv8-a"
           cache_repo: elementaryrobotics/atom-cache-aarch64
-          test_valgrind: false # TODO: segfaulting on aarch64/qemu
+          test_valgrind: << parameters.test_valgrind >> # TODO: segfaulting on aarch64/qemu
 
   deploy-dev:
     executor: atom/build-ubuntu
@@ -684,6 +690,7 @@ workflows:
               ignore:
                 - /.*-build-base.*/
       - build-atom-aarch64:
+          test_valgrind: false
           requires:
             - atom/check_flake8
           filters:
@@ -761,6 +768,7 @@ workflows:
                 - /.*-build-base-all/
                 - /.*-build-base-atom/
       - build-atom-aarch64-base:
+          test_valgrind: false
           filters:
             branches:
               only:
