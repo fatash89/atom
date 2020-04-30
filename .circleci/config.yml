@@ -426,8 +426,7 @@ jobs:
           platform: << parameters.platform >>
           build_args: << parameters.build_args >>
           cache_repo: << parameters.cache_repo >>
-          test_valgrind: << parameters.test_valgrind >> # TODO: segfaulting on aarch64/qemu
-
+          test_valgrind: << parameters.test_valgrind >>
 
   deploy-dev:
     executor: atom/build-ubuntu
@@ -560,7 +559,11 @@ jobs:
 
 workflows:
   version: 2
-  commit:
+
+  #
+  # Build and deploy atom
+  #
+  atom-build:
     jobs:
       # Build the main/vanilla variant of atom
       - build-atom-with-nucleus:
@@ -575,13 +578,8 @@ workflows:
             branches:
               ignore:
                 - /.*-build-base.*/
-      - build-docs:
-          filters:
-            tags:
-              only: /.*/
-            branches:
-              ignore:
-                - /.*-build-base.*/
+
+      # Run the style check on atom
       - atom/check_flake8:
           version: 3.7.0
           exclude: demo,doc,examples,utilities,*third-party,languages
@@ -610,6 +608,7 @@ workflows:
             branches:
               ignore:
                 - /.*-build-base.*/
+
       - build-atom:
           name: "build-cuda"
           tag: "-cuda"
@@ -624,6 +623,7 @@ workflows:
             branches:
               ignore:
                 - /.*-build-base.*/
+
       - build-atom:
           name: "build-opengl-cuda"
           tag: "-opengl-cuda"
@@ -638,6 +638,7 @@ workflows:
             branches:
               ignore:
                 - /.*-build-base.*/
+
       - build-atom-with-nucleus:
           name: "build-atom-aarch64"
           tag: "-aarch64"
@@ -666,6 +667,7 @@ workflows:
             branches:
               only:
                 - master
+
       - deploy-tag:
           requires:
             - build-opengl
@@ -678,6 +680,7 @@ workflows:
                 - /.*/
             tags:
               only: /.*/
+
       - deploy-dev:
           requires:
             - build-opengl
@@ -688,6 +691,20 @@ workflows:
             branches:
               ignore:
                 - master
+  #
+  # Build and deploy the docs
+  #
+  docs-build:
+    jobs:
+
+      # Build the docs themselves
+      - build-docs:
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              ignore:
+                - /.*-build-base.*/
 
       # Deploy docs
       - deploy-master-docs:
@@ -697,6 +714,7 @@ workflows:
             branches:
               only:
                 - master
+
       - deploy-tag-docs:
           requires:
             - build-docs
@@ -706,6 +724,7 @@ workflows:
                 - /.*/
             tags:
               only: /.*/
+
       - deploy-dev-docs:
           requires:
             - build-docs
@@ -713,6 +732,12 @@ workflows:
             branches:
               ignore:
                 - master
+
+  #
+  # Build and deploy base images
+  #
+  base-build:
+    jobs:
 
       # Build base images
       - build-base:
@@ -731,7 +756,7 @@ workflows:
           platform: linux/aarch64
           build_args: "--build-arg BLAS_TARGET_CPU=ARMV8 --build-arg PYARROW_EXTRA_CMAKE_ARGS=-DARROW_ARMV8_ARCH=armv8-a"
           cache_repo: elementaryrobotics/atom-cache-aarch64
-          test_valgrind: << parameters.test_valgrind >> # TODO: segfaulting on aarch64/qemu
+          test_valgrind: false
           filters:
             branches:
               only:
@@ -808,6 +833,9 @@ workflows:
           params:
             <<: *atom_opengl_cuda_base_image_names
 
+  #
+  # Nightly rebuild/redeploy of docs sites
+  #
   nightly:
     triggers:
       - schedule:
