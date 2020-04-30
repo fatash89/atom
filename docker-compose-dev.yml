@@ -4,7 +4,10 @@ services:
 
   nucleus:
     container_name: nucleus
-    image: elementaryrobotics/nucleus
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: nucleus
     volumes:
       - type: volume
         source: shared
@@ -14,7 +17,10 @@ services:
 
   atom:
     container_name: atom
-    image: elementaryrobotics/atom
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: test
     volumes:
       - type: volume
         source: shared
@@ -29,6 +35,8 @@ services:
     environment:
       - "GRAPHICS=1"
     command: tail -f /dev/null
+    # Uncomment to run GDB
+    #privileged: true
 
 volumes:
   shared:
