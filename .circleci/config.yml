@@ -21,6 +21,14 @@ aliases:
       source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}:build-${CIRCLE_WORKFLOW_ID}
       target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}
 
+  # Atom tags
+  - &atom_tags
+      tag: ["", "-opengl", "-cuda", "-opengl-cuda", "-aarch64"]
+  - &nucleus_tags
+      tag: ["", "-aarch64"]
+  - &base_tags
+      tag: ["-3050", "-opengl-3051", "-cuda-3052", "-opengl-cuda-3053", "-aarch64-3048"]
+
 
 #
 # Circle config
@@ -429,7 +437,7 @@ jobs:
           target_image: << parameters.repo >>
           target_tag: << parameters.tag >>
 
-  deploy-base:
+  deploy-base-dev:
     executor: atom/build-ubuntu
     resource_class: medium
     parameters:
@@ -445,6 +453,29 @@ jobs:
           source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-base<< parameters.tag >>
           target_image: << parameters.target_image >>
           target_tag: base<< parameters.tag >>-${CIRCLE_BUILD_NUM}
+
+  deploy-base-master:
+    executor: atom/build-ubuntu
+    resource_class: medium
+    parameters:
+      tag:
+        type: string
+      target_image:
+        type: string
+        default: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
+    environment:
+      <<: *atom_build_vars
+    steps:
+      - atom/docker_login
+      - run:
+          name: Pull image
+          command: docker pull << parameters.target_image >>:base<< parameters.tag >>
+      - run:
+          name: Tag image
+          command: docker tag << parameters.target_image >>:base<< parameters.tag >> << parameters.target_image >>:base$(echo << parameters.tag >> | grep -oE "-[a-z]+")
+      - run:
+          name: Push image
+          command: docker push << parameters.target_image >>:base$(echo << parameters.tag >> | grep -oE "-[a-z]+")
 
   build-docs:
     executor: atom/build-ubuntu
@@ -605,7 +636,7 @@ workflows:
           repo: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
           matrix:
             parameters:
-              tag: ["", "-opengl", "-cuda", "-opengl-cuda", "-aarch64"]
+              << : *atom_tags
           requires:
             - "build-atom<<matrix.tag>>"
           filters:
@@ -617,7 +648,7 @@ workflows:
           repo: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}
           matrix:
             parameters:
-              tag: ["", "-aarch64"]
+              << : *nucleus_tags
           requires:
             - "build-atom<<matrix.tag>>"
           filters:
@@ -630,7 +661,7 @@ workflows:
           repo: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
           matrix:
             parameters:
-              tag: ["", "-opengl", "-cuda", "-opengl-cuda", "-aarch64"]
+              << : *atom_tags
           requires:
             - "build-atom<<matrix.tag>>"
           filters:
@@ -642,7 +673,7 @@ workflows:
           repo: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}
           matrix:
             parameters:
-              tag: ["", "-aarch64"]
+              << : *nucleus_tags
           requires:
             - "build-atom<<matrix.tag>>"
           filters:
@@ -655,7 +686,7 @@ workflows:
           repo: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
           matrix:
             parameters:
-              tag: ["", "-opengl", "-cuda", "-opengl-cuda", "-aarch64"]
+              << : *atom_tags
           requires:
             - "build-atom<<matrix.tag>>"
           filters:
@@ -669,7 +700,7 @@ workflows:
           repo: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}
           matrix:
             parameters:
-              tag: ["", "-aarch64"]
+              << : *nucleus_tags
           requires:
             - "build-atom<<matrix.tag>>"
           filters:
@@ -728,7 +759,7 @@ workflows:
 
       # Build base images
       - build-base:
-          name: "build-atom-base"
+          name: "build-base"
           tag: ""
           platform: linux/amd64
           filters:
@@ -738,7 +769,7 @@ workflows:
                 - /.*-build-base-atom/
 
       - build-base:
-          name: "build-atom-aarch64-base"
+          name: "build-base-aarch64"
           tag: "-aarch64"
           platform: linux/aarch64
           build_args: "--build-arg BLAS_TARGET_CPU=ARMV8 --build-arg PYARROW_EXTRA_CMAKE_ARGS=-DARROW_ARMV8_ARCH=armv8-a"
@@ -751,7 +782,7 @@ workflows:
                 - /.*-build-base-aarch64/
 
       - build-base:
-          name: "build-atom-opengl-base"
+          name: "build-base-opengl"
           tag: "-opengl"
           platform: linux/amd64
           build_args: "--build-arg BASE_IMAGE=nvidia/opengl:1.0-glvnd-runtime-ubuntu18.04"
@@ -762,7 +793,7 @@ workflows:
                 - /.*-build-base-opengl/
 
       - build-base:
-          name: "build-atom-cuda-base"
+          name: "build-base-cuda"
           tag: "-cuda"
           platform: linux/amd64
           build_args: "--build-arg BASE_IMAGE=nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04"
@@ -773,7 +804,7 @@ workflows:
                 - /.*-build-base-cuda/
 
       - build-base:
-          name: "build-atom-opengl-cuda-base"
+          name: "build-base-opengl-cuda"
           tag: "-opengl-cuda"
           platform: linux/amd64
           build_args: "--build-arg BASE_IMAGE=nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04 --build-arg INSTALL_OPENGL=y"
@@ -785,35 +816,25 @@ workflows:
 
       # Deploy base images. Don't need branch filters since they depend
       # on base builds with the branch filters
-      - deploy-base:
-          name: "deploy-atom-base"
+      - deploy-base-dev:
+          name: "deploy-base-dev<< matrix.tag >>"
+          matrix:
+            parameters:
+              << : *atom_tags
           requires:
-            - build-atom-base
-          tag: ""
+            - "build-base<<matrix.tag>>"
 
-      - deploy-base:
-          name: "deploy-atom-aarch64-base"
-          requires:
-            - build-atom-aarch64-base
-          tag: -aarch64
+      # Bump the base tags when merging into master
+      - deploy-base-master:
+          name: "deploy-base-master<< matrix.tag >>"
+          matrix:
+            parameters:
+              << : *base_tags
+          filters:
+            branches:
+              only:
+                - master
 
-      - deploy-base:
-          name: "deploy-atom-opengl-base"
-          requires:
-            - build-atom-opengl-base
-          tag: -opengl
-
-      - deploy-base:
-          name: "deploy-atom-cuda-base"
-          requires:
-            - build-atom-cuda-base
-          tag: -cuda
-
-      - deploy-base:
-          name: "deploy-atom-opengl-cuda-base"
-          requires:
-            - build-atom-opengl-cuda-base
-          tag: -opengl-cuda
 
   #
   # Nightly rebuild/redeploy of docs sites
