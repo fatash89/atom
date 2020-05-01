@@ -538,7 +538,7 @@ workflows:
 
       # Build special images after tests pass for atom
       - build-atom:
-          name: "build-opengl"
+          name: "build-atom-opengl"
           tag: "-opengl"
           platform: linux/amd64
           build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-opengl-3051"
@@ -553,7 +553,7 @@ workflows:
                 - /.*-build-base.*/
 
       - build-atom:
-          name: "build-cuda"
+          name: "build-atom-cuda"
           tag: "-cuda"
           platform: linux/amd64
           build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-cuda-3052"
@@ -568,7 +568,7 @@ workflows:
                 - /.*-build-base.*/
 
       - build-atom:
-          name: "build-opengl-cuda"
+          name: "build-atom-opengl-cuda"
           tag: "-opengl-cuda"
           platform: linux/amd64
           build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-opengl-cuda-3053"
@@ -608,10 +608,7 @@ workflows:
               tag: ["", "-opengl", "-cuda", "-opengl-cuda", "-aarch64"]
             name: "deploy-dev-atom<< matrix.tag >>"
           requires:
-            - build-opengl
-            - build-cuda
-            - build-opengl-cuda
-            - build-atom-aarch64
+            - "build-atom<<matrix.tag>>"
           filters:
             branches:
               ignore:
@@ -624,10 +621,7 @@ workflows:
               tag: ["", "-aarch64"]
             name: "deploy-dev-nucleus<< matrix.tag >>"
           requires:
-            - build-opengl
-            - build-cuda
-            - build-opengl-cuda
-            - build-atom-aarch64
+            - "build-atom<<matrix.tag>>"
           filters:
             branches:
               ignore:
@@ -641,10 +635,7 @@ workflows:
               tag: ["", "-opengl", "-cuda", "-opengl-cuda", "-aarch64"]
             name: "deploy-master-atom<< matrix.tag >>"
           requires:
-            - build-opengl
-            - build-cuda
-            - build-opengl-cuda
-            - build-atom-aarch64
+            - "build-atom<<matrix.tag>>"
           filters:
             branches:
               only:
@@ -657,10 +648,7 @@ workflows:
               tag: ["", "-aarch64"]
             name: "deploy-master-nucleus<< matrix.tag >>"
           requires:
-            - build-opengl
-            - build-cuda
-            - build-opengl-cuda
-            - build-atom-aarch64
+            - "build-atom<<matrix.tag>>"
           filters:
             branches:
               only:
@@ -674,10 +662,7 @@ workflows:
               tag: ["", "-opengl", "-cuda", "-opengl-cuda", "-aarch64"]
             name: "deploy-tag-atom<< matrix.tag >>"
           requires:
-            - build-opengl
-            - build-cuda
-            - build-opengl-cuda
-            - build-atom-aarch64
+            - "build-atom<<matrix.tag>>"
           filters:
             branches:
               ignore:
@@ -692,10 +677,7 @@ workflows:
               tag: ["", "-aarch64"]
             name: "deploy-tag-nucleus<< matrix.tag >>"
           requires:
-            - build-opengl
-            - build-cuda
-            - build-opengl-cuda
-            - build-atom-aarch64
+            - "build-atom<<matrix.tag>>"
           filters:
             branches:
               ignore:
