@@ -116,6 +116,12 @@ atop your new base with:
 $ docker-compose -f docker-compose-dev.yml build
 ```
 
+In order to get the new base deployed and into production, please see the
+section about [Updating a Base Image](#updating-a-base-image) below. The base
+images are fully managed by CircleCI and generally you check in your desired
+changes and push them to a branch with a special name to get them built and used
+in production.
+
 ### ARM Images
 
 Atom works cross-platform on ARM by compiling the same Dockerfiles. In order
@@ -191,15 +197,16 @@ $ docker buildx build \
     -f Dockerfile \
     -t elementaryrobotics/atom:aarch64 \
     --target=test \
-    --build-arg BASE_IMAGE=elementaryrobotics/atom:base-aarch64-3048 \
+    --build-arg BASE_IMAGE=elementaryrobotics/atom:base-aarch64 \
     --pull \
     .
 ```
 
-Please be sure to always use to most recent `BASE_IMAGE` from the table
-elsehwere in this README. You can also choose to build the base
-image yourself if you wish but note it will take approximately 2-4 hours on a
-reasonable intel-based developer machine.
+It's likely always easiest to use the most recent pre-built base image for
+your desired image base (see [Base Images](#base-images)).
+
+You can also choose to build the base image yourself if you wish but note it
+will take approximately 2-4 hours on a reasonable intel-based developer machine.
 
 #### Nucleus Image for ARM
 
@@ -213,7 +220,7 @@ $ docker buildx build \
     -f Dockerfile \
     -t elementaryrobotics/nucleus:aarch64 \
     --target=nucleus \
-    --build-arg BASE_IMAGE=elementaryrobotics/atom:base-aarch64-3048 \
+    --build-arg BASE_IMAGE=elementaryrobotics/atom:base-aarch64 \
     --pull \
     .
 ```
