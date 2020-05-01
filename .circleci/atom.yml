@@ -274,7 +274,7 @@ commands:
       - deploy_image:
           source_image: << parameters.source_image >>
           target_image: << parameters.target_image >>
-          target_tag: << parameters.target_tag >>development-${CIRCLE_BUILD_NUM}
+          target_tag: development-${CIRCLE_BUILD_NUM}<< parameters.target_tag >>
           output_timeout: << parameters.output_timeout >>
 
   push_master_image:

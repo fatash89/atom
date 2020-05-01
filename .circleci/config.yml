@@ -12,35 +12,6 @@ aliases:
       DOCKER_COMPOSE_NUCLEUS_SERVICE_NAME: nucleus
       DOCKER_COMPOSE_ATOM_CONTAINER_NAME: dev_atom
       DOCKER_COMPOSE_NUCLEUS_CONTAINER_NAME: dev_nucleus
-  - &atom_image_names
-      source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}
-      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
-      target_tag: ""
-  - &atom_aarch64_image_names
-      source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-aarch64
-      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
-      target_tag: aarch64-
-  - &cuda_image_names
-      source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-cuda
-      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
-      target_tag: cuda-
-  - &opengl_image_names
-
-      source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-opengl
-      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
-      target_tag: opengl-
-  - &opengl_cuda_image_names
-      source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-opengl-cuda
-      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
-      target_tag: cuda-opengl-
-  - &nucleus_image_names
-      source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID}
-      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}
-      target_tag: ""
-  - &nucleus_aarch64_image_names
-      source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}:build-${CIRCLE_WORKFLOW_ID}-aarch64
-      target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}
-      target_tag: aarch64-
 
   # Docs build
   - &docs_env
@@ -412,77 +383,55 @@ jobs:
       tag:
         type: string
         default: ""
+      repo:
+        type: string
     executor: atom/build-ubuntu
-    resource_class: large
+    resource_class: small
     environment:
         <<: *atom_build_vars
     steps:
-      atom/push_dev_image:
-
-
-  deploy-dev:
-    executor: atom/build-ubuntu
-    resource_class: large
-    environment:
-      <<: *atom_build_vars
-    steps:
       - atom/push_dev_image:
-          <<: *atom_image_names
-      - atom/push_dev_image:
-          <<: *atom_aarch64_image_names
-      - atom/push_dev_image:
-          <<: *cuda_image_names
-      - atom/push_dev_image:
-          <<: *opengl_image_names
-      - atom/push_dev_image:
-          <<: *opengl_cuda_image_names
-      - atom/push_dev_image:
-          <<: *nucleus_image_names
-      - atom/push_dev_image:
-          <<: *nucleus_aarch64_image_names
-
-  deploy-master:
-    executor: atom/build-ubuntu
-    environment:
-      <<: *atom_build_vars
-    steps:
-      - atom/push_master_image:
-          <<: *atom_image_names
-      - atom/push_master_image:
-          <<: *atom_aarch64_image_names
-      - atom/push_master_image:
-          <<: *cuda_image_names
-      - atom/push_master_image:
-          <<: *opengl_image_names
-      - atom/push_master_image:
-          <<: *opengl_cuda_image_names
-      - atom/push_master_image:
-          <<: *nucleus_image_names
-      - atom/push_dev_image:
-          <<: *nucleus_aarch64_image_names
+          source_image: << parameters.repo >>:build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>
+          target_image: << parameters.repo >>
+          target_tag: << parameters.tag >>
 
   deploy-tag:
+    parameters:
+      tag:
+        type: string
+        default: ""
+      repo:
+        type: string
     executor: atom/build-ubuntu
+    resource_class: small
     environment:
-      <<: *atom_build_vars
+        <<: *atom_build_vars
     steps:
       - atom/push_tag_image:
-          <<: *atom_image_names
-      - atom/push_tag_image:
-          <<: *atom_aarch64_image_names
-      - atom/push_tag_image:
-          <<: *cuda_image_names
-      - atom/push_tag_image:
-          <<: *opengl_image_names
-      - atom/push_tag_image:
-          <<: *opengl_cuda_image_names
-      - atom/push_tag_image:
-          <<: *nucleus_image_names
-      - atom/push_tag_image:
-          <<: *nucleus_aarch64_image_names
+          source_image: << parameters.repo >>:build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>
+          target_image: << parameters.repo >>
+          target_tag: << parameters.tag >>
+
+  deploy-master:
+    parameters:
+      tag:
+        type: string
+        default: ""
+      repo:
+        type: string
+    executor: atom/build-ubuntu
+    resource_class: small
+    environment:
+        <<: *atom_build_vars
+    steps:
+      - atom/push_master_image:
+          source_image: << parameters.repo >>:build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>
+          target_image: << parameters.repo >>
+          target_tag: << parameters.tag >>
 
   deploy-base:
     executor: atom/build-ubuntu
+    resource_class: small
     parameters:
       tag:
         type: string
@@ -521,6 +470,7 @@ jobs:
 
   deploy-dev-docs:
     executor: atom/build-ubuntu
+    resource_class: small
     environment:
       <<: *docs_env
     steps:
@@ -529,6 +479,7 @@ jobs:
 
   deploy-master-docs:
     executor: atom/build-ubuntu
+    resource_class: small
     environment:
       <<: *docs_env
     steps:
@@ -539,6 +490,7 @@ jobs:
 
   deploy-tag-docs:
     executor: atom/build-ubuntu
+    resource_class: small
     environment:
       <<: *docs_env
     steps:
@@ -648,7 +600,58 @@ workflows:
                 - /.*-build-base.*/
 
       # Deploy all images after all tests pass
+      - deploy-dev:
+          name: "deploy-dev-atom"
+          repo: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
+          matrix:
+            parameters:
+              tag: ["", "-opengl", "-cuda", "-opengl-cuda", "-aarch64"]
+          requires:
+            - build-opengl
+            - build-cuda
+            - build-opengl-cuda
+            - build-atom-aarch64
+          filters:
+            branches:
+              ignore:
+                - master
+      - deploy-dev:
+          name: "deploy-dev-nucleus"
+          repo: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}
+          matrix:
+            parameters:
+              tag: ["", "-aarch64"]
+          requires:
+            - build-opengl
+            - build-cuda
+            - build-opengl-cuda
+            - build-atom-aarch64
+          filters:
+            branches:
+              ignore:
+                - master
+
       - deploy-master:
+          name: "deploy-master-atom"
+          repo: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
+          matrix:
+            parameters:
+              tag: ["", "-opengl", "-cuda", "-opengl-cuda", "-aarch64"]
+          requires:
+            - build-opengl
+            - build-cuda
+            - build-opengl-cuda
+            - build-atom-aarch64
+          filters:
+            branches:
+              only:
+                - master
+      - deploy-master:
+          name: "deploy-master-nucleus"
+          repo: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}
+          matrix:
+            parameters:
+              tag: ["", "-aarch64"]
           requires:
             - build-opengl
             - build-cuda
@@ -660,6 +663,11 @@ workflows:
                 - master
 
       - deploy-tag:
+          name: "deploy-tag-atom"
+          repo: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
+          matrix:
+            parameters:
+              tag: ["", "-opengl", "-cuda", "-opengl-cuda", "-aarch64"]
           requires:
             - build-opengl
             - build-cuda
@@ -671,8 +679,12 @@ workflows:
                 - /.*/
             tags:
               only: /.*/
-
-      - deploy-dev:
+      - deploy-tag:
+          name: "deploy-tag-nucleus"
+          repo: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}
+          matrix:
+            parameters:
+              tag: ["", "-aarch64"]
           requires:
             - build-opengl
             - build-cuda
@@ -681,7 +693,9 @@ workflows:
           filters:
             branches:
               ignore:
-                - master
+                - /.*/
+            tags:
+              only: /.*/
   #
   # Build and deploy the docs
   #
