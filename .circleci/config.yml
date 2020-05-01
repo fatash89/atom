@@ -26,8 +26,19 @@ aliases:
       tag: ["", "-opengl", "-cuda", "-opengl-cuda", "-aarch64"]
   - &nucleus_tags
       tag: ["", "-aarch64"]
+
+  - &base_atom_tag "base-3050"
+  - &base_atom_opengl_tag "base-opengl-3051"
+  - &base_atom_cuda_tag "base-cuda-3052"
+  - &base_atom_opengl_cuda_tag "base-opengl-cuda-3053"
+  - &base_atom_aarch64_tag "base-aarch64-3048"
   - &base_tags
-      tag: ["-3050", "-opengl-3051", "-cuda-3052", "-opengl-cuda-3053", "-aarch64-3048"]
+      tag:
+        - *base_atom_tag
+        - *base_atom_opengl_tag
+        - *base_atom_cuda_tag
+        - *base_atom_opengl_cuda_tag
+        - *base_atom_aarch64_tag
 
 
 #
@@ -301,6 +312,11 @@ jobs:
       platform:
         type: string
         default: "linux/amd64"
+      base_repo:
+        type: string
+        default: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
+      base_tag:
+        type: string
       build_args:
         type: string
         default: ""
@@ -320,7 +336,7 @@ jobs:
       - build_atom_with_nucleus_variant:
           tag: << parameters.tag >>
           platform: << parameters.platform >>
-          build_args: << parameters.build_args >>
+          build_args: --build-arg BASE_IMAGE=<< parameters.base_repo >>:<< parameters.base_tag >> << parameters.build_args >>
           test_valgrind: << parameters.test_valgrind >>
           cache_repo: << parameters.cache_repo >>
 
@@ -332,6 +348,11 @@ jobs:
       platform:
         type: string
         default: "linux/amd64"
+      base_repo:
+        type: string
+        default: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
+      base_tag:
+        type: string
       build_args:
         type: string
         default: ""
@@ -351,7 +372,7 @@ jobs:
       - build_atom_variant:
           tag: << parameters.tag >>
           platform: << parameters.platform >>
-          build_args: << parameters.build_args >>
+          build_args: --build-arg BASE_IMAGE=<< parameters.base_repo >>:<< parameters.base_tag >> << parameters.build_args >>
           test_valgrind: << parameters.test_valgrind >>
           cache_repo: << parameters.cache_repo >>
 
@@ -544,7 +565,7 @@ workflows:
           name: "build-atom"
           tag: ""
           platform: linux/amd64
-          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-3050"
+          base_tag: *base_atom_tag
           filters:
             tags:
               only:
@@ -572,7 +593,7 @@ workflows:
           name: "build-atom-opengl"
           tag: "-opengl"
           platform: linux/amd64
-          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-opengl-3051"
+          base_tag: *base_atom_opengl_tag
           requires:
             - atom/check_flake8
           filters:
@@ -587,7 +608,7 @@ workflows:
           name: "build-atom-cuda"
           tag: "-cuda"
           platform: linux/amd64
-          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-cuda-3052"
+          base_tag: *base_atom_cuda_tag
           requires:
             - atom/check_flake8
           filters:
@@ -602,7 +623,7 @@ workflows:
           name: "build-atom-opengl-cuda"
           tag: "-opengl-cuda"
           platform: linux/amd64
-          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-opengl-cuda-3053"
+          base_tag: *base_atom_opengl_cuda_tag
           requires:
             - atom/check_flake8
           filters:
@@ -617,7 +638,7 @@ workflows:
           name: "build-atom-aarch64"
           tag: "-aarch64"
           platform: linux/aarch64
-          build_args: "--build-arg BASE_IMAGE=elementaryrobotics/atom:base-aarch64-3048"
+          base_tag: *base_atom_aarch64_tag
           test_valgrind: false
           cache_repo: elementaryrobotics/atom-cache-aarch64
           requires:
