@@ -151,7 +151,7 @@ commands:
         default: true
       cache_repo:
         type: string
-        default: elementaryrobotics/atom-cache
+        default: ${DOCKERHUB_ORG}/${DOCKERHUB_CACHE_REPO}
     steps:
 
       # Build base, atom and test stages of atom image
@@ -225,7 +225,7 @@ commands:
         default: true
       cache_repo:
         type: string
-        default: elementaryrobotics/atom-cache
+        default: ${DOCKERHUB_ORG}/${DOCKERHUB_CACHE_REPO}
     steps:
 
       # Build atom and test stages
@@ -273,7 +273,7 @@ commands:
         default: ""
       cache_repo:
         type: string
-        default: elementaryrobotics/atom-cache
+        default: ${DOCKERHUB_ORG}/${DOCKERHUB_CACHE_REPO}
       test_valgrind:
         type: boolean
         default: true
@@ -322,7 +322,7 @@ jobs:
         default: ""
       cache_repo:
         type: string
-        default: elementaryrobotics/atom-cache
+        default: ${DOCKERHUB_ORG}/${DOCKERHUB_CACHE_REPO}
       test_valgrind:
         type: boolean
         default: true
@@ -358,7 +358,7 @@ jobs:
         default: ""
       cache_repo:
         type: string
-        default: elementaryrobotics/atom-cache
+        default: ${DOCKERHUB_ORG}/${DOCKERHUB_CACHE_REPO}
       test_valgrind:
         type: boolean
         default: true
@@ -389,7 +389,7 @@ jobs:
         default: ""
       cache_repo:
         type: string
-        default: elementaryrobotics/atom-cache
+        default: ${DOCKERHUB_ORG}/${DOCKERHUB_CACHE_REPO}
       test_valgrind:
         type: boolean
         default: true
@@ -640,7 +640,7 @@ workflows:
           platform: linux/aarch64
           base_tag: *base_atom_aarch64_tag
           test_valgrind: false
-          cache_repo: elementaryrobotics/atom-cache-aarch64
+          cache_repo: ${DOCKERHUB_ORG}/${DOCKERHUB_CACHE_REPO_AARCH64}
           requires:
             - atom/check_flake8
           filters:
@@ -794,7 +794,7 @@ workflows:
           tag: "-aarch64"
           platform: linux/aarch64
           build_args: "--build-arg BLAS_TARGET_CPU=ARMV8 --build-arg PYARROW_EXTRA_CMAKE_ARGS=-DARROW_ARMV8_ARCH=armv8-a"
-          cache_repo: elementaryrobotics/atom-cache-aarch64
+          cache_repo: ${DOCKERHUB_ORG}/${DOCKERHUB_CACHE_REPO_AARCH64}
           test_valgrind: false
           filters:
             branches:

@@ -129,7 +129,7 @@ commands:
         <<: *output_timeout_param
       cache_repo:
         type: string
-        default: elementaryrobotics/atom-cache
+        default: ${DOCKERHUB_ORG}/${DOCKERHUB_CACHE_REPO}
       cache_tag:
         type: string
         default: ""
