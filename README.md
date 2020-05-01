@@ -341,8 +341,6 @@ and take a long time to build from source and/or install.
 
 ### Images
 
-#### elementaryrobotics/atom
-
 | Tag  | Base OS | Arch | Description |
 |------|---------|------|-------------|
 | `base` | `debian:buster-slim` | `amd64` | Build dependencies for Atom |
@@ -350,19 +348,6 @@ and take a long time to build from source and/or install.
 | `base-opengl` | `nvidia/opengl` | `amd64` | Build dependencies for Atom + OpenGL |
 | `base-opengl-cuda` | `nvidia/cuda` | `amd64` | Build dependencies for Atom + OpenGL + CUDA |
 | `base-aarch64` | `debian:buster-slim` | `aarch64` | Build dependencies for Atom cross-comiled for aarch64/ARMv8 |
-
-#### Latest Tag
-
-For each base, please find below the latest/recommended tag to use:
-
-| base | tag |
-|------|-----|
-| `base` | `base-3050` |
-| `base-opengl` | `base-opengl-3051` |
-| `base-cuda` | `base-cuda-3052` |
-| `base-opengl-cuda` | `base-opengl-cuda-3053` |
-| `base-aarch64` | `base-aarch64-3048` |
-
 
 ### Updating a Base Image
 
@@ -375,10 +360,8 @@ are:
 4. Wait for the CI/CD builds to pass/complete. This will build and push a new base
 with a new tag, `base-XXX-YYY` to the appropriate DockerHub repo. `XXX` will be
 the base tag and `YYY` will be the CircleCI build number.
-5. Note the new tag, `base-XXX-YYY` in this documentation
-6. Update the [build config](.circleci/config.yml) to use the new base
-7. Push a branch with a non-base-building name to github and go through the
-normal PR process.
+5. Update the [aliases section of the CircleCI config](.circleci/config.yml) to use the new base
+6. Check in the results from (5) and merge the branch into master. The new base tag will be auto-pushed to the generic base tag `base-XXX` upon merge into master.
 
 #### Special Branches
 
