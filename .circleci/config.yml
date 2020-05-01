@@ -386,7 +386,7 @@ jobs:
       repo:
         type: string
     executor: atom/build-ubuntu
-    resource_class: small
+    resource_class: medium
     environment:
         <<: *atom_build_vars
     steps:
@@ -403,7 +403,7 @@ jobs:
       repo:
         type: string
     executor: atom/build-ubuntu
-    resource_class: small
+    resource_class: medium
     environment:
         <<: *atom_build_vars
     steps:
@@ -420,7 +420,7 @@ jobs:
       repo:
         type: string
     executor: atom/build-ubuntu
-    resource_class: small
+    resource_class: medium
     environment:
         <<: *atom_build_vars
     steps:
@@ -431,7 +431,7 @@ jobs:
 
   deploy-base:
     executor: atom/build-ubuntu
-    resource_class: small
+    resource_class: medium
     parameters:
       tag:
         type: string
@@ -470,7 +470,7 @@ jobs:
 
   deploy-dev-docs:
     executor: atom/build-ubuntu
-    resource_class: small
+    resource_class: medium
     environment:
       <<: *docs_env
     steps:
@@ -479,7 +479,7 @@ jobs:
 
   deploy-master-docs:
     executor: atom/build-ubuntu
-    resource_class: small
+    resource_class: medium
     environment:
       <<: *docs_env
     steps:
@@ -490,7 +490,7 @@ jobs:
 
   deploy-tag-docs:
     executor: atom/build-ubuntu
-    resource_class: small
+    resource_class: medium
     environment:
       <<: *docs_env
     steps:
@@ -601,12 +601,11 @@ workflows:
 
       # Deploy all images after all tests pass
       - deploy-dev:
-          name: "deploy-dev-atom"
+          name: "deploy-dev-atom<< matrix.tag >>"
           repo: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
           matrix:
             parameters:
               tag: ["", "-opengl", "-cuda", "-opengl-cuda", "-aarch64"]
-            name: "deploy-dev-atom<< matrix.tag >>"
           requires:
             - "build-atom<<matrix.tag>>"
           filters:
@@ -614,12 +613,11 @@ workflows:
               ignore:
                 - master
       - deploy-dev:
-          name: "deploy-dev-nucleus"
+          name: "deploy-dev-nucleus<< matrix.tag >>"
           repo: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}
           matrix:
             parameters:
               tag: ["", "-aarch64"]
-            name: "deploy-dev-nucleus<< matrix.tag >>"
           requires:
             - "build-atom<<matrix.tag>>"
           filters:
@@ -628,12 +626,11 @@ workflows:
                 - master
 
       - deploy-master:
-          name: "deploy-master-atom"
+          name: "deploy-master-atom<< matrix.tag >>"
           repo: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
           matrix:
             parameters:
               tag: ["", "-opengl", "-cuda", "-opengl-cuda", "-aarch64"]
-            name: "deploy-master-atom<< matrix.tag >>"
           requires:
             - "build-atom<<matrix.tag>>"
           filters:
@@ -641,12 +638,11 @@ workflows:
               only:
                 - master
       - deploy-master:
-          name: "deploy-master-nucleus"
+          name: "deploy-master-nucleus<< matrix.tag >>"
           repo: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}
           matrix:
             parameters:
               tag: ["", "-aarch64"]
-            name: "deploy-master-nucleus<< matrix.tag >>"
           requires:
             - "build-atom<<matrix.tag>>"
           filters:
@@ -655,12 +651,11 @@ workflows:
                 - master
 
       - deploy-tag:
-          name: "deploy-tag-atom"
+          name: "deploy-tag-atom<< matrix.tag >>"
           repo: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
           matrix:
             parameters:
               tag: ["", "-opengl", "-cuda", "-opengl-cuda", "-aarch64"]
-            name: "deploy-tag-atom<< matrix.tag >>"
           requires:
             - "build-atom<<matrix.tag>>"
           filters:
@@ -670,12 +665,11 @@ workflows:
             tags:
               only: /.*/
       - deploy-tag:
-          name: "deploy-tag-nucleus"
+          name: "deploy-tag-nucleus<< matrix.tag >>"
           repo: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}
           matrix:
             parameters:
               tag: ["", "-aarch64"]
-            name: "deploy-tag-nucleus<< matrix.tag >>"
           requires:
             - "build-atom<<matrix.tag>>"
           filters:
