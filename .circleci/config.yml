@@ -331,7 +331,7 @@ jobs:
       test_valgrind:
         type: boolean
         default: true
-    executor: atom/build-ubuntu-nocache
+    executor: atom/build-ubuntu
     resource_class: large
     environment:
       <<: *atom_build_vars
@@ -362,7 +362,7 @@ jobs:
       test_valgrind:
         type: boolean
         default: true
-    executor: atom/build-ubuntu-nocache
+    executor: atom/build-ubuntu
     resource_class: large
     environment:
       <<: *atom_build_vars
@@ -393,7 +393,7 @@ jobs:
       test_valgrind:
         type: boolean
         default: true
-    executor: atom/build-ubuntu-nocache
+    executor: atom/build-ubuntu
     resource_class: large
     environment:
       <<: *atom_build_vars
@@ -406,6 +406,19 @@ jobs:
           build_args: << parameters.build_args >>
           cache_repo: << parameters.cache_repo >>
           test_valgrind: << parameters.test_valgrind >>
+
+  deploy-dev:
+    parameters:
+      tag:
+        type: string
+        default: ""
+    executor: atom/build-ubuntu
+    resource_class: large
+    environment:
+        <<: *atom_build_vars
+    steps:
+      atom/push_dev_image:
+
 
   deploy-dev:
     executor: atom/build-ubuntu
