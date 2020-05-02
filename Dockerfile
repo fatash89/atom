@@ -66,6 +66,7 @@ WORKDIR /atom
 ################################################################################
 
 FROM $PRODUCTION_IMAGE as atom
+ARG INSTALL_OPENGL=""
 
 # Install python
 RUN apt-get update -y \
