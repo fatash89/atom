@@ -31,6 +31,9 @@ RUN if [ ! -z "${INSTALL_OPENGL}" ]; then apt-get update && apt-get install -y \
   libegl1 \
   libgles2; fi
 
+# Set up the venv path
+ENV PATH="/opt/venv/bin:$PATH"
+
 #####
 # Install dependencies used to build things and do
 # the actual build
@@ -151,7 +154,6 @@ WORKDIR /atom
 
 # Copy contents of python virtualenv and activate
 COPY --from=build /opt/venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy /usr/local for libraries + headers
 COPY --from=build /usr/local/lib /usr/local/lib

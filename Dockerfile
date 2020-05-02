@@ -79,7 +79,6 @@ FROM $BASE_IMAGE as atom
 
 # Copy contents of python virtualenv and activate
 COPY --from=atom-source /opt/venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy C builds
 COPY --from=atom-source /usr/local/lib /usr/local/lib
@@ -127,10 +126,6 @@ ARG DEBIAN_FRONTEND=noninteractive
 #
 # Install test dependencies
 #
-
-# Cache buster env var - change date to invalidate subsequent caching
-# See the atom README "Atom Dockerfile" section for more information
-ENV LAST_UPDATED 2019-03-12
 
 # Install googletest
 RUN apt-get update \
