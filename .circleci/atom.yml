@@ -143,7 +143,8 @@ commands:
             --load
             -f << parameters.file >>
             -t << parameters.image_name >>:<< parameters.image_tag >>
-            --target=<< parameters.stage >> << parameters.build_args >>
+            --target=<< parameters.stage >>
+            << parameters.build_args >>
             --pull
             --cache-from=type=registry,ref=<< parameters.cache_repo >>:<< parameters.cache_tag >>
             --cache-to=type=registry,ref=<< parameters.cache_repo >>:<< parameters.cache_tag >>,mode=max
@@ -267,14 +268,14 @@ commands:
         type: string
       target_tag:
         type: string
-        default: ""
+        default: development-${CIRCLE_BUILD_NUM}
       output_timeout:
         <<: *output_timeout_param
     steps:
       - deploy_image:
           source_image: << parameters.source_image >>
           target_image: << parameters.target_image >>
-          target_tag: development-${CIRCLE_BUILD_NUM}<< parameters.target_tag >>
+          target_tag: << parameters.target_tag >>
           output_timeout: << parameters.output_timeout >>
 
   push_master_image:
@@ -285,14 +286,14 @@ commands:
         type: string
       target_tag:
         type: string
-        default: ""
+        default: master-${CIRCLE_BUILD_NUM}
       output_timeout:
         <<: *output_timeout_param
     steps:
       - deploy_image:
           source_image: << parameters.source_image >>
           target_image: << parameters.target_image >>
-          target_tag: << parameters.target_tag >>master-${CIRCLE_BUILD_NUM}
+          target_tag: << parameters.target_tag >>
           output_timeout: << parameters.output_timeout >>
       - deploy_image:
           source_image: << parameters.source_image >>
@@ -308,14 +309,14 @@ commands:
         type: string
       target_tag:
         type: string
-        default: ""
+        default: ${CIRCLE_TAG}
       output_timeout:
         <<: *output_timeout_param
     steps:
       - deploy_image:
           source_image: << parameters.source_image >>
           target_image: << parameters.target_image >>
-          target_tag: << parameters.target_tag >>${CIRCLE_TAG}
+          target_tag: << parameters.target_tag >>
           output_timeout: << parameters.output_timeout >>
 
 
