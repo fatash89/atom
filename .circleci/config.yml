@@ -35,7 +35,7 @@ aliases:
   - &base_build_atom_cuda_tag "base-cuda-3052"
   - &base_build_atom_aarch64_tag "base-aarch64-3048"
   - &base_build_tags
-      tag:
+      source_tag:
         - *base_build_atom_tag
         - *base_build_atom_opengl_tag
         - *base_build_atom_cuda_tag
@@ -303,6 +303,30 @@ commands:
           build_args: "--build-arg BASE_IMAGE=${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}:build-${CIRCLE_WORKFLOW_ID}-base<< parameters.tag >>"
           test_valgrind: << parameters.test_valgrind >>
 
+  deploy_alter_tag:
+    parameters:
+      source_tag:
+        type: string
+      source_image:
+        type: string
+        default: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
+      target_image:
+        type: string
+        default: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
+      target_tag_cmd:
+        type: string
+        default: grep ".*"
+    steps:
+      - run:
+          name: Pull image
+          command: docker pull << parameters.source_image >>:<< parameters.source_tag >>
+      - run:
+          name: Tag image
+          command: docker tag << parameters.source_image >>:<< parameters.source_tag >> << parameters.target_image >>:$(echo << parameters.source_tag >> | << parameters.target_tag_cmd >>)
+      - run:
+          name: Push image
+          command: docker push << parameters.target_image >>:$(echo << parameters.source_tag >> | << parameters.target_tag_cmd >>)
+
 jobs:
 
   build-atom-with-nucleus:
@@ -454,10 +478,24 @@ jobs:
     environment:
         <<: *atom_build_vars
     steps:
-      - atom/push_master_image:
+      - atom/deploy_image:
           source_image: << parameters.repo >>:build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>
           target_image: << parameters.repo >>
           target_tag: master-${CIRCLE_BUILD_NUM}<< parameters.tag >>
+      - deploy_alter_tag:
+          source_image: << parameters.repo >>
+          source_tag: build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>
+          target_image: << parameters.repo >>
+
+        #
+        # Note on tagging: in order to get this job to work with CircleCI's matrix
+        #   system we are passing the tag with the leading '-' since this is
+        #   necessary for the development builds/tagging. We use this grep
+        #   command to strip off the leading "-" in our final tags
+        #
+          target_tag_cmd: grep -oP "(?<=-).*"
+
+
 
   deploy-base-dev:
     executor: atom/build-ubuntu
@@ -480,32 +518,29 @@ jobs:
     executor: atom/build-ubuntu
     resource_class: medium
     parameters:
-      tag:
+      source_tag:
         type: string
-      target_image:
+      repo:
         type: string
         default: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
     environment:
       <<: *atom_build_vars
     steps:
       - atom/docker_login
-      - run:
-          name: Pull image
-          command: docker pull << parameters.target_image >>:<< parameters.tag >>
-      #
-      # Note on tagging: in order to get this job to work with CircleCI's matrix
-      #   system we are passing the numbered base tag, i.e. base-aarch64-1234
-      #   as the "tag". We want to take this numbered build and push it to an
-      #   equivalent of "latest", i.e. base-aarch64. In order to do this, we
-      #   run the passed tag through "grep -oP '[\-a-z0-9]+(?=-[0-9]+)'" which
-      #   strips off the trailing numbers, i.e. -1234.
-      #
-      - run:
-          name: Tag image
-          command: docker tag << parameters.target_image >>:<< parameters.tag >> << parameters.target_image >>:base$(echo << parameters.tag >> | grep -oP '[\-a-z0-9]+(?=-[0-9]+)')
-      - run:
-          name: Push image
-          command: docker push << parameters.target_image >>:$(echo << parameters.tag >> | grep -oP '[\-a-z0-9]+(?=-[0-9]+)')
+      - deploy_alter_tag:
+          source_tag: << parameters.source_tag >>
+          source_image: << parameters.repo >>
+          target_image: << parameters.repo >>
+
+          #
+          # Note on tagging: in order to get this job to work with CircleCI's matrix
+          #   system we are passing the numbered base tag, i.e. base-aarch64-1234
+          #   as the "tag". We want to take this numbered build and push it to an
+          #   equivalent of "latest", i.e. base-aarch64. In order to do this, we
+          #   run the passed tag through "grep -oP '[\-a-z0-9]+(?=-[0-9]+)'" which
+          #   strips off the trailing numbers, i.e. -1234.
+          #
+          target_tag_cmd: grep -oP '[\-a-z0-9]+(?=-[0-9]+)'
 
   build-docs:
     executor: atom/build-ubuntu
@@ -850,7 +885,7 @@ workflows:
 
       # Bump the base tags when merging into master
       - deploy-base-master:
-          name: "deploy-base-master-<< matrix.tag >>"
+          name: "deploy-base-master-<< matrix.source_tag >>"
           matrix:
             parameters:
               << : *base_build_tags
