@@ -48,7 +48,7 @@ aliases:
 version: 2.1
 
 orbs:
-  atom:  elementaryrobotics/atom@dev:296-multi-arch
+  atom:  elementaryrobotics/atom@0.1.1
 
 commands:
 
