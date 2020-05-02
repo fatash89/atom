@@ -10,17 +10,6 @@ FROM $BASE_IMAGE as atom-source
 ARG DEBIAN_FRONTEND=noninteractive
 
 #
-# Install build tools
-#
-RUN apt-get update -y \
- && apt-get install -y --no-install-recommends \
-      autoconf \
-      libtool \
-      cmake \
-      build-essential \
-      pkg-config
-
-#
 # C client
 #
 
@@ -75,10 +64,19 @@ WORKDIR /atom
 #
 ################################################################################
 
-FROM $BASE_IMAGE as atom
+ARG PRODUCTION_IMAGE=debian:buster-slim
+FROM $PRODUCTION_IMAGE as atom
+
+# Install python
+RUN apt-get update -y \
+ && apt-get install -y --no-install-recommends apt-utils \
+                                               python3-minimal \
+                                               python3-pip \
+                                               libatomic1
 
 # Copy contents of python virtualenv and activate
 COPY --from=atom-source /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy C builds
 COPY --from=atom-source /usr/local/lib /usr/local/lib
