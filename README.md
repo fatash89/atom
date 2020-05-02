@@ -382,20 +382,13 @@ the base tag and `YYY` will be the CircleCI build number.
 
 #### Changes to `Dockerfile-base`
 
-The base dockerfile has the following sections:
+The base dockerfile is not used in the production images in order to reduce image size. Instead, everything from the following directories is coped over:
 
-1. Runtime dependencies -- things needed when running atom
-2. Build dependencies -- things needed to build atom-base
-3. The base that gets shipped -- (1) plus the build product from (2)
-
-Currently, the base that gets shipped is set up to just copy over from (2) to (3):
 - `/usr/local/lib`
 - `/usr/local/include`
-- A few binaries (redis-server, etc.)
+- `/opt/venv`
 
-If you're adding new runtime dependencies, be sure to add them to the apt-get install in (1). If you're adding new libraries please build them in (2) and ensure their build product is in /usr/local when complete. If so, then you shouldn't need to modify (3).
-
-This process helps to keep our build size down as we wind up stripping out all source and unneeded tools.
+If you're adding something to the base (new library, etc.) ensure it is installed in `/usr/local`.
 
 #### Special Branches
 
