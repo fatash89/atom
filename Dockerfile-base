@@ -14,10 +14,8 @@ FROM $BASE_IMAGE as runtime-deps
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends \
       apt-utils \
-      git \
       python3-minimal \
       python3-pip \
-      python3-venv \
       libatomic1 \
  && pip3 install --no-cache-dir --upgrade pip setuptools
 
@@ -58,7 +56,9 @@ RUN apt-get update -y \
       bison \
       curl \
       pkg-config \
-      python3-dev
+      python3-dev \
+      python3-venv \
+      git
 
 #
 # C/C++ deps
