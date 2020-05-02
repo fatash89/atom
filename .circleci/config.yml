@@ -23,7 +23,7 @@ aliases:
 
   # Atom tags
   - &atom_tags
-      tag: ["", "-opengl", "-cuda", "-opengl-cuda", "-aarch64"]
+      tag: ["", "-opengl", "-cuda", "-aarch64"]
   - &nucleus_tags
       tag: ["", "-aarch64"]
 
