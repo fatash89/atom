@@ -66,17 +66,6 @@ WORKDIR /atom
 
 FROM $BASE_IMAGE as atom
 
-# Cache buster env var - change date to invalidate subsequent caching
-# See the atom README "Atom Dockerfile" section for more information
-ENV LAST_UPDATED 2019-03-06
-
-# Install python
-RUN apt-get update -y \
- && apt-get install -y --no-install-recommends apt-utils \
-                                               python3-minimal \
-                                               python3-pip \
-                                               libatomic1
-
 # Copy contents of python virtualenv and activate
 COPY --from=atom-source /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"

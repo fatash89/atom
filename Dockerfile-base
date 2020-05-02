@@ -5,7 +5,37 @@
 ################################################################################
 
 ARG BASE_IMAGE=debian:buster-slim
-FROM $BASE_IMAGE as base
+
+#####
+# Install dependencies that will be shared with runtime
+#####
+FROM $BASE_IMAGE as runtime-deps
+
+RUN apt-get update -y \
+ && apt-get install -y --no-install-recommends \
+      apt-utils \
+      git \
+      python3-minimal \
+      python3-pip \
+      python3-venv \
+      python3-dev \
+      libatomic1 \
+ && pip3 install --no-cache-dir --upgrade pip setuptools
+
+# Potentially install opengl
+RUN if [ ! -z "${INSTALL_OPENGL}" ]; then apt-get update && apt-get install -y \
+  --no-install-recommends \
+  libglvnd0 \
+  libgl1 \
+  libglx0 \
+  libegl1 \
+  libgles2; fi
+
+#####
+# Install dependencies used to build things and do
+# the actual build
+#####
+FROM runtime-deps as build
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG BLAS_TARGET_CPU=""
@@ -18,30 +48,14 @@ ARG INSTALL_OPENGL=""
 
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends \
-      apt-utils \
-      git \
       autoconf \
       libtool \
       cmake \
       build-essential \
-      python3-minimal \
-      python3-pip \
-      python3-venv \
-      python3-dev \
       flex \
       bison \
       curl \
-      pkg-config \
- && pip3 install --no-cache-dir --upgrade pip setuptools
-
-# Potentially install opengl
-RUN if [ ! -z "${INSTALL_OPENGL}" ]; then apt-get update && apt-get install -y \
-  --no-install-recommends \
-  libglvnd0 \
-  libgl1 \
-  libglx0 \
-  libegl1 \
-  libgles2; fi
+      pkg-config
 
 #
 # C/C++ deps
@@ -127,5 +141,22 @@ RUN cd /atom/third-party/redis && make -j8 && make PREFIX=/usr/local install
 # Finish up
 #
 
+#####
+# Actual base image -- strip out source
+#####
+FROM runtime-deps as base
+
 # Change working directory back to atom location
 WORKDIR /atom
+
+# Copy contents of python virtualenv and activate
+COPY --from=build /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy /usr/local for libraries + headers
+COPY --from=build /usr/local/lib /usr/local/lib
+COPY --from=build /usr/local/include /usr/local/include
+
+# Copy redis-cli and redis-server
+COPY --from=build /usr/local/bin/redis-cli /usr/local/bin/redis-cli
+COPY --from=build /usr/local/bin/redis-cli /usr/local/bin/redis-server
