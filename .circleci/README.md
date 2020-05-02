@@ -149,6 +149,59 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 
 ### Release Notes
 
+#### [v0.1.1](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.1.1)
+
+##### New Features
+
+- Improved tagging clarity. Now, `push_*_image` commands require full
+tag to be specified instead of partial tag that's then injected into a
+tag format. This makes it more clear/easier to use.
+
+##### Upgrade Steps
+
+- If specifying a custom tag for `push_*_image` commands, now you must specify
+the entire desired tag in `target_tag`. If using the default tag, no action
+is required
+
+```diff
+      - atom/push_dev_image:
+          source_image: << parameters.repo >>:build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>
+          target_image: << parameters.repo >>
+          target_tag: development-${CIRCLE_BUILD_NUM}<< parameters.tag >>
+```
+
+#### [v0.1.0](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.1.0)
+
+##### New Features
+
+- Docker caching performance can be achieved through use of the `DOCKERHUB_CACHE_REPO` environment variable that must now be set in your build. This can be any repo on Dockerhub. The new `build_stage_buildx` builder will pull cache from and push cache to this repo automatically without having to rely on CircleCI for DLC and thus saving 200 credits/build without losing performance. It's recommended to adopt this new behavior. The cache repo can be the same repo as your production repo.
+- Due to the above, DLC has been turned off in all machines
+- `build-ubuntu` machine has been upgraded to the `202004-01` image as this is the first to ship with Docker 19.03+ which supports `buildx`
+- Added `enable_buildx` and `build_stage_buildx` commands. `enable_buildx` must be run before `build_stage_buildx` on a machine. This uses the new `buildx` docker build engine which can cross-compile for different platforms as well as use external caches.
+- Added `deploy_image` command
+
+##### Upgrade Steps
+
+- Reference the `v0.1.0` orb in your `config.yml`
+- Set `DOCKERHUB_CACHE_REPO` in your CircleCI build to match your production repo
+- Switch your build commands to use `enable_buildx`, `build_stage_buildx`, and `run_compose` instead of using `build_and_launch`.
+
+```diff
+      - atom/enable_buildx
+
+      - atom/build_stage_buildx:
+          stage: atom-source
+          image_name: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
+          image_tag: build-${CIRCLE_WORKFLOW_ID}
+          platform: linux/amd64
+          build_args: --build-arg BASE_IMAGE=elementaryrobotics/atom:base
+          cache_repo: ${DOCKERHUB_ORG}/${DOCKERHUB_CACHE_REPO}
+          cache_tag: -cache
+
+      - atom/run_compose
+          file: docker-compose.yml
+```
+
 #### [v0.0.11](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.0.11)
 Created 04/07/2020.
 

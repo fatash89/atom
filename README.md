@@ -33,237 +33,414 @@ Please see the [Redis Talks and Slides](https://github.com/elementary-robotics/a
 
 ## Development
 
-In this repository is a `docker-compose` file that can build and launch both
-the nucleus image and the atom image.
-
-### Initializing Submodules
-
-Before beginning, you'll want to initialize all submodules
-```
-git submodule update --init --recursive
-```
-
-### Building Containers
-
-In order to build the container, use `docker-compose`
-```
-docker-compose build
-```
-
-This will build both the nucleus image and the atom image and will create
-the following tags:
-```
-dev_atom:latest
-dev_nucleus:latest
-```
-
-### Developing
+### Quickstart
 
 It's best to do all developmental testing and building within
 the docker containers. The easiest way to do this is to mount the
 current directory into the latest atom image that's been built and
-continue development in there until you're ready to rebuild.
-For more details refer to [Atom's docker-compose docs](https://github.com/elementary-robotics/atom/blob/26ff146fb23e12071a2743e12bc71c15023d23b3/doc/source/includes/docker-compose.md
-).
+develop from there.
 
-For example, mount your local Atom source directory to `/development`
-in the atom image by adding a volume entry to the atom service in the docker-compose file:
+This is done automatically in the [`docker-compose.yml`](docker-compose.yml)
+supplied in this repo through code similar to the below.
 
 ```yaml
     volumes:
-      - ".:/development"
+      - ".:/atom"
 ```
 
 The recommended workflow for development is then to execute:
 
 ```
-docker-compose up -d
-docker exec -it dev_atom bash
+$ docker-compose pull
+$ docker-compose up -d
+$ docker exec -it atom bash
 ```
 
-This will open up a shell within the most recent dev_atom you've built (or you can specify a tag or an `atom-test` image if
-you'd like) and mount your current source folder in `/development`.
-Then you may compile/run code (such as unit tests of a new feature)
-from within the container while editing the source in a different shell session running outside of the container.
-Note that typically you'll need to restart/reinstall the service that you're developing from within the container
-in order for your code edits to take effect (For example, run `python3 setup.py install` between edits to the Python3 language client).
+This will open up a shell within the most recent build of atom. This repo
+will be mounted into the container at `/atom` and from there you can test
+changes to the code.
 
-#### Debugging with gdb
+### Next Steps
 
-If you want to be able to run gdb in docker, add the below
-to your docker command:
+After working through the quickstart, it's recommended to try rebuilding the
+Atom docker images in order to test changes. Following that, it's recommended
+to check out the [guide to making your first element](ELEMENT_DEVELOPMENT.md)
+
+### Contributing
+
+Contributions of issues and pull requests are welcome!
+
+## Building Docker Images
+
+### Update Submodules
+
+Atom depends on a few third-party dependencies which are all included as
+submodules in these repos. From the top-level in this repo, run:
+
 ```
---cap-add=SYS_PTRACE
-```
-
-### Testing
-
-In order to test the images, we'll again use `docker-compose` to launch
-containers of the images we built. This will also create a shared `tmpfs`
-volume that the containers will share in order to use the redis unix socket
-as opposed to using redis via TCP. This should theoretically give us better
-performance.
-
-In order to launch the test container you can run:
-```
-docker-compose up -d
+git submodule update --init --recursive
 ```
 
-This will launch the necessary containers and make the shared volume and
-background everything. Then, to run the tests you care about you can run:
+This will pull all of the proper dependencies.
+
+### Atom and Nucleus
+
+If you'd prefer to develop by building the atom Docker containers, this
+can be done fairly easily as well by using the [`docker-compose-dev.yml`](docker-compose-dev.yml)
+compose file.
+
+Before building atom you'll need to set the proper library
+version flag. This needs to be done outside of the Dockerfile since the .git repo used to generate the version is not copied into the Docker container.
+
+From the top level of this directory, run
 ```
-docker exec -it -w ${COMMAND_WORKING_DIRECTORY} dev_atom ${TEST_COMMAND}
-```
-
-An example of the above, to run the python unit tests is
-```
-docker exec -it -w /atom/languages/python dev_atom pytest
-```
-
-After running the tests, to bring down the environment you can run:
-```
-docker-compose down -v
-```
-This will shut down the containers, remove them and also take down the
-shared volume that was created for the redis socket.
-
-### Continuous Integration (CI) and Deployment
-
-Upon pushing to github, a build will be started on CircleCI. This will build
-both the nucleus and atom images and will run any implemented unit tests
-against them.
-
-If the build and tests pass, the images will be pushed to dockerhub. Depending
-on the branch, they will be tagged as so:
-
-| branch | tag |
-|--------|-----|
-| `master` | master-${CIRCLE_BUILD_NUM} |
-| Non-`master` | development-${CIRCLE_BUILD_NUM} |
-
-When `master` is built, the images will also be tagged and pushed as `latest`.
-
-### Configuring CircleCI
-
-#### For a generic element
-
-If you're looking for the general CircleCI config docs for elements, see [the CircleCI README](.circleci/README.md)
-
-#### To build this repo
-
-If you've forked this repository and/or made an element and want to set up the build chain on CircleCI (recommended), please follow the steps below:
-
-1. Push your repo to github
-2. Log into CircleCI using your github account and start building the process on CircleCI. The first build will likely fail since there are a few things you need to configure.
-3. Add the following envirnoment variables to your CircleCI build. Note that some of these variables are needed only to rebuild the `atom` repo and some are needed for any element you want to build.
-
-| Variable | Required for which builds? | Description |
-|----------|----------------------------|-------------|
-| `DOCKERHUB_ORG` | all | Organization you want your docker containers pushed to |
-| `DOCKERHUB_USER` | all | Username of the account with permissions to push to your build repos. It's recommended to make a separate user for this so you don't risk exposing your personal credentials |
-| `DOCKERHUB_PASSWORD` | all | Password for `DOCKERHUB_USER`. Will be injected into the build and used to login. |
-| `DOCKERHUB_REPO` | elements only | Which repo in `DOCKERHUB_ORG` to push to |
-| `DOCKERHUB_ATOM_REPO` | atom repo only | If you're rebuilding atom, which repo to put the atom container into |
-| `DOCKERHUB_NUCLEUS_REPO` | atom repo only | If you're rebuilding atom, which repo to put the nucleus container into |
-| `DOCKERHUB_DOCS_REPO` | atom repo only | If you're rebuilding atom, which repo to put the built docs container into |
-| `DOCKERHUB_ATOM_OPENGL_REPO` | atom repo only | If you're rebuilding atom, which repo to put the built atom container with OpenGL support into |
-| `DOCKERHUB_ATOM_CUDA_10_REPO` | atom repo only | If you're rebuilding atom, which repo to put the built atom container with CUDA 10 support into |
-| `DOCKERHUB_ATOM_OPENGL_CUDA_10_REPO` | atom repo only | If you're rebuilding atom, which repo to put the built atom container with OpenGL + CUDA 10 support into |
-| `HEROKU_API_KEY` | atom repo only | If you're rebuilding atom, secret API key to use to push the docs container to heroku for deployment. You can host your own version of the docs site pretty easily by making a new heroku app and pushing the docs container to it using our deploy script |
-| `HEROKU_APP_NAME` | atom repo only | Name of the heroku app to which you're deploying the docs container |
-
-4. If you're only interested and not running any deploy steps, simply remove the `Docker Login` and `Docker tag and push` steps from the [circleci file](.circleci/config.yml) and you don't need to configure any of the above.
-
-## Specification
-
-The `atom` language clients in the `languages` folder all implement the `atom`
-specification. See the [documents](https://atomdocs.io)
-for more information on the spec.
-
-## Creating a new language client
-
-To create a new language client, you must do the following:
-
-1. Add a folder in `languages` for the new language client
-2. Implement the `atom` spec atop a redis client for the language.
-3. Modify `Dockerfile-atom` to compile `msgpack` for the language in the `base` stage.
-4. Modify `Dockerfile-atom` to compile/install the language into the
-docker image in the `base` stage.
-5. Copy over the installed libraries in `prod` stage of `Dockerfile-atom`.
-6. Write a `README` on how to use the language client
-7. Write unit tests for the language client
-8. Modify `.circleci/config.yml` to run the unit tests for the language client.
-9. Open a PR with the above changes.
-
-## Creating an app or element
-
-### Overview
-
-An element creator who simply uses libraries should never have to modify this
-repo. Each element should be placed in its own repository that's been
-initialized to the contents of the `template` folder. In the `template` folder
-you'll find the following:
-
-1. `.circleci` folder with config for automated build/deployment
-2. `Dockerfile` that imports from the most recent `atom` image
-3. `docker-compose.yml` which specifies the dependencies of the element or app.
-This dependency tree will contain the nucleus and all of the other elements
-that need to be launched in order for the new app/element to be launched.
-4. `README` example README.
-5. `launch.sh`. This is expected to be filled out with the command(s) to launch
-your element/app. An example of what could be put in this file would be:
-```
-!/bin/bash
-
-python3 my_element.py
+python3 languages/python/version.py
 ```
 
-## Atom Dockerfile
+Once this has been done, you can rebuild the Dockerfile.
 
-The `atom` Dockerfile is a multi-stage Dockerfile, meaning it contains multiple build stages that result in
-different images that may be built from each other. Currently the `atom` build has the following stages:
+#### Default Build
 
-1. `base` - this image is used to build and install any production dependencies.
-2. `prod` - this image is built from the base OS image, and installed production dependencies are copied in
-from the `base` stage. This prevents build dependencies from taking up space in our production image. Additionally,
-since the `prod` stage is not built directly from the `base` stage, changes in the `base` stage will not invalidate
-use of docker layer caching in our build process of the `prod` stage.
-3. `test` - this image is built from the `prod` image and adds in test dependencies.
-4. `graphics` - this image is built from the `prod` image and adds in graphics dependencies for VNC/noVNC.
-
-To build a specific stage of `atom`, use the `--target` option with `docker build` and an appropriate tag:
 ```
-docker build -f Dockerfile-atom -t elementaryrobotics/atom-test:dev --target=test .
+$ docker-compose -f docker-compose-dev.yml build
 ```
 
-The `prod` stage will be pushed to dockerhub through the CircleCI build process as just `atom`, while the `test`
-stage will be pushed as `atom-test`.
+Everything is the same as in the quickstart, except for a few things:
+1. The `atom` container will have testing dependencies installed in order to
+run `pytest` `googletest`, etc.
+2. The `atom` container will be built from the atom client source in this repo.
 
-If a build fails due to a third-party dependency "not found" error, it might be because the image layer that does the
-`apt-get update` has been cached, and so an `apt-get install` command is trying to install a library version that is
-no longer available. To break the cache of this layer, either run the entire build process with the `--no-cache` flag
-if building locally, or update the `LAST_UPDATED` environment variable in the Dockerfile to the current date in order to
-invalidate the cache on any subsequent commands. If necessary, `LAST_UPDATED` environment variables can be added at any
-point within the Dockerfile to invalidate all subsequent caching.
+#### Build Arguments
 
-### OpenGL and Cuda support
+You can pass the following build arguments to the build as well. To do this,
+simply edit the `args` section of the `docker-compose-dev.yml` to include/update
+variables of your choice:
 
-We also build base versions of the dockerfile for OpenGL and cuda / cuDNN. To build for these versions, pass `BASE_IMAGE=$X` to the above docker build command:
+| Arg | Default | Description |
+|-----|---------|-------------|
+| `BASE_IMAGE` | elementaryrobotics/atom:base | Which base atom image to build atop. See [Base Images](#base-images) for choices |
+| `PRODUCTION_IMAGE` | debian:buster-slim | Which image to use for the slimmed, production stage. Typically best to use the `BASE_IMAGE` that was used when building the `base` that you chose to use. |
+| `INSTALL_OPENGL` | "" | Whether or not to install opengl in the production image. Anything non-empty will install opengl |
 
-| Cuda Version | cuDNN Version | Dockerhub repo | Base Image |
-|--------------|--------------|----------------|------------|
-| - | - | `atom-opengl-base` | `nvidia/opengl:1.0-glvnd-runtime-ubuntu18.04` |
-| 10.0 | 7.6.4.38 | `atom-cuda-10-base` | `nvidia/cuda:10.0-cudnn7-runtime-ubuntu18.04` |
-| 10.0 | 7.6.5.32 | `atom-opengl-cuda-10-base` | custom, see below\* |
+#### Build Targets
 
-An example to build for Cuda 10 / cudnn would be:
+You can choose to build multiple targets from the `Dockerfile`. Each possible target is explained
+below. Modify the `target` section in `docker-compose-dev.yml` to switch.
+
+| Target | Description |
+|--------|-------------|
+| `atom` | Production build of atom. All dependencies, libraries, and atom utilities installed. Everything else stripped out |
+| `nucleus` | Production build of nucleus. All dependencies, libraries and atom utilities installed. Everything else stripped out |
+| `atom-source` | Pre-production build. Contains everything in production and all source used to build it |
+| `test` | Production build of atom plus test dependencies/utilities |
+| `graphics` | Production build of atom plus NoVNC in order to run VNC-based graphics |
+
+### Atom Base
+
+The Atom docker images are built atop a base, where the base contains the
+parts of the build that typically don't change frequently and are long/expensive
+to rebuild. Occasionally we'd like to add something new to the base and will
+need to rebuild the base as well. To do so:
+
 ```
-docker build --no-cache -f Dockerfile-atom -t elementaryrobotics/atom-cuda-10-base:dev --target=prod --build-arg BASE_IMAGE=nvidia/cuda:10.0-cudnn7-runtime-ubuntu18.04 .
+$ docker build -f Dockerfile-base -t elementaryrobotics/atom:base .
 ```
 
-Any image using OpenGL should be built with `--target=graphics` so that the graphics dependencies are available in the image.
-The combined OpenGL/cuda/cuDNN base image can be built in two steps, with the first step utilizing the included dockerfile `Dockerfile-install-cudnn` (modify this file for cuDNN version updates):
+#### Build Arguments
+
+There are a few build arguments when building the base:
+
+| Arg | Default | Description |
+|-----|---------|-------------|
+| `BASE_IMAGE` | debian:buster-slim | Which base docker image to build atom atop. Can be anything ubuntu/debian |
+| `BLAS_TARGET_CPU` | "" | Optional target CPU for which to compile the BLAS library. See [choices here](third-party/OpenBLAS/TargetList.txt) |
+| `PYARROW_EXTRA_CMAKE_ARGS` | "" | CMAKE arguments to be sent to the PyArrow build. Useful when x-compiling |
+
+#### Rebuilding Atom on New Base
+
+After rebuilding the base, you can rebuild the atom/nucleus images
+atop your new base with:
+
 ```
-docker build --no-cache -f Dockerfile-install-cudnn -t opengl-cuda-10-base .
-docker build --no-cache -f Dockerfile-atom -t elementaryrobotics/atom-opengl-cuda-10-base:dev --target=graphics --build-arg BASE_IMAGE=opengl-cuda-10-base .
+$ docker-compose -f docker-compose-dev.yml build
 ```
+
+In order to get the new base deployed and into production, please see the
+section about [Updating a Base Image](#updating-a-base-image) below. The base
+images are fully managed by CircleCI and generally you check in your desired
+changes and push them to a branch with a special name to get them built and used
+in production.
+
+### ARM Images
+
+Atom works cross-platform on ARM by compiling the same Dockerfiles. In order
+to build and test for ARM a few additional steps are needed.
+
+
+#### Set up buildx
+
+This requires `buildx`, the new Docker builder that comes with Docker 19.03+.
+Begin by installing Docker version 19.03+ on your machine. Once this is done,
+proceed to the next steps.
+
+Next, we need to enable the experimental Docker CLI:
+
+```
+$ export DOCKER_CLI_EXPERIMENTAL=enabled
+```
+
+And confirm we have `buildx` set up
+
+```
+$ docker buildx version
+github.com/docker/buildx v0.3.1-tp-docker 6db68d029599c6710a32aa7adcba8e5a344795a7
+```
+
+Next, we need to enable `binfmt_misc` in order to run non-native Docker
+images. This will set up `qemu` to run any `arm64` binary through the
+`qemu_user_static` simulator so that it can be run on your intel-based machine.
+
+```
+docker run --rm --privileged docker/binfmt:66f9012c56a8316f9244ffd7622d7c21c1f6f28d
+```
+
+You should then be able to verify that everything is set up correctly:
+
+```
+$ cat /proc/sys/fs/binfmt_misc/qemu-aarch64
+enabled
+interpreter /usr/bin/qemu-aarch64
+flags: OCF
+offset 0
+magic 7f454c460201010000000000000000000200b7
+mask ffffffffffffff00fffffffffffffffffeffff
+```
+
+Finally, set up Docker to use the `buildx` builder as opposed to the
+normal Docker builder:
+
+```
+$ docker buildx create --use --name atombuilder
+```
+
+And we should be able to verify that our builder is in use
+
+```
+$ docker buildx ls
+NAME/NODE   DRIVER/ENDPOINT             STATUS  PLATFORMS
+atombuilder *  docker-container
+  atombuilder0 unix:///var/run/docker.sock running linux/amd64, linux/386, linux/arm64, linux/ppc64le, linux/s390x, linux/arm/v7, linux/arm/v6
+default     docker
+  default   default                     running linux/amd64, linux/386
+```
+
+#### Atom Image for ARM
+
+An example command to build the atom image for ARM can be seen below:
+
+```
+$ docker buildx build \
+    --platform=linux/aarch64 \
+    --progress plain \
+    --load \
+    -f Dockerfile \
+    -t elementaryrobotics/atom:aarch64 \
+    --target=test \
+    --build-arg BASE_IMAGE=elementaryrobotics/atom:base-aarch64 \
+    --build-arg PRODUCTION_IMAGE=debian:buster-slim \
+    --pull \
+    .
+```
+
+It's likely always easiest to use the most recent pre-built base image for
+your desired image base (see [Base Images](#base-images)).
+
+You can also choose to build the base image yourself if you wish but note it
+will take approximately 2-4 hours on a reasonable intel-based developer machine.
+
+#### Nucleus Image for ARM
+
+An example command to build the nucleus image for ARM can be seen below:
+
+```
+$ docker buildx build \
+    --platform=linux/aarch64 \
+    --progress plain \
+    --load \
+    -f Dockerfile \
+    -t elementaryrobotics/nucleus:aarch64 \
+    --target=nucleus \
+    --build-arg BASE_IMAGE=elementaryrobotics/atom:base-aarch64 \
+    --build-arg PRODUCTION_IMAGE=debian:buster-slim \
+    --pull \
+    .
+```
+
+Generally the same command as building the Atom image, but with a different
+target in the multi-stage Dockerfile.
+
+#### Base Image for ARM
+
+It's not recommended to do this often, but the base image can be rebuilt
+with the following command:
+
+```
+$ docker buildx build \
+    --platform=linux/aarch64 \
+    --progress plain \
+    --load \
+    -f Dockerfile-base \
+    -t elementaryrobotics/atom:base-aarch64 \
+    --target=base \
+    --build-arg BASE_IMAGE=debian:buster-slim \
+    --build-arg BLAS_TARGET_CPU=ARMV8 \
+    --build-arg PYARROW_EXTRA_CMAKE_ARGS=-DARROW_ARMV8_ARCH=armv8-a \
+    --pull \
+    .
+```
+
+## Testing
+
+In order to run tests, you'll want to develop with the "Rebuilding the Docker
+Images" method as described above. Once you're in the `atom` container, you
+can run the following tests:
+
+| Test | Working Directory | Command |
+|------|-------------------|---------|
+| Python Unit Tests | `/atom/languages/python/tests` | `pytest` |
+| C Unit Tests | `/atom/languages/c` | `make -j8 test` |
+| C++ Unit Tests | `/atom/languages/cpp` | `make -j8 test` |
+| C++ Memory Check | `/atom/languages/cpp` | `valgrind -v --tool=memcheck --leak-check=full --num-callers=40 --log-file=valgrind.log --error-exitcode=1 test/build/test_atom_cpp` |
+
+### Testing Atom Builds
+
+In order to build and test your code in an environment identical to production,
+it's recommended that you run the following initial steps:
+(example shown for Python)
+
+```
+$ docker-compose -f docker-compose-dev.yml build
+$ docker-compose -f docker-compose-dev.yml up -d
+$ docker exec -it atom bash
+# cd /atom/languages/python/tests
+# pytest
+```
+
+You should see all tests pass.
+
+### Testing ARM Builds
+
+Similarly, you can test your ARM builds even from an Intel-based laptop!
+
+Follow, the steps to build the atom + nucleus stages for ARM as covered
+in the docs above, then:
+
+```
+$ docker-compose -f docker-compose-arm.yml up -d
+$ docker exec -it atom-arm bash
+# cd /atom/languages/python/tests
+# pytest
+```
+
+You should see all tests pass. Also interesting to note/confirm is that
+if you run the command below while in the Docker container for the ARM atom
+image:
+
+```
+# uname -a
+Linux 2b4919a2e614 4.15.0-96-generic #97~16.04.1-Ubuntu SMP Wed Apr 1 03:03:31 UTC 2020 aarch64 GNU/Linux
+```
+
+Note that this is indeed an `aarch64` build of linux being run on an intel
+PC through the QEMU simulator.
+
+## Docker Images
+
+Docker images are built from the [`Dockerfile`](Dockerfile) in this repo.
+
+This project integrates tightly with CI and CD in order to produce ready-to-go
+Docker containers that should suit most users' needs for dependencies. Then,
+when you build your elements, they should be `FROM` one of these pre-built
+containers in order to eliminate the hassle of building/installing `atom` in
+multiple places.
+
+The following images/tags are regularly maintained and built with each merge
+to `master` in this repo.
+
+### Images
+
+#### elementaryrobotics/atom
+
+The Docker Hub repo for Atom images. Should be used as a `FROM` in your
+Dockerfile when creating elements.
+
+| Tag  | Base OS | Arch | Description |
+|------|---------|------|-------------|
+| none/`latest` | `debian:buster-slim` | `amd64` | Atom + all dependencies |
+| `cuda` | `nvidia/cuda` | `amd64` | Atom + all dependencies + CUDA + CuDNN |
+| `opengl` | `nvidia/opengl` | `amd64` | Atom + all dependencies + OpenGL |
+| `opengl-cuda` | `nvidia/cuda` | `amd64` | Atom + all dependencies + OpenGL + CUDA + CuDNN |
+| `aarch64` | `debian:buster-slim` | `aarch64` | Atom + all dependencies cross-comiled for aarch64/ARMv8 |
+
+#### elementaryrobotics/nucleus
+
+The Docker Hub repo for the Nucleus image. Should be used when running Atom.
+
+| Tag  | Base OS | Arch | Description |
+|------|---------|------|-------------|
+| none/`latest` | `debian:buster-slim` | `amd64` | Nucleus + all dependencies |
+| `aarch64` | `debian:buster-slim` | `aarch64` | Nucleus + all dependencies cross-comiled for aarch64/ARMv8 |
+
+## Base Images
+
+The Docker images from above are built with the most recent Atom source
+atop prebuilt base images. The base images are built from the [`Dockerfile-base`](Dockerfile-base)
+in this repo. The base image contains dependencies that change infrequently
+and take a long time to build from source and/or install.
+
+### Images
+
+| Tag  | Base OS | Arch | Description |
+|------|---------|------|-------------|
+| `base` | `debian:buster-slim` | `amd64` | Build dependencies for Atom |
+| `base-cuda` | `nvidia/cuda` | `amd64` | Build dependencies for Atom + CUDA + CuDNN |
+| `base-opengl` | `nvidia/opengl` | `amd64` | Build dependencies for Atom + OpenGL |
+| `base-aarch64` | `debian:buster-slim` | `aarch64` | Build dependencies for Atom cross-comiled for aarch64/ARMv8 |
+
+### Updating a Base Image
+
+Base images are also built via our CI/CD integrations, though only on specific
+branches. In order to get a change to a base image into production, the steps
+are:
+1. Make changes to `Dockerfile-base`
+2. Test locally (these builds are long/expensive in CI/CD, especially for `aarch64`)
+3. Push a branch with an appropriate name to this repo (see table below)
+4. Wait for the CI/CD builds to pass/complete. This will build and push a new base
+with a new tag, `base-XXX-YYY` to the appropriate DockerHub repo. `XXX` will be
+the base tag and `YYY` will be the CircleCI build number.
+5. Update the [aliases section of the CircleCI config](.circleci/config.yml) to use the new base
+6. Check in the results from (5) and merge the branch into master. The new base tag will be auto-pushed to the generic base tag `base-XXX` upon merge into master.
+
+#### Changes to `Dockerfile-base`
+
+The base dockerfile is not used in the production images in order to reduce image size. Instead, everything from the following directories is coped over:
+
+- `/usr/local/lib`
+- `/usr/local/include`
+- `/opt/venv`
+
+If you're adding something to the base (new library, etc.) ensure it is installed in `/usr/local`.
+
+#### Special Branches
+
+Branches ending in the names below will cause CI/CD to run rebuilds of the base
+images instead of the normal workflow:
+
+| Branch | Description |
+|--------|-------------|
+| `*build-base-all` | Build all base images. Use sparingly |
+| `*build-base-atom` | Build the normal Atom base image |
+| `*build-base-cuda` | Build the Atom + Cuda base image |
+| `*build-base-opengl` | Build the Atom + opengl base image |
+| `*build-base-opengl-cuda` | Build the Atom + opengl + Cuda base image |
+| `*build-base-aarch64` | Build the normal Atom base image x-compiled for ARM |

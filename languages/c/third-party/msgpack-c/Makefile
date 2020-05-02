@@ -1,13 +1,13 @@
 ################################################################################
 #
-# Makefile for hiredis
+# Makefile for msgpack-c
 #
 ################################################################################
 
 curr_file := $(abspath $(lastword $(MAKEFILE_LIST)))
 CURR_DIR := $(patsubst %/Makefile,%,$(curr_file))
 
-LIB_DIR:=hiredis
+LIB_DIR:=msgpack-c
 
 # Check if submodule exists
 SUBMODULE_EXISTS:="$(shell if [ -f ${LIB_DIR}/.git ]; then echo y; else echo n; fi )"
@@ -21,12 +21,13 @@ INSTALL_DIR:=${CURR_DIR}/build
 
 .PHONY: all
 all:
+	cd ${LIB_DIR} && cmake -DMSGPACK_CXX11=ON .
 	cd ${LIB_DIR} && make -j16
 
 .PHONY: install
 install:
 	mkdir -p ${INSTALL_DIR}
-	cd ${LIB_DIR} && make install LIBRARY_PATH=lib
+	cd ${LIB_DIR} && make install
 
 .PHONY: clean
 clean:

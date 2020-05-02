@@ -2,9 +2,9 @@ version: "2.3"
 
 services:
 
-  nucleus:
-    container_name: nucleus
-    image: elementaryrobotics/nucleus
+  nucleus-arm:
+    container_name: nucleus-arm
+    image: elementaryrobotics/nucleus:aarch64
     volumes:
       - type: volume
         source: shared
@@ -12,9 +12,9 @@ services:
         volume:
           nocopy: true
 
-  atom:
-    container_name: atom
-    image: elementaryrobotics/atom
+  atom-arm:
+    container_name: atom-arm
+    image: elementaryrobotics/atom:aarch64
     volumes:
       - type: volume
         source: shared
@@ -23,7 +23,7 @@ services:
           nocopy: true
       - ".:/atom"
     depends_on:
-      - "nucleus"
+      - "nucleus-arm"
     ports:
       - "6080:6080"
     environment:

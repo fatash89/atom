@@ -5,12 +5,12 @@ Version can be either dynamically determined through git information, or
 passed in as an argument.
 """
 
-from pathlib import Path
 import subprocess
 import argparse
 import re
+import os
 
-CONFIG_FILE = Path(__file__).parent / "atom/config.py"
+CONFIG_FILE = os.path.join(os.path.abspath(os.path.dirname(__file__)),"atom/config.py")
 
 
 def call_git_describe(abbrev):
@@ -86,7 +86,7 @@ def main(version=None):
 
     # replace version config if there's a new one
     if version:
-        version_str = f"\nVERSION = \"{version}\"\n"
+        version_str = "\nVERSION = \"{}\"\n".format(version)
         replace_version_config(version_str)
 
     return version

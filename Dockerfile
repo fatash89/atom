@@ -1,93 +1,102 @@
-ARG BASE_IMAGE=debian:buster-slim
-FROM $BASE_IMAGE as base
+################################################################################
+#
+# Build in the source
+#
+################################################################################
+
+ARG BASE_IMAGE=elementaryrobotics/atom:base
+ARG PRODUCTION_IMAGE=debian:buster-slim
+FROM $BASE_IMAGE as atom-source
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update -y \
- && apt-get install -y --no-install-recommends apt-utils \
-                                               git autoconf \
-                                               libtool \
-                                               cmake \
-                                               build-essential \
-                                               python3-minimal \
-                                               python3-pip \
-                                               python3-venv \
- && pip3 install --no-cache-dir --upgrade pip setuptools
-
-# Create and activate python virtualenv
-RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
-# Install msgpack
-RUN pip3 install --no-cache-dir msgpack \
- && cd /usr/src && git clone https://github.com/msgpack/msgpack-c.git \
- && cd /usr/src/msgpack-c && cmake -DMSGPACK_CXX11=ON . && make install
-
-# Install redis-py
-ADD ./languages/python/third-party/redis-py /atom/languages/python/third-party/redis-py
-RUN cd /atom/languages/python/third-party/redis-py \
- && python3 setup.py install
-
-# Build hiredis for C library
-ADD ./languages/c/third-party/hiredis /atom/languages/c/third-party/hiredis
-RUN cd /atom/languages/c/third-party/hiredis \
- && make && make install LIBRARY_PATH=lib
+#
+# C client
+#
 
 # Build the C library
 ADD ./languages/c /atom/languages/c
 RUN cd /atom/languages/c \
- && make clean && make && make install
+ && make clean && make -j8 && make install
+
+#
+# C++ client
+#
 
 # Build and install the c++ library
 ADD ./languages/cpp /atom/languages/cpp
 RUN cd /atom/languages/cpp \
- && make clean && make && make install
+ && make clean && make -j8 && make install
+
+#
+# Python client
+#
 
 # Build and install the python library
 # Add and install requirements first to use DLC
 ADD ./languages/python/requirements.txt /atom/languages/python/requirements.txt
 RUN pip3 install --no-cache-dir -r /atom/languages/python/requirements.txt
+ADD ./lua-scripts /atom/lua-scripts
+ADD ./languages/python /atom/languages/python
+RUN cd /atom/languages/python \
+ && python3 setup.py install
+
+#
+# Command-line utility
+#
+
 ADD ./utilities/atom-cli/requirements.txt /atom/utilities/atom-cli/requirements.txt
 RUN pip3 install --no-cache-dir -r /atom/utilities/atom-cli/requirements.txt
-
-# Install atom-cli
 ADD ./utilities/atom-cli /atom/utilities/atom-cli
 RUN cp /atom/utilities/atom-cli/atom-cli.py /usr/local/bin/atom-cli \
  && chmod +x /usr/local/bin/atom-cli
 
-ADD ./languages/python /atom/languages/python
-ADD ./lua-scripts /atom/lua-scripts
-RUN cd /atom/languages/python \
- && python3 setup.py install
+#
+# Finish up
+#
 
 # Change working directory back to atom location
 WORKDIR /atom
 
+################################################################################
+#
+# Production atom image. Strips out source. Only includes libraries, headers
+#     and Python venv.
+#
+################################################################################
 
-
-
-FROM $BASE_IMAGE as prod
-
-# Cache buster env var - change date to invalidate subsequent caching
-# See the atom README "Atom Dockerfile" section for more information
-ENV LAST_UPDATED 2019-03-06
+FROM $PRODUCTION_IMAGE as atom
+ARG INSTALL_OPENGL=""
 
 # Install python
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends apt-utils \
                                                python3-minimal \
-                                               python3-pip
+                                               python3-pip \
+                                               libatomic1
+
+# Potentially install opengl
+RUN if [ ! -z "${INSTALL_OPENGL}" ]; then apt-get update && apt-get install -y \
+  --no-install-recommends \
+  libglvnd0 \
+  libgl1 \
+  libglx0 \
+  libegl1 \
+  libgles2; fi
 
 # Copy contents of python virtualenv and activate
-COPY --from=base /opt/venv /opt/venv
+COPY --from=atom-source /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy C builds
-COPY --from=base /usr/local/lib /usr/local/lib
-COPY --from=base /usr/local/include /usr/local/include
+COPY --from=atom-source /usr/local/lib /usr/local/lib
+COPY --from=atom-source /usr/local/include /usr/local/include
 
 # Copy atom-cli
-COPY --from=base /usr/local/bin/atom-cli /usr/local/bin/atom-cli
+COPY --from=atom-source /usr/local/bin/atom-cli /usr/local/bin/atom-cli
+
+# Copy redis-cli
+COPY --from=atom-source /usr/local/bin/redis-cli /usr/local/bin/redis-cli
 
 # Add .circleci for docs build
 ADD ./.circleci /atom/.circleci
@@ -95,10 +104,30 @@ ADD ./.circleci /atom/.circleci
 # Change working directory back to atom location
 WORKDIR /atom
 
+################################################################################
+#
+# Nucleus image. Copies out only binary of redis-server
+#
+################################################################################
 
+FROM atom as nucleus
 
+# Add in redis-server
+COPY --from=atom-source /usr/local/bin/redis-server /usr/local/bin/redis-server
 
-FROM prod as test
+ADD ./launch_nucleus.sh /nucleus/launch.sh
+ADD ./redis.conf /nucleus/redis.conf
+WORKDIR /nucleus
+RUN chmod +x launch.sh
+CMD ["./launch.sh"]
+
+################################################################################
+#
+# Test image. Based off of production, adds in test dependencies
+#
+################################################################################
+
+FROM atom as test
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -106,15 +135,11 @@ ARG DEBIAN_FRONTEND=noninteractive
 # Install test dependencies
 #
 
-# Cache buster env var - change date to invalidate subsequent caching
-# See the atom README "Atom Dockerfile" section for more information
-ENV LAST_UPDATED 2019-03-12
-
 # Install googletest
 RUN apt-get update \
  && apt-get install -y --no-install-recommends libgtest-dev cmake build-essential \
  && cd /usr/src/gtest \
- && cmake CMakeLists.txt && make -j16 && cp *.a /usr/lib
+ && cmake CMakeLists.txt && make -j8 && cp *.a /usr/lib
 
 # Install valgrind
 RUN apt-get install -y --no-install-recommends valgrind
@@ -127,12 +152,19 @@ COPY ./languages/c/ /atom/languages/c
 COPY ./languages/cpp/ /atom/languages/cpp
 COPY ./languages/python/tests /atom/languages/python/tests
 
+################################################################################
+#
+# Graphics image. Based off of production, adds in support for various
+#     graphics packages and VNC.
+#
+################################################################################
 
-
-
-FROM prod as graphics
+FROM atom as graphics
 
 ARG DEBIAN_FRONTEND=noninteractive
+
+# Add in noVNC to /opt/noVNC
+ADD third-party/noVNC /opt/noVNC
 
 # Install graphics
 # Note: supervisor-stdout must be installed with pip2 and not pip3
@@ -154,9 +186,7 @@ RUN apt-get install -y --no-install-recommends \
       python-pip \
  && rm -f /usr/share/applications/x11vnc.desktop \
 # VNC
- && git clone https://github.com/kanaka/noVNC.git /opt/noVNC \
  && cd /opt/noVNC \
- && git checkout 6a90803feb124791960e3962e328aa3cfb729aeb \
  && ln -s vnc_auto.html index.html \
  && pip2 install --no-cache-dir setuptools \
  && pip2 install --no-cache-dir supervisor-stdout \
@@ -183,4 +213,3 @@ RUN var='#!/usr/bin/env python2' \
  && sed -i "1s@.*@${var}@" /usr/bin/graphical-app-launcher.py
 
 ENV DISPLAY :0
-

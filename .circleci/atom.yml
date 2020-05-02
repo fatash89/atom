@@ -23,15 +23,16 @@ executors:
   build-classic:
     machine:
       enabled: true
-      docker_layer_caching: true
       image: circleci/classic:201808-01
 
   # Ubuntu 16.04 machine used to build some images
+  # comes with Docker 19.03.8 and docker-compose 1.25.5
+  # This is useful since `buildx`, which is required in order
+  # to cross-compile images, comes standard in Docker 19.03
   build-ubuntu:
     machine:
       enabled: true
-      docker_layer_caching: true
-      image: ubuntu-1604:201903-01
+      image: ubuntu-1604:202004-01
 
 #
 # Commands that are useful for build and deploy
@@ -91,6 +92,64 @@ commands:
       - run:
           name: Build and tag << parameters.stage >> stage
           command: docker build -f << parameters.file >> -t << parameters.image_name >>:<< parameters.image_tag >> --target=<< parameters.stage >> --build-arg << parameters.build_args >> --pull .
+
+  # Prepare the machine for buildx based builds
+  enable_buildx:
+    description: "Prepare the CircleCI machine for cross-compiling ARM images"
+    steps:
+      - run:
+          name: Setup binfmt_misc
+          command: docker run --rm --privileged docker/binfmt:66f9012c56a8316f9244ffd7622d7c21c1f6f28d
+      - run:
+          name: Switch to the multi-arch builder
+          command: docker buildx create --use --name build-buildx
+
+  # Build a stage for aarch64
+  build_stage_buildx:
+    description: "Build and tag a stage of a multi-stage Docker build for aarch64"
+    parameters:
+      file:
+        type: string
+        default: Dockerfile
+      stage:
+        type: string
+      image_name:
+        type: string
+        default: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}-<< parameters.stage >>
+      image_tag:
+        type: string
+        default: build-${CIRCLE_WORKFLOW_ID}
+      build_args:
+        type: string
+        default: ""
+      platform:
+        type: string
+        default: ""
+      output_timeout:
+        <<: *output_timeout_param
+      cache_repo:
+        type: string
+        default: ${DOCKERHUB_ORG}/${DOCKERHUB_CACHE_REPO}
+      cache_tag:
+        type: string
+        default: ""
+    steps:
+      - run:
+          name: Build and tag << parameters.stage >> stage
+          command: >
+            docker buildx build
+            --platform=<< parameters.platform >>
+            --progress plain
+            --load
+            -f << parameters.file >>
+            -t << parameters.image_name >>:<< parameters.image_tag >>
+            --target=<< parameters.stage >>
+            << parameters.build_args >>
+            --pull
+            --cache-from=type=registry,ref=<< parameters.cache_repo >>:<< parameters.cache_tag >>
+            --cache-to=type=registry,ref=<< parameters.cache_repo >>:<< parameters.cache_tag >>,mode=max
+            .
+          no_output_timeout: << parameters.output_timeout >>
 
   run_compose:
     description: "Launch docker-compose"
@@ -180,12 +239,15 @@ commands:
           command: docker push << parameters.target_image >>:<< parameters.target_tag >>
           no_output_timeout: << parameters.output_timeout >>
 
-  push_dev_image:
+  deploy_image:
     parameters:
       source_image:
         type: string
       target_image:
         type: string
+      target_tag:
+        type: string
+        default: ""
       output_timeout:
         <<: *output_timeout_param
     steps:
@@ -195,7 +257,25 @@ commands:
       - tag_and_deploy:
           source_image: << parameters.source_image >>
           target_image: << parameters.target_image >>
-          target_tag: development-${CIRCLE_BUILD_NUM}
+          target_tag: << parameters.target_tag >>
+          output_timeout: << parameters.output_timeout >>
+
+  push_dev_image:
+    parameters:
+      source_image:
+        type: string
+      target_image:
+        type: string
+      target_tag:
+        type: string
+        default: development-${CIRCLE_BUILD_NUM}
+      output_timeout:
+        <<: *output_timeout_param
+    steps:
+      - deploy_image:
+          source_image: << parameters.source_image >>
+          target_image: << parameters.target_image >>
+          target_tag: << parameters.target_tag >>
           output_timeout: << parameters.output_timeout >>
 
   push_master_image:
@@ -204,18 +284,18 @@ commands:
         type: string
       target_image:
         type: string
+      target_tag:
+        type: string
+        default: master-${CIRCLE_BUILD_NUM}
       output_timeout:
         <<: *output_timeout_param
     steps:
-      - docker_login
-      - pull_image:
-          image_tag: << parameters.source_image >>
-      - tag_and_deploy:
+      - deploy_image:
           source_image: << parameters.source_image >>
           target_image: << parameters.target_image >>
-          target_tag: master-${CIRCLE_BUILD_NUM}
+          target_tag: << parameters.target_tag >>
           output_timeout: << parameters.output_timeout >>
-      - tag_and_deploy:
+      - deploy_image:
           source_image: << parameters.source_image >>
           target_image: << parameters.target_image >>
           target_tag: latest
@@ -227,16 +307,16 @@ commands:
         type: string
       target_image:
         type: string
+      target_tag:
+        type: string
+        default: ${CIRCLE_TAG}
       output_timeout:
         <<: *output_timeout_param
     steps:
-      - docker_login
-      - pull_image:
-          image_tag: << parameters.source_image >>
-      - tag_and_deploy:
+      - deploy_image:
           source_image: << parameters.source_image >>
           target_image: << parameters.target_image >>
-          target_tag: ${CIRCLE_TAG}
+          target_tag: << parameters.target_tag >>
           output_timeout: << parameters.output_timeout >>
 
 
