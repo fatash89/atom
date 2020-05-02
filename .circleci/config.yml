@@ -497,15 +497,15 @@ jobs:
       #   system we are passing the numbered base tag, i.e. base-aarch64-1234
       #   as the "tag". We want to take this numbered build and push it to an
       #   equivalent of "latest", i.e. base-aarch64. In order to do this, we
-      #   run the passed tag through "grep -oP '[\-a-z]+(?=-[0-9]+)'" which
+      #   run the passed tag through "grep -oP '[\-a-z0-9]+(?=-[0-9]+)'" which
       #   strips off the trailing numbers, i.e. -1234.
       #
       - run:
           name: Tag image
-          command: docker tag << parameters.target_image >>:<< parameters.tag >> << parameters.target_image >>:base$(echo << parameters.tag >> | grep -oP '[\-a-z]+(?=-[0-9]+)')
+          command: docker tag << parameters.target_image >>:<< parameters.tag >> << parameters.target_image >>:base$(echo << parameters.tag >> | grep -oP '[\-a-z0-9]+(?=-[0-9]+)')
       - run:
           name: Push image
-          command: docker push << parameters.target_image >>:$(echo << parameters.tag >> | grep -oP '[\-a-z]+(?=-[0-9]+)')
+          command: docker push << parameters.target_image >>:$(echo << parameters.tag >> | grep -oP '[\-a-z0-9]+(?=-[0-9]+)')
 
   build-docs:
     executor: atom/build-ubuntu
