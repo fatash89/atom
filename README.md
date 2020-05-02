@@ -89,6 +89,16 @@ If you'd prefer to develop by building the atom Docker containers, this
 can be done fairly easily as well by using the [`docker-compose-dev.yml`](docker-compose-dev.yml)
 compose file.
 
+Before building atom you'll need to set the proper library
+version flag. This needs to be done outside of the Dockerfile since the .git repo used to generate the version is not copied into the Docker container.
+
+From the top level of this directory, run
+```
+python3 languages/python/version.py
+```
+
+Once this has been done, you can rebuild the Dockerfile.
+
 ```
 $ docker-compose -f docker-compose-dev.yml build
 ```

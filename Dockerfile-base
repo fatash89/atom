@@ -159,4 +159,4 @@ COPY --from=build /usr/local/include /usr/local/include
 
 # Copy redis-cli and redis-server
 COPY --from=build /usr/local/bin/redis-cli /usr/local/bin/redis-cli
-COPY --from=build /usr/local/bin/redis-cli /usr/local/bin/redis-server
+COPY --from=build /usr/local/bin/redis-server /usr/local/bin/redis-server
