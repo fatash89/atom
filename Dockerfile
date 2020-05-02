@@ -10,6 +10,17 @@ FROM $BASE_IMAGE as atom-source
 ARG DEBIAN_FRONTEND=noninteractive
 
 #
+# Install build tools
+#
+RUN apt-get update -y \
+ && apt-get install -y --no-install-recommends \
+      autoconf \
+      libtool \
+      cmake \
+      build-essential \
+      pkg-config
+
+#
 # C client
 #
 
