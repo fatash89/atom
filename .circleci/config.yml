@@ -505,7 +505,7 @@ jobs:
           command: docker tag << parameters.target_image >>:<< parameters.tag >> << parameters.target_image >>:base$(echo << parameters.tag >> | grep -oP '[\-a-z]+(?=-[0-9]+)')
       - run:
           name: Push image
-          command: docker push << parameters.target_image >>:base$(echo << parameters.tag >> | grep -oP '[\-a-z]+(?=-[0-9]+)')
+          command: docker push << parameters.target_image >>:$(echo << parameters.tag >> | grep -oP '[\-a-z]+(?=-[0-9]+)')
 
   build-docs:
     executor: atom/build-ubuntu
@@ -850,7 +850,7 @@ workflows:
 
       # Bump the base tags when merging into master
       - deploy-base-master:
-          name: "deploy-base-master<< matrix.tag >>"
+          name: "deploy-base-master-<< matrix.tag >>"
           matrix:
             parameters:
               << : *base_build_tags
