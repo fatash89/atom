@@ -380,6 +380,23 @@ the base tag and `YYY` will be the CircleCI build number.
 5. Update the [aliases section of the CircleCI config](.circleci/config.yml) to use the new base
 6. Check in the results from (5) and merge the branch into master. The new base tag will be auto-pushed to the generic base tag `base-XXX` upon merge into master.
 
+#### Changes to `Dockerfile-base`
+
+The base dockerfile has the following sections:
+
+1. Runtime dependencies -- things needed when running atom
+2. Build dependencies -- things needed to build atom-base
+3. The base that gets shipped -- (1) plus the build product from (2)
+
+Currently, the base that gets shipped is set up to just copy over from (2) to (3):
+- `/usr/local/lib`
+- `/usr/local/include`
+- A few binaries (redis-server, etc.)
+
+If you're adding new runtime dependencies, be sure to add them to the apt-get install in (1). If you're adding new libraries please build them in (2) and ensure their build product is in /usr/local when complete. If so, then you shouldn't need to modify (3).
+
+This process helps to keep our build size down as we wind up stripping out all source and unneeded tools.
+
 #### Special Branches
 
 Branches ending in the names below will cause CI/CD to run rebuilds of the base
