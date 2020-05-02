@@ -23,20 +23,23 @@ aliases:
 
   # Atom tags
   - &atom_tags
-      tag: ["", "-opengl", "-cuda", "-aarch64"]
+      tag: ["", "-opengl", "-cuda", "-opengl-cuda", "-aarch64"]
   - &nucleus_tags
       tag: ["", "-aarch64"]
 
-  - &base_atom_tag "base-3050"
-  - &base_atom_opengl_tag "base-opengl-3051"
-  - &base_atom_cuda_tag "base-cuda-3052"
-  - &base_atom_aarch64_tag "base-aarch64-3048"
+  # Base tags
   - &base_tags
+      tag: ["", "-opengl", "-cuda", "-aarch64"]
+  - &base_build_atom_tag "base-3050"
+  - &base_build_atom_opengl_tag "base-opengl-3051"
+  - &base_build_atom_cuda_tag "base-cuda-3052"
+  - &base_build_atom_aarch64_tag "base-aarch64-3048"
+  - &base_build_tags
       tag:
-        - *base_atom_tag
-        - *base_atom_opengl_tag
-        - *base_atom_cuda_tag
-        - *base_atom_aarch64_tag
+        - *base_build_atom_tag
+        - *base_build_atom_opengl_tag
+        - *base_build_atom_cuda_tag
+        - *base_build_atom_aarch64_tag
 
 
 #
@@ -563,7 +566,7 @@ workflows:
           name: "build-atom"
           tag: ""
           platform: linux/amd64
-          base_tag: *base_atom_tag
+          base_tag: *base_build_atom_tag
           build_args: "--build-arg PRODUCTION_IMAGE=debian:buster-slim"
           filters:
             tags:
@@ -592,7 +595,7 @@ workflows:
           name: "build-atom-opengl"
           tag: "-opengl"
           platform: linux/amd64
-          base_tag: *base_atom_opengl_tag
+          base_tag: *base_build_atom_opengl_tag
           build_args: "--build-arg PRODUCTION_IMAGE=nvidia/opengl:1.0-glvnd-runtime-ubuntu18.04"
           requires:
             - atom/check_flake8
@@ -608,7 +611,7 @@ workflows:
           name: "build-atom-cuda"
           tag: "-cuda"
           platform: linux/amd64
-          base_tag: *base_atom_cuda_tag
+          base_tag: *base_build_atom_cuda_tag
           build_args: "--build-arg PRODUCTION_IMAGE=nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04"
           requires:
             - atom/check_flake8
@@ -624,7 +627,7 @@ workflows:
           name: "build-atom-opengl-cuda"
           tag: "-opengl-cuda"
           platform: linux/amd64
-          base_tag: *base_atom_cuda_tag
+          base_tag: *base_build_atom_cuda_tag
           build_args: "--build-arg PRODUCTION_IMAGE=nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04 --build-arg INSTALL_OPENGL=y"
           requires:
             - atom/check_flake8
@@ -640,7 +643,7 @@ workflows:
           name: "build-atom-aarch64"
           tag: "-aarch64"
           platform: linux/aarch64
-          base_tag: *base_atom_aarch64_tag
+          base_tag: *base_build_atom_aarch64_tag
           build_args: "--build-arg PRODUCTION_IMAGE=debian:buster-slim"
           test_valgrind: false
           cache_repo: ${DOCKERHUB_ORG}/${DOCKERHUB_CACHE_REPO_AARCH64}
@@ -833,7 +836,7 @@ workflows:
           name: "deploy-base-dev<< matrix.tag >>"
           matrix:
             parameters:
-              << : *atom_tags
+              << : *base_tags
           requires:
             - "build-base<<matrix.tag>>"
 
@@ -842,7 +845,7 @@ workflows:
           name: "deploy-base-master<< matrix.tag >>"
           matrix:
             parameters:
-              << : *base_tags
+              << : *base_build_tags
           filters:
             branches:
               only:
