@@ -99,6 +99,8 @@ python3 languages/python/version.py
 
 Once this has been done, you can rebuild the Dockerfile.
 
+#### Default Build
+
 ```
 $ docker-compose -f docker-compose-dev.yml build
 ```
@@ -107,6 +109,31 @@ Everything is the same as in the quickstart, except for a few things:
 1. The `atom` container will have testing dependencies installed in order to
 run `pytest` `googletest`, etc.
 2. The `atom` container will be built from the atom client source in this repo.
+
+#### Build Arguments
+
+You can pass the following build arguments to the build as well. To do this,
+simply edit the `args` section of the `docker-compose-dev.yml` to include/update
+variables of your choice:
+
+| Arg | Default | Description |
+|-----|---------|-------------|
+| `BASE_IMAGE` | elementaryrobotics/atom:base | Which base atom image to build atop. See [Base Images](#base-images) for choices |
+| `PRODUCTION_IMAGE` | debian:buster-slim | Which image to use for the slimmed, production stage. Typically best to use the `BASE_IMAGE` that was used when building the `base` that you chose to use. |
+| `INSTALL_OPENGL` | "" | Whether or not to install opengl in the production image. Anything non-empty will install opengl |
+
+#### Build Targets
+
+You can choose to build multiple targets from the `Dockerfile`. Each possible target is explained
+below. Modify the `target` section in `docker-compose-dev.yml` to switch.
+
+| Target | Description |
+|--------|-------------|
+| `atom` | Production build of atom. All dependencies, libraries, and atom utilities installed. Everything else stripped out |
+| `nucleus` | Production build of nucleus. All dependencies, libraries and atom utilities installed. Everything else stripped out |
+| `atom-source` | Pre-production build. Contains everything in production and all source used to build it |
+| `test` | Production build of atom plus test dependencies/utilities |
+| `graphics` | Production build of atom plus NoVNC in order to run VNC-based graphics |
 
 ### Atom Base
 
@@ -119,7 +146,19 @@ need to rebuild the base as well. To do so:
 $ docker build -f Dockerfile-base -t elementaryrobotics/atom:base .
 ```
 
-Then, after rebuilding the base, you can rebuild the atom/nucleus images
+#### Build Arguments
+
+There are a few build arguments when building the base:
+
+| Arg | Default | Description |
+|-----|---------|-------------|
+| `BASE_IMAGE` | debian:buster-slim | Which base docker image to build atom atop. Can be anything ubuntu/debian |
+| `BLAS_TARGET_CPU` | "" | Optional target CPU for which to compile the BLAS library. See [choices here](third-party/OpenBLAS/TargetList.txt) |
+| `PYARROW_EXTRA_CMAKE_ARGS` | "" | CMAKE arguments to be sent to the PyArrow build. Useful when x-compiling |
+
+#### Rebuilding Atom on New Base
+
+After rebuilding the base, you can rebuild the atom/nucleus images
 atop your new base with:
 
 ```
@@ -208,6 +247,7 @@ $ docker buildx build \
     -t elementaryrobotics/atom:aarch64 \
     --target=test \
     --build-arg BASE_IMAGE=elementaryrobotics/atom:base-aarch64 \
+    --build-arg PRODUCTION_IMAGE=debian:buster-slim \
     --pull \
     .
 ```
@@ -231,6 +271,7 @@ $ docker buildx build \
     -t elementaryrobotics/nucleus:aarch64 \
     --target=nucleus \
     --build-arg BASE_IMAGE=elementaryrobotics/atom:base-aarch64 \
+    --build-arg PRODUCTION_IMAGE=debian:buster-slim \
     --pull \
     .
 ```
@@ -251,6 +292,7 @@ $ docker buildx build \
     -f Dockerfile-base \
     -t elementaryrobotics/atom:base-aarch64 \
     --target=base \
+    --build-arg BASE_IMAGE=debian:buster-slim \
     --build-arg BLAS_TARGET_CPU=ARMV8 \
     --build-arg PYARROW_EXTRA_CMAKE_ARGS=-DARROW_ARMV8_ARCH=armv8-a \
     --pull \
@@ -363,7 +405,6 @@ and take a long time to build from source and/or install.
 | `base` | `debian:buster-slim` | `amd64` | Build dependencies for Atom |
 | `base-cuda` | `nvidia/cuda` | `amd64` | Build dependencies for Atom + CUDA + CuDNN |
 | `base-opengl` | `nvidia/opengl` | `amd64` | Build dependencies for Atom + OpenGL |
-| `base-opengl-cuda` | `nvidia/cuda` | `amd64` | Build dependencies for Atom + OpenGL + CUDA + CuDNN |
 | `base-aarch64` | `debian:buster-slim` | `aarch64` | Build dependencies for Atom cross-comiled for aarch64/ARMv8 |
 
 ### Updating a Base Image

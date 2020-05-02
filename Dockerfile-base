@@ -10,7 +10,6 @@ FROM $BASE_IMAGE as base
 ARG DEBIAN_FRONTEND=noninteractive
 ARG BLAS_TARGET_CPU=""
 ARG PYARROW_EXTRA_CMAKE_ARGS=""
-ARG INSTALL_OPENGL=""
 
 #
 # System-level installs
