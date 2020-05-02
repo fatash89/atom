@@ -34,15 +34,6 @@ RUN apt-get update -y \
       pkg-config \
  && pip3 install --no-cache-dir --upgrade pip setuptools
 
-# Potentially install opengl
-RUN if [ ! -z "${INSTALL_OPENGL}" ]; then apt-get update && apt-get install -y \
-  --no-install-recommends \
-  libglvnd0 \
-  libgl1 \
-  libglx0 \
-  libegl1 \
-  libgles2; fi
-
 #
 # C/C++ deps
 #

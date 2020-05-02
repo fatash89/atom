@@ -5,6 +5,7 @@
 ################################################################################
 
 ARG BASE_IMAGE=elementaryrobotics/atom:base
+ARG PRODUCTION_IMAGE=debian:buster-slim
 FROM $BASE_IMAGE as atom-source
 
 ARG DEBIAN_FRONTEND=noninteractive
@@ -64,7 +65,6 @@ WORKDIR /atom
 #
 ################################################################################
 
-ARG PRODUCTION_IMAGE=debian:buster-slim
 FROM $PRODUCTION_IMAGE as atom
 
 # Install python
@@ -73,6 +73,15 @@ RUN apt-get update -y \
                                                python3-minimal \
                                                python3-pip \
                                                libatomic1
+
+# Potentially install opengl
+RUN if [ ! -z "${INSTALL_OPENGL}" ]; then apt-get update && apt-get install -y \
+  --no-install-recommends \
+  libglvnd0 \
+  libgl1 \
+  libglx0 \
+  libegl1 \
+  libgles2; fi
 
 # Copy contents of python virtualenv and activate
 COPY --from=atom-source /opt/venv /opt/venv
