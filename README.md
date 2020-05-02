@@ -210,7 +210,7 @@ will take approximately 2-4 hours on a reasonable intel-based developer machine.
 
 #### Nucleus Image for ARM
 
-An example command to build the atom image for ARM can be seen below:
+An example command to build the nucleus image for ARM can be seen below:
 
 ```
 $ docker buildx build \
@@ -325,9 +325,9 @@ Dockerfile when creating elements.
 | Tag  | Base OS | Arch | Description |
 |------|---------|------|-------------|
 | none/`latest` | `debian:buster-slim` | `amd64` | Atom + all dependencies |
-| `cuda` | `nvidia/cuda` | `amd64` | Atom + all dependencies + CuDNN |
+| `cuda` | `nvidia/cuda` | `amd64` | Atom + all dependencies + CUDA + CuDNN |
 | `opengl` | `nvidia/opengl` | `amd64` | Atom + all dependencies + OpenGL |
-| `opengl-cuda` | `nvidia/cuda` | `amd64` | Atom + all dependencies + OpenGL + CUDA |
+| `opengl-cuda` | `nvidia/cuda` | `amd64` | Atom + all dependencies + OpenGL + CUDA + CuDNN |
 | `aarch64` | `debian:buster-slim` | `aarch64` | Atom + all dependencies cross-comiled for aarch64/ARMv8 |
 
 #### elementaryrobotics/nucleus
@@ -351,9 +351,9 @@ and take a long time to build from source and/or install.
 | Tag  | Base OS | Arch | Description |
 |------|---------|------|-------------|
 | `base` | `debian:buster-slim` | `amd64` | Build dependencies for Atom |
-| `base-cuda` | `nvidia/cuda` | `amd64` | Build dependencies for Atom + CuDNN |
+| `base-cuda` | `nvidia/cuda` | `amd64` | Build dependencies for Atom + CUDA + CuDNN |
 | `base-opengl` | `nvidia/opengl` | `amd64` | Build dependencies for Atom + OpenGL |
-| `base-opengl-cuda` | `nvidia/cuda` | `amd64` | Build dependencies for Atom + OpenGL + CUDA |
+| `base-opengl-cuda` | `nvidia/cuda` | `amd64` | Build dependencies for Atom + OpenGL + CUDA + CuDNN |
 | `base-aarch64` | `debian:buster-slim` | `aarch64` | Build dependencies for Atom cross-comiled for aarch64/ARMv8 |
 
 ### Updating a Base Image
