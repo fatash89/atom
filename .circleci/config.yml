@@ -324,7 +324,7 @@ commands:
       - run:
           name: Tag image
           command: |
-            if [ -n << parameters.target_tag >> ]
+            if [ -n "<< parameters.target_tag >>" ]
             then
               export DTAG=$(echo << parameters.target_tag >> | << parameters.target_tag_cmd >>)
             else
@@ -334,7 +334,7 @@ commands:
       - run:
           name: Push image
           command: |
-            if [ -n << parameters.target_tag >> ]
+            if [ -n "<< parameters.target_tag >>" ]
             then
               export DTAG=$(echo << parameters.target_tag >> | << parameters.target_tag_cmd >>)
             else
