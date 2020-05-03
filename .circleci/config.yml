@@ -322,10 +322,24 @@ commands:
           command: docker pull << parameters.source_image >>:<< parameters.source_tag >>
       - run:
           name: Tag image
-          command: docker tag << parameters.source_image >>:<< parameters.source_tag >> << parameters.target_image >>:$(echo << parameters.source_tag >> | << parameters.target_tag_cmd >>)
+          command: |
+            if [ -n << parameters.source_tag >> ]
+            then
+              export DTAG=$(echo << parameters.source_tag >> | << parameters.target_tag_cmd >>)
+            else
+              export DTAG=latest
+            fi
+            docker tag << parameters.source_image >>:<< parameters.source_tag >> << parameters.target_image >>:$DTAG
       - run:
           name: Push image
-          command: docker push << parameters.target_image >>:$(echo << parameters.source_tag >> | << parameters.target_tag_cmd >>)
+          command: |
+            if [ -n << parameters.source_tag >> ]
+            then
+              export DTAG=$(echo << parameters.source_tag >> | << parameters.target_tag_cmd >>)
+            else
+              export DTAG=latest
+            fi
+            docker push << parameters.target_image >>:$DTAG
 
 jobs:
 
