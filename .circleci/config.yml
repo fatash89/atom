@@ -305,37 +305,38 @@ commands:
 
   deploy_alter_tag:
     parameters:
-      source_tag:
-        type: string
       source_image:
         type: string
         default: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
       target_image:
         type: string
         default: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
+      target_tag:
+        type: string
+        default: ""
       target_tag_cmd:
         type: string
         default: grep ".*"
     steps:
       - run:
           name: Pull image
-          command: docker pull << parameters.source_image >>:<< parameters.source_tag >>
+          command: docker pull << parameters.source_image >>
       - run:
           name: Tag image
           command: |
-            if [ -n << parameters.source_tag >> ]
+            if [ -n << parameters.target_tag >> ]
             then
-              export DTAG=$(echo << parameters.source_tag >> | << parameters.target_tag_cmd >>)
+              export DTAG=$(echo << parameters.target_tag >> | << parameters.target_tag_cmd >>)
             else
               export DTAG=latest
             fi
-            docker tag << parameters.source_image >>:<< parameters.source_tag >> << parameters.target_image >>:$DTAG
+            docker tag << parameters.source_image >> << parameters.target_image >>:$DTAG
       - run:
           name: Push image
           command: |
-            if [ -n << parameters.source_tag >> ]
+            if [ -n << parameters.target_tag >> ]
             then
-              export DTAG=$(echo << parameters.source_tag >> | << parameters.target_tag_cmd >>)
+              export DTAG=$(echo << parameters.target_tag >> | << parameters.target_tag_cmd >>)
             else
               export DTAG=latest
             fi
@@ -497,16 +498,16 @@ jobs:
           target_image: << parameters.repo >>
           target_tag: master-${CIRCLE_BUILD_NUM}<< parameters.tag >>
       - deploy_alter_tag:
-          source_image: << parameters.repo >>
-          source_tag: build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>
+          source_image: << parameters.repo >>:build-${CIRCLE_WORKFLOW_ID}<< parameters.tag >>
           target_image: << parameters.repo >>
 
-        #
-        # Note on tagging: in order to get this job to work with CircleCI's matrix
-        #   system we are passing the tag with the leading '-' since this is
-        #   necessary for the development builds/tagging. We use this grep
-        #   command to strip off the leading "-" in our final tags
-        #
+          #
+          # Note on tagging: in order to get this job to work with CircleCI's matrix
+          #   system we are passing the tag with the leading '-' since this is
+          #   necessary for the development builds/tagging. We use this grep
+          #   command to strip off the leading "-" in our final tags
+          #
+          target_tag: << parameters.tag >>
           target_tag_cmd: grep -oP "(?<=-).*"
 
 
@@ -542,8 +543,7 @@ jobs:
     steps:
       - atom/docker_login
       - deploy_alter_tag:
-          source_tag: << parameters.source_tag >>
-          source_image: << parameters.repo >>
+          source_image: << parameters.repo >>:<< parameters.source_tag >>
           target_image: << parameters.repo >>
 
           #
@@ -554,6 +554,7 @@ jobs:
           #   run the passed tag through "grep -oP '[\-a-z0-9]+(?=-[0-9]+)'" which
           #   strips off the trailing numbers, i.e. -1234.
           #
+          target_tag: << parameters.source_tag >>
           target_tag_cmd: grep -oP '[\-a-z0-9]+(?=-[0-9]+)'
 
   build-docs:
