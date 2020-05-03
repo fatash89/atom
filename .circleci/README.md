@@ -149,6 +149,16 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 
 ### Release Notes
 
+#### [v0.1.2](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.1.2)
+
+##### New Features
+
+- Moves `CIRCLE_WORKFLOW_ID` to `CIRCLE_WORKFLOW_WORKSPACE_ID`. This allows us to actually re-run pipelines from failed, since when doing this CircleCI creates a new workflow, but within the same workspace. As we now push tagged intermediate builds based on the workflow ID we can re-run test stages.
+
+##### Upgrade Steps
+
+- Replace every instance of `CIRCLE_WORKFLOW_ID` with `CIRCLE_WORKFLOW_WORKSPACE_ID` in your `config.yml` files.
+
 #### [v0.1.1](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.1.1)
 
 ##### New Features

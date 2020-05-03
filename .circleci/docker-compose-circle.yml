@@ -3,7 +3,7 @@ version: "3.2"
 services:
 
   nucleus:
-    container_name: dev_nucleus
+    container_name: test_nucleus
     image: $NUCLEUS_IMAGE
     volumes:
       - type: volume
@@ -13,7 +13,7 @@ services:
           nocopy: true
 
   atom:
-    container_name: dev_atom
+    container_name: test_atom
     image: $ATOM_IMAGE
     volumes:
       - type: volume
