@@ -56,46 +56,144 @@ Your config file for your project should be located at `.circleci/config.yml`.
 #### Example Config
 
 ```yaml
-  version: 2.1
+version: 2.1
 
-  orbs:
-    atom: elementaryrobotics/atom@x.y.z
+parameters:
+  atom_repo:
+    type: string
+    default: elementaryrobotics/atom
+  atom_version:
+    type: string
+    default: v1.3.0
+  dockerhub_repo:
+    type: string
+    default: elementaryrobotics/example-element
 
-  jobs:
-    build:
-      executor: atom/build-classic
-      environment:
-        DOCKER_COMPOSE_SERVICE_NAME: some_service
-      steps:
-        - checkout
-        - atom/docker_login
-        - atom/build_and_launch:
-            file: docker-compose.yml
-            service: ${DOCKER_COMPOSE_SERVICE_NAME}
-        - run:
-            name: Unit Tests
-            command: docker exec -it ${DOCKER_COMPOSE_SERVICE_NAME} $my_unit_test_command
-        - atom/store_image
+orbs:
+  atom: elementaryrobotics/atom@0.1.3
 
-  workflows:
-    version: 2
-    build-all:
-      jobs:
-        - build
-        - atom/deploy-master:
-            requires:
-              - build
-            filters:
-              branches:
-                only:
-                  - master
-        - atom/deploy-dev:
-            requires:
-              - build
-            filters:
-              branches:
-                ignore:
-                  - master
+workflows:
+  version: 2
+  build-all:
+    jobs:
+
+      # Build for intel and ARM
+      - atom/build_buildx:
+          name: "build-<< matrix.platform >>"
+          matrix:
+            parameters:
+              variant: [ stock ]
+              platform: [ amd64, aarch64 ]
+          image_name: << pipeline.parameters.dockerhub_repo >>
+          image_tag: build-<< pipeline.number >>
+          cache_repo: << pipeline.parameters.dockerhub_repo >>
+          cache_tag: cache
+          build_args: --build-arg ATOM_IMAGE=<< pipeline.parameters.atom_repo >>:<< pipeline.parameters.atom_version >>-<< matrix.variant >>-<< matrix.platform >>
+          filters:
+            tags:
+              only: /.*/
+
+      # Test
+      - atom/test:
+          name: "test-<< matrix.platform >>"
+          matrix:
+            parameters:
+              variant: [ stock ]
+              platform: [ amd64, aarch64 ]
+          test_image: << pipeline.parameters.dockerhub_repo >>
+          test_tag: build-<< pipeline.number >>
+          atom_version: << pipeline.parameters.atom_version >>
+          compose_file: .circleci/docker-compose.yml
+          container_name: test-container
+          container_test_dir: /code
+          test_cmd: echo "write some tests!"
+          requires:
+            - build-<< matrix.platform >>
+          filters:
+            tags:
+              only: /.*/
+
+      # Check Flake8 -- parallel to the build
+      - atom/check_flake8:
+          version: 3.7.0
+          exclude: tests/*,tasks/elementary-task,robot-shared
+          filters:
+            tags:
+              only: /.*/
+
+      # Deploy development
+      - atom/deploy:
+          name: "deploy-development-<< matrix.platform >>"
+          source_image: << pipeline.parameters.dockerhub_repo >>
+          source_tag: build-<< pipeline.number >>
+          target_image: << pipeline.parameters.dockerhub_repo >>
+          target_tag: development-<< pipeline.number >>
+          matrix:
+            parameters:
+              variant: [ stock ]
+              platform: [ amd64, aarch64 ]
+          requires:
+            - build-<< matrix.platform >>
+          filters:
+            branches:
+              ignore:
+                - master
+
+      # Deploy Master
+      - atom/deploy:
+          name: "deploy-master-<< matrix.platform >>"
+          source_image: << pipeline.parameters.dockerhub_repo >>
+          source_tag: build-<< pipeline.number >>
+          target_image: << pipeline.parameters.dockerhub_repo >>
+          target_tag: master-<< pipeline.number >>
+          matrix:
+            parameters:
+              variant: [ stock ]
+              platform: [ amd64, aarch64 ]
+          requires:
+            - build-<< matrix.platform >>
+          filters:
+            branches:
+              only:
+                - master
+
+      # Deploy latest
+      - atom/deploy_latest:
+          name: "deploy-latest-<< matrix.platform >>"
+          source_image: << pipeline.parameters.dockerhub_repo >>
+          source_tag: build-<< pipeline.number >>
+          target_image: << pipeline.parameters.dockerhub_repo >>
+          matrix:
+            parameters:
+              variant: [ stock ]
+              platform: [ amd64, aarch64 ]
+          requires:
+            - build-<< matrix.platform >>
+          filters:
+            branches:
+              only:
+                - master
+
+      # Deploy tag
+      - atom/deploy:
+          name: "deploy-tag-<< matrix.platform >>"
+          source_image: << pipeline.parameters.dockerhub_repo >>
+          source_tag: build-<< pipeline.number >>
+          target_image: << pipeline.parameters.dockerhub_repo >>
+          target_tag: ${CIRCLE_TAG}
+          matrix:
+            parameters:
+              variant: [ stock ]
+              platform: [ amd64, aarch64 ]
+          requires:
+            - build-<< matrix.platform >>
+          filters:
+            branches:
+              ignore:
+                - /.*/
+            tags:
+              only: /.*/
+
 ```
 
 #### Explanation
@@ -148,6 +246,55 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 ```
 
 ### Release Notes
+
+#### [v0.1.3](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.1.3)
+
+##### New Features
+
+- Large overhaul/restructure of the orb for better integration with new
+CircleCI features such as pipelines and matrix configurations.
+- Atom orb now should mainly be used with the following commands: `atom/build_buildx`,
+`atom/test`, `atom/deploy`, and `atom/deploy_latest`. This should suit the needs of most users. There
+are sub-commands broken out in the orb if you need something slightly
+different/special for your build.
+- The only CircleCI vairables now needed are `DOCKERHUB_USER` and `DOCKERHUB_PASSWORD`.
+All other variables have been moved to pipeline parameters in the `.circleci`
+file to make it a bit easier to configure. Other build variables should
+be removed from your project when possible.
+- Atom orb now only depends on the `DOCKERHUB_USER` and `DOCKERHUB_PASSWORD`
+hidden variables. Other than that everything is broken out to make it
+more what's happening more clear to the user.
+- Atom orb supports/recommends using matrix configuration for building
+for multi-arch. All jobs support the following fields: `variant` and `platform`.
+A `variant` is either "stock" (i.e. vanilla), "opengl", "cuda", etc. A `platform`
+is currently either `amd64` or `aarch64`.
+- `atom/deploy` now supports the `target_tag_cmd` field which allows you to
+run a command-line text replacement (grep, sed, etc.) on the tag field. By
+default, this field removes `-stock` and `-amd64` from the auto-generated tag
+s.t. stock builds for intel machines produce tags such as "development-X",
+"master-X", etc. as before. The auto-generated tag for builds automatically
+appends the variant and platform to the build product. In general you shouldn't
+need to mess with this field as it's mainly a crutch to let us use the matrix
+features and still get all of our tags as expected but you might want to
+use it at some point.
+
+##### Upgrade Steps
+
+- Start with the example config from this file and that should work for basic
+builds that don't install anything too custom.
+- Replace `dockerhub_repo` in the parameters at the top with your desired
+Dockerhub repo
+- Replace `atom_version` in the parameters at the top with the version of
+Atom that your element is building against. It's recommended to switch
+to the latest version if upgrading your build dependencies.
+- Update the `Dockerfile` in your repo to have a variable atom version base image
+that it's built from. It should default to the current verson of atom,
+but this variable will be injected by the build system based on the `atom_version`
+parameter at the top of the file.
+```
+ARG ATOM_IMAGE=elementaryrobotics/atom:v1.3.0
+FROM ${ATOM_IMAGE}
+```
 
 #### [v0.1.2](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.1.2)
 
