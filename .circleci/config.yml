@@ -616,7 +616,7 @@ workflows:
           source_image: << pipeline.parameters.atom_repo >>
           source_tag: build-<< pipeline.number >>
           target_image: << pipeline.parameters.atom_repo >>
-          target_tag: development-${CIRCLE_BUILD_NUM}
+          target_tag: development-<< pipeline.number >>
           matrix:
             << : *atom_matrix
           requires:
@@ -630,7 +630,7 @@ workflows:
           source_image: << pipeline.parameters.nucleus_repo >>
           source_tag: build-<< pipeline.number >>
           target_image: << pipeline.parameters.nucleus_repo >>
-          target_tag: development-${CIRCLE_BUILD_NUM}
+          target_tag: development-<< pipeline.number >>
           matrix:
             << : *nucleus_matrix
           requires:
@@ -648,7 +648,7 @@ workflows:
           source_image: << pipeline.parameters.atom_repo >>
           source_tag: build-<< pipeline.number >>
           target_image: << pipeline.parameters.atom_repo >>
-          target_tag: master-${CIRCLE_BUILD_NUM}
+          target_tag: master-<< pipeline.number >>
           matrix:
             << : *atom_matrix
           requires:
@@ -676,7 +676,7 @@ workflows:
           source_image: << pipeline.parameters.nucleus_repo >>
           source_tag: build-<< pipeline.number >>
           target_image: << pipeline.parameters.nucleus_repo >>
-          target_tag: master-${CIRCLE_BUILD_NUM}
+          target_tag: master-<< pipeline.number >>
           matrix:
             << : *nucleus_matrix
           requires:
@@ -762,7 +762,7 @@ workflows:
           source_image: << pipeline.parameters.docs_repo >>
           source_tag: build-<< pipeline.number >>
           target_image: << pipeline.parameters.docs_repo >>
-          target_tag: development-${CIRCLE_BUILD_NUM}
+          target_tag: development-<< pipeline.number >>
           requires:
             - build-docs
           filters:
@@ -788,7 +788,7 @@ workflows:
           source_image: << pipeline.parameters.docs_repo >>
           source_tag: build-<< pipeline.number >>
           target_image: << pipeline.parameters.docs_repo >>
-          target_tag: master-${CIRCLE_BUILD_NUM}
+          target_tag: master-<< pipeline.number >>
           requires:
             - build-docs
           filters:
@@ -886,7 +886,7 @@ workflows:
           source_image: << pipeline.parameters.atom_repo >>
           source_tag: build-<< pipeline.number >>-base
           target_image: << pipeline.parameters.atom_repo >>
-          target_tag: development-${CIRCLE_BUILD_NUM}
+          target_tag: development-<< pipeline.number >>
           matrix:
             << : *base_matrix
           requires:
@@ -935,7 +935,7 @@ workflows:
           source_image: << pipeline.parameters.docs_repo >>
           source_tag: build-<< pipeline.number >>
           target_image: << pipeline.parameters.docs_repo >>
-          target_tag: development-${CIRCLE_BUILD_NUM}
+          target_tag: development-<< pipeline.number >>
           requires:
             - "build-docs-nightly"
           filters:
