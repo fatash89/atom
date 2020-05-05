@@ -41,20 +41,6 @@ executors:
     environment:
       DOCKER_CLI_EXPERIMENTAL: enabled
     resource_class: medium
-  build-ubuntu-large:
-    machine:
-      enabled: true
-      image: ubuntu-1604:202004-01
-    environment:
-      DOCKER_CLI_EXPERIMENTAL: enabled
-    resource_class: large
-  build-ubuntu-xlarge:
-    machine:
-      enabled: true
-      image: ubuntu-1604:202004-01
-    environment:
-      DOCKER_CLI_EXPERIMENTAL: enabled
-    resource_class: xlarge
 
   # Docker image for running flake8 jobs
   check-flake8:
@@ -293,6 +279,95 @@ commands:
           target_tag: << parameters.target_tag >>
           target_tag_cmd: << parameters.target_tag_cmd >>
 
+  build_shared:
+    parameters:
+      variant:
+        type: string
+        default: "stock"
+      working_directory:
+        type: string
+        default: "."
+      file:
+        type: string
+        default: Dockerfile
+      image_name:
+        type: string
+      image_tag:
+        type: string
+      stage:
+        type: string
+        default: ""
+      build_args:
+        type: string
+        default: ""
+      no_output_timeout:
+        <<: *default_no_output_timeout
+    steps:
+      - checkout
+      - update_submodules
+      - docker_login
+      - build_dockerfile:
+          working_directory: << parameters.working_directory >>
+          file: << parameters.file >>
+          image_name: << parameters.image_name >>
+          image_tag: << parameters.image_tag >>-<< parameters.variant >>-amd64
+          stage: << parameters.stage >>
+          build_args: << parameters.build_args >>
+          no_output_timeout: << parameters.no_output_timeout >>
+      - push_image:
+          image: << parameters.image_name >>
+          tag: << parameters.image_tag >>-<< parameters.variant >>-amd64
+
+
+  build_buildx_shared:
+    parameters:
+      variant:
+        type: string
+        default: stock
+      working_directory:
+        type: string
+        default: "."
+      file:
+        type: string
+        default: Dockerfile
+      image_name:
+        type: string
+      image_tag:
+        type: string
+      stage:
+        type: string
+        default: ""
+      build_args:
+        type: string
+        default: ""
+      platform:
+        type: string
+        default: amd64
+      cache_repo:
+        type: string
+      cache_tag:
+        type: string
+      no_output_timeout:
+        <<: *default_no_output_timeout
+    steps:
+      - checkout
+      - update_submodules
+      - docker_login
+      - build_dockerfile_buildx:
+          working_directory: << parameters.working_directory >>
+          file: << parameters.file >>
+          image_name: << parameters.image_name >>
+          image_tag: << parameters.image_tag >>
+          stage: << parameters.stage >>
+          build_args: << parameters.build_args >>
+          platform: << parameters.platform >>
+          cache_repo: << parameters.cache_repo >>
+          cache_tag: << parameters.cache_tag >>
+          no_output_timeout: << parameters.no_output_timeout >>
+      - push_image:
+          image: << parameters.image_name >>
+          tag: << parameters.image_tag >>-<< parameters.variant >>-<< parameters.platform >>
+
 
 #
 # Jobs that are nice to be able to share between elements
@@ -359,20 +434,87 @@ jobs:
       no_output_timeout:
         <<: *default_no_output_timeout
     steps:
-      - checkout
-      - update_submodules
-      - docker_login
-      - build_dockerfile:
+      - build_shared:
+          variant: << parameters.variant >>
           working_directory: << parameters.working_directory >>
           file: << parameters.file >>
           image_name: << parameters.image_name >>
-          image_tag: << parameters.image_tag >>-<< parameters.variant >>-amd64
+          image_tag: << parameters.image_tag >>
           stage: << parameters.stage >>
           build_args: << parameters.build_args >>
           no_output_timeout: << parameters.no_output_timeout >>
-      - push_image:
-          image: << parameters.image_name >>
-          tag: << parameters.image_tag >>-<< parameters.variant >>-amd64
+
+  build_large:
+    executor: build-ubuntu
+    resource_class: large
+    parameters:
+      variant:
+        type: string
+        default: "stock"
+      working_directory:
+        type: string
+        default: "."
+      file:
+        type: string
+        default: Dockerfile
+      image_name:
+        type: string
+      image_tag:
+        type: string
+      stage:
+        type: string
+        default: ""
+      build_args:
+        type: string
+        default: ""
+      no_output_timeout:
+        <<: *default_no_output_timeout
+    steps:
+      - build_shared:
+          variant: << parameters.variant >>
+          working_directory: << parameters.working_directory >>
+          file: << parameters.file >>
+          image_name: << parameters.image_name >>
+          image_tag: << parameters.image_tag >>
+          stage: << parameters.stage >>
+          build_args: << parameters.build_args >>
+          no_output_timeout: << parameters.no_output_timeout >>
+
+  build_xlarge:
+    executor: build-ubuntu
+    resource_class: xlarge
+    parameters:
+      variant:
+        type: string
+        default: "stock"
+      working_directory:
+        type: string
+        default: "."
+      file:
+        type: string
+        default: Dockerfile
+      image_name:
+        type: string
+      image_tag:
+        type: string
+      stage:
+        type: string
+        default: ""
+      build_args:
+        type: string
+        default: ""
+      no_output_timeout:
+        <<: *default_no_output_timeout
+    steps:
+      - build_shared:
+          variant: << parameters.variant >>
+          working_directory: << parameters.working_directory >>
+          file: << parameters.file >>
+          image_name: << parameters.image_name >>
+          image_tag: << parameters.image_tag >>
+          stage: << parameters.stage >>
+          build_args: << parameters.build_args >>
+          no_output_timeout: << parameters.no_output_timeout >>
 
   build_buildx:
     executor: build-ubuntu
@@ -406,10 +548,8 @@ jobs:
       no_output_timeout:
         <<: *default_no_output_timeout
     steps:
-      - checkout
-      - update_submodules
-      - docker_login
-      - build_dockerfile_buildx:
+      - build_buildx_shared:
+          variant: << parameters.variant >>
           working_directory: << parameters.working_directory >>
           file: << parameters.file >>
           image_name: << parameters.image_name >>
@@ -420,9 +560,98 @@ jobs:
           cache_repo: << parameters.cache_repo >>
           cache_tag: << parameters.cache_tag >>
           no_output_timeout: << parameters.no_output_timeout >>
-      - push_image:
-          image: << parameters.image_name >>
-          tag: << parameters.image_tag >>-<< parameters.variant >>-<< parameters.platform >>
+
+  build_buildx_large:
+    executor: build-ubuntu
+    resource_class: large
+    parameters:
+      variant:
+        type: string
+        default: stock
+      working_directory:
+        type: string
+        default: "."
+      file:
+        type: string
+        default: Dockerfile
+      image_name:
+        type: string
+      image_tag:
+        type: string
+      stage:
+        type: string
+        default: ""
+      build_args:
+        type: string
+        default: ""
+      platform:
+        type: string
+        default: amd64
+      cache_repo:
+        type: string
+      cache_tag:
+        type: string
+      no_output_timeout:
+        <<: *default_no_output_timeout
+    steps:
+      - build_buildx_shared:
+          variant: << parameters.variant >>
+          working_directory: << parameters.working_directory >>
+          file: << parameters.file >>
+          image_name: << parameters.image_name >>
+          image_tag: << parameters.image_tag >>
+          stage: << parameters.stage >>
+          build_args: << parameters.build_args >>
+          platform: << parameters.platform >>
+          cache_repo: << parameters.cache_repo >>
+          cache_tag: << parameters.cache_tag >>
+          no_output_timeout: << parameters.no_output_timeout >>
+
+  build_buildx_xlarge:
+    executor: build-ubuntu
+    resource_class: xlarge
+    parameters:
+      variant:
+        type: string
+        default: stock
+      working_directory:
+        type: string
+        default: "."
+      file:
+        type: string
+        default: Dockerfile
+      image_name:
+        type: string
+      image_tag:
+        type: string
+      stage:
+        type: string
+        default: ""
+      build_args:
+        type: string
+        default: ""
+      platform:
+        type: string
+        default: amd64
+      cache_repo:
+        type: string
+      cache_tag:
+        type: string
+      no_output_timeout:
+        <<: *default_no_output_timeout
+    steps:
+      - build_buildx_shared:
+          variant: << parameters.variant >>
+          working_directory: << parameters.working_directory >>
+          file: << parameters.file >>
+          image_name: << parameters.image_name >>
+          image_tag: << parameters.image_tag >>
+          stage: << parameters.stage >>
+          build_args: << parameters.build_args >>
+          platform: << parameters.platform >>
+          cache_repo: << parameters.cache_repo >>
+          cache_tag: << parameters.cache_tag >>
+          no_output_timeout: << parameters.no_output_timeout >>
 
   # Run Tests
   test:

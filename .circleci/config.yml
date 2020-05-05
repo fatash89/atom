@@ -484,7 +484,6 @@ jobs:
 
   build-docs:
     executor: atom/build-ubuntu
-    resource_class: medium
     steps:
       - checkout
 
@@ -507,7 +506,6 @@ jobs:
 
   deploy-docs-heroku:
     executor: atom/build-ubuntu
-    resource_class: medium
     steps:
       - heroku_deploy:
           source_image: << pipeline.parameters.docs_repo >>
@@ -868,7 +866,6 @@ workflows:
                 - /.*-build-base-atom/
 
       - build-base:
-          executor: atom/build-ubuntu-xlarge
           name: "build-base-<< matrix.variant >>-<< matrix.platform >>"
           matrix:
             parameters:
