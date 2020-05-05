@@ -662,7 +662,8 @@ jobs:
         default: "stock"
       nucleus_image:
         type: string
-      nucleus_tag:
+        default: elementaryrobotics/atom
+      atom_version:
         type: string
       test_image:
         type: string
@@ -685,7 +686,7 @@ jobs:
       - docker_login
       - run_compose:
           file: << parameters.compose_file >>
-          build_args: << parameters.compose_addl_args >> "NUCLEUS_IMAGE=<< parameters.nucleus_image >>:<< parameters.nucleus_tag >> TEST_IMAGE=<< parameters.test_image >>:<< parameters.test_tag >>"
+          build_args: << parameters.compose_addl_args >> "NUCLEUS_IMAGE=<< parameters.nucleus_image >>:<< parameters.atom_version >>$(echo "-<< parameters.platform >>" | sed s/-amd64//g) TEST_IMAGE=<< parameters.test_image >>:<< parameters.test_tag >>-<< parameters.variant >>-<< parameters.platform >>"
       - run:
           name: Run Tests
           command: docker exec -it -w << parameters.container_test_dir >> << parameters.container_name >> << parameters.test_cmd >>
