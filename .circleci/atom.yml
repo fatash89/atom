@@ -657,6 +657,9 @@ jobs:
   test:
     executor: build-ubuntu
     parameters:
+      platform:
+        type: string
+        default: amd64
       variant:
         type: string
         default: "stock"
