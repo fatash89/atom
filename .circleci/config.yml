@@ -309,7 +309,7 @@ commands:
       # Run Tests
       - test_atom_variant:
           compose: .circleci/docker-compose-circle.yml
-          nucleus: << pipeline.parameters.nucleus_repo >>:build-<< pipeline.number >>-<< parameters.variant >>-<< parameters.platform >>
+          nucleus: << pipeline.parameters.nucleus_repo >>:build-<< pipeline.number >>-stock-<< parameters.platform >>
           atom: << pipeline.parameters.atom_repo >>:build-<< pipeline.number >>-test-<< parameters.variant >>-<< parameters.platform >>
           container: test_atom
           test_valgrind: << parameters.test_valgrind >>
