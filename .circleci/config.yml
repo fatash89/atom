@@ -50,10 +50,13 @@ aliases:
       exclude:
         - variant: "opengl"
           platform: "aarch64"
+          target_tag_cmd: ".*"
         - variant: "cuda"
           platform: "aarch64"
+          target_tag_cmd: ".*"
         - variant: "opengl-cuda"
           platform: "aarch64"
+          target_tag_cmd: ".*"
 
   # Nucleus Build Matrix
   - &nucleus_matrix_parameters
@@ -68,8 +71,10 @@ aliases:
       exclude:
         - variant: "opengl"
           platform: "aarch64"
+          target_tag_cmd: ".*"
         - variant: "cuda"
           platform: "aarch64"
+          target_tag_cmd: ".*"
 
   - &base_build_atom_tag "base-3050"
   - &base_build_atom_opengl_tag "base-opengl-3051"
