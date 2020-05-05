@@ -137,9 +137,15 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 # Install googletest
 RUN apt-get update \
- && apt-get install -y --no-install-recommends libgtest-dev cmake build-essential \
+ && apt-get install -y --no-install-recommends \
+    libgtest-dev \
+    cmake \
+    build-essential \
+    python3-pip \
  && cd /usr/src/gtest \
- && cmake CMakeLists.txt && make -j8 && cp *.a /usr/lib
+ && cmake CMakeLists.txt \
+ && make -j8 \
+ && cp *.a /usr/lib
 
 # Install valgrind
 RUN apt-get install -y --no-install-recommends valgrind
