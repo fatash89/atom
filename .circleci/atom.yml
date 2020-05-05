@@ -119,6 +119,9 @@ commands:
   build_dockerfile_buildx:
     description: "Build and tag a Dockerfile using buildx"
     parameters:
+      variant:
+        type: string
+        default: "stock"
       working_directory:
         type: string
         default: "."
@@ -155,12 +158,12 @@ commands:
             --progress plain
             --load
             -f << parameters.file >>
-            -t << parameters.image_name >>:<< parameters.image_tag >>
+            -t << parameters.image_name >>:<< parameters.image_tag >>-<< parameters.variant >>-<< parameters.platform >>
             --target=<< parameters.stage >>
             << parameters.build_args >>
             --pull
-            --cache-from=type=registry,ref=<< parameters.cache_repo >>:<< parameters.cache_tag >>
-            --cache-to=type=registry,ref=<< parameters.cache_repo >>:<< parameters.cache_tag >>,mode=max
+            --cache-from=type=registry,ref=<< parameters.cache_repo >>:<< parameters.cache_tag >>-<< parameters.variant >>-<< parameters.platform >>
+            --cache-to=type=registry,ref=<< parameters.cache_repo >>:<< parameters.cache_tag >>-<< parameters.variant >>-<< parameters.platform >>,mode=max
             .
           no_output_timeout: << parameters.no_output_timeout >>
 
@@ -207,7 +210,7 @@ commands:
           no_output_timeout: << parameters.no_output_timeout >>
 
   # Create and push image tag
-  tag_and_deploy:
+  tag_and_push_image:
     description: "Tag the latest docker image and deploy it"
     parameters:
       source_image:
@@ -229,24 +232,10 @@ commands:
     steps:
       - run:
           name: Tag image
-          command: |
-            if [ -n "<< parameters.target_tag >>" ]
-            then
-              export DTAG=$(echo << parameters.target_tag >> | << parameters.target_tag_cmd >>)
-            else
-              export DTAG=latest
-            fi
-            docker tag << parameters.source_image >>:<< parameters.source_tag >> << parameters.target_image >>:$DTAG
+          command: docker tag << parameters.source_image >>:<< parameters.source_tag >> << parameters.target_image >>:$(echo << parameters.target_tag >> | << parameters.target_tag_cmd >>)
       - run:
           name: Push image
-          command: |
-            if [ -n "<< parameters.target_tag >>" ]
-            then
-              export DTAG=$(echo << parameters.target_tag >> | << parameters.target_tag_cmd >>)
-            else
-              export DTAG=latest
-            fi
-            docker push << parameters.target_image >>:$DTAG
+          command: docker push << parameters.target_image >>:$(echo << parameters.target_tag >> | << parameters.target_tag_cmd >>)
 
   deploy_image:
     parameters:
@@ -267,7 +256,7 @@ commands:
       - pull_image:
           image: << parameters.source_image >>
           tag: << parameters.source_tag >>
-      - tag_and_deploy:
+      - tag_and_push_image:
           source_image: << parameters.source_image >>
           source_tag: << parameters.source_tag >>
           target_image: << parameters.target_image >>
@@ -322,7 +311,7 @@ jobs:
     parameters:
       variant:
         type: string
-        default: ""
+        default: "stock"
       working_directory:
         type: string
         default: "."
@@ -349,14 +338,13 @@ jobs:
           working_directory: << parameters.working_directory >>
           file: << parameters.file >>
           image_name: << parameters.image_name >>
-          image_tag: << parameters.image_tag >>
+          image_tag: << parameters.image_tag >>-<< parameters.variant >>-amd64
           stage: << parameters.stage >>
           build_args: << parameters.build_args >>
           no_output_timeout: << parameters.no_output_timeout >>
       - push_image:
           image: << parameters.image_name >>
-          tag: << parameters.image_tag >>
-
+          tag: << parameters.image_tag >>-<< parameters.variant >>-amd64
 
   build_buildx:
     executor: build-ubuntu
@@ -364,7 +352,7 @@ jobs:
     parameters:
       variant:
         type: string
-        default: ""
+        default: stock
       working_directory:
         type: string
         default: "."
@@ -407,7 +395,7 @@ jobs:
           no_output_timeout: << parameters.no_output_timeout >>
       - push_image:
           image: << parameters.image_name >>
-          tag: << parameters.image_tag >>
+          tag: << parameters.image_tag >>-<< parameters.variant >>-<< parameters.platform >>
 
   # Run Tests
   test:
@@ -416,7 +404,7 @@ jobs:
     parameters:
       variant:
         type: string
-        default: ""
+        default: "stock"
       nucleus_image:
         type: string
       nucleus_tag:
@@ -455,7 +443,7 @@ jobs:
     parameters:
       variant:
         type: string
-        default: ""
+        default: "stock"
       source_image:
         type: string
       source_tag:
@@ -466,14 +454,50 @@ jobs:
         type: string
       target_tag_cmd:
         type: string
-        default: grep ".*"
+        default: sed s/-stock//g | sed s/-amd64//g
+      platform:
+        type: string
+        default: "amd64"
     steps:
       - setup_remote_docker
       - deploy_image:
           source_image: << parameters.source_image >>
-          source_tag: << parameters.source_tag >>
+          source_tag: << parameters.source_tag >>-<< parameters.variant >>-<< parameters.platform >>
           target_image: << parameters.target_image >>
-          target_tag: << parameters.target_tag >>
+          target_tag: << parameters.target_tag >>-<< parameters.variant >>-<< parameters.platform >>
+          target_tag_cmd: << parameters.target_tag_cmd >>
+
+  # Special case: deploy to latest. Requires a different tag command
+  deploy_latest:
+    docker:
+      - image: cimg/base:2020.01
+    resource_class: small
+    parameters:
+      variant:
+        type: string
+        default: "stock"
+      source_image:
+        type: string
+      source_tag:
+        type: string
+      target_image:
+        type: string
+      target_tag:
+        type: string
+        default: ""
+      target_tag_cmd:
+        type: string
+        default: grep -oP "(?<=-).*" | sed s/stock/latest/g | sed s/-amd64//g | sed s/latest-aarch64/aarch64/g
+      platform:
+        type: string
+        default: "amd64"
+    steps:
+      - setup_remote_docker
+      - deploy_image:
+          source_image: << parameters.source_image >>
+          source_tag: << parameters.source_tag >>-<< parameters.variant >>-<< parameters.platform >>
+          target_image: << parameters.target_image >>
+          target_tag: << parameters.target_tag >>-<< parameters.variant >>-<< parameters.platform >>
           target_tag_cmd: << parameters.target_tag_cmd >>
 
 #
@@ -505,7 +529,7 @@ examples:
             - run:
                 name: Unit Tests
                 command: docker exec -it ${DOCKER_COMPOSE_SERVICE_NAME} $my_unit_test_command
-            - atom/tag_and_deploy:
+            - atom/tag_and_push_image:
                 source_image: ${DOCKERHUB_REPO}-${CIRCLE_WORKFLOW_WORKSPACE_ID}
                 target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}
                 target_tag: build-${CIRCLE_WORKFLOW_WORKSPACE_ID}
