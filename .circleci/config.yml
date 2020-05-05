@@ -380,7 +380,7 @@ commands:
           stage: base
           file: Dockerfile-base
           image_name: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
-          image_tag: build-<< pipeline.number >>-base
+          image_tag: base-build-<< pipeline.number >>
           platform: << parameters.platform >>
           build_args: --build-arg BASE_IMAGE=<< parameters.base_image >> << parameters.build_args >>
           no_output_timeout: 3h
@@ -390,13 +390,13 @@ commands:
       # Push build image
       - atom/push_image:
           image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
-          tag: build-<< pipeline.number >>-base-<< parameters.variant >>-<< parameters.platform >>
+          tag: base-build-<< pipeline.number >>-<< parameters.variant >>-<< parameters.platform >>
 
       # Build the atom variant with the base
       - build_atom_with_nucleus_variant:
           variant: << parameters.variant >>
           platform: << parameters.platform >>
-          base_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>:build-<< pipeline.number >>-base-<< parameters.variant >>-<< parameters.platform >>
+          base_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>:base-build-<< pipeline.number >>-<< parameters.variant >>-<< parameters.platform >>
           production_image: << parameters.base_image >>
           test_valgrind: << parameters.test_valgrind >>
 
@@ -996,9 +996,9 @@ workflows:
       - atom/deploy:
           name: "deploy-base-dev-<< matrix.variant >>-<< matrix.platform >>"
           source_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
-          source_tag: build-<< pipeline.number >>-base
+          source_tag: base-build-<< pipeline.number >>
           target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
-          target_tag: development-<< pipeline.number >>
+          target_tag: base-development-<< pipeline.number >>
           matrix:
             << : *base_matrix
           requires:
