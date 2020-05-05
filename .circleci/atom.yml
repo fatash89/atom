@@ -43,7 +43,7 @@ executors:
     resource_class: medium
 
   # Docker image for running flake8 jobs
-  check-flake8:
+  docker-flake8:
     docker:
       - image: elementaryrobotics/atom-flake8
     resource_class: small
@@ -376,7 +376,7 @@ jobs:
 
   # Run flake8 format check
   check_flake8:
-    executor: docker-in-docker
+    executor: docker-flake8
     description: Check that code conforms with flake8 formatting
     parameters:
       version:
