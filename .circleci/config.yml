@@ -867,7 +867,8 @@ workflows:
                 - /.*-build-base-all/
                 - /.*-build-base-atom/
 
-      - build-base-xlarge:
+      - build-base:
+          executor: atom/build-ubuntu-xlarge
           name: "build-base-<< matrix.variant >>-<< matrix.platform >>"
           matrix:
             parameters:

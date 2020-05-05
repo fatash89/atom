@@ -28,6 +28,7 @@ executors:
       image: circleci/classic:201808-01
     environment:
       DOCKER_CLI_EXPERIMENTAL: enabled
+    resource_class: medium
 
   # Ubuntu 16.04 machine used to build some images
   # comes with Docker 19.03.8 and docker-compose 1.25.5
@@ -39,6 +40,35 @@ executors:
       image: ubuntu-1604:202004-01
     environment:
       DOCKER_CLI_EXPERIMENTAL: enabled
+    resource_class: medium
+  build-ubuntu-large:
+    machine:
+      enabled: true
+      image: ubuntu-1604:202004-01
+    environment:
+      DOCKER_CLI_EXPERIMENTAL: enabled
+    resource_class: large
+  build-ubuntu-xlarge:
+    machine:
+      enabled: true
+      image: ubuntu-1604:202004-01
+    environment:
+      DOCKER_CLI_EXPERIMENTAL: enabled
+    resource_class: xlarge
+
+  # Docker image for running flake8 jobs
+  check-flake8:
+    docker:
+      - image: elementaryrobotics/atom-flake8
+    resource_class: small
+
+  # Docker-in-docker. Need to call setup_remote_docker
+  # before using. Useful when you don't need a bunch of
+  # CPU and are just deploying things
+  docker-in-docker:
+    docker:
+      - image: cimg/base:2020.01
+    resource_class: small
 
 #
 # Commands that are useful for build and deploy
@@ -271,8 +301,7 @@ jobs:
 
   # Run flake8 format check
   check_flake8:
-    docker:
-      - image: elementaryrobotics/atom-flake8
+    executor: docker-in-docker
     description: Check that code conforms with flake8 formatting
     parameters:
       version:
@@ -307,7 +336,6 @@ jobs:
 
   build:
     executor: build-ubuntu
-    resource_class: medium
     parameters:
       variant:
         type: string
@@ -348,7 +376,6 @@ jobs:
 
   build_buildx:
     executor: build-ubuntu
-    resource_class: medium
     parameters:
       variant:
         type: string
@@ -400,7 +427,6 @@ jobs:
   # Run Tests
   test:
     executor: build-ubuntu
-    resource_class: medium
     parameters:
       variant:
         type: string
@@ -437,9 +463,7 @@ jobs:
 
   # Deploy an Image
   deploy:
-    docker:
-      - image: cimg/base:2020.01
-    resource_class: small
+    executor: docker-in-docker
     parameters:
       variant:
         type: string
@@ -469,9 +493,7 @@ jobs:
 
   # Special case: deploy to latest. Requires a different tag command
   deploy_latest:
-    docker:
-      - image: cimg/base:2020.01
-    resource_class: small
+    executor: docker-in-docker
     parameters:
       variant:
         type: string
