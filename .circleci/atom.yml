@@ -195,7 +195,7 @@ commands:
     steps:
       - run:
           name: Launch docker-compose
-          command: << parameters.build_args >> docker-compose -p atom -f << parameters.file >> up -d
+          command: << parameters.build_args >> docker-compose -f << parameters.file >> up -d
 
   pull_image:
     description: "Pull image from registry"
@@ -689,7 +689,7 @@ jobs:
       - docker_login
       - run_compose:
           file: << parameters.compose_file >>
-          build_args: << parameters.compose_addl_args >> "NUCLEUS_IMAGE=<< parameters.nucleus_repo >>:<< parameters.atom_version >>-stock-<< parameters.platform >> TEST_IMAGE=<< parameters.test_image >>:<< parameters.test_tag >>-<< parameters.variant >>-<< parameters.platform >>"
+          build_args: << parameters.compose_addl_args >> NUCLEUS_IMAGE=<< parameters.nucleus_repo >>:<< parameters.atom_version >>-stock-<< parameters.platform >> TEST_IMAGE=<< parameters.test_image >>:<< parameters.test_tag >>-<< parameters.variant >>-<< parameters.platform >>
       - run:
           name: Run Tests
           command: docker exec -it -w << parameters.container_test_dir >> << parameters.container_name >> << parameters.test_cmd >>
