@@ -137,7 +137,7 @@ commands:
         default: ""
       platform:
         type: string
-        default: linux/amd64
+        default: amd64
       cache_repo:
         type: string
       cache_tag:
@@ -151,7 +151,7 @@ commands:
           working_directory: << parameters.working_directory >>
           command: >
             docker buildx build
-            --platform=<< parameters.platform >>
+            --platform=linux/<< parameters.platform >>
             --progress plain
             --load
             -f << parameters.file >>
@@ -377,7 +377,7 @@ jobs:
         default: ""
       platform:
         type: string
-        default: linux/amd64
+        default: amd64
       cache_repo:
         type: string
       cache_tag:

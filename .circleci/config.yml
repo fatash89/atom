@@ -167,7 +167,7 @@ commands:
         default: ""
       platform:
         type: string
-        default: linux/amd64
+        default: amd64
       build_args:
         type: string
         default: ""
@@ -244,7 +244,7 @@ commands:
         default: ""
       platform:
         type: string
-        default: linux/amd64
+        default: amd64
       build_args:
         type: string
         default: ""
@@ -297,7 +297,7 @@ commands:
         default: ""
       platform:
         type: string
-        default: linux/amd64
+        default: amd64
       build_args:
         type: string
         default: ""
@@ -342,7 +342,7 @@ jobs:
         default: ""
       platform:
         type: string
-        default: "linux/amd64"
+        default: "amd64"
       base_repo:
         type: string
         default: << pipeline.parameters.atom_repo >>
@@ -375,7 +375,7 @@ jobs:
         default: ""
       platform:
         type: string
-        default: "linux/amd64"
+        default: "amd64"
       base_repo:
         type: string
         default: << pipeline.parameters.atom_repo >>
@@ -408,7 +408,7 @@ jobs:
         default: ""
       platform:
         type: string
-        default: "linux/amd64"
+        default: "amd64"
       build_args:
         type: string
         default: ""
@@ -476,7 +476,7 @@ workflows:
       - build-atom-with-nucleus:
           name: "build-atom"
           tag: ""
-          platform: linux/amd64
+          platform: amd64
           base_tag: *base_build_atom_tag
           build_args: "--build-arg PRODUCTION_IMAGE=debian:buster-slim"
           filters:
@@ -511,7 +511,7 @@ workflows:
       - build-atom:
           name: "build-atom-opengl"
           tag: "-opengl"
-          platform: linux/amd64
+          platform: amd64
           base_tag: *base_build_atom_opengl_tag
           build_args: "--build-arg PRODUCTION_IMAGE=nvidia/opengl:1.0-glvnd-runtime-ubuntu18.04"
           requires:
@@ -527,7 +527,7 @@ workflows:
       - build-atom:
           name: "build-atom-cuda"
           tag: "-cuda"
-          platform: linux/amd64
+          platform: amd64
           base_tag: *base_build_atom_cuda_tag
           build_args: "--build-arg PRODUCTION_IMAGE=nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04"
           requires:
@@ -543,7 +543,7 @@ workflows:
       - build-atom:
           name: "build-atom-opengl-cuda"
           tag: "-opengl-cuda"
-          platform: linux/amd64
+          platform: amd64
           base_tag: *base_build_atom_cuda_tag
           build_args: "--build-arg PRODUCTION_IMAGE=nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04 --build-arg INSTALL_OPENGL=y"
           requires:
@@ -559,7 +559,7 @@ workflows:
       - build-atom-with-nucleus:
           name: "build-atom-aarch64"
           tag: "-aarch64"
-          platform: linux/aarch64
+          platform: aarch64
           base_tag: *base_build_atom_aarch64_tag
           build_args: "--build-arg PRODUCTION_IMAGE=debian:buster-slim"
           test_valgrind: false
@@ -808,7 +808,7 @@ workflows:
       - build-base:
           name: "build-base"
           tag: ""
-          platform: linux/amd64
+          platform: amd64
           filters:
             branches:
               only:
@@ -818,7 +818,7 @@ workflows:
       - build-base:
           name: "build-base-aarch64"
           tag: "-aarch64"
-          platform: linux/aarch64
+          platform: aarch64
           build_args: "--build-arg BLAS_TARGET_CPU=ARMV8 --build-arg PYARROW_EXTRA_CMAKE_ARGS=-DARROW_ARMV8_ARCH=armv8-a"
           cache_repo: << pipeline.parameters.cache_repo_aarch64 >>
           test_valgrind: false
@@ -831,7 +831,7 @@ workflows:
       - build-base:
           name: "build-base-opengl"
           tag: "-opengl"
-          platform: linux/amd64
+          platform: amd64
           build_args: "--build-arg BASE_IMAGE=nvidia/opengl:1.0-glvnd-runtime-ubuntu18.04"
           filters:
             branches:
@@ -842,7 +842,7 @@ workflows:
       - build-base:
           name: "build-base-cuda"
           tag: "-cuda"
-          platform: linux/amd64
+          platform: amd64
           build_args: "--build-arg BASE_IMAGE=nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04"
           filters:
             branches:
