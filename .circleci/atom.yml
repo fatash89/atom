@@ -166,7 +166,7 @@ commands:
     steps:
       - enable_buildx
       - run:
-          name: Build Dockerfile << parameters.working_directory >>/<< parameters.file >> stage << parameters.stage >> with buildx and tag as << parameters.image_name >>:<< parameters.image_tag >>
+          name: Buildx Dockerfile << parameters.working_directory >>/<< parameters.file >> stage:<< parameters.stage >> variant:<< parameters.variant >> platform:<< parameters.platform >> tag:<< parameters.image_name >>:<< parameters.image_tag >>
           working_directory: << parameters.working_directory >>
           command: >
             docker buildx build
@@ -206,7 +206,7 @@ commands:
         type: string
     steps:
       - run:
-          name: Pull Docker image
+          name: Pull image  << parameters.image >>:<< parameters.tag >>
           command: docker pull << parameters.image >>:<< parameters.tag >>
 
   # Create and push image tag
@@ -221,7 +221,7 @@ commands:
         <<: *default_no_output_timeout
     steps:
       - run:
-          name: Docker Push
+          name: Push Image << parameters.image >>:<< parameters.tag >>
           command: docker push << parameters.image >>:<< parameters.tag >>
           no_output_timeout: << parameters.no_output_timeout >>
 
@@ -247,10 +247,10 @@ commands:
         default: "grep '.*'"
     steps:
       - run:
-          name: Tag image
+          name: Tag image source:<< parameters.source_image >>:<< parameters.source_tag >> target:<< parameters.target_image >>:<< parameters.target_tag >> tag_cmd:<< parameters.target_tag_cmd >>
           command: docker tag << parameters.source_image >>:<< parameters.source_tag >> << parameters.target_image >>:$(echo << parameters.target_tag >> | << parameters.target_tag_cmd >>)
       - run:
-          name: Push image
+          name: Push image target:<< parameters.target_image >>:<< parameters.target_tag >> tag_cmd:<< parameters.target_tag_cmd >>
           command: docker push << parameters.target_image >>:$(echo << parameters.target_tag >> | << parameters.target_tag_cmd >>)
 
   deploy_image:
