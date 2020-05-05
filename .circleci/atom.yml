@@ -320,6 +320,9 @@ jobs:
     executor: build-ubuntu
     resource_class: medium
     parameters:
+      variant:
+        type: string
+        default: ""
       working_directory:
         type: string
         default: "."
@@ -359,6 +362,9 @@ jobs:
     executor: build-ubuntu
     resource_class: medium
     parameters:
+      variant:
+        type: string
+        default: ""
       working_directory:
         type: string
         default: "."
@@ -408,6 +414,9 @@ jobs:
     executor: build-ubuntu
     resource_class: medium
     parameters:
+      variant:
+        type: string
+        default: ""
       nucleus_image:
         type: string
       nucleus_tag:
