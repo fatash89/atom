@@ -677,7 +677,7 @@ workflows:
       # Development branches: deploy to development-YYY-tag
       #
       - atom/deploy:
-          name: "deploy-dev-atom-<< matrix.variant >>-<< matrix.platform >>"
+          name: "deploy-dev-atom-<< matrix.variant >>-<< matrix.platform >>-<< matrix.target_tag_cmd >>"
           source_image: << pipeline.parameters.atom_repo >>
           source_tag: build-<< pipeline.number >>
           target_image: << pipeline.parameters.atom_repo >>
@@ -695,7 +695,7 @@ workflows:
               ignore:
                 - master
       - atom/deploy:
-          name: "deploy-dev-nucleus-<< matrix.variant >>-<< matrix.platform >>"
+          name: "deploy-dev-nucleus-<< matrix.variant >>-<< matrix.platform >>-<< matrix.target_tag_cmd >>"
           source_image: << pipeline.parameters.nucleus_repo >>
           source_tag: build-<< pipeline.number >>
           target_image: << pipeline.parameters.nucleus_repo >>
@@ -716,7 +716,7 @@ workflows:
       # Master branches: deploy to master-YYY-tag and latest/tag
       #
       - atom/deploy:
-          name: "deploy-master-atom-<< matrix.variant >>-<< matrix.platform >>"
+          name: "deploy-master-atom-<< matrix.variant >>-<< matrix.platform >>-<< matrix.target_tag_cmd >>"
           source_image: << pipeline.parameters.atom_repo >>
           source_tag: build-<< pipeline.number >>
           target_image: << pipeline.parameters.atom_repo >>
@@ -734,7 +734,7 @@ workflows:
               only:
                 - master
       - atom/deploy_latest:
-          name: "deploy-latest-atom-<< matrix.variant >>-<< matrix.platform >>"
+          name: "deploy-latest-atom-<< matrix.variant >>-<< matrix.platform >>-<< matrix.target_tag_cmd >>"
           source_image: << pipeline.parameters.atom_repo >>
           source_tag: build-<< pipeline.number >>
           target_image: << pipeline.parameters.atom_repo >>
@@ -752,7 +752,7 @@ workflows:
                 - master
 
       - atom/deploy:
-          name: "deploy-master-nucleus-<< matrix.variant >>-<< matrix.platform >>"
+          name: "deploy-master-nucleus-<< matrix.variant >>-<< matrix.platform >>-<< matrix.target_tag_cmd >>"
           source_image: << pipeline.parameters.nucleus_repo >>
           source_tag: build-<< pipeline.number >>
           target_image: << pipeline.parameters.nucleus_repo >>
@@ -769,7 +769,7 @@ workflows:
               only:
                 - master
       - atom/deploy_latest:
-          name: "deploy-latest-nucleus-<< matrix.variant >>-<< matrix.platform >>"
+          name: "deploy-latest-nucleus-<< matrix.variant >>-<< matrix.platform >>-<< matrix.target_tag_cmd >>"
           source_image: << pipeline.parameters.nucleus_repo >>
           source_tag: build-<< pipeline.number >>
           target_image: << pipeline.parameters.nucleus_repo >>
@@ -790,7 +790,7 @@ workflows:
       # Release builds -- deploy to release-tag
       #
       - atom/deploy:
-          name: "deploy-tag-atom-<< matrix.variant >>-<< matrix.platform >>"
+          name: "deploy-tag-atom-<< matrix.variant >>-<< matrix.platform >>-<< matrix.target_tag_cmd >>"
           source_image: << pipeline.parameters.atom_repo >>
           source_tag: build-<< pipeline.number >>
           target_image: << pipeline.parameters.atom_repo >>
@@ -810,7 +810,7 @@ workflows:
             tags:
               only: /.*/
       - atom/deploy:
-          name: "deploy-tag-nucleus-<< matrix.variant >>-<< matrix.platform >>"
+          name: "deploy-tag-nucleus-<< matrix.variant >>-<< matrix.platform >>-<< matrix.target_tag_cmd >>"
           source_image: << pipeline.parameters.nucleus_repo >>
           source_tag: build-<< pipeline.number >>
           target_image: << pipeline.parameters.nucleus_repo >>
