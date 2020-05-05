@@ -454,6 +454,34 @@ jobs:
           cache_repo: << parameters.cache_repo >>
           test_valgrind: << parameters.test_valgrind >>
 
+  build-base-xlarge:
+    parameters:
+      variant:
+        type: string
+        default: ""
+      platform:
+        type: string
+        default: "amd64"
+      build_args:
+        type: string
+        default: ""
+      cache_repo:
+        type: string
+        default: << pipeline.parameters.cache_repo >>
+      test_valgrind:
+        type: boolean
+        default: true
+    executor: atom/build-ubuntu
+    resource_class: xlarge
+    steps:
+      - build_shared_init
+      - build_atom_base_variant:
+          variant: << parameters.variant >>
+          platform: << parameters.platform >>
+          build_args: << parameters.build_args >>
+          cache_repo: << parameters.cache_repo >>
+          test_valgrind: << parameters.test_valgrind >>
+
   build-docs:
     executor: atom/build-ubuntu
     resource_class: medium
@@ -839,8 +867,7 @@ workflows:
                 - /.*-build-base-all/
                 - /.*-build-base-atom/
 
-      - build-base:
-          resource_class: xlarge
+      - build-base-xlarge:
           name: "build-base-<< matrix.variant >>-<< matrix.platform >>"
           matrix:
             parameters:
