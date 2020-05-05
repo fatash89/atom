@@ -331,6 +331,9 @@ commands:
       test_valgrind:
         type: boolean
         default: true
+      base_image:
+        type: string
+        default: debian:buster-slim
     steps:
 
       # Build atom and test stages
@@ -341,7 +344,7 @@ commands:
           image_name: << pipeline.parameters.atom_repo >>
           image_tag: build-<< pipeline.number >>-base
           platform: << parameters.platform >>
-          build_args: << parameters.build_args >>
+          build_args: --build-arg BASE_IMAGE=<< parameters.base_image >> << parameters.build_args >>
           no_output_timeout: 3h
           cache_repo: << parameters.cache_repo >>
           cache_tag: cache-base
@@ -355,7 +358,7 @@ commands:
       - build_atom_with_nucleus_variant:
           variant: << parameters.variant >>
           platform: << parameters.platform >>
-          build_args: "--build-arg BASE_IMAGE=<< pipeline.parameters.atom_repo >>:build-<< pipeline.number >>-base-<< parameters.variant >>-<< parameters.platform >>"
+          build_args: "--build-arg BASE_IMAGE=<< pipeline.parameters.atom_repo >>:build-<< pipeline.number >>-base-<< parameters.variant >>-<< parameters.platform >> --build-arg PRODUCTION_IMAGE=<< parameters.base_image >>"
           test_valgrind: << parameters.test_valgrind >>
 
 jobs:
@@ -443,6 +446,9 @@ jobs:
       test_valgrind:
         type: boolean
         default: true
+      base_image:
+        type: string
+        defaut: debian:buster-slim
     executor: atom/build-ubuntu
     resource_class: large
     steps:
@@ -450,6 +456,7 @@ jobs:
       - build_atom_base_variant:
           variant: << parameters.variant >>
           platform: << parameters.platform >>
+          base_image: << parameters.base_image >>
           build_args: << parameters.build_args >>
           cache_repo: << parameters.cache_repo >>
           test_valgrind: << parameters.test_valgrind >>
@@ -471,6 +478,9 @@ jobs:
       test_valgrind:
         type: boolean
         default: true
+      base_image:
+        type: string
+        default: debian:buster-slim
     executor: atom/build-ubuntu
     resource_class: xlarge
     steps:
@@ -478,6 +488,7 @@ jobs:
       - build_atom_base_variant:
           variant: << parameters.variant >>
           platform: << parameters.platform >>
+          base_image: << parameters.base_image >>
           build_args: << parameters.build_args >>
           cache_repo: << parameters.cache_repo >>
           test_valgrind: << parameters.test_valgrind >>
@@ -859,6 +870,7 @@ workflows:
             parameters:
               variant: [ stock ]
               platform: [ amd64 ]
+          base_image: debian:buster-slim
           filters:
             branches:
               only:
@@ -871,6 +883,7 @@ workflows:
             parameters:
               variant: [ stock ]
               platform: [ aarch64 ]
+          base_image: debian:buster-slim
           build_args: "--build-arg BLAS_TARGET_CPU=ARMV8 --build-arg PYARROW_EXTRA_CMAKE_ARGS=-DARROW_ARMV8_ARCH=armv8-a"
           test_valgrind: false
           filters:
@@ -885,7 +898,7 @@ workflows:
             parameters:
               variant: [ opengl ]
               platform: [ amd64 ]
-          build_args: "--build-arg BASE_IMAGE=nvidia/opengl:1.0-glvnd-runtime-ubuntu18.04"
+          base_image: nvidia/opengl:1.0-glvnd-runtime-ubuntu18.04
           filters:
             branches:
               only:
@@ -898,7 +911,7 @@ workflows:
             parameters:
               variant: [ cuda ]
               platform: [ amd64 ]
-          build_args: "--build-arg BASE_IMAGE=nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04"
+          base_image: nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04
           filters:
             branches:
               only:
