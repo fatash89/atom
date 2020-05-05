@@ -840,6 +840,7 @@ workflows:
                 - /.*-build-base-atom/
 
       - build-base:
+          resource_class: xlarge
           name: "build-base-<< matrix.variant >>-<< matrix.platform >>"
           matrix:
             parameters:
