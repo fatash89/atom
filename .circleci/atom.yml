@@ -698,6 +698,9 @@ jobs:
   deploy:
     executor: docker-in-docker
     parameters:
+      component:
+        type: string
+        default: ""
       variant:
         type: string
         default: "stock"
@@ -728,6 +731,9 @@ jobs:
   deploy_latest:
     executor: docker-in-docker
     parameters:
+      component:
+        type: string
+        default: ""
       variant:
         type: string
         default: "stock"

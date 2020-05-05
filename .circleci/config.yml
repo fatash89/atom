@@ -6,12 +6,15 @@
 parameters:
 
   # Atom parameters
-  atom_repo:
+  dockerhub_org:
     type: string
-    default: ${DOCKERHUB_ORG}/${DOCKERHUB_ATOM_REPO}
-  nucleus_repo:
+    default: ${DOCKERHUB_ORG}
+  atom_repo_name:
     type: string
-    default: ${DOCKERHUB_ORG}/${DOCKERHUB_NUCLEUS_REPO}
+    default: ${DOCKERHUB_ATOM_REPO}
+  nucleus_repo_name:
+    type: string
+    default: ${DOCKERHUB_NUCLEUS_REPO}
   cache_repo:
     type: string
     default: ${DOCKERHUB_ORG}/${DOCKERHUB_CACHE_REPO}
@@ -43,38 +46,57 @@ parameters:
 aliases:
 
   # Atom Build Matrix
-  - &atom_matrix_parameters
-      variant: ["stock", "opengl", "cuda", "opengl-cuda"]
-      platform: ["amd64", "aarch64"]
-  - &atom_matrix_exclude
+  - &atom_matrix
+      parameters:
+        variant: ["stock", "opengl", "cuda", "opengl-cuda"]
+        platform: ["amd64", "aarch64"]
+        component: ["atom", "nucleus"]
       exclude:
+        # No opengl, CUDA, or opengl-cuda builds for AARCH64 atom
         - variant: "opengl"
           platform: "aarch64"
-          target_tag_cmd: ".*"
+          component: "atom"
         - variant: "cuda"
           platform: "aarch64"
-          target_tag_cmd: ".*"
+          component: "atom"
         - variant: "opengl-cuda"
           platform: "aarch64"
-          target_tag_cmd: ".*"
+          component: "atom"
 
-  # Nucleus Build Matrix
-  - &nucleus_matrix_parameters
-      variant: ["stock"]
-      platform: ["amd64", "aarch64"]
+        # No opengl, CUDA, or opengl-cuda builds for AARCH64 nucleus
+        - variant: "opengl"
+          platform: "aarch64"
+          component: "nucleus"
+        - variant: "cuda"
+          platform: "aarch64"
+          component: "nucleus"
+        - variant: "opengl-cuda"
+          platform: "aarch64"
+          component: "nucleus"
+
+        # No opengl, CUDA, or opengl-cuda builds for AMD64 nucleus
+        - variant: "opengl"
+          platform: "amd64"
+          component: "nucleus"
+        - variant: "cuda"
+          platform: "amd64"
+          component: "nucleus"
+        - variant: "opengl-cuda"
+          platform: "amd64"
+          component: "nucleus"
+
 
   # Base Build Matrix
-  - &base_matrix_parameters
-      variant: ["stock", "opengl", "cuda"]
-      platform: ["amd64", "aarch64"]
-  - &base_matrix_exclude
+  - &base_matrix
+      parameters:
+        variant: ["stock", "opengl", "cuda"]
+        platform: ["amd64", "aarch64"]
       exclude:
         - variant: "opengl"
           platform: "aarch64"
-          target_tag_cmd: ".*"
         - variant: "cuda"
           platform: "aarch64"
-          target_tag_cmd: ".*"
+
 
   - &base_build_atom_tag "base-3050"
   - &base_build_atom_opengl_tag "base-opengl-3051"
@@ -192,7 +214,7 @@ commands:
         default: amd64
       base_image:
         type: string
-        default: << pipeline.parameters.atom_repo >>:base
+        default: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>:base
       production_image:
         type: string
         default: debian:buster-slim
@@ -211,7 +233,7 @@ commands:
       - atom/build_dockerfile_buildx:
           variant: << parameters.variant >>
           stage: atom-source
-          image_name: << pipeline.parameters.atom_repo >>
+          image_name: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
           image_tag: build-<< pipeline.number >>-source
           platform: << parameters.platform >>
           build_args: --build-arg BASE_IMAGE=<< parameters.base_image>> --build-arg PRODUCTION_IMAGE=<< parameters.production_image >> << parameters.build_args >>
@@ -220,7 +242,7 @@ commands:
       - atom/build_dockerfile_buildx:
           variant: << parameters.variant >>
           stage: atom
-          image_name: << pipeline.parameters.atom_repo >>
+          image_name: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
           image_tag: build-<< pipeline.number >>
           platform: << parameters.platform >>
           build_args: --build-arg BASE_IMAGE=<< parameters.base_image>> --build-arg PRODUCTION_IMAGE=<< parameters.production_image >> << parameters.build_args >>
@@ -229,7 +251,7 @@ commands:
       - atom/build_dockerfile_buildx:
           variant: << parameters.variant >>
           stage: nucleus
-          image_name: << pipeline.parameters.nucleus_repo >>
+          image_name: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.nucleus_repo_name >>
           image_tag: build-<< pipeline.number >>
           platform: << parameters.platform >>
           build_args: --build-arg BASE_IMAGE=<< parameters.base_image>> --build-arg PRODUCTION_IMAGE=<< parameters.production_image >> << parameters.build_args >>
@@ -238,7 +260,7 @@ commands:
       - atom/build_dockerfile_buildx:
           variant: << parameters.variant >>
           stage: test
-          image_name: << pipeline.parameters.atom_repo >>
+          image_name: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
           image_tag: build-<< pipeline.number >>-test
           platform: << parameters.platform >>
           build_args: --build-arg BASE_IMAGE=<< parameters.base_image>> --build-arg PRODUCTION_IMAGE=<< parameters.production_image >> << parameters.build_args >>
@@ -247,22 +269,22 @@ commands:
 
       # Tag and push atom build images
       - atom/push_image:
-          image: << pipeline.parameters.atom_repo >>
+          image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
           tag: build-<< pipeline.number >>-<< parameters.variant >>-<< parameters.platform >>
       - atom/push_image:
-          image: << pipeline.parameters.atom_repo >>
+          image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
           tag: build-<< pipeline.number >>-test-<< parameters.variant >>-<< parameters.platform >>
 
       # Tag and push nucleus image
       - atom/push_image:
-          image: << pipeline.parameters.nucleus_repo >>
+          image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.nucleus_repo_name >>
           tag: build-<< pipeline.number >>-<< parameters.variant >>-<< parameters.platform >>
 
       # Run Tests
       - test_atom_variant:
           compose: .circleci/docker-compose-circle.yml
-          nucleus: << pipeline.parameters.nucleus_repo >>:build-<< pipeline.number >>-<< parameters.variant >>-<< parameters.platform >>
-          atom: << pipeline.parameters.atom_repo >>:build-<< pipeline.number >>-test-<< parameters.variant >>-<< parameters.platform >>
+          nucleus: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.nucleus_repo_name >>:build-<< pipeline.number >>-<< parameters.variant >>-<< parameters.platform >>
+          atom: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>:build-<< pipeline.number >>-test-<< parameters.variant >>-<< parameters.platform >>
           container: test_atom
           test_valgrind: << parameters.test_valgrind >>
 
@@ -279,7 +301,7 @@ commands:
         default: amd64
       base_image:
         type: string
-        default: << pipeline.parameters.atom_repo >>:base
+        default: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>:base
       production_image:
         type: string
         default: debian:buster-slim
@@ -298,7 +320,7 @@ commands:
       - atom/build_dockerfile_buildx:
           variant: << parameters.variant >>
           stage: << parameters.target >>
-          image_name: << pipeline.parameters.atom_repo >>
+          image_name: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
           image_tag: build-<< pipeline.number >>
           build_args: --build-arg BASE_IMAGE=<< parameters.base_image>> --build-arg PRODUCTION_IMAGE=<< parameters.production_image >> << parameters.build_args >>
           platform: << parameters.platform >>
@@ -307,7 +329,7 @@ commands:
       - atom/build_dockerfile_buildx:
           variant: << parameters.variant >>
           stage: test
-          image_name: << pipeline.parameters.atom_repo >>
+          image_name: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
           image_tag: build-<< pipeline.number >>-test
           build_args: --build-arg BASE_IMAGE=<< parameters.base_image>> --build-arg PRODUCTION_IMAGE=<< parameters.production_image >> << parameters.build_args >>
           platform: << parameters.platform >>
@@ -316,17 +338,17 @@ commands:
 
       # Push build image
       - atom/push_image:
-          image: << pipeline.parameters.atom_repo >>
+          image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
           tag: build-<< pipeline.number >>-<< parameters.variant >>-<< parameters.platform >>
       - atom/push_image:
-          image: << pipeline.parameters.atom_repo >>
+          image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
           tag: build-<< pipeline.number >>-test-<< parameters.variant >>-<< parameters.platform >>
 
       # Run Tests
       - test_atom_variant:
           compose: .circleci/docker-compose-circle.yml
-          nucleus: << pipeline.parameters.nucleus_repo >>:build-<< pipeline.number >>-stock-<< parameters.platform >>
-          atom: << pipeline.parameters.atom_repo >>:build-<< pipeline.number >>-test-<< parameters.variant >>-<< parameters.platform >>
+          nucleus: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.nucleus_repo_name >>:build-<< pipeline.number >>-stock-<< parameters.platform >>
+          atom: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>:build-<< pipeline.number >>-test-<< parameters.variant >>-<< parameters.platform >>
           container: test_atom
           test_valgrind: << parameters.test_valgrind >>
 
@@ -357,7 +379,7 @@ commands:
           variant: << parameters.variant >>
           stage: base
           file: Dockerfile-base
-          image_name: << pipeline.parameters.atom_repo >>
+          image_name: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
           image_tag: build-<< pipeline.number >>-base
           platform: << parameters.platform >>
           build_args: --build-arg BASE_IMAGE=<< parameters.base_image >> << parameters.build_args >>
@@ -367,14 +389,14 @@ commands:
 
       # Push build image
       - atom/push_image:
-          image: << pipeline.parameters.atom_repo >>
+          image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
           tag: build-<< pipeline.number >>-base-<< parameters.variant >>-<< parameters.platform >>
 
       # Build the atom variant with the base
       - build_atom_with_nucleus_variant:
           variant: << parameters.variant >>
           platform: << parameters.platform >>
-          base_image: << pipeline.parameters.atom_repo >>:build-<< pipeline.number >>-base-<< parameters.variant >>-<< parameters.platform >>
+          base_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>:build-<< pipeline.number >>-base-<< parameters.variant >>-<< parameters.platform >>
           production_image: << parameters.base_image >>
           test_valgrind: << parameters.test_valgrind >>
 
@@ -390,7 +412,7 @@ jobs:
         default: "amd64"
       base_repo:
         type: string
-        default: << pipeline.parameters.atom_repo >>
+        default: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
       base_tag:
         type: string
       production_image:
@@ -428,7 +450,7 @@ jobs:
         default: "amd64"
       base_repo:
         type: string
-        default: << pipeline.parameters.atom_repo >>
+        default: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
       base_tag:
         type: string
       production_image:
@@ -674,37 +696,34 @@ workflows:
                 - /.*-build-base.*/
 
       #
-      # Development branches: deploy to development-YYY-tag
+      # Atom Development tags: development-YYY
       #
       - atom/deploy:
-          name: "deploy-dev-atom-<< matrix.variant >>-<< matrix.platform >>-<< matrix.target_tag_cmd >>"
-          source_image: << pipeline.parameters.atom_repo >>
+          name: "deploy-dev-<< matrix.component >>-<< matrix.variant >>-<< matrix.platform >>"
+          source_image: << pipeline.parameters.dockerhub_org >>/<< matrix.component >>
           source_tag: build-<< pipeline.number >>
-          target_image: << pipeline.parameters.atom_repo >>
+          target_image: << pipeline.parameters.dockerhub_org >>/<< matrix.component >>
           target_tag: development-<< pipeline.number >>
           matrix:
-            parameters:
-              << : *atom_matrix_parameters
-              # Deploy tags with full variant-platform ID and those stripped of stock/amd64
-              target_tag_cmd: [ "grep '.*'", "sed s/-stock//g | sed s/-amd64//g" ]
-            << : *atom_matrix_exclude
+            << : *atom_matrix
           requires:
             - "build-atom-<< matrix.variant >>-<< matrix.platform >>"
           filters:
             branches:
               ignore:
                 - master
+      #
+      # Atom Development tags: development-YYY-variant-platform
+      #
       - atom/deploy:
-          name: "deploy-dev-nucleus-<< matrix.variant >>-<< matrix.platform >>-<< matrix.target_tag_cmd >>"
-          source_image: << pipeline.parameters.nucleus_repo >>
+          name: "deploy-dev-<< matrix.component >>-variant-<< matrix.variant >>-<< matrix.platform >>"
+          source_image: << pipeline.parameters.dockerhub_org >>/<< matrix.component >>
           source_tag: build-<< pipeline.number >>
-          target_image: << pipeline.parameters.nucleus_repo >>
+          target_image: << pipeline.parameters.dockerhub_org >>/<< matrix.component >>
           target_tag: development-<< pipeline.number >>
+          target_tag_cmd: "grep '.*'"
           matrix:
-            parameters:
-              << : *nucleus_matrix_parameters
-              # Deploy tags with full variant-platform ID and those stripped of stock/amd64
-              target_tag_cmd: [ "grep '.*'", "sed s/-stock//g | sed s/-amd64//g" ]
+            << : *atom_matrix
           requires:
             - "build-atom-<< matrix.variant >>-<< matrix.platform >>"
           filters:
@@ -713,72 +732,16 @@ workflows:
                 - master
 
       #
-      # Master branches: deploy to master-YYY-tag and latest/tag
+      # Atom Master tags: master-YYY
       #
       - atom/deploy:
-          name: "deploy-master-atom-<< matrix.variant >>-<< matrix.platform >>-<< matrix.target_tag_cmd >>"
-          source_image: << pipeline.parameters.atom_repo >>
+          name: "deploy-master-<< matrix.component >>-<< matrix.variant >>-<< matrix.platform >>"
+          source_image: << pipeline.parameters.dockerhub_org >>/<< matrix.component >>
           source_tag: build-<< pipeline.number >>
-          target_image: << pipeline.parameters.atom_repo >>
+          target_image: << pipeline.parameters.dockerhub_org >>/<< matrix.component >>
           target_tag: master-<< pipeline.number >>
           matrix:
-            parameters:
-              << : *atom_matrix_parameters
-              # Deploy tags with full variant-platform ID and those stripped of stock/amd64
-              target_tag_cmd: [ "grep '.*'", "sed s/-stock//g | sed s/-amd64//g" ]
-            << : *atom_matrix_exclude
-          requires:
-            - "build-atom-<< matrix.variant >>-<< matrix.platform >>"
-          filters:
-            branches:
-              only:
-                - master
-      - atom/deploy_latest:
-          name: "deploy-latest-atom-<< matrix.variant >>-<< matrix.platform >>-<< matrix.target_tag_cmd >>"
-          source_image: << pipeline.parameters.atom_repo >>
-          source_tag: build-<< pipeline.number >>
-          target_image: << pipeline.parameters.atom_repo >>
-          matrix:
-            parameters:
-              << : *atom_matrix_parameters
-              # Deploy tags with full variant-platform ID and those stripped of stock/amd64
-              target_tag_cmd: [ "grep -oP '(?<=-).*'", "grep -oP '(?<=-).*' | sed s/stock/latest/g | sed s/-amd64//g | sed s/latest-aarch64/aarch64/g" ]
-            << : *atom_matrix_exclude
-          requires:
-            - "build-atom-<< matrix.variant >>-<< matrix.platform >>"
-          filters:
-            branches:
-              only:
-                - master
-
-      - atom/deploy:
-          name: "deploy-master-nucleus-<< matrix.variant >>-<< matrix.platform >>-<< matrix.target_tag_cmd >>"
-          source_image: << pipeline.parameters.nucleus_repo >>
-          source_tag: build-<< pipeline.number >>
-          target_image: << pipeline.parameters.nucleus_repo >>
-          target_tag: master-<< pipeline.number >>
-          matrix:
-            parameters:
-              << : *nucleus_matrix_parameters
-              # Deploy tags with full variant-platform ID and those stripped of stock/amd64
-              target_tag_cmd: [ "grep '.*'", "sed s/-stock//g | sed s/-amd64//g" ]
-          requires:
-            - "build-atom-<< matrix.variant >>-<< matrix.platform >>"
-          filters:
-            branches:
-              only:
-                - master
-      - atom/deploy_latest:
-          name: "deploy-latest-nucleus-<< matrix.variant >>-<< matrix.platform >>-<< matrix.target_tag_cmd >>"
-          source_image: << pipeline.parameters.nucleus_repo >>
-          source_tag: build-<< pipeline.number >>
-          target_image: << pipeline.parameters.nucleus_repo >>
-          matrix:
-            parameters:
-              << : *atom_matrix_parameters
-              # Deploy tags with full variant-platform ID and those stripped of stock/amd64
-              target_tag_cmd: [ "grep -oP '(?<=-).*'", "grep -oP '(?<=-).*' | sed s/stock/latest/g | sed s/-amd64//g | sed s/latest-aarch64/aarch64/g" ]
-            << : *atom_matrix_exclude
+            << : *atom_matrix
           requires:
             - "build-atom-<< matrix.variant >>-<< matrix.platform >>"
           filters:
@@ -787,20 +750,70 @@ workflows:
                 - master
 
       #
-      # Release builds -- deploy to release-tag
+      # Atom Master tags: master-YYY-variant-platform
       #
       - atom/deploy:
-          name: "deploy-tag-atom-<< matrix.variant >>-<< matrix.platform >>-<< matrix.target_tag_cmd >>"
-          source_image: << pipeline.parameters.atom_repo >>
+          name: "deploy-master-<< matrix.component >>-variant-<< matrix.variant >>-<< matrix.platform >>"
+          source_image: << pipeline.parameters.dockerhub_org >>/<< matrix.component >>
           source_tag: build-<< pipeline.number >>
-          target_image: << pipeline.parameters.atom_repo >>
+          target_image: << pipeline.parameters.dockerhub_org >>/<< matrix.component >>
+          target_tag: master-<< pipeline.number >>
+          target_tag_cmd: "grep '.*'"
+          matrix:
+            << : *atom_matrix
+          requires:
+            - "build-atom-<< matrix.variant >>-<< matrix.platform >>"
+          filters:
+            branches:
+              only:
+                - master
+
+      #
+      # Atom Latest tags: latest + aarch64 + opengl-cuda, etc.
+      #
+      - atom/deploy_latest:
+          name: "deploy-latest-<< matrix.component >>-variant-<< matrix.variant >>-<< matrix.platform >>"
+          source_image: << pipeline.parameters.dockerhub_org >>/<< matrix.component >>
+          source_tag: build-<< pipeline.number >>
+          target_image: << pipeline.parameters.dockerhub_org >>/<< matrix.component >>
+          target_tag_cmd: "grep -oP '(?<=-).*' | sed s/stock/latest/g | sed s/-amd64//g | sed s/latest-aarch64/aarch64/g"
+          matrix:
+            << : *atom_matrix
+          requires:
+            - "build-atom-<< matrix.variant >>-<< matrix.platform >>"
+          filters:
+            branches:
+              only:
+                - master
+      #
+      # Atom Latest tags: variant-platform
+      #
+      - atom/deploy_latest:
+          name: "deploy-latest-<< matrix.component >>-variant-<< matrix.variant >>-<< matrix.platform >>"
+          source_image: << pipeline.parameters.dockerhub_org >>/<< matrix.component >>
+          source_tag: build-<< pipeline.number >>
+          target_image: << pipeline.parameters.dockerhub_org >>/<< matrix.component >>
+          target_tag_cmd: "grep -oP '(?<=-).*'"
+          matrix:
+            << : *atom_matrix
+          requires:
+            - "build-atom-<< matrix.variant >>-<< matrix.platform >>"
+          filters:
+            branches:
+              only:
+                - master
+
+      #
+      # Atom Release tags: Git tag
+      #
+      - atom/deploy:
+          name: "deploy-tag-<< matrix.component >>-<< matrix.variant >>-<< matrix.platform >>"
+          source_image: << pipeline.parameters.dockerhub_org >>/<< matrix.component >>
+          source_tag: build-<< pipeline.number >>
+          target_image: << pipeline.parameters.dockerhub_org >>/<< matrix.component >>
           target_tag: ${CIRCLE_TAG}
           matrix:
-            parameters:
-              << : *atom_matrix_parameters
-              # Deploy tags with full variant-platform ID and those stripped of stock/amd64
-              target_tag_cmd: [ "grep '.*'", "sed s/-stock//g | sed s/-amd64//g" ]
-            << : *atom_matrix_exclude
+            << : *atom_matrix
           requires:
             - "build-atom-<< matrix.variant >>-<< matrix.platform >>"
           filters:
@@ -809,17 +822,19 @@ workflows:
                 - /.*/
             tags:
               only: /.*/
+
+      #
+      # Atom Release tags: Git tag-variant-platform
+      #
       - atom/deploy:
-          name: "deploy-tag-nucleus-<< matrix.variant >>-<< matrix.platform >>-<< matrix.target_tag_cmd >>"
-          source_image: << pipeline.parameters.nucleus_repo >>
+          name: "deploy-tag-<< matrix.component >>-variant-<< matrix.variant >>-<< matrix.platform >>"
+          source_image: << pipeline.parameters.dockerhub_org >>/<< matrix.component >>
           source_tag: build-<< pipeline.number >>
-          target_image: << pipeline.parameters.nucleus_repo >>
+          target_image: << pipeline.parameters.dockerhub_org >>/<< matrix.component >>
           target_tag: ${CIRCLE_TAG}
+          target_tag_cmd: "grep '.*'"
           matrix:
-            parameters:
-              << : *nucleus_matrix_parameters
-              # Deploy tags with full variant-platform ID and those stripped of stock/amd64
-              target_tag_cmd: [ "grep '.*'", "sed s/-stock//g | sed s/-amd64//g" ]
+            << : *atom_matrix
           requires:
             - "build-atom-<< matrix.variant >>-<< matrix.platform >>"
           filters:
@@ -828,6 +843,7 @@ workflows:
                 - /.*/
             tags:
               only: /.*/
+
   #
   # Build and deploy the docs
   #
@@ -979,22 +995,20 @@ workflows:
       # on base builds with the branch filters
       - atom/deploy:
           name: "deploy-base-dev-<< matrix.variant >>-<< matrix.platform >>"
-          source_image: << pipeline.parameters.atom_repo >>
+          source_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
           source_tag: build-<< pipeline.number >>-base
-          target_image: << pipeline.parameters.atom_repo >>
+          target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
           target_tag: development-<< pipeline.number >>
           matrix:
-            parameters:
-              << : *base_matrix_parameters
-            << : *base_matrix_exclude
+            << : *base_matrix
           requires:
             - "build-base-<< matrix.variant >>-<< matrix.platform >>"
 
       # Bump the base tags when merging into master
       - atom/deploy:
           name: "deploy-base-master-<< matrix.source_tag >>"
-          source_image: << pipeline.parameters.atom_repo >>
-          target_image: << pipeline.parameters.atom_repo >>
+          source_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
+          target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
           target_tag: << matrix.source_tag >>
           target_tag_cmd: sed s/-stock//g | sed s/-amd64//g | grep -oP '[\-a-z0-9]+(?=-[0-9]+)'
           matrix:
