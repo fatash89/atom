@@ -43,10 +43,10 @@ parameters:
 aliases:
 
   # Atom Build Matrix
-  - &atom_matrix
-      parameters:
-        variant: ["stock", "opengl", "cuda", "opengl-cuda"]
-        platform: ["amd64", "aarch64"]
+  - &atom_matrix_parameters
+      variant: ["stock", "opengl", "cuda", "opengl-cuda"]
+      platform: ["amd64", "aarch64"]
+  - &atom_matrix_exclude
       exclude:
         - variant: "opengl"
           platform: "aarch64"
@@ -56,16 +56,15 @@ aliases:
           platform: "aarch64"
 
   # Nucleus Build Matrix
-  - &nucleus_matrix
-      parameters:
-        variant: ["stock"]
-        platform: ["amd64", "aarch64"]
+  - &nucleus_matrix_parameters
+      variant: ["stock"]
+      platform: ["amd64", "aarch64"]
 
   # Base Build Matrix
-  - &base_matrix
-      parameters:
-        variant: ["stock", "opengl", "cuda"]
-        platform: ["amd64", "aarch64"]
+  - &base_matrix_parameters
+      variant: ["stock", "opengl", "cuda"]
+      platform: ["amd64", "aarch64"]
+  - &base_matrix_exclude
       exclude:
         - variant: "opengl"
           platform: "aarch64"
@@ -679,7 +678,11 @@ workflows:
           target_image: << pipeline.parameters.atom_repo >>
           target_tag: development-<< pipeline.number >>
           matrix:
-            << : *atom_matrix
+            parameters:
+              << : *atom_matrix_parameters
+              # Deploy tags with full variant-platform ID and those stripped of stock/amd64
+              target_tag_cmd: [ "grep '.*'", "sed s/-stock//g | sed s/-amd64//g" ]
+            << : *atom_matrix_exclude
           requires:
             - "build-atom-<< matrix.variant >>-<< matrix.platform >>"
           filters:
@@ -693,7 +696,10 @@ workflows:
           target_image: << pipeline.parameters.nucleus_repo >>
           target_tag: development-<< pipeline.number >>
           matrix:
-            << : *nucleus_matrix
+            parameters:
+              << : *nucleus_matrix_parameters
+              # Deploy tags with full variant-platform ID and those stripped of stock/amd64
+              target_tag_cmd: [ "grep '.*'", "sed s/-stock//g | sed s/-amd64//g" ]
           requires:
             - "build-atom-<< matrix.variant >>-<< matrix.platform >>"
           filters:
@@ -711,7 +717,11 @@ workflows:
           target_image: << pipeline.parameters.atom_repo >>
           target_tag: master-<< pipeline.number >>
           matrix:
-            << : *atom_matrix
+            parameters:
+              << : *atom_matrix_parameters
+              # Deploy tags with full variant-platform ID and those stripped of stock/amd64
+              target_tag_cmd: [ "grep '.*'", "sed s/-stock//g | sed s/-amd64//g" ]
+            << : *atom_matrix_exclude
           requires:
             - "build-atom-<< matrix.variant >>-<< matrix.platform >>"
           filters:
@@ -724,7 +734,11 @@ workflows:
           source_tag: build-<< pipeline.number >>
           target_image: << pipeline.parameters.atom_repo >>
           matrix:
-            << : *atom_matrix
+            parameters:
+              << : *atom_matrix_parameters
+              # Deploy tags with full variant-platform ID and those stripped of stock/amd64
+              target_tag_cmd: [ "grep -oP '(?<=-).*'", "grep -oP '(?<=-).*' | sed s/stock/latest/g | sed s/-amd64//g | sed s/latest-aarch64/aarch64/g" ]
+            << : *atom_matrix_exclude
           requires:
             - "build-atom-<< matrix.variant >>-<< matrix.platform >>"
           filters:
@@ -739,7 +753,10 @@ workflows:
           target_image: << pipeline.parameters.nucleus_repo >>
           target_tag: master-<< pipeline.number >>
           matrix:
-            << : *nucleus_matrix
+            parameters:
+              << : *nucleus_matrix_parameters
+              # Deploy tags with full variant-platform ID and those stripped of stock/amd64
+              target_tag_cmd: [ "grep '.*'", "sed s/-stock//g | sed s/-amd64//g" ]
           requires:
             - "build-atom-<< matrix.variant >>-<< matrix.platform >>"
           filters:
@@ -752,7 +769,11 @@ workflows:
           source_tag: build-<< pipeline.number >>
           target_image: << pipeline.parameters.nucleus_repo >>
           matrix:
-            << : *atom_matrix
+            parameters:
+              << : *atom_matrix_parameters
+              # Deploy tags with full variant-platform ID and those stripped of stock/amd64
+              target_tag_cmd: [ "grep -oP '(?<=-).*'", "grep -oP '(?<=-).*' | sed s/stock/latest/g | sed s/-amd64//g | sed s/latest-aarch64/aarch64/g" ]
+            << : *atom_matrix_exclude
           requires:
             - "build-atom-<< matrix.variant >>-<< matrix.platform >>"
           filters:
@@ -770,7 +791,11 @@ workflows:
           target_image: << pipeline.parameters.atom_repo >>
           target_tag: ${CIRCLE_TAG}
           matrix:
-            << : *atom_matrix
+            parameters:
+              << : *atom_matrix_parameters
+              # Deploy tags with full variant-platform ID and those stripped of stock/amd64
+              target_tag_cmd: [ "grep '.*'", "sed s/-stock//g | sed s/-amd64//g" ]
+            << : *atom_matrix_exclude
           requires:
             - "build-atom-<< matrix.variant >>-<< matrix.platform >>"
           filters:
@@ -786,7 +811,10 @@ workflows:
           target_image: << pipeline.parameters.nucleus_repo >>
           target_tag: ${CIRCLE_TAG}
           matrix:
-            << : *nucleus_matrix
+            parameters:
+              << : *nucleus_matrix_parameters
+              # Deploy tags with full variant-platform ID and those stripped of stock/amd64
+              target_tag_cmd: [ "grep '.*'", "sed s/-stock//g | sed s/-amd64//g" ]
           requires:
             - "build-atom-<< matrix.variant >>-<< matrix.platform >>"
           filters:
@@ -951,7 +979,9 @@ workflows:
           target_image: << pipeline.parameters.atom_repo >>
           target_tag: development-<< pipeline.number >>
           matrix:
-            << : *base_matrix
+            parameters:
+              << : *base_matrix_parameters
+            << : *base_matrix_exclude
           requires:
             - "build-base-<< matrix.variant >>-<< matrix.platform >>"
 
