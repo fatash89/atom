@@ -186,6 +186,12 @@ commands:
       platform:
         type: string
         default: amd64
+      base_image:
+        type: string
+        default: << pipeline.parameters.atom_repo >>:base
+      production_image:
+        type: string
+        default: debian:buster-slim
       build_args:
         type: string
         default: ""
@@ -204,7 +210,7 @@ commands:
           image_name: << pipeline.parameters.atom_repo >>
           image_tag: build-<< pipeline.number >>-source
           platform: << parameters.platform >>
-          build_args: << parameters.build_args >>
+          build_args: --build-arg BASE_IMAGE=<< parameters.base_image>> --build-arg PRODUCTION_IMAGE=<< parameters.production_image >> << parameters.build_args >>
           cache_repo: << parameters.cache_repo >>
           cache_tag: cache-atom
       - atom/build_dockerfile_buildx:
@@ -213,7 +219,7 @@ commands:
           image_name: << pipeline.parameters.atom_repo >>
           image_tag: build-<< pipeline.number >>
           platform: << parameters.platform >>
-          build_args: << parameters.build_args >>
+          build_args: --build-arg BASE_IMAGE=<< parameters.base_image>> --build-arg PRODUCTION_IMAGE=<< parameters.production_image >> << parameters.build_args >>
           cache_repo: << parameters.cache_repo >>
           cache_tag: cache-atom
       - atom/build_dockerfile_buildx:
@@ -222,7 +228,7 @@ commands:
           image_name: << pipeline.parameters.nucleus_repo >>
           image_tag: build-<< pipeline.number >>
           platform: << parameters.platform >>
-          build_args: << parameters.build_args >>
+          build_args: --build-arg BASE_IMAGE=<< parameters.base_image>> --build-arg PRODUCTION_IMAGE=<< parameters.production_image >> << parameters.build_args >>
           cache_repo: << parameters.cache_repo >>
           cache_tag: cache-atom
       - atom/build_dockerfile_buildx:
@@ -231,7 +237,7 @@ commands:
           image_name: << pipeline.parameters.atom_repo >>
           image_tag: build-<< pipeline.number >>-test
           platform: << parameters.platform >>
-          build_args: << parameters.build_args >>
+          build_args: --build-arg BASE_IMAGE=<< parameters.base_image>> --build-arg PRODUCTION_IMAGE=<< parameters.production_image >> << parameters.build_args >>
           cache_repo: << parameters.cache_repo >>
           cache_tag: cache-atom
 
@@ -267,6 +273,12 @@ commands:
       platform:
         type: string
         default: amd64
+      base_image:
+        type: string
+        default: << pipeline.parameters.atom_repo >>:base
+      production_image:
+        type: string
+        default: debian:buster-slim
       build_args:
         type: string
         default: ""
@@ -284,7 +296,7 @@ commands:
           stage: << parameters.target >>
           image_name: << pipeline.parameters.atom_repo >>
           image_tag: build-<< pipeline.number >>
-          build_args: << parameters.build_args >>
+          build_args: --build-arg BASE_IMAGE=<< parameters.base_image>> --build-arg PRODUCTION_IMAGE=<< parameters.production_image >> << parameters.build_args >>
           platform: << parameters.platform >>
           cache_repo: << parameters.cache_repo >>
           cache_tag: cache-atom
@@ -293,7 +305,7 @@ commands:
           stage: test
           image_name: << pipeline.parameters.atom_repo >>
           image_tag: build-<< pipeline.number >>-test
-          build_args: << parameters.build_args >>
+          build_args: --build-arg BASE_IMAGE=<< parameters.base_image>> --build-arg PRODUCTION_IMAGE=<< parameters.production_image >> << parameters.build_args >>
           platform: << parameters.platform >>
           cache_repo: << parameters.cache_repo >>
           cache_tag: cache-atom
@@ -358,7 +370,8 @@ commands:
       - build_atom_with_nucleus_variant:
           variant: << parameters.variant >>
           platform: << parameters.platform >>
-          build_args: "--build-arg BASE_IMAGE=<< pipeline.parameters.atom_repo >>:build-<< pipeline.number >>-base-<< parameters.variant >>-<< parameters.platform >> --build-arg PRODUCTION_IMAGE=<< parameters.base_image >>"
+          base_image: << pipeline.parameters.atom_repo >>:build-<< pipeline.number >>-base-<< parameters.variant >>-<< parameters.platform >>
+          production_image: << parameters.base_image >>
           test_valgrind: << parameters.test_valgrind >>
 
 jobs:
@@ -376,6 +389,9 @@ jobs:
         default: << pipeline.parameters.atom_repo >>
       base_tag:
         type: string
+      production_image:
+        type: string
+        default: debian:buster-slim
       build_args:
         type: string
         default: ""
@@ -392,7 +408,9 @@ jobs:
       - build_atom_with_nucleus_variant:
           variant: << parameters.variant >>
           platform: << parameters.platform >>
-          build_args: --build-arg BASE_IMAGE=<< parameters.base_repo >>:<< parameters.base_tag >> << parameters.build_args >>
+          build_args: << parameters.build_args >>
+          base_image: << parameters.base_repo >>:<< parameters.base_tag >>
+          production_image: << parameters.production_image >>
           test_valgrind: << parameters.test_valgrind >>
           cache_repo: << parameters.cache_repo >>
 
@@ -409,6 +427,9 @@ jobs:
         default: << pipeline.parameters.atom_repo >>
       base_tag:
         type: string
+      production_image:
+        type: string
+        default: debian:buster-slim
       build_args:
         type: string
         default: ""
@@ -425,7 +446,9 @@ jobs:
       - build_atom_variant:
           variant: << parameters.variant >>
           platform: << parameters.platform >>
-          build_args: --build-arg BASE_IMAGE=<< parameters.base_repo >>:<< parameters.base_tag >> << parameters.build_args >>
+          build_args: << parameters.build_args >>
+          base_image: << parameters.base_repo >>:<< parameters.base_tag >>
+          production_image: << parameters.production_image >>
           test_valgrind: << parameters.test_valgrind >>
           cache_repo: << parameters.cache_repo >>
 
@@ -542,7 +565,7 @@ workflows:
               variant: [ stock ]
               platform: [ amd64 ]
           base_tag: *base_build_atom_tag
-          build_args: "--build-arg PRODUCTION_IMAGE=debian:buster-slim"
+          production_image: debian:buster-slim
           filters:
             tags:
               only:
@@ -579,7 +602,7 @@ workflows:
               variant: [ opengl ]
               platform: [ amd64 ]
           base_tag: *base_build_atom_opengl_tag
-          build_args: "--build-arg PRODUCTION_IMAGE=nvidia/opengl:1.0-glvnd-runtime-ubuntu18.04"
+          production_image: nvidia/opengl:1.0-glvnd-runtime-ubuntu18.04
           requires:
             - atom/check_flake8
           filters:
@@ -597,7 +620,7 @@ workflows:
               variant: [ cuda ]
               platform: [ amd64 ]
           base_tag: *base_build_atom_cuda_tag
-          build_args: "--build-arg PRODUCTION_IMAGE=nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04"
+          production_image: nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04
           requires:
             - atom/check_flake8
           filters:
@@ -615,7 +638,8 @@ workflows:
               variant: [ opengl-cuda ]
               platform: [ amd64 ]
           base_tag: *base_build_atom_cuda_tag
-          build_args: "--build-arg PRODUCTION_IMAGE=nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04 --build-arg INSTALL_OPENGL=y"
+          production_image: nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04
+          build_args: --build-arg INSTALL_OPENGL=y
           requires:
             - atom/check_flake8
           filters:
@@ -633,7 +657,7 @@ workflows:
               variant: [ stock ]
               platform: [ aarch64 ]
           base_tag: *base_build_atom_aarch64_tag
-          build_args: "--build-arg PRODUCTION_IMAGE=debian:buster-slim"
+          production_image: debian:buster-slim
           test_valgrind: false
           requires:
             - atom/check_flake8
