@@ -53,7 +53,7 @@ aliases:
   # Basic docker build command. Uses shared args
   - &build_basic_command >-
       -f << parameters.file >>
-      -t << parameters.image_name >>:<< parameters.image_tag >> << parameters.build_args >>
+      << parameters.build_args >>
       --target=<< parameters.stage >>
       << parameters.build_args >>
       --pull
@@ -413,7 +413,11 @@ commands:
       - run:
           name: "Build Dockerfile << parameters.file >> stage << parameters.stage >> using << parameters.build_invocation >>"
           working_directory: << parameters.working_directory >>
-          command: << parameters.build_invocation >> << parameters.build_additional_command >> << parameters.build_command >>
+          command: >-
+            << parameters.build_invocation >>
+            << parameters.build_additional_command >>
+            -t << parameters.image_name >>:<< parameters.image_tag >>-<< parameters.variant >>-<< parameters.platform >>
+            << parameters.build_command >>
           no_output_timeout: << parameters.no_output_timeout >>
 
   # Build a Dockerfile using docker build
