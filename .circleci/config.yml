@@ -950,7 +950,7 @@ workflows:
                 - /.*-build-base-all/
                 - /.*-build-base-atom/
 
-      - build-base:
+      - build-base-xlarge:
           name: "build-base-<< matrix.variant >>-<< matrix.platform >>"
           matrix:
             parameters:
