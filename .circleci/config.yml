@@ -57,6 +57,9 @@ aliases:
       platform:
         type: string
         default: amd64
+      stage:
+        type: string
+        default: atom
       build_args:
         type: string
         default: ""
@@ -81,6 +84,7 @@ aliases:
   - &build_atom_variant_shared_mapping
         variant: << parameters.variant >>
         platform: << parameters.platform >>
+        stage: << parameters.stage >>
         base_repo: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
         build_args: << parameters.build_args >>
         cache_repo: << parameters.cache_repo >>
@@ -296,9 +300,6 @@ commands:
   build_atom_variant:
     parameters:
       << : *build_atom_variant_shared_params
-      stage:
-        type: string
-        default: atom
       production_image:
         type: string
         default: debian:buster-slim
@@ -548,6 +549,8 @@ workflows:
             parameters:
               variant: [ opengl ]
               platform: [ amd64 ]
+          stage: graphics
+          build_args: --build-arg TEST_FROM=graphics
           base_tag: *base_build_atom_opengl_tag
           production_image: nvidia/opengl:1.0-glvnd-runtime-ubuntu18.04
           requires:
@@ -586,9 +589,10 @@ workflows:
             parameters:
               variant: [ opengl-cuda ]
               platform: [ amd64 ]
+          stage: graphics
           base_tag: *base_build_atom_cuda_tag
           production_image: nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04
-          build_args: --build-arg INSTALL_OPENGL=y
+          build_args: --build-arg INSTALL_OPENGL=y --build-arg TEST_FROM=graphics
           requires:
             - atom/check_flake8
           filters:

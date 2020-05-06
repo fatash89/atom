@@ -127,7 +127,8 @@ CMD ["./launch.sh"]
 #
 ################################################################################
 
-FROM atom as test
+ARG TEST_FROM=atom
+FROM ${TEST_FROM} as test
 
 ARG DEBIAN_FRONTEND=noninteractive
 
