@@ -6,6 +6,7 @@
 
 ARG BASE_IMAGE=elementaryrobotics/atom:base
 ARG PRODUCTION_IMAGE=debian:buster-slim
+ARG TEST_FROM=atom
 FROM $BASE_IMAGE as atom-source
 
 ARG DEBIAN_FRONTEND=noninteractive
@@ -127,7 +128,6 @@ CMD ["./launch.sh"]
 #
 ################################################################################
 
-ARG TEST_FROM=atom
 FROM ${TEST_FROM} as test
 
 ARG DEBIAN_FRONTEND=noninteractive
