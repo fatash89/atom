@@ -51,7 +51,7 @@ aliases:
       no_output_timeout: << parameters.no_output_timeout >>
 
   # Basic docker build command. Uses shared args
-  - &build_basic_command >
+  - &build_basic_command >-
       -f << parameters.file >>
       -t << parameters.image_name >>:<< parameters.image_tag >> << parameters.build_args >>
       --target=<< parameters.stage >>
@@ -82,7 +82,7 @@ aliases:
       cache_tag: << parameters.cache_tag >>
 
   # Buildx additional command using additional arguments
-  - &build_buildx_additional_command >
+  - &build_buildx_additional_command >-
       --platform=linux/<< parameters.platform >>
       --progress plain
       --load
@@ -327,10 +327,9 @@ commands:
         type: string
         default: amd64
     steps:
-      - run:
-          push_image:
-            target_image: << parameters.target_image >>
-            target_tag: << parameters.target_tag >>-<< parameters.variant >>-<< parameters.platform >>
+      - push_image:
+          target_image: << parameters.target_image >>
+          target_tag: << parameters.target_tag >>-<< parameters.variant >>-<< parameters.platform >>
 
   # Create and push image tag
   tag_and_push_image:
@@ -412,8 +411,8 @@ commands:
         default: *build_basic_command
     steps:
       - run:
-          working_directory: << parameters.working_directory >>
           name: "Build Dockerfile << parameters.file >> stage << parameters.stage >> using << parameters.build_invocation >>"
+          working_directory: << parameters.working_directory >>
           command: << parameters.build_invocation >> << parameters.build_additional_command >> << parameters.build_command >>
           no_output_timeout: << parameters.no_output_timeout >>
 

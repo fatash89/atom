@@ -82,23 +82,23 @@ aliases:
   #   NOTE: if building atom and not a base, you will also need to specify:
   #     - production_image
   - &build_atom_variant_shared_mapping
-        variant: << parameters.variant >>
-        platform: << parameters.platform >>
-        stage: << parameters.stage >>
-        base_repo: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
-        build_args: << parameters.build_args >>
-        cache_repo: << parameters.cache_repo >>
-        test_valgrind: << parameters.test_valgrind >>
+      variant: << parameters.variant >>
+      platform: << parameters.platform >>
+      stage: << parameters.stage >>
+      base_repo: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
+      build_args: << parameters.build_args >>
+      cache_repo: << parameters.cache_repo >>
+      test_valgrind: << parameters.test_valgrind >>
 
   - &build_buildx_atom_variant_shared_mapping
-        variant: << parameters.variant >>
-        platform: << parameters.platform >>
-        build_args: >-
-          --build-arg BASE_IMAGE=<< parameters.base_repo >>-<< parameters.base_tag >>
-          --build-arg PRODUCTION_IMAGE=<< parameters.production_image >>
-          << parameters.build_args >>
-        cache_repo: << parameters.cache_repo >>
-        cache_tag: cache-atom
+      variant: << parameters.variant >>
+      platform: << parameters.platform >>
+      build_args: >-
+        --build-arg BASE_IMAGE=<< parameters.base_repo >>-<< parameters.base_tag >>
+        --build-arg PRODUCTION_IMAGE=<< parameters.production_image >>
+        << parameters.build_args >>
+      cache_repo: << parameters.cache_repo >>
+      cache_tag: cache-atom
 
   # Name of the build job
   - &atom_matrix_build_job_name "build-atom-<< matrix.variant >>-<< matrix.platform >>"
@@ -194,13 +194,9 @@ aliases:
       cache_tag: cache-docs
 
   - &docs_deploy_shared_config
-      name: "build-docs"
-      working_directory: doc
-      file: Dockerfile
-      image_name: << pipeline.parameters.docs_repo >>
-      image_tag: build-<< pipeline.number >>
-      cache_repo: << pipeline.parameters.docs_cache_repo >>
-      cache_tag: cache-docs
+      source_image: << pipeline.parameters.docs_repo >>
+      source_tag: build-<< pipeline.number >>
+      target_image: << pipeline.parameters.docs_repo >>
 
 #
 # Circle config
@@ -496,7 +492,7 @@ workflows:
           version: 3.7.0
           exclude: demo,doc,examples,utilities,*third-party,languages
           requires:
-            - *atom_matrix_build_job_name
+            - build-atom-stock-amd64
           filters:
             tags:
               only:
@@ -699,6 +695,7 @@ workflows:
           name: "deploy-latest-<< matrix.component >>-variant-<< matrix.variant >>-<< matrix.platform >>"
           << : *atom_deploy_shared_mapping
           target_tag_cmd: "grep -oP '(?<=-).*' | sed s/stock/latest/g | sed s/-amd64//g | sed s/latest-aarch64/aarch64/g"
+          target_tag: ""
           matrix:
             << : *atom_matrix
           requires:
@@ -713,6 +710,7 @@ workflows:
       - atom/deploy_latest:
           name: "deploy-latest-<< matrix.component >>-variant-<< matrix.variant >>-<< matrix.platform >>"
           << : *atom_deploy_shared_mapping
+          target_tag: ""
           target_tag_cmd: "grep -oP '(?<=-).*'"
           matrix:
             << : *atom_matrix
@@ -942,11 +940,11 @@ workflows:
           << : *docs_build_shared_config
 
       - atom/deploy:
-          name: "deploy-docs-nightly"
+          name: "deploy-docs"
           << : *docs_deploy_shared_config
           target_tag: development-<< pipeline.number >>
           requires:
-            - "build-docs-nightly"
+            - "build-docs"
           filters:
             branches:
               ignore:
