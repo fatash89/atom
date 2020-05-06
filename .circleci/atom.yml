@@ -55,7 +55,6 @@ aliases:
       -f << parameters.file >>
       << parameters.build_args >>
       --target=<< parameters.stage >>
-      << parameters.build_args >>
       --pull
       .
 
