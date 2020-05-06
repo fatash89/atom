@@ -31,7 +31,7 @@ def is_dirty():
     try:
         p = subprocess.run(["git", "diff-index", "--name-only", "HEAD"],
                            stdout=subprocess.PIPE)
-        return len(str(p.stdout)) > 0
+        return len(str(p.stdout, 'utf-8')) > 0
     except Exception:
         return False
 
@@ -44,7 +44,9 @@ def get_git_version(abbrev=7):
     """
     version = call_git_describe(abbrev)
     if is_dirty():
-        version += "-dirty"
+        print("dirty")
+
+        #version += "-dirty"
 
     return version
 
