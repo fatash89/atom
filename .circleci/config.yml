@@ -94,7 +94,7 @@ aliases:
       variant: << parameters.variant >>
       platform: << parameters.platform >>
       build_args: >-
-        --build-arg BASE_IMAGE=<< parameters.base_repo >>-<< parameters.base_tag >>
+        --build-arg BASE_IMAGE=<< parameters.base_repo >>:<< parameters.base_tag >>
         --build-arg PRODUCTION_IMAGE=<< parameters.production_image >>
         << parameters.build_args >>
       cache_repo: << parameters.cache_repo >>
