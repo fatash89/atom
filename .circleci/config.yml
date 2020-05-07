@@ -86,7 +86,6 @@ aliases:
       platform: << parameters.platform >>
       stage: << parameters.stage >>
       build_args: << parameters.build_args >>
-      base_repo: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
       cache_repo: << parameters.cache_repo >>
       test_valgrind: << parameters.test_valgrind >>
 
@@ -474,6 +473,7 @@ commands:
       # Build the vanilla base
       - build_atom_base:
           << : *build_atom_variant_shared_mapping
+          base_repo: << parameters.base_repo >>
           base_tag: << parameters.base_tag >>
 
       # Push and Test
@@ -489,6 +489,7 @@ commands:
       # Build the vanilla base
       - build_atom_base:
           << : *build_atom_variant_shared_mapping
+          base_repo: << parameters.base_repo >>
           base_tag: << parameters.base_tag >>
 
       # Add in the VNC
@@ -509,6 +510,7 @@ commands:
       # Build the vanilla base
       - build_atom_base:
           << : *build_atom_variant_shared_mapping
+          base_repo: << parameters.base_repo >>
           base_tag: << parameters.base_tag >>
 
       # Add in the VNC
@@ -568,6 +570,8 @@ jobs:
       - build_shared_init
       - build_atom_base_variant:
           << : *build_atom_variant_shared_mapping
+          base_repo: << parameters.base_repo >>
+          base_tag: << parameters.base_tag >>
 
   build-base-with-vnc:
     parameters:
@@ -578,6 +582,8 @@ jobs:
       - build_shared_init
       - build_atom_base_variant_with_vnc:
           << : *build_atom_variant_shared_mapping
+          base_repo: << parameters.base_repo >>
+          base_tag: << parameters.base_tag >>
 
   build-base-with-vnc-opengl:
     parameters:
@@ -588,6 +594,8 @@ jobs:
       - build_shared_init
       - build_atom_base_variant_with_vnc_opengl:
           << : *build_atom_variant_shared_mapping
+          base_repo: << parameters.base_repo >>
+          base_tag: << parameters.base_tag >>
 
   build-base-xlarge:
     parameters:
@@ -598,6 +606,8 @@ jobs:
       - build_shared_init
       - build_atom_base_variant:
           << : *build_atom_variant_shared_mapping
+          base_repo: << parameters.base_repo >>
+          base_tag: << parameters.base_tag >>
 
   build-docs:
     executor: atom/build-ubuntu
