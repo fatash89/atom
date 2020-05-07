@@ -183,7 +183,7 @@ aliases:
         - *base_build_atom_aarch64_tag
 
   # Helpful alias when building bases using additional Dockerfiles
-  - &build_atom_base_add_shaed_mapping
+  - &build_atom_base_add_shared_mapping
       prev_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
       prev_tag: << parameters.input_tag >>-<< pipeline.number >>-<< parameters.variant >>-<< parameters.platform >>
 
