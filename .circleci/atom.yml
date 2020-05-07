@@ -1,16 +1,176 @@
 #
+# Atom CircleCI Orb
+#
+
+version: 2.1
+description: Commands useful for building + deploying elements in the Atom system
+
+#
 # Section for setting repeatedly used yaml anchors/aliases
 #
 aliases:
-  - &output_timeout_param
-      description: Elapsed time command can run without output
-      type: string  # decimal with unit suffix, such as “20m”, “1.25h”, “5s”
-      default: 15m
 
+  #
+  # Basic Docker Build
+  #
 
+  # Basic build Arguments
+  - &build_basic_args
+      variant:
+        type: string
+        default: "stock"
+      working_directory:
+        type: string
+        default: "."
+      file:
+        type: string
+        default: Dockerfile
+      image_name:
+        type: string
+      image_tag:
+        type: string
+      stage:
+        type: string
+        default: ""
+      build_args:
+        type: string
+        default: ""
+      no_output_timeout:
+        type: string
+        default: 15m
 
-version: 2.1
-description: Commands useful for building/deploying elements
+  # Mapping to pass build args through without modification
+  - &build_basic_args_mapping
+      variant: << parameters.variant >>
+      working_directory: << parameters.working_directory >>
+      file: << parameters.file >>
+      image_name: << parameters.image_name >>
+      image_tag: << parameters.image_tag >>
+      stage: << parameters.stage >>
+      build_args: << parameters.build_args >>
+      no_output_timeout: << parameters.no_output_timeout >>
+
+  # Basic docker build command. Uses shared args
+  - &build_basic_command >-
+      -f << parameters.file >>
+      << parameters.build_args >>
+      --target=<< parameters.stage >>
+      --pull
+
+  #
+  # Advanced Docker buildx build
+  #
+
+  # Buildx additional arguments
+  - &build_buildx_additional_args
+      platform:
+        type: string
+        default: amd64
+      cache_repo:
+        type: string
+        default: ""
+      cache_tag:
+        type: string
+        default: ""
+
+  # Buildx additional arguments mapping
+  - &build_buildx_additional_args_mapping
+      platform: << parameters.platform >>
+      cache_repo: << parameters.cache_repo >>
+      cache_tag: << parameters.cache_tag >>
+
+  # Buildx additional command using additional arguments
+  - &build_buildx_additional_command >-
+      --platform=linux/<< parameters.platform >>
+      --progress plain
+      --load
+      --cache-from=type=registry,ref=<< parameters.cache_repo >>:<< parameters.cache_tag >>-<< parameters.variant >>-<< parameters.platform >>
+
+  #
+  # Test
+  #
+
+  - &test_shared_args
+      platform:
+        type: string
+        default: amd64
+      variant:
+        type: string
+        default: "stock"
+      nucleus_repo:
+        type: string
+        default: elementaryrobotics/nucleus
+      atom_version:
+        type: string
+      test_image:
+        type: string
+      test_tag:
+        type: string
+      compose_file:
+        type: string
+      compose_addl_args:
+        type: string
+        default: ""
+      container_name:
+        type: string
+      container_test_dir:
+        type: string
+        default: "."
+      test_cmd:
+        type: string
+
+  - &test_shared_args_mapping
+      platform: << parameters.platform >>
+      variant: << parameters.variant >>
+      nucleus_repo: << parameters.nucleus_repo >>
+      atom_version: << parameters.atom_version >>
+      test_image: << parameters.test_image >>
+      test_tag: << parameters.test_tag >>
+      compose_file: << parameters.compose_file >>
+      compose_addl_args: << parameters.compose_addl_args >>
+      container_name: << parameters.container_name >>
+      container_test_dir: << parameters.container_test_dir >>
+      test_cmd: << parameters.test_cmd >>
+
+  #
+  # Deployment
+  #
+
+  # Deploy shared arguments. Note that target_tag_cmd isn't included
+  # here but is an expected argument.
+  - &deploy_shared_args
+      variant:
+        type: string
+        default: "stock"
+      source_image:
+        type: string
+      source_tag:
+        type: string
+      target_image:
+        type: string
+      target_tag:
+        type: string
+      platform:
+        type: string
+        default: "amd64"
+
+      # Dummy arg you can use for anything to take advantage
+      # of CircleCI matrices to run different variants of the
+      # same job
+      component:
+        type: string
+        default: ""
+
+  # Deploy argument mapping
+  - &deploy_shared_args_mapping
+      variant: << parameters.variant >>
+      platform: << parameters.platform >>
+      source_image: << parameters.source_image >>
+      source_tag: << parameters.source_tag >>
+      target_image: << parameters.target_image >>
+      target_tag: << parameters.target_tag >>
+      target_tag_cmd: << parameters.target_tag_cmd >>
+      component: << parameters.component >>
 
 #
 # Machines that can be used for build. Build-classic is typically
@@ -24,6 +184,9 @@ executors:
     machine:
       enabled: true
       image: circleci/classic:201808-01
+    environment:
+      DOCKER_CLI_EXPERIMENTAL: enabled
+    resource_class: medium
 
   # Ubuntu 16.04 machine used to build some images
   # comes with Docker 19.03.8 and docker-compose 1.25.5
@@ -33,6 +196,23 @@ executors:
     machine:
       enabled: true
       image: ubuntu-1604:202004-01
+    environment:
+      DOCKER_CLI_EXPERIMENTAL: enabled
+    resource_class: medium
+
+  # Docker image for running flake8 jobs
+  docker-flake8:
+    docker:
+      - image: elementaryrobotics/atom-flake8
+    resource_class: small
+
+  # Docker-in-docker. Need to call setup_remote_docker
+  # before using. Useful when you don't need a bunch of
+  # CPU and are just deploying things
+  docker-in-docker:
+    docker:
+      - image: cimg/base:2020.01
+    resource_class: small
 
 #
 # Commands that are useful for build and deploy
@@ -70,87 +250,9 @@ commands:
           name: Docker Login
           command: echo ${DOCKERHUB_PASSWORD} | docker login -u ${DOCKERHUB_USER} --password-stdin
 
-  # Build and tag stage of multi-stage Dockerfile
-  build_stage:
-    description: "Build and tag a stage of a multi-stage Docker build"
-    parameters:
-      file:
-        type: string
-        default: Dockerfile
-      stage:
-        type: string
-      image_name:
-        type: string
-        default: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}-<< parameters.stage >>
-      image_tag:
-        type: string
-        default: build-${CIRCLE_WORKFLOW_ID}
-      build_args:
-        type: string
-        default: ""
-    steps:
-      - run:
-          name: Build and tag << parameters.stage >> stage
-          command: docker build -f << parameters.file >> -t << parameters.image_name >>:<< parameters.image_tag >> --target=<< parameters.stage >> --build-arg << parameters.build_args >> --pull .
-
-  # Prepare the machine for buildx based builds
-  enable_buildx:
-    description: "Prepare the CircleCI machine for cross-compiling ARM images"
-    steps:
-      - run:
-          name: Setup binfmt_misc
-          command: docker run --rm --privileged docker/binfmt:66f9012c56a8316f9244ffd7622d7c21c1f6f28d
-      - run:
-          name: Switch to the multi-arch builder
-          command: docker buildx create --use --name build-buildx
-
-  # Build a stage for aarch64
-  build_stage_buildx:
-    description: "Build and tag a stage of a multi-stage Docker build for aarch64"
-    parameters:
-      file:
-        type: string
-        default: Dockerfile
-      stage:
-        type: string
-      image_name:
-        type: string
-        default: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}-<< parameters.stage >>
-      image_tag:
-        type: string
-        default: build-${CIRCLE_WORKFLOW_ID}
-      build_args:
-        type: string
-        default: ""
-      platform:
-        type: string
-        default: ""
-      output_timeout:
-        <<: *output_timeout_param
-      cache_repo:
-        type: string
-        default: ${DOCKERHUB_ORG}/${DOCKERHUB_CACHE_REPO}
-      cache_tag:
-        type: string
-        default: ""
-    steps:
-      - run:
-          name: Build and tag << parameters.stage >> stage
-          command: >
-            docker buildx build
-            --platform=<< parameters.platform >>
-            --progress plain
-            --load
-            -f << parameters.file >>
-            -t << parameters.image_name >>:<< parameters.image_tag >>
-            --target=<< parameters.stage >>
-            << parameters.build_args >>
-            --pull
-            --cache-from=type=registry,ref=<< parameters.cache_repo >>:<< parameters.cache_tag >>
-            --cache-to=type=registry,ref=<< parameters.cache_repo >>:<< parameters.cache_tag >>,mode=max
-            .
-          no_output_timeout: << parameters.output_timeout >>
-
+  # Launch a compose file. Since it runs docker-compose up -d if the container
+  # is already up then this will be a No-op. This is nice s.t. we can call the
+  # test command multiple times without issue/relaunch
   run_compose:
     description: "Launch docker-compose"
     parameters:
@@ -163,162 +265,247 @@ commands:
     steps:
       - run:
           name: Launch docker-compose
-          command: << parameters.build_args >> docker-compose -p atom -f << parameters.file >> up -d
-
-  # Build and launch the docker-compose file
-  build_and_launch:
-    description: "Build and launch the docker-compose file"
-    parameters:
-      file:
-        type: string
-      service:
-        type: string
-      image_tag:
-        type: string
-        default: ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_WORKFLOW_ID}
-      build_args:
-        type: string
-        default: ""
-    steps:
-      - run:
-          name: Build Docker Compose File
-          command: << parameters.build_args >> docker-compose -p atom -f << parameters.file >> build --pull
-      - run:
-          name: Tag built service
-          command: docker tag atom_<< parameters.service >>:latest << parameters.image_tag >>
-      - run:
-          name: Launch Docker Compose File
-          command: << parameters.build_args >> docker-compose -p atom -f << parameters.file >> up -d
+          command: << parameters.build_args >> docker-compose -f << parameters.file >> up -d
 
   pull_image:
     description: "Pull image from registry"
     parameters:
-      image_tag:
+      source_image:
+        type: string
+      source_tag:
         type: string
     steps:
       - run:
-          name: Pull Docker image
-          command: docker pull << parameters.image_tag >>
+          name: Pull image  << parameters.source_image >>:<< parameters.source_tag >>
+          command: docker pull << parameters.source_image >>:<< parameters.source_tag >>
+
+  pull_image_variant:
+    description: "Pull image for a particular variant and platform"
+    parameters:
+      source_image:
+        type: string
+      source_tag:
+        type: string
+      variant:
+        type: string
+        default: stock
+      platform:
+        type: string
+        default: amd64
+    steps:
+      - run:
+          name: Pull image  << parameters.source_image >>:<< parameters.source_tag >>
+          command: docker pull << parameters.source_image >>:<< parameters.source_tag >>-<< parameters.variant >>-<< parameters.platform >>
 
   # Create and push image tag
   push_image:
-    description: "Tag the latest docker image and deploy it"
+    description: "Deploy a Docker Image"
     parameters:
-      image_tag:
-        description: Docker image to push
+      target_image:
         type: string
-      output_timeout:
-        <<: *output_timeout_param
+      target_tag:
+        type: string
     steps:
       - run:
-          name: Docker Push
-          command: docker push << parameters.image_tag >>
-          no_output_timeout: << parameters.output_timeout >>
+          name: Push Image << parameters.target_image >>:<< parameters.target_tag >>
+          command: docker push << parameters.target_image >>:<< parameters.target_tag >>
+
+  push_image_variant:
+    description: "Deploy a Docker image for a particular variant and platform"
+    parameters:
+      target_image:
+        type: string
+      target_tag:
+        type: string
+      variant:
+        type: string
+        default: stock
+      platform:
+        type: string
+        default: amd64
+    steps:
+      - push_image:
+          target_image: << parameters.target_image >>
+          target_tag: << parameters.target_tag >>-<< parameters.variant >>-<< parameters.platform >>
 
   # Create and push image tag
-  tag_and_deploy:
+  tag_and_push_image:
     description: "Tag the latest docker image and deploy it"
     parameters:
       source_image:
-        description: Old image name including tag
+        type: string
+      source_tag:
         type: string
       target_image:
-        description: New image name to push
         type: string
       target_tag:
-        description: New tag to push
         type: string
-      output_timeout:
-        <<: *output_timeout_param
+      target_tag_cmd:
+        description: grep-like modification command to be run on the target tag. Useful for when you need to use CircleCI's matrix params to launch a job with a tag that's close but not identical to the one you want to deploy.
+        type: string
+        default: "grep '.*'"
     steps:
       - run:
-          name: Docker Tag
-          command: docker tag << parameters.source_image >> << parameters.target_image >>:<< parameters.target_tag >>
+          name: Tag image source:<< parameters.source_image >>:<< parameters.source_tag >> target:<< parameters.target_image >>:<< parameters.target_tag >> tag_cmd:<< parameters.target_tag_cmd >>
+          command: docker tag << parameters.source_image >>:<< parameters.source_tag >> << parameters.target_image >>:$(echo << parameters.target_tag >> | << parameters.target_tag_cmd >>)
       - run:
-          name: Docker Push
-          command: docker push << parameters.target_image >>:<< parameters.target_tag >>
-          no_output_timeout: << parameters.output_timeout >>
+          name: Push image target:<< parameters.target_image >>:<< parameters.target_tag >> tag_cmd:<< parameters.target_tag_cmd >>
+          command: docker push << parameters.target_image >>:$(echo << parameters.target_tag >> | << parameters.target_tag_cmd >>)
+
+  tag_and_push_image_variant:
+    description: "Tag the latest docker image for a variant and platform and deploy it"
+    parameters:
+      << : *deploy_shared_args
+      target_tag_cmd:
+        type: string
+        default: "grep '.*'"
+    steps:
+      - tag_and_push_image:
+          source_image: << parameters.source_image >>
+          source_tag: << parameters.source_tag >>-<< parameters.variant >>-<< parameters.platform >>
+          target_image: << parameters.source_image >>
+          target_tag: << parameters.target_tag >>-<< parameters.variant >>-<< parameters.platform >>
+          target_tag_cmd: << parameters.target_tag_cmd >>
 
   deploy_image:
     parameters:
-      source_image:
+      << : *deploy_shared_args
+      target_tag_cmd:
         type: string
-      target_image:
-        type: string
-      target_tag:
-        type: string
-        default: ""
-      output_timeout:
-        <<: *output_timeout_param
+        default: grep ".*"
     steps:
       - docker_login
-      - pull_image:
-          image_tag: << parameters.source_image >>
-      - tag_and_deploy:
+      - pull_image_variant:
           source_image: << parameters.source_image >>
-          target_image: << parameters.target_image >>
-          target_tag: << parameters.target_tag >>
-          output_timeout: << parameters.output_timeout >>
+          source_tag: << parameters.source_tag >>
+          variant: << parameters.variant >>
+          platform: << parameters.platform >>
+      - tag_and_push_image_variant:
+          << : *deploy_shared_args_mapping
 
-  push_dev_image:
-    parameters:
-      source_image:
-        type: string
-      target_image:
-        type: string
-      target_tag:
-        type: string
-        default: development-${CIRCLE_BUILD_NUM}
-      output_timeout:
-        <<: *output_timeout_param
+  # Prepare the machine for buildx based builds
+  enable_buildx:
+    description: "Prepare the CircleCI machine for cross-compiling ARM images"
     steps:
-      - deploy_image:
-          source_image: << parameters.source_image >>
-          target_image: << parameters.target_image >>
-          target_tag: << parameters.target_tag >>
-          output_timeout: << parameters.output_timeout >>
+      - run:
+          name: Setup binfmt_misc
+          command: cat /proc/sys/fs/binfmt_misc/qemu-aarch64 | grep enabled || docker run --rm --privileged docker/binfmt:66f9012c56a8316f9244ffd7622d7c21c1f6f28d
+      - run:
+          name: Switch to the multi-arch builder
+          command: docker buildx ls | grep "build-buildx" || docker buildx create --use --name build-buildx
 
-  push_master_image:
+  # Run a Dockerfile build command
+  run_dockerfile_build:
     parameters:
-      source_image:
+      << : *build_basic_args
+      << : *build_buildx_additional_args
+      build_invocation:
         type: string
-      target_image:
+      build_additional_command:
         type: string
-      target_tag:
+      build_command:
         type: string
-        default: master-${CIRCLE_BUILD_NUM}
-      output_timeout:
-        <<: *output_timeout_param
+        default: *build_basic_command
+      build_context:
+        type: string
+        default: "."
     steps:
-      - deploy_image:
-          source_image: << parameters.source_image >>
-          target_image: << parameters.target_image >>
-          target_tag: << parameters.target_tag >>
-          output_timeout: << parameters.output_timeout >>
-      - deploy_image:
-          source_image: << parameters.source_image >>
-          target_image: << parameters.target_image >>
-          target_tag: latest
-          output_timeout: << parameters.output_timeout >>
+      - run:
+          name: "Build Dockerfile << parameters.file >> stage << parameters.stage >> using << parameters.build_invocation >>"
+          working_directory: << parameters.working_directory >>
+          command: >-
+            << parameters.build_invocation >>
+            << parameters.build_additional_command >>
+            -t << parameters.image_name >>:<< parameters.image_tag >>-<< parameters.variant >>-<< parameters.platform >>
+            << parameters.build_command >>
+            << parameters.build_context >>
+          no_output_timeout: << parameters.no_output_timeout >>
 
-  push_tag_image:
+  # Build a Dockerfile using docker build
+  build_dockerfile:
+    description: "Build and tag a Dockerfile"
     parameters:
-      source_image:
-        type: string
-      target_image:
-        type: string
-      target_tag:
-        type: string
-        default: ${CIRCLE_TAG}
-      output_timeout:
-        <<: *output_timeout_param
+      << : *build_basic_args
     steps:
-      - deploy_image:
-          source_image: << parameters.source_image >>
-          target_image: << parameters.target_image >>
-          target_tag: << parameters.target_tag >>
-          output_timeout: << parameters.output_timeout >>
+      - run_dockerfile_build:
+          build_invocation: "docker build"
+          build_additional_command: ""
+          build_command: *build_basic_command
+          << : *build_basic_args_mapping
 
+  # Build a Dockerfile using docker buildx build
+  build_dockerfile_buildx:
+    description: "Build and tag a Dockerfile using buildx"
+    parameters:
+      << : *build_basic_args
+      << : *build_buildx_additional_args
+    steps:
+      - enable_buildx
+
+      # Run the actual build. Due to a bug in the buildx cache pushing
+      # in that it's failing intermittently we don't set the
+      # --cache-to field when doing this
+      - run_dockerfile_build:
+          build_invocation: "docker buildx build"
+          build_additional_command: *build_buildx_additional_command
+          build_command: *build_basic_command
+          << : *build_basic_args_mapping
+          << : *build_buildx_additional_args_mapping
+
+      # Run the build again. This should add a small overhead but everything
+      # should be in cache locally. As such, the point of this one is just
+      # to push the cache out. We're also OK if this fails. Override the context
+      # field to add one more thing in easily
+      - run_dockerfile_build:
+          build_invocation: "docker buildx build"
+          build_additional_command: *build_buildx_additional_command
+          build_command: *build_basic_command
+          build_context: --cache-to=type=registry,ref=<< parameters.cache_repo >>:<< parameters.cache_tag >>-<< parameters.variant >>-<< parameters.platform >>,mode=max . || exit 0
+          << : *build_basic_args_mapping
+          << : *build_buildx_additional_args_mapping
+
+  build_shared:
+    parameters:
+      << : *build_basic_args
+    steps:
+      - checkout
+      - update_submodules
+      - docker_login
+      - build_dockerfile:
+          << : *build_basic_args_mapping
+      - push_image_variant:
+          target_image: << parameters.image_name >>
+          target_tag: << parameters.image_tag >>
+          variant: << parameters.variant >>
+          platform: amd64
+
+  build_buildx_shared:
+    parameters:
+      << : *build_basic_args
+      << : *build_buildx_additional_args
+    steps:
+      - checkout
+      - update_submodules
+      - docker_login
+      - build_dockerfile_buildx:
+          << : *build_basic_args_mapping
+          << : *build_buildx_additional_args_mapping
+      - push_image_variant:
+          target_image: << parameters.image_name >>
+          target_tag: << parameters.image_tag >>
+          variant: << parameters.variant >>
+          platform: << parameters.platform >>
+
+  run_test:
+    parameters:
+      << : *test_shared_args
+    steps:
+      - run_compose:
+          file: << parameters.compose_file >>
+          build_args: << parameters.compose_addl_args >> NUCLEUS_IMAGE=<< parameters.nucleus_repo >>:<< parameters.atom_version >>-stock-<< parameters.platform >> TEST_IMAGE=<< parameters.test_image >>:<< parameters.test_tag >>-<< parameters.variant >>-<< parameters.platform >>
+      - run:
+          name: Run Tests
+          command: docker exec -it -w << parameters.container_test_dir >> << parameters.container_name >> << parameters.test_cmd >>
 
 #
 # Jobs that are nice to be able to share between elements
@@ -327,8 +514,7 @@ jobs:
 
   # Run flake8 format check
   check_flake8:
-    docker:
-      - image: elementaryrobotics/atom-flake8
+    executor: docker-flake8
     description: Check that code conforms with flake8 formatting
     parameters:
       version:
@@ -361,129 +547,375 @@ jobs:
             export LC_ALL=C.UTF-8 && export LANG=C.UTF-8
             flake8 << parameters.directory >>
 
-  # Tag and deploy a development image
-  deploy-dev:
-    executor: build-classic
+  build:
+    executor: build-ubuntu
     parameters:
-      output_timeout:
-        <<: *output_timeout_param
+      << : *build_basic_args
     steps:
-      - docker_login
-      - pull_image:
-          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}:build-${CIRCLE_WORKFLOW_ID}
-      - tag_and_deploy:
-          source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}:build-${CIRCLE_WORKFLOW_ID}
-          target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}
-          target_tag: development-${CIRCLE_BUILD_NUM}
-          output_timeout: << parameters.output_timeout >>
+      - build_shared:
+          << : *build_basic_args_mapping
 
-  # Tag and deploy a master image
-  deploy-master:
-    executor: build-classic
+  build_large:
+    executor: build-ubuntu
+    resource_class: large
     parameters:
-      output_timeout:
-        <<: *output_timeout_param
+      << : *build_basic_args
     steps:
-      - docker_login
-      - pull_image:
-          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}:build-${CIRCLE_WORKFLOW_ID}
-      - tag_and_deploy:
-          source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}:build-${CIRCLE_WORKFLOW_ID}
-          target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}
-          target_tag: master-${CIRCLE_BUILD_NUM}
-          output_timeout: << parameters.output_timeout >>
-      - tag_and_deploy:
-          source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}:build-${CIRCLE_WORKFLOW_ID}
-          target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}
-          target_tag: latest
-          output_timeout: << parameters.output_timeout >>
+      - build_shared:
+          << : *build_basic_args_mapping
 
-  # Tag and deploy release image with GitHub tag
-  deploy-tag:
-    executor: build-classic
+  build_xlarge:
+    executor: build-ubuntu
+    resource_class: xlarge
     parameters:
-      output_timeout:
-        <<: *output_timeout_param
+      << : *build_basic_args
     steps:
-      - docker_login
-      - pull_image:
-          image_tag: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}:build-${CIRCLE_WORKFLOW_ID}
-      - tag_and_deploy:
-          source_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}:build-${CIRCLE_WORKFLOW_ID}
-          target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}
-          target_tag: ${CIRCLE_TAG}
-          output_timeout: << parameters.output_timeout >>
+      - build_shared:
+          << : *build_basic_args_mapping
 
-#
-# Examples
-#
+  build_buildx:
+    executor: build-ubuntu
+    parameters:
+      << : *build_basic_args
+      << : *build_buildx_additional_args
+    steps:
+      - build_buildx_shared:
+          << : *build_basic_args_mapping
+          << : *build_buildx_additional_args_mapping
+
+  build_buildx_large:
+    executor: build-ubuntu
+    resource_class: large
+    parameters:
+      << : *build_basic_args
+      << : *build_buildx_additional_args
+    steps:
+      - build_buildx_shared:
+          << : *build_basic_args_mapping
+          << : *build_buildx_additional_args_mapping
+
+  build_buildx_xlarge:
+    executor: build-ubuntu
+    resource_class: xlarge
+    parameters:
+      << : *build_basic_args
+      << : *build_buildx_additional_args
+    steps:
+      - build_buildx_shared:
+          << : *build_basic_args_mapping
+          << : *build_buildx_additional_args_mapping
+
+  # Run Tests
+  test:
+    executor: build-ubuntu
+    parameters:
+      << : *test_shared_args
+    steps:
+      - checkout
+      - docker_login
+      - run_test:
+          << : *test_shared_args_mapping
+
+  # Deploy an Image
+  deploy:
+    executor: docker-in-docker
+    parameters:
+      << : *deploy_shared_args
+      target_tag_cmd:
+        type: string
+        # By default, strip off "-stock" and "-amd64" tags so that builds
+        # show up with the legacy tags of development-YYY, master-YYY, etc.
+        default: sed s/-stock//g | sed s/-amd64//g
+    steps:
+      - setup_remote_docker
+      - deploy_image:
+          << : *deploy_shared_args_mapping
+
+  # Special case: deploy to latest. Requires a different tag command
+  deploy_latest:
+    executor: docker-in-docker
+    parameters:
+      << : *deploy_shared_args
+      target_tag_cmd:
+        type: string
+        # By default, we want -stock-amd64 to map to "latest", we want
+        # "-amd64" stripped off of all builds since it's implied/default
+        # and we want _-stock-aarch64 to be just "aarch64" for ease.
+        # This is a bit convoluted.
+        default: grep -oP "(?<=-).*" | sed s/stock/latest/g | sed s/-amd64//g | sed s/latest-aarch64/aarch64/g
+    steps:
+      - setup_remote_docker
+      - deploy_image:
+          << : *deploy_shared_args_mapping
+
 examples:
-  standard-build:
 
-    description: General-purpose build, and deploy
-
+  build-basic:
+    description: Basic build for an AMD64-based element
     usage:
+
       version: 2.1
 
-      orbs:
-        atom: elementaryrobotics/atom@x.y.z
+      parameters:
+        atom_repo:
+          type: string
+          default: elementaryrobotics/atom
+        atom_version:
+          type: string
+          default: v1.3.1
+        atom_variant:
+          type: string
+          default: stock
+        atom_platform:
+          type: string
+          default: amd64
+        dockerhub_repo:
+          type: string
+          default: elementaryrobotics/spec-robot
 
-      jobs:
-        build:
-          executor: atom/build-classic
-          environment:
-            DOCKER_COMPOSE_SERVICE_NAME: some_service
-          steps:
-            - checkout
-            - atom/docker_login
-            - atom/build_and_launch:
-                file: docker-compose.yml
-                service: ${DOCKER_COMPOSE_SERVICE_NAME}
-                image_tag: ${DOCKERHUB_REPO}-${CIRCLE_WORKFLOW_ID}
-            - run:
-                name: Unit Tests
-                command: docker exec -it ${DOCKER_COMPOSE_SERVICE_NAME} $my_unit_test_command
-            - atom/tag_and_deploy:
-                source_image: ${DOCKERHUB_REPO}-${CIRCLE_WORKFLOW_ID}
-                target_image: ${DOCKERHUB_ORG}/${DOCKERHUB_REPO}
-                target_tag: build-${CIRCLE_WORKFLOW_ID}
+      aliases:
+
+        - &deploy_shared
+            source_image: << pipeline.parameters.dockerhub_repo >>
+            source_tag: build-<< pipeline.number >>
+            target_image: << pipeline.parameters.dockerhub_repo >>
+
+      orbs:
+        atom: elementaryrobotics/atom@0.1.3
 
       workflows:
         version: 2
         build-all:
           jobs:
-            - build:
+
+            # Build for intel and ARM
+            - atom/build_buildx:
+                name: "build"
+                image_name: << pipeline.parameters.dockerhub_repo >>
+                image_tag: build-<< pipeline.number >>
+                cache_repo: << pipeline.parameters.dockerhub_repo >>
+                cache_tag: cache
+                build_args: --build-arg ATOM_IMAGE=<< pipeline.parameters.atom_repo >>:<< pipeline.parameters.atom_version >>-<< pipeline.parameters.atom_variant >>-<< pipeline.parameters.atom_platform >>
                 filters:
                   tags:
                     only: /.*/
-            - atom/check_flake8:
+
+            # Test
+            - atom/test:
+                name: "test"
+                test_image: << pipeline.parameters.dockerhub_repo >>
+                test_tag: build-<< pipeline.number >>
+                atom_version: << pipeline.parameters.atom_version >>
+                platform: << pipeline.parameters.atom_platform >>
+                compose_file: .circleci/docker-compose.yml
+                container_name: test-container
+                container_test_dir: /code
+                test_cmd: echo "write some tests!"
                 requires:
                   - build
-                version: 3.7.0
-                exclude: doc,*third-party
                 filters:
                   tags:
                     only: /.*/
-            - atom/deploy-master:
+
+            # Check Flake8 -- parallel to the build
+            - atom/check_flake8:
+                version: 3.7.0
+                exclude: tests/*,tasks/elementary-task,robot-shared
+                filters:
+                  tags:
+                    only: /.*/
+
+            # Deploy development
+            - atom/deploy:
+                name: "deploy-development"
+                target_tag: development-<< pipeline.number >>
+                << : *deploy_shared
                 requires:
-                  - atom/check_flake8
+                  - build
+                filters:
+                  branches:
+                    ignore:
+                      - master
+
+            # Deploy Master
+            - atom/deploy:
+                name: "deploy-master"
+                target_tag: master-<< pipeline.number >>
+                << : *deploy_shared
+                requires:
+                  - build
                 filters:
                   branches:
                     only:
                       - master
-            - atom/deploy-tag:
+
+            # Deploy latest
+            - atom/deploy_latest:
+                name: "deploy-latest"
+                target_tag: ""
+                << : *deploy_shared
                 requires:
-                  - atom/check_flake8
+                  - build
+                filters:
+                  branches:
+                    only:
+                      - master
+
+            # Deploy tag
+            - atom/deploy:
+                name: "deploy-tag"
+                target_tag: ${CIRCLE_TAG}
+                << : *deploy_shared
+                requires:
+                  - build
                 filters:
                   branches:
                     ignore:
                       - /.*/
                   tags:
                     only: /.*/
-            - atom/deploy-dev:
+
+  build-amd64-aarch64:
+    description: Build with matrix support that builds both amd64 and aarch64
+    usage:
+
+      version: 2.1
+
+      parameters:
+        atom_repo:
+          type: string
+          default: elementaryrobotics/atom
+        atom_version:
+          type: string
+          default: v1.3.1
+        atom_variant:
+          type: string
+          default: stock
+        dockerhub_repo:
+          type: string
+          default: elementaryrobotics/example-element
+
+      orbs:
+        atom: elementaryrobotics/atom@0.1.3
+
+      workflows:
+        version: 2
+        build-all:
+          jobs:
+
+            # Build for intel and ARM
+            - atom/build_buildx:
+                name: "build-<< matrix.platform >>"
+                matrix:
+                  parameters:
+                    variant: [ << pipeline.parameters.atom_variant >> ]
+                    platform: [ amd64, aarch64 ]
+                image_name: << pipeline.parameters.dockerhub_repo >>
+                image_tag: build-<< pipeline.number >>
+                cache_repo: << pipeline.parameters.dockerhub_repo >>
+                cache_tag: cache
+                build_args: --build-arg ATOM_IMAGE=<< pipeline.parameters.atom_repo >>:<< pipeline.parameters.atom_version >>-<< matrix.variant >>-<< matrix.platform >>
+                filters:
+                  tags:
+                    only: /.*/
+
+            # Test
+            - atom/test:
+                name: "test-<< matrix.platform >>"
+                matrix:
+                  parameters:
+                    variant: [ << pipeline.parameters.atom_variant >> ]
+                    platform: [ amd64, aarch64 ]
+                test_image: << pipeline.parameters.dockerhub_repo >>
+                test_tag: build-<< pipeline.number >>
+                atom_version: << pipeline.parameters.atom_version >>
+                compose_file: .circleci/docker-compose.yml
+                container_name: test-container
+                container_test_dir: /code
+                test_cmd: echo "write some tests!"
                 requires:
-                  - atom/check_flake8
+                  - build-<< matrix.platform >>
+                filters:
+                  tags:
+                    only: /.*/
+
+            # Check Flake8 -- parallel to the build
+            - atom/check_flake8:
+                version: 3.7.0
+                exclude: tests/*,tasks/elementary-task,robot-shared
+                filters:
+                  tags:
+                    only: /.*/
+
+            # Deploy development
+            - atom/deploy:
+                name: "deploy-development-<< matrix.platform >>"
+                source_image: << pipeline.parameters.dockerhub_repo >>
+                source_tag: build-<< pipeline.number >>
+                target_image: << pipeline.parameters.dockerhub_repo >>
+                target_tag: development-<< pipeline.number >>
+                matrix:
+                  parameters:
+                    variant: [ << pipeline.parameters.atom_variant >> ]
+                    platform: [ amd64, aarch64 ]
+                requires:
+                  - build-<< matrix.platform >>
                 filters:
                   branches:
                     ignore:
                       - master
+
+            # Deploy Master
+            - atom/deploy:
+                name: "deploy-master-<< matrix.platform >>"
+                source_image: << pipeline.parameters.dockerhub_repo >>
+                source_tag: build-<< pipeline.number >>
+                target_image: << pipeline.parameters.dockerhub_repo >>
+                target_tag: master-<< pipeline.number >>
+                matrix:
+                  parameters:
+                    variant: [ << pipeline.parameters.atom_variant >> ]
+                    platform: [ amd64, aarch64 ]
+                requires:
+                  - build-<< matrix.platform >>
+                filters:
+                  branches:
+                    only:
+                      - master
+
+            # Deploy latest
+            - atom/deploy_latest:
+                name: "deploy-latest-<< matrix.platform >>"
+                source_image: << pipeline.parameters.dockerhub_repo >>
+                source_tag: build-<< pipeline.number >>
+                target_image: << pipeline.parameters.dockerhub_repo >>
+                matrix:
+                  parameters:
+                    variant: [ << pipeline.parameters.atom_variant >> ]
+                    platform: [ amd64, aarch64 ]
+                requires:
+                  - build-<< matrix.platform >>
+                filters:
+                  branches:
+                    only:
+                      - master
+
+            # Deploy tag
+            - atom/deploy:
+                name: "deploy-tag-<< matrix.platform >>"
+                source_image: << pipeline.parameters.dockerhub_repo >>
+                source_tag: build-<< pipeline.number >>
+                target_image: << pipeline.parameters.dockerhub_repo >>
+                target_tag: ${CIRCLE_TAG}
+                matrix:
+                  parameters:
+                    variant: [ << pipeline.parameters.atom_variant >> ]
+                    platform: [ amd64, aarch64 ]
+                requires:
+                  - build-<< matrix.platform >>
+                filters:
+                  branches:
+                    ignore:
+                      - /.*/
+                  tags:
+                    only: /.*/

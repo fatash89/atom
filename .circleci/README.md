@@ -19,14 +19,37 @@ Upon pushing to github, a build will be started on CircleCI. This will build
 both the nucleus and atom images and will run any implemented unit tests
 against them.
 
+### Legacy Tags
+
 If the build and tests pass, the images will be pushed to dockerhub. Depending
 on the branch, they will be tagged as so:
 
 | branch | tag |
 |--------|-----|
-| `master` | `master-${CIRCLE_BUILD_NUM}` |
-| `master` | `latest`
-| Non-`master` | `development-${CIRCLE_BUILD_NUM}` |
+| `master` | `master-<< pipeline.number >>` |
+| `master` | `latest` |
+| Non-`master` | `development-<< pipeline.number >>` |
+| tag, i.e. v1.3.1 | `v1.3.1` |
+
+Where `<< pipeline.number >>` is the CircleCI pipeline number for the build
+that can be seen when using CircleCI's new UI. Each push to github generates
+one pipeline with a unique, monotonic increasing number.
+
+### Recommended Tags
+
+Our build system now has a concept of a `variant` and a `platform`. Along with
+the legacy tags (which can hopefully eventually be deprecated as they're not
+specific), we push the following tags:
+
+| branch | tag |
+|--------|-----|
+| `master` | `master-<< pipeline.number >>-<< variant >>-<< platform >>` |
+| `master` | `<< variant >>-<< platform >>` |
+| Non-`master` | `development-<< pipeline.number >>-<< variant >>-<< platform >>` |
+| tag, i.e. v1.3.1 | `v1.3.1-<< variant >>-<< platform >>` |
+
+You are encouraged to switch to using the new tag scheme as it will help as
+we add more ARM support into our ecosystem.
 
 ## Configuration
 
@@ -44,8 +67,6 @@ following:
 
 | Variable | Required? | Description |
 |----------|-----------|-------------|
-| `DOCKERHUB_ORG` | yes | Organization you want your docker containers pushed to |
-| `DOCKERHUB_REPO` | yes | Which repo in `DOCKERHUB_ORG` to push to |
 | `DOCKERHUB_USER` | yes | Username of the account with permissions to push to your build repos. It's recommended to make a separate user for this so you don't risk exposing your personal credentials |
 | `DOCKERHUB_PASSWORD` | yes | Password for `DOCKERHUB_USER`. Will be injected into the build and used to login. |
 
@@ -53,59 +74,13 @@ following:
 
 Your config file for your project should be located at `.circleci/config.yml`.
 
-#### Example Config
+#### Example Configs
 
-```yaml
-  version: 2.1
+Please see the CircleCI [example](../template/.circleci/config.yml) in the
+example element template. This shows a basic example.
 
-  orbs:
-    atom: elementaryrobotics/atom@x.y.z
-
-  jobs:
-    build:
-      executor: atom/build-classic
-      environment:
-        DOCKER_COMPOSE_SERVICE_NAME: some_service
-      steps:
-        - checkout
-        - atom/docker_login
-        - atom/build_and_launch:
-            file: docker-compose.yml
-            service: ${DOCKER_COMPOSE_SERVICE_NAME}
-        - run:
-            name: Unit Tests
-            command: docker exec -it ${DOCKER_COMPOSE_SERVICE_NAME} $my_unit_test_command
-        - atom/store_image
-
-  workflows:
-    version: 2
-    build-all:
-      jobs:
-        - build
-        - atom/deploy-master:
-            requires:
-              - build
-            filters:
-              branches:
-                only:
-                  - master
-        - atom/deploy-dev:
-            requires:
-              - build
-            filters:
-              branches:
-                ignore:
-                  - master
-```
-
-#### Explanation
-
-In the above file we're doing the following:
-
-1. Importing the `elementaryrobotics/atom` orb from CircleCI at the pegged version.
-2. Defining our build job. In general you'll want all of these steps, with the exception of the Unit Tests step if you don't have any written. You should write and deploy unit tests!
-3. Defining our workflows. Here, we always build and push to Dockerhub, though we push different tags for master and non-master branches.
-
+For more advanced and/or other examples, please see the `examples` section
+of the [Atom orb](atom.yml).
 
 ## Atom Orb
 
@@ -148,6 +123,65 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 ```
 
 ### Release Notes
+
+#### [v0.1.3](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.1.3)
+
+##### New Features
+
+- Large overhaul/restructure of the orb for better integration with new
+CircleCI features such as pipelines and matrix configurations.
+- Atom orb now should mainly be used with the following commands: `atom/build_buildx`,
+`atom/test`, `atom/deploy`, and `atom/deploy_latest`. This should suit the needs of most users. There
+are sub-commands broken out in the orb if you need something slightly
+different/special for your build.
+- The only CircleCI vairables now needed are `DOCKERHUB_USER` and `DOCKERHUB_PASSWORD`.
+All other variables have been moved to pipeline parameters in the `.circleci`
+file to make it a bit easier to configure. Other build variables should
+be removed from your project when possible.
+- Atom orb now only depends on the `DOCKERHUB_USER` and `DOCKERHUB_PASSWORD`
+hidden variables. Other than that everything is broken out to make it
+more what's happening more clear to the user.
+- Atom orb supports/recommends using matrix configuration for building
+for multi-arch. All jobs support the following fields: `variant` and `platform`.
+A `variant` is either "stock" (i.e. vanilla), "opengl", "cuda", etc. A `platform`
+is currently either `amd64` or `aarch64`.
+- `atom/deploy` now supports the `target_tag_cmd` field which allows you to
+run a command-line text replacement (grep, sed, etc.) on the tag field. By
+default, this field removes `-stock` and `-amd64` from the auto-generated tag
+s.t. stock builds for intel machines produce tags such as "development-X",
+"master-X", etc. as before. The auto-generated tag for builds automatically
+appends the variant and platform to the build product. In general you shouldn't
+need to mess with this field as it's mainly a crutch to let us use the matrix
+features and still get all of our tags as expected but you might want to
+use it at some point.
+
+##### Upgrade Steps
+
+- Start with the example config from this file and that should work for basic
+builds that don't install anything too custom.
+- Replace `dockerhub_repo` in the parameters at the top with your desired
+Dockerhub repo
+- Replace `atom_version` in the parameters at the top with the version of
+Atom that your element is building against. It's recommended to switch
+to the latest version if upgrading your build dependencies.
+- Update the `Dockerfile` in your repo to have a variable atom version base image
+that it's built from. It should default to the current verson of atom,
+but this variable will be injected by the build system based on the `atom_version`
+parameter at the top of the file.
+```
+ARG ATOM_IMAGE=elementaryrobotics/atom:v1.3.0
+FROM ${ATOM_IMAGE}
+```
+
+#### [v0.1.2](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.1.2)
+
+##### New Features
+
+- Moves `CIRCLE_WORKFLOW_ID` to `CIRCLE_WORKFLOW_WORKSPACE_ID`. This allows us to actually re-run pipelines from failed, since when doing this CircleCI creates a new workflow, but within the same workspace. As we now push tagged intermediate builds based on the workflow ID we can re-run test stages.
+
+##### Upgrade Steps
+
+- Replace every instance of `CIRCLE_WORKFLOW_ID` with `CIRCLE_WORKFLOW_WORKSPACE_ID` in your `config.yml` files.
 
 #### [v0.1.1](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.1.1)
 

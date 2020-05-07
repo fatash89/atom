@@ -146,6 +146,26 @@ need to rebuild the base as well. To do so:
 $ docker build -f Dockerfile-base -t elementaryrobotics/atom:base .
 ```
 
+In addition to the vanilla base that can be built with Dockerfile-base, you
+can take the build product of Dockerfile-base and pass it through any of the
+additional Dockerfiles in the table below that add additional features into
+the build:
+
+| Additional Dockerfile | Description |
+|-----------------------|-------------|
+| `Dockerfile-vnc` | Adds in a VNC s.t. graphics can be rendered within the container and viewed in a browser. Requires OpenGL |
+| `Dockerfile-opengl` | Installs openGL |
+
+#### Building a base with additional Dockerfiles
+
+To build with an additional Dockerfile:
+
+```
+$ docker build -f <additional-dockerfile> BASE_IMAGE=<previous-built-base> -t elementaryrobotics/atom:base-with-addition .
+```
+
+where `additional-dockerfile` is an entry from the table above and `previous-built-base` is the image from a previous base built. In this fashion you can use these additional Dockerfiles to add many different things onto the atom base to suit your needs.
+
 #### Build Arguments
 
 There are a few build arguments when building the base:
@@ -412,7 +432,7 @@ and take a long time to build from source and/or install.
 Base images are also built via our CI/CD integrations, though only on specific
 branches. In order to get a change to a base image into production, the steps
 are:
-1. Make changes to `Dockerfile-base`
+1. Make changes to `Dockerfile-base`, any additional dockerfile for bases, or to the CI/CD configuration
 2. Test locally (these builds are long/expensive in CI/CD, especially for `aarch64`)
 3. Push a branch with an appropriate name to this repo (see table below)
 4. Wait for the CI/CD builds to pass/complete. This will build and push a new base

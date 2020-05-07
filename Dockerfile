@@ -66,7 +66,6 @@ WORKDIR /atom
 ################################################################################
 
 FROM $PRODUCTION_IMAGE as atom
-ARG INSTALL_OPENGL=""
 
 # Install python
 RUN apt-get update -y \
@@ -75,14 +74,6 @@ RUN apt-get update -y \
                                                python3-pip \
                                                libatomic1
 
-# Potentially install opengl
-RUN if [ ! -z "${INSTALL_OPENGL}" ]; then apt-get update && apt-get install -y \
-  --no-install-recommends \
-  libglvnd0 \
-  libgl1 \
-  libglx0 \
-  libegl1 \
-  libgles2; fi
 
 # Copy contents of python virtualenv and activate
 COPY --from=atom-source /opt/venv /opt/venv
@@ -123,7 +114,7 @@ CMD ["./launch.sh"]
 
 ################################################################################
 #
-# Test image. Based off of production, adds in test dependencies
+# Test image for atom release. Based off of production, adds in test dependencies
 #
 ################################################################################
 
@@ -137,9 +128,15 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 # Install googletest
 RUN apt-get update \
- && apt-get install -y --no-install-recommends libgtest-dev cmake build-essential \
+ && apt-get install -y --no-install-recommends \
+    libgtest-dev \
+    cmake \
+    build-essential \
+    python3-pip \
  && cd /usr/src/gtest \
- && cmake CMakeLists.txt && make -j8 && cp *.a /usr/lib
+ && cmake CMakeLists.txt \
+ && make -j8 \
+ && cp *.a /usr/lib
 
 # Install valgrind
 RUN apt-get install -y --no-install-recommends valgrind
@@ -151,65 +148,3 @@ RUN pip3 install --no-cache-dir pytest
 COPY ./languages/c/ /atom/languages/c
 COPY ./languages/cpp/ /atom/languages/cpp
 COPY ./languages/python/tests /atom/languages/python/tests
-
-################################################################################
-#
-# Graphics image. Based off of production, adds in support for various
-#     graphics packages and VNC.
-#
-################################################################################
-
-FROM atom as graphics
-
-ARG DEBIAN_FRONTEND=noninteractive
-
-# Add in noVNC to /opt/noVNC
-ADD third-party/noVNC /opt/noVNC
-
-# Install graphics
-# Note: supervisor-stdout must be installed with pip2 and not pip3
-RUN apt-get install -y --no-install-recommends \
-      libgl1-mesa-dri \
-      menu \
-      net-tools \
-      openbox \
-      supervisor \
-      tint2 \
-      x11-xserver-utils \
-      x11vnc \
-      xinit \
-      xserver-xorg-video-dummy \
-      xserver-xorg-input-void \
-      websockify \
-      git \
-      sudo \
-      python-pip \
- && rm -f /usr/share/applications/x11vnc.desktop \
-# VNC
- && cd /opt/noVNC \
- && ln -s vnc_auto.html index.html \
- && pip2 install --no-cache-dir setuptools \
- && pip2 install --no-cache-dir supervisor-stdout \
- && apt-get -y remove python-pip git \
- && apt-get -y autoremove \
- && apt-get -y clean \
- && rm -rf /var/lib/apt/lists/*
-
-# noVNC (http server) is on 6080, and the VNC server is on 5900
-EXPOSE 6080 5900
-COPY third-party/docker-opengl/etc/skel/.xinitrc /etc/skel/.xinitrc
-
-RUN useradd -m -s /bin/bash user
-USER user
-RUN cp /etc/skel/.xinitrc /home/user/
-USER root
-RUN echo "user ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/user
-
-COPY third-party/docker-opengl/etc /etc
-COPY third-party/docker-opengl/usr /usr
-
-# Need to run app with python2 instead of python3
-RUN var='#!/usr/bin/env python2' \
- && sed -i "1s@.*@${var}@" /usr/bin/graphical-app-launcher.py
-
-ENV DISPLAY :0
