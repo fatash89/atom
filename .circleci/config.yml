@@ -382,7 +382,7 @@ commands:
       # Build the atom variant with the base
       - build_atom_with_nucleus_variant:
           << : *build_atom_variant_shared_mapping
-          base_tag: << parameters.input_tag >>-<< parameters.variant >>-<< parameters.platform >>
+          base_tag: << parameters.input_tag >>-<< pipeline.number >>-<< parameters.variant >>-<< parameters.platform >>
           production_image: << parameters.base_repo >>:<< parameters.base_tag >>
 
   build_dockerfile_atom_base:
@@ -484,6 +484,8 @@ commands:
       - build_atom_base_test:
           << : *build_atom_variant_shared_mapping
           input_tag: base-build
+          base_repo: << parameters.base_repo >>
+          base_tag: << parameters.base_tag >>
 
   build_atom_base_variant_with_vnc:
     parameters:
@@ -505,6 +507,8 @@ commands:
       - build_atom_base_test:
           << : *build_atom_variant_shared_mapping
           input_tag: base-build-with-vnc
+          base_repo: << parameters.base_repo >>
+          base_tag: << parameters.base_tag >>
 
   build_atom_base_variant_with_vnc_opengl:
     parameters:
@@ -531,6 +535,8 @@ commands:
       - build_atom_base_test:
           << : *build_atom_variant_shared_mapping
           input_tag: base-build-with-opengl
+          base_repo: << parameters.base_repo >>
+          base_tag: << parameters.base_tag >>
 
 jobs:
 
