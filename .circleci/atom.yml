@@ -673,6 +673,13 @@ examples:
           type: string
           default: elementaryrobotics/spec-robot
 
+      aliases:
+
+        - &deploy_shared
+            source_image: << pipeline.parameters.dockerhub_repo >>
+            source_tag: build-<< pipeline.number >>
+            target_image: << pipeline.parameters.dockerhub_repo >>
+
       orbs:
         atom: elementaryrobotics/atom@0.1.3
 
@@ -721,10 +728,8 @@ examples:
             # Deploy development
             - atom/deploy:
                 name: "deploy-development"
-                source_image: << pipeline.parameters.dockerhub_repo >>
-                source_tag: build-<< pipeline.number >>
-                target_image: << pipeline.parameters.dockerhub_repo >>
                 target_tag: development-<< pipeline.number >>
+                << : *deploy_shared
                 requires:
                   - build
                 filters:
@@ -735,10 +740,8 @@ examples:
             # Deploy Master
             - atom/deploy:
                 name: "deploy-master"
-                source_image: << pipeline.parameters.dockerhub_repo >>
-                source_tag: build-<< pipeline.number >>
-                target_image: << pipeline.parameters.dockerhub_repo >>
                 target_tag: master-<< pipeline.number >>
+                << : *deploy_shared
                 requires:
                   - build
                 filters:
@@ -749,10 +752,8 @@ examples:
             # Deploy latest
             - atom/deploy_latest:
                 name: "deploy-latest"
-                source_image: << pipeline.parameters.dockerhub_repo >>
-                source_tag: build-<< pipeline.number >>
-                target_image: << pipeline.parameters.dockerhub_repo >>
                 target_tag: ""
+                << : *deploy_shared
                 requires:
                   - build
                 filters:
@@ -763,10 +764,8 @@ examples:
             # Deploy tag
             - atom/deploy:
                 name: "deploy-tag"
-                source_image: << pipeline.parameters.dockerhub_repo >>
-                source_tag: build-<< pipeline.number >>
-                target_image: << pipeline.parameters.dockerhub_repo >>
                 target_tag: ${CIRCLE_TAG}
+                << : *deploy_shared
                 requires:
                   - build
                 filters:
