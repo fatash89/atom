@@ -383,6 +383,24 @@ commands:
       - tag_and_push_image_variant:
           << : *deploy_shared_args_mapping
 
+  deploy_image_no_variant_platform:
+    parameters:
+      << : *deploy_shared_args
+      target_tag_cmd:
+        type: string
+        default: grep ".*"
+    steps:
+      - docker_login
+      - pull_image:
+          source_image: << parameters.source_image >>
+          source_tag: << parameters.source_tag >>
+      - tag_and_push_image:
+          source_image: << parameters.source_image >>
+          source_tag: << parameters.source_tag >>
+          target_image: << parameters.target_image >>
+          target_tag: << parameters.target_tag >>
+          target_tag_cmd: << parameters.target_tag_cmd >>
+
   # Prepare the machine for buildx based builds
   enable_buildx:
     description: "Prepare the CircleCI machine for cross-compiling ARM images"
@@ -646,6 +664,21 @@ jobs:
     steps:
       - setup_remote_docker
       - deploy_image:
+          << : *deploy_shared_args_mapping
+
+  # Deploy without appending the -variant-platform tag. Shouldn't be used
+  # except for special cases.
+  deploy_no_variant_platform:
+    parameters:
+      << : *deploy_shared_args
+      target_tag_cmd:
+        type: string
+        # Deploy exactly as seen
+        default: grep '.*'
+    executor: docker-in-docker
+    steps:
+      - setup_remote_docker
+      - deploy_image_no_variant_platform:
           << : *deploy_shared_args_mapping
 
 examples:
