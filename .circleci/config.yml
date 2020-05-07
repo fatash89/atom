@@ -171,15 +171,17 @@ aliases:
 
 
   # Base tags in use for the various builds
-  - &base_build_atom_tag "base-3050"
-  - &base_build_atom_opengl_tag "base-opengl-3051"
-  - &base_build_atom_cuda_tag "base-cuda-3052"
-  - &base_build_atom_aarch64_tag "base-aarch64-3048"
+  - &base_build_atom_tag "base-1024-stock-amd64"
+  - &base_build_atom_opengl_tag "base-1024-opengl-amd64"
+  - &base_build_atom_cuda_tag "base-1024-cuda-amd64"
+  - &base_build_atom_opengl_cuda_tag "base-1024-opengl-cuda-amd64"
+  - &base_build_atom_aarch64_tag "base-1024-stock-aarch64"
   - &base_build_tags
       source_tag:
         - *base_build_atom_tag
         - *base_build_atom_opengl_tag
         - *base_build_atom_cuda_tag
+        - *base_build_atom_opengl_cuda_tag
         - *base_build_atom_aarch64_tag
 
   # Helpful alias when building bases using additional Dockerfiles
@@ -753,7 +755,7 @@ workflows:
             parameters:
               variant: [ opengl-cuda ]
               platform: [ amd64 ]
-          base_tag: *base_build_atom_cuda_tag
+          base_tag: *base_build_atom_opengl_cuda_tag
           production_image: nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04
           build_args: --build-arg INSTALL_OPENGL=y --build-arg
           requires:
