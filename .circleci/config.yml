@@ -705,7 +705,6 @@ workflows:
             parameters:
               variant: [ opengl ]
               platform: [ amd64 ]
-          stage: graphics
           base_tag: *base_build_atom_opengl_tag
           production_image: nvidia/opengl:1.0-glvnd-runtime-ubuntu18.04
           requires:
@@ -744,7 +743,6 @@ workflows:
             parameters:
               variant: [ opengl-cuda ]
               platform: [ amd64 ]
-          stage: graphics
           base_tag: *base_build_atom_cuda_tag
           production_image: nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04
           build_args: --build-arg INSTALL_OPENGL=y --build-arg
