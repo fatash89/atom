@@ -370,7 +370,7 @@ commands:
           production_image: << parameters.production_image >>
           test_nucleus_tag: build-<< pipeline.number >>-<< parameters.variant >>-<< parameters.platform >>
 
-  build_atom_base_push_and_test:
+  build_atom_base_test:
     parameters:
       <<: *build_atom_variant_shared_params
       input_tag:
@@ -378,12 +378,6 @@ commands:
         default: base-build-<< pipeline.number >>
 
     steps:
-      # Push build image
-      - atom/push_image_variant:
-          target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
-          target_tag: << parameters.input_tag >>
-          variant: << parameters.variant >>
-          platform: << parameters.platform >>
 
       # Build the atom variant with the base
       - build_atom_with_nucleus_variant:
@@ -407,7 +401,7 @@ commands:
         type: string
     steps:
 
-      # Build the vanilla base
+      # Build the base
       - atom/build_dockerfile_buildx:
           file: << parameters.file >>
           variant: << parameters.variant >>
@@ -421,6 +415,13 @@ commands:
           cache_tag: << parameters.cache_tag >>
           cache_repo: << parameters.cache_repo >>
           no_output_timeout: 3h
+
+      # Push build image
+      - atom/push_image_variant:
+          target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
+          target_tag: << parameters.image_tag >>-<< pipeline.number >>
+          variant: << parameters.variant >>
+          platform: << parameters.platform >>
 
   build_atom_base:
     parameters:
@@ -480,7 +481,7 @@ commands:
           base_tag: << parameters.base_tag >>
 
       # Push and Test
-      - build_atom_base_push_and_test:
+      - build_atom_base_test:
           << : *build_atom_variant_shared_mapping
           input_tag: base-build
 
@@ -501,7 +502,7 @@ commands:
           input_tag: base-build
 
       # Push and Test
-      - build_atom_base_push_and_test:
+      - build_atom_base_test:
           << : *build_atom_variant_shared_mapping
           input_tag: base-build-with-vnc
 
@@ -527,7 +528,7 @@ commands:
           input_tag: base-build-with-vnc
 
       # Push and Test
-      - build_atom_base_push_and_test:
+      - build_atom_base_test:
           << : *build_atom_variant_shared_mapping
           input_tag: base-build-with-opengl
 
