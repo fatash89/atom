@@ -644,8 +644,8 @@ jobs:
 
 examples:
 
-  build-with-amd64-and-aarch64:
-    description: Build with matrix support that leverages amd64 and aarch64
+  build-basic:
+    description: Basic build for an AMD64-based element
     usage:
 
       version: 2.1
@@ -656,7 +656,136 @@ examples:
           default: elementaryrobotics/atom
         atom_version:
           type: string
-          default: v1.3.0
+          default: v1.3.1
+        atom_variant:
+          type: string
+          default: stock
+        atom_platform:
+          type: string
+          default: amd64
+        dockerhub_repo:
+          type: string
+          default: elementaryrobotics/spec-robot
+
+      orbs:
+        atom: elementaryrobotics/atom@0.1.3
+
+      workflows:
+        version: 2
+        build-all:
+          jobs:
+
+            # Build for intel and ARM
+            - atom/build_buildx:
+                name: "build"
+                image_name: << pipeline.parameters.dockerhub_repo >>
+                image_tag: build-<< pipeline.number >>
+                cache_repo: << pipeline.parameters.dockerhub_repo >>
+                cache_tag: cache
+                build_args: --build-arg ATOM_IMAGE=<< pipeline.parameters.atom_repo >>:<< pipeline.parameters.atom_version >>-<< pipeline.parameters.atom_variant >>-<< pipeline.parameters.atom_platform >>
+                filters:
+                  tags:
+                    only: /.*/
+
+            # Test
+            - atom/test:
+                name: "test"
+                test_image: << pipeline.parameters.dockerhub_repo >>
+                test_tag: build-<< pipeline.number >>
+                atom_version: << pipeline.parameters.atom_version >>
+                platform: << pipeline.parameters.atom_platform >>
+                compose_file: .circleci/docker-compose.yml
+                container_name: test-container
+                container_test_dir: /code
+                test_cmd: echo "write some tests!"
+                requires:
+                  - build
+                filters:
+                  tags:
+                    only: /.*/
+
+            # Check Flake8 -- parallel to the build
+            - atom/check_flake8:
+                version: 3.7.0
+                exclude: tests/*,tasks/elementary-task,robot-shared
+                filters:
+                  tags:
+                    only: /.*/
+
+            # Deploy development
+            - atom/deploy:
+                name: "deploy-development"
+                source_image: << pipeline.parameters.dockerhub_repo >>
+                source_tag: build-<< pipeline.number >>
+                target_image: << pipeline.parameters.dockerhub_repo >>
+                target_tag: development-<< pipeline.number >>
+                requires:
+                  - build
+                filters:
+                  branches:
+                    ignore:
+                      - master
+
+            # Deploy Master
+            - atom/deploy:
+                name: "deploy-master"
+                source_image: << pipeline.parameters.dockerhub_repo >>
+                source_tag: build-<< pipeline.number >>
+                target_image: << pipeline.parameters.dockerhub_repo >>
+                target_tag: master-<< pipeline.number >>
+                requires:
+                  - build
+                filters:
+                  branches:
+                    only:
+                      - master
+
+            # Deploy latest
+            - atom/deploy_latest:
+                name: "deploy-latest"
+                source_image: << pipeline.parameters.dockerhub_repo >>
+                source_tag: build-<< pipeline.number >>
+                target_image: << pipeline.parameters.dockerhub_repo >>
+                target_tag: ""
+                requires:
+                  - build
+                filters:
+                  branches:
+                    only:
+                      - master
+
+            # Deploy tag
+            - atom/deploy:
+                name: "deploy-tag"
+                source_image: << pipeline.parameters.dockerhub_repo >>
+                source_tag: build-<< pipeline.number >>
+                target_image: << pipeline.parameters.dockerhub_repo >>
+                target_tag: ${CIRCLE_TAG}
+                requires:
+                  - build
+                filters:
+                  branches:
+                    ignore:
+                      - /.*/
+                  tags:
+                    only: /.*/
+
+  build-amd64-aarch64:
+    description: Build with matrix support that builds both amd64 and aarch64
+    usage:
+
+      version: 2.1
+
+      parameters:
+        atom_repo:
+          type: string
+          default: elementaryrobotics/atom
+        atom_version:
+          type: string
+          default: v1.3.1
+        atom_variant:
+          type: string
+          default: stock
         dockerhub_repo:
           type: string
           default: elementaryrobotics/example-element
@@ -674,7 +803,7 @@ examples:
                 name: "build-<< matrix.platform >>"
                 matrix:
                   parameters:
-                    variant: [ stock ]
+                    variant: [ << pipeline.parameters.atom_variant >> ]
                     platform: [ amd64, aarch64 ]
                 image_name: << pipeline.parameters.dockerhub_repo >>
                 image_tag: build-<< pipeline.number >>
@@ -690,7 +819,7 @@ examples:
                 name: "test-<< matrix.platform >>"
                 matrix:
                   parameters:
-                    variant: [ stock ]
+                    variant: [ << pipeline.parameters.atom_variant >> ]
                     platform: [ amd64, aarch64 ]
                 test_image: << pipeline.parameters.dockerhub_repo >>
                 test_tag: build-<< pipeline.number >>
@@ -722,7 +851,7 @@ examples:
                 target_tag: development-<< pipeline.number >>
                 matrix:
                   parameters:
-                    variant: [ stock ]
+                    variant: [ << pipeline.parameters.atom_variant >> ]
                     platform: [ amd64, aarch64 ]
                 requires:
                   - build-<< matrix.platform >>
@@ -740,7 +869,7 @@ examples:
                 target_tag: master-<< pipeline.number >>
                 matrix:
                   parameters:
-                    variant: [ stock ]
+                    variant: [ << pipeline.parameters.atom_variant >> ]
                     platform: [ amd64, aarch64 ]
                 requires:
                   - build-<< matrix.platform >>
@@ -757,7 +886,7 @@ examples:
                 target_image: << pipeline.parameters.dockerhub_repo >>
                 matrix:
                   parameters:
-                    variant: [ stock ]
+                    variant: [ << pipeline.parameters.atom_variant >> ]
                     platform: [ amd64, aarch64 ]
                 requires:
                   - build-<< matrix.platform >>
@@ -775,7 +904,7 @@ examples:
                 target_tag: ${CIRCLE_TAG}
                 matrix:
                   parameters:
-                    variant: [ stock ]
+                    variant: [ << pipeline.parameters.atom_variant >> ]
                     platform: [ amd64, aarch64 ]
                 requires:
                   - build-<< matrix.platform >>

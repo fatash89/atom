@@ -6,10 +6,16 @@ parameters:
     default: elementaryrobotics/atom
   atom_version:
     type: string
-    default: v1.3.0
+    default: v1.3.1
+  atom_variant:
+    type: string
+    default: stock
+  atom_platform:
+    type: string
+    default: amd64
   dockerhub_repo:
     type: string
-    default: elementaryrobotics/example-element
+    default: elementaryrobotics/spec-robot
 
 orbs:
   atom: elementaryrobotics/atom@0.1.3
@@ -21,36 +27,29 @@ workflows:
 
       # Build for intel and ARM
       - atom/build_buildx:
-          name: "build-<< matrix.platform >>"
-          matrix:
-            parameters:
-              variant: [ stock ]
-              platform: [ amd64, aarch64 ]
+          name: "build"
           image_name: << pipeline.parameters.dockerhub_repo >>
           image_tag: build-<< pipeline.number >>
           cache_repo: << pipeline.parameters.dockerhub_repo >>
           cache_tag: cache
-          build_args: --build-arg ATOM_IMAGE=<< pipeline.parameters.atom_repo >>:<< pipeline.parameters.atom_version >>-<< matrix.variant >>-<< matrix.platform >>
+          build_args: --build-arg ATOM_IMAGE=<< pipeline.parameters.atom_repo >>:<< pipeline.parameters.atom_version >>-<< pipeline.parameters.atom_variant >>-<< pipeline.parameters.atom_platform >>
           filters:
             tags:
               only: /.*/
 
       # Test
       - atom/test:
-          name: "test-<< matrix.platform >>"
-          matrix:
-            parameters:
-              variant: [ stock ]
-              platform: [ amd64, aarch64 ]
+          name: "test"
           test_image: << pipeline.parameters.dockerhub_repo >>
           test_tag: build-<< pipeline.number >>
           atom_version: << pipeline.parameters.atom_version >>
+          platform: << pipeline.parameters.atom_platform >>
           compose_file: .circleci/docker-compose.yml
           container_name: test-container
           container_test_dir: /code
           test_cmd: echo "write some tests!"
           requires:
-            - build-<< matrix.platform >>
+            - build
           filters:
             tags:
               only: /.*/
@@ -65,17 +64,13 @@ workflows:
 
       # Deploy development
       - atom/deploy:
-          name: "deploy-development-<< matrix.platform >>"
+          name: "deploy-development"
           source_image: << pipeline.parameters.dockerhub_repo >>
           source_tag: build-<< pipeline.number >>
           target_image: << pipeline.parameters.dockerhub_repo >>
           target_tag: development-<< pipeline.number >>
-          matrix:
-            parameters:
-              variant: [ stock ]
-              platform: [ amd64, aarch64 ]
           requires:
-            - build-<< matrix.platform >>
+            - build
           filters:
             branches:
               ignore:
@@ -83,17 +78,13 @@ workflows:
 
       # Deploy Master
       - atom/deploy:
-          name: "deploy-master-<< matrix.platform >>"
+          name: "deploy-master"
           source_image: << pipeline.parameters.dockerhub_repo >>
           source_tag: build-<< pipeline.number >>
           target_image: << pipeline.parameters.dockerhub_repo >>
           target_tag: master-<< pipeline.number >>
-          matrix:
-            parameters:
-              variant: [ stock ]
-              platform: [ amd64, aarch64 ]
           requires:
-            - build-<< matrix.platform >>
+            - build
           filters:
             branches:
               only:
@@ -101,16 +92,13 @@ workflows:
 
       # Deploy latest
       - atom/deploy_latest:
-          name: "deploy-latest-<< matrix.platform >>"
+          name: "deploy-latest"
           source_image: << pipeline.parameters.dockerhub_repo >>
           source_tag: build-<< pipeline.number >>
           target_image: << pipeline.parameters.dockerhub_repo >>
-          matrix:
-            parameters:
-              variant: [ stock ]
-              platform: [ amd64, aarch64 ]
+          target_tag: ""
           requires:
-            - build-<< matrix.platform >>
+            - build
           filters:
             branches:
               only:
@@ -118,17 +106,13 @@ workflows:
 
       # Deploy tag
       - atom/deploy:
-          name: "deploy-tag-<< matrix.platform >>"
+          name: "deploy-tag"
           source_image: << pipeline.parameters.dockerhub_repo >>
           source_tag: build-<< pipeline.number >>
           target_image: << pipeline.parameters.dockerhub_repo >>
           target_tag: ${CIRCLE_TAG}
-          matrix:
-            parameters:
-              variant: [ stock ]
-              platform: [ amd64, aarch64 ]
           requires:
-            - build-<< matrix.platform >>
+            - build
           filters:
             branches:
               ignore:
