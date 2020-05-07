@@ -182,6 +182,11 @@ aliases:
         - *base_build_atom_cuda_tag
         - *base_build_atom_aarch64_tag
 
+  # Helpful alias when building bases using additional Dockerfiles
+  - &build_atom_base_add_shaed_mapping
+      prev_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
+      prev_tag: << parameters.input_tag >>-<< pipeline.number >>-<< parameters.variant >>-<< parameters.platform >>
+
   #
   # Docs build shared info
   #
@@ -442,10 +447,9 @@ commands:
       # Build the vanilla base
       - build_dockerfile_atom_base:
           << : *build_atom_variant_shared_mapping
+          << : *build_atom_base_add_shared_mapping
           file: Dockerfile-vnc
           image_tag: base-build-with-vnc
-          prev_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
-          prev_tag: << parameters.input_tag >>-<< parameters.variant >>-<< parameters.platform >>
           cache_tag: cache-base-with-vnc
 
   build_atom_base_add_opengl:
@@ -459,10 +463,9 @@ commands:
       # Build the vanilla base
       - build_dockerfile_atom_base:
           << : *build_atom_variant_shared_mapping
+          << : *build_atom_base_add_shared_mapping
           file: Dockerfile-opengl
           image_tag: base-build-with-opengl
-          prev_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
-          prev_tag: << parameters.input_tag >>-<< parameters.variant >>-<< parameters.platform >>
           cache_tag: cache-base-with-opengl
 
   build_atom_base_variant:
