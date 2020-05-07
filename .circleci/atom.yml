@@ -56,7 +56,6 @@ aliases:
       << parameters.build_args >>
       --target=<< parameters.stage >>
       --pull
-      .
 
   #
   # Advanced Docker buildx build
@@ -86,7 +85,6 @@ aliases:
       --progress plain
       --load
       --cache-from=type=registry,ref=<< parameters.cache_repo >>:<< parameters.cache_tag >>-<< parameters.variant >>-<< parameters.platform >>
-      --cache-to=type=registry,ref=<< parameters.cache_repo >>:<< parameters.cache_tag >>-<< parameters.variant >>-<< parameters.platform >>,mode=max
 
   #
   # Test
@@ -408,6 +406,9 @@ commands:
       build_command:
         type: string
         default: *build_basic_command
+      build_context:
+        type: string
+        default: "."
     steps:
       - run:
           name: "Build Dockerfile << parameters.file >> stage << parameters.stage >> using << parameters.build_invocation >>"
@@ -417,6 +418,7 @@ commands:
             << parameters.build_additional_command >>
             -t << parameters.image_name >>:<< parameters.image_tag >>-<< parameters.variant >>-<< parameters.platform >>
             << parameters.build_command >>
+            << parameters.build_context >>
           no_output_timeout: << parameters.no_output_timeout >>
 
   # Build a Dockerfile using docker build
@@ -439,10 +441,26 @@ commands:
       << : *build_buildx_additional_args
     steps:
       - enable_buildx
+
+      # Run the actual build. Due to a bug in the buildx cache pushing
+      # in that it's failing intermittently we don't set the
+      # --cache-to field when doing this
       - run_dockerfile_build:
           build_invocation: "docker buildx build"
           build_additional_command: *build_buildx_additional_command
           build_command: *build_basic_command
+          << : *build_basic_args_mapping
+          << : *build_buildx_additional_args_mapping
+
+      # Run the build again. This should add a small overhead but everything
+      # should be in cache locally. As such, the point of this one is just
+      # to push the cache out. We're also OK if this fails. Override the context
+      # field to add one more thing in easily
+      - run_dockerfile_build:
+          build_invocation: "docker buildx build"
+          build_additional_command: *build_buildx_additional_command
+          build_command: *build_basic_command
+          build_context: --cache-to=type=registry,ref=<< parameters.cache_repo >>:<< parameters.cache_tag >>-<< parameters.variant >>-<< parameters.platform >>,mode=max . || exit 0
           << : *build_basic_args_mapping
           << : *build_buildx_additional_args_mapping
 
