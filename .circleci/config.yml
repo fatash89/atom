@@ -301,9 +301,8 @@ commands:
       production_image:
         type: string
         default: debian:buster-slim
-      nucleus_tag:
+      test_nucleus_tag:
         type: string
-        default: build-<< pipeline.number >>-stock-<< parameters.platform >>
     steps:
 
       # Build atom + test
@@ -333,7 +332,7 @@ commands:
       # Run Tests
       - test_atom_variant:
           compose: .circleci/docker-compose-circle.yml
-          nucleus: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.nucleus_repo_name >>:<< parameters.nucleus_tag >>
+          nucleus: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.nucleus_repo_name >>:<< parameters.test_nucleus_tag >>
           atom: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>:build-<< pipeline.number >>-test-<< parameters.variant >>-<< parameters.platform >>
           container: test_atom
           test_valgrind: << parameters.test_valgrind >>
@@ -365,7 +364,7 @@ commands:
           << : *build_atom_variant_shared_mapping
           base_tag: << parameters.base_tag >>
           production_image: << parameters.production_image >>
-          nucleus_tag: build-<< pipeline.number >>-<< parameters.variant >>-<< parameters.platform >>
+          test_nucleus_tag: build-<< pipeline.number >>-<< parameters.variant >>-<< parameters.platform >>
 
   build_atom_base_push_and_test:
     parameters:
@@ -436,8 +435,8 @@ commands:
   build_atom_base_add_vnc:
     parameters:
       << : *build_atom_variant_shared_params
-    input_tag:
-      type: string
+      input_tag:
+        type: string
     prev_image:
     steps:
 
@@ -453,8 +452,8 @@ commands:
   build_atom_base_add_opengl:
     parameters:
       << : *build_atom_variant_shared_params
-    input_tag:
-      type: string
+      input_tag:
+        type: string
     prev_image:
     steps:
 
@@ -558,6 +557,7 @@ jobs:
           << : *build_atom_variant_shared_mapping
           base_tag: << parameters.base_tag >>
           production_image: << parameters.production_image >>
+          test_nucleus_tag: build-<< pipeline.number >>-stock-<< parameters.platform >>
 
   build-base:
     parameters:
