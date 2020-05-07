@@ -19,14 +19,37 @@ Upon pushing to github, a build will be started on CircleCI. This will build
 both the nucleus and atom images and will run any implemented unit tests
 against them.
 
+### Legacy Tags
+
 If the build and tests pass, the images will be pushed to dockerhub. Depending
 on the branch, they will be tagged as so:
 
 | branch | tag |
 |--------|-----|
-| `master` | `master-${CIRCLE_BUILD_NUM}` |
-| `master` | `latest`
-| Non-`master` | `development-${CIRCLE_BUILD_NUM}` |
+| `master` | `master-<< pipeline.number >>` |
+| `master` | `latest` |
+| Non-`master` | `development-<< pipeline.number >>` |
+| tag, i.e. v1.3.1 | `v1.3.1` |
+
+Where `<< pipeline.number >>` is the CircleCI pipeline number for the build
+that can be seen when using CircleCI's new UI. Each push to github generates
+one pipeline with a unique, monotonic increasing number.
+
+### Recommended Tags
+
+Our build system now has a concept of a `variant` and a `platform`. Along with
+the legacy tags (which can hopefully eventually be deprecated as they're not
+specific), we push the following tags:
+
+| branch | tag |
+|--------|-----|
+| `master` | `master-<< pipeline.number >>-<< variant >>-<< platform >>` |
+| `master` | `<< variant >>-<< platform >>` |
+| Non-`master` | `development-<< pipeline.number >>-<< variant >>-<< platform >>` |
+| tag, i.e. v1.3.1 | `v1.3.1-<< variant >>-<< platform >>` |
+
+You are encouraged to switch to using the new tag scheme as it will help as
+we add more ARM support into our ecosystem.
 
 ## Configuration
 
@@ -44,8 +67,6 @@ following:
 
 | Variable | Required? | Description |
 |----------|-----------|-------------|
-| `DOCKERHUB_ORG` | yes | Organization you want your docker containers pushed to |
-| `DOCKERHUB_REPO` | yes | Which repo in `DOCKERHUB_ORG` to push to |
 | `DOCKERHUB_USER` | yes | Username of the account with permissions to push to your build repos. It's recommended to make a separate user for this so you don't risk exposing your personal credentials |
 | `DOCKERHUB_PASSWORD` | yes | Password for `DOCKERHUB_USER`. Will be injected into the build and used to login. |
 
@@ -53,157 +74,13 @@ following:
 
 Your config file for your project should be located at `.circleci/config.yml`.
 
-#### Example Config
+#### Example Configs
 
-```yaml
-version: 2.1
+Please see the CircleCI [example](../template/.circleci/config.yml) in the
+example element template. This shows a basic example.
 
-parameters:
-  atom_repo:
-    type: string
-    default: elementaryrobotics/atom
-  atom_version:
-    type: string
-    default: v1.3.0
-  dockerhub_repo:
-    type: string
-    default: elementaryrobotics/example-element
-
-orbs:
-  atom: elementaryrobotics/atom@0.1.3
-
-workflows:
-  version: 2
-  build-all:
-    jobs:
-
-      # Build for intel and ARM
-      - atom/build_buildx:
-          name: "build-<< matrix.platform >>"
-          matrix:
-            parameters:
-              variant: [ stock ]
-              platform: [ amd64, aarch64 ]
-          image_name: << pipeline.parameters.dockerhub_repo >>
-          image_tag: build-<< pipeline.number >>
-          cache_repo: << pipeline.parameters.dockerhub_repo >>
-          cache_tag: cache
-          build_args: --build-arg ATOM_IMAGE=<< pipeline.parameters.atom_repo >>:<< pipeline.parameters.atom_version >>-<< matrix.variant >>-<< matrix.platform >>
-          filters:
-            tags:
-              only: /.*/
-
-      # Test
-      - atom/test:
-          name: "test-<< matrix.platform >>"
-          matrix:
-            parameters:
-              variant: [ stock ]
-              platform: [ amd64, aarch64 ]
-          test_image: << pipeline.parameters.dockerhub_repo >>
-          test_tag: build-<< pipeline.number >>
-          atom_version: << pipeline.parameters.atom_version >>
-          compose_file: .circleci/docker-compose.yml
-          container_name: test-container
-          container_test_dir: /code
-          test_cmd: echo "write some tests!"
-          requires:
-            - build-<< matrix.platform >>
-          filters:
-            tags:
-              only: /.*/
-
-      # Check Flake8 -- parallel to the build
-      - atom/check_flake8:
-          version: 3.7.0
-          exclude: tests/*,tasks/elementary-task,robot-shared
-          filters:
-            tags:
-              only: /.*/
-
-      # Deploy development
-      - atom/deploy:
-          name: "deploy-development-<< matrix.platform >>"
-          source_image: << pipeline.parameters.dockerhub_repo >>
-          source_tag: build-<< pipeline.number >>
-          target_image: << pipeline.parameters.dockerhub_repo >>
-          target_tag: development-<< pipeline.number >>
-          matrix:
-            parameters:
-              variant: [ stock ]
-              platform: [ amd64, aarch64 ]
-          requires:
-            - build-<< matrix.platform >>
-          filters:
-            branches:
-              ignore:
-                - master
-
-      # Deploy Master
-      - atom/deploy:
-          name: "deploy-master-<< matrix.platform >>"
-          source_image: << pipeline.parameters.dockerhub_repo >>
-          source_tag: build-<< pipeline.number >>
-          target_image: << pipeline.parameters.dockerhub_repo >>
-          target_tag: master-<< pipeline.number >>
-          matrix:
-            parameters:
-              variant: [ stock ]
-              platform: [ amd64, aarch64 ]
-          requires:
-            - build-<< matrix.platform >>
-          filters:
-            branches:
-              only:
-                - master
-
-      # Deploy latest
-      - atom/deploy_latest:
-          name: "deploy-latest-<< matrix.platform >>"
-          source_image: << pipeline.parameters.dockerhub_repo >>
-          source_tag: build-<< pipeline.number >>
-          target_image: << pipeline.parameters.dockerhub_repo >>
-          matrix:
-            parameters:
-              variant: [ stock ]
-              platform: [ amd64, aarch64 ]
-          requires:
-            - build-<< matrix.platform >>
-          filters:
-            branches:
-              only:
-                - master
-
-      # Deploy tag
-      - atom/deploy:
-          name: "deploy-tag-<< matrix.platform >>"
-          source_image: << pipeline.parameters.dockerhub_repo >>
-          source_tag: build-<< pipeline.number >>
-          target_image: << pipeline.parameters.dockerhub_repo >>
-          target_tag: ${CIRCLE_TAG}
-          matrix:
-            parameters:
-              variant: [ stock ]
-              platform: [ amd64, aarch64 ]
-          requires:
-            - build-<< matrix.platform >>
-          filters:
-            branches:
-              ignore:
-                - /.*/
-            tags:
-              only: /.*/
-
-```
-
-#### Explanation
-
-In the above file we're doing the following:
-
-1. Importing the `elementaryrobotics/atom` orb from CircleCI at the pegged version.
-2. Defining our build job. In general you'll want all of these steps, with the exception of the Unit Tests step if you don't have any written. You should write and deploy unit tests!
-3. Defining our workflows. Here, we always build and push to Dockerhub, though we push different tags for master and non-master branches.
-
+For more advanced and/or other examples, please see the `examples` section
+of the [Atom orb](atom.yml).
 
 ## Atom Orb
 
