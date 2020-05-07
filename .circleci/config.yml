@@ -444,7 +444,6 @@ commands:
       << : *build_atom_variant_shared_params
       input_tag:
         type: string
-    prev_image:
     steps:
 
       # Build the vanilla base
@@ -460,7 +459,6 @@ commands:
       << : *build_atom_variant_shared_params
       input_tag:
         type: string
-    prev_image:
     steps:
 
       # Build the vanilla base
@@ -743,7 +741,7 @@ workflows:
               platform: [ amd64 ]
           base_tag: *base_build_atom_opengl_cuda_tag
           production_image: nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04
-          build_args: --build-arg INSTALL_OPENGL=y --build-arg
+          build_args: --build-arg INSTALL_OPENGL=y
           requires:
             - atom/check_flake8
           filters:
