@@ -210,7 +210,7 @@ aliases:
 version: 2.1
 
 orbs:
-  atom:  elementaryrobotics/atom@dev:311-orb-reorg
+  atom:  elementaryrobotics/atom@0.1.3
 
 commands:
 
