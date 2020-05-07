@@ -549,7 +549,6 @@ jobs:
         type: string
         default: debian:buster-slim
     executor: atom/build-ubuntu
-    resource_class: large
     steps:
       - build_shared_init
       - build_atom_with_nucleus_variant:
@@ -564,7 +563,6 @@ jobs:
         type: string
         default: debian:buster-slim
     executor: atom/build-ubuntu
-    resource_class: large
     steps:
       - build_shared_init
       - build_atom_variant:
@@ -605,18 +603,6 @@ jobs:
     steps:
       - build_shared_init
       - build_atom_base_variant_with_vnc_opengl:
-          << : *build_atom_variant_shared_mapping
-          base_repo: << parameters.base_repo >>
-          base_tag: << parameters.base_tag >>
-
-  build-base-xlarge:
-    parameters:
-      << : *build_atom_variant_shared_params
-    executor: atom/build-ubuntu
-    resource_class: xlarge
-    steps:
-      - build_shared_init
-      - build_atom_base_variant:
           << : *build_atom_variant_shared_mapping
           base_repo: << parameters.base_repo >>
           base_tag: << parameters.base_tag >>
