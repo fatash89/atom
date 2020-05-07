@@ -1083,7 +1083,8 @@ workflows:
           source_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
           source_tag: base-build-<< pipeline.number >>
           target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
-          target_tag: base-development-<< pipeline.number >>
+          target_tag: base-<< pipeline.number >>
+          target_tag_cmd: "grep '.*'"
           matrix:
             << : *base_matrix
           requires:
