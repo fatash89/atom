@@ -623,6 +623,8 @@ jobs:
       << : *deploy_shared_args
       target_tag_cmd:
         type: string
+        # By default, strip off "-stock" and "-amd64" tags so that builds
+        # show up with the legacy tags of development-YYY, master-YYY, etc.
         default: sed s/-stock//g | sed s/-amd64//g
     steps:
       - setup_remote_docker
@@ -636,6 +638,10 @@ jobs:
       << : *deploy_shared_args
       target_tag_cmd:
         type: string
+        # By default, we want -stock-amd64 to map to "latest", we want
+        # "-amd64" stripped off of all builds since it's implied/default
+        # and we want _-stock-aarch64 to be just "aarch64" for ease.
+        # This is a bit convoluted.
         default: grep -oP "(?<=-).*" | sed s/stock/latest/g | sed s/-amd64//g | sed s/latest-aarch64/aarch64/g
     steps:
       - setup_remote_docker
