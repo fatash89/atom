@@ -714,7 +714,7 @@ examples:
             target_image: << pipeline.parameters.dockerhub_repo >>
 
       orbs:
-        atom: elementaryrobotics/atom@0.1.3
+        atom: elementaryrobotics/atom@0.1.4
 
       workflows:
         version: 2
@@ -829,7 +829,7 @@ examples:
           default: elementaryrobotics/example-element
 
       orbs:
-        atom: elementaryrobotics/atom@0.1.3
+        atom: elementaryrobotics/atom@0.1.4
 
       workflows:
         version: 2

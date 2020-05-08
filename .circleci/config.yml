@@ -212,7 +212,7 @@ aliases:
 version: 2.1
 
 orbs:
-  atom:  elementaryrobotics/atom@dev:315-fix-deploy
+  atom:  elementaryrobotics/atom@0.1.4
 
 commands:
 
