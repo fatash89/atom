@@ -1,0 +1,28 @@
+################################################################################
+#
+# Dockerfile for adding opencv into atom (or any debian-based image)
+#
+################################################################################
+
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE} as with-opencv
+
+ARG ARCH=x86_64
+ARG DEBIAN_FRONTEND=noninteractive
+
+COPY ./third-party/opencv /atom/third-party/opencv
+WORKDIR /atom/third-party/opencv
+
+# Install openCV + python3 bindings
+RUN mkdir -p build && cd build && cmake \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr/local \
+    -DPYTHON3_EXECUTABLE=/opt/venv/bin/python3 \
+    -DPYTHON_INCLUDE_DIR=/usr/include/python3.7m \
+    -DPYTHON_INCLUDE_DIR2=/usr/include/${ARCH}-linux-gnu/python3.7m \
+    -DPYTHON_LIBRARY=/usr/lib/${ARCH}-linux-gnu/libpython3.7m.so \
+    -DPYTHON3_NUMPY_INCLUDE_DIRS=/opt/venv/lib/python3.7/site-packages/numpy-1.18.3-py3.7-linux-${ARCH}.egg/numpy/core/include \
+    -DOPENCV_PYTHON3_INSTALL_PATH=/opt/venv/lib/python3.7/site-packages \
+    ../ && \
+    make -j8 && \
+    make install
