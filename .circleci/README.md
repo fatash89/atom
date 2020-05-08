@@ -124,6 +124,14 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 
 ### Release Notes
 
+#### [v0.1.4](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.1.4)
+
+##### New Features
+
+- Adds in a `deploy_image_no_variant_platform` command/job. Useful if you
+have a deploy that doesn't need the -<< variant >>-<< platform >> added on
+such as in the Atom base deploys.
+
 #### [v0.1.3](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.1.3)
 
 ##### New Features
