@@ -212,7 +212,7 @@ aliases:
 version: 2.1
 
 orbs:
-  atom:  elementaryrobotics/atom@dev:315-fix-deploy
+  atom:  elementaryrobotics/atom@0.1.4
 
 commands:
 
@@ -1083,8 +1083,8 @@ workflows:
           source_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
           target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
           target_tag: << matrix.source_tag >>
-          # Should wind up being "base, base-opengl, base-aarch64, etc."
-          target_tag_cmd: sed s/-stock//g | sed s/-amd64//g | grep -oP '[\.\-a-z0-9]+(?=-[0-9]+)'
+          # Should wind up being "base-stock-amd64, base-opengl-amd64, base-stock-aarch64, etc."
+          target_tag_cmd: sed s/-[0-9][0-9]*//g
           matrix:
             parameters:
               << : *base_build_tags
@@ -1099,8 +1099,8 @@ workflows:
           source_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
           target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
           target_tag: ${CIRCLE_TAG}-<< matrix.source_tag >>
-          # Should wind up being "v1.4.1-base, v1.4.1-base-opengl, v1.4.1-base-aarch64, etc."
-          target_tag_cmd: sed s/-stock//g | sed s/-amd64//g | grep -oP '[\.\-a-z0-9]+(?=-[0-9]+)'
+          # Should wind up being "v1.4.1-base-stock-amd64, v1.4.1-base-opengl-amd64, v1.4.1-base-stock-aarch64, etc."
+          target_tag_cmd: sed s/-[0-9][0-9]*//g
           matrix:
             parameters:
               << : *base_build_tags

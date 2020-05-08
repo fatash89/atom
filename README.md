@@ -392,15 +392,20 @@ to `master` in this repo.
 #### elementaryrobotics/atom
 
 The Docker Hub repo for Atom images. Should be used as a `FROM` in your
-Dockerfile when creating elements.
+Dockerfile when creating elements. Please migrate to using the tags in the
+table below. For legacy purposes, we do support older variants of tags
+as well but they're not recommended for use and not documented here.
+
+All base images are prepended by an Atom tag, i.e. `v1.4.1-`. The remainder of
+the tag can be found in the table below
 
 | Tag  | Base OS | Arch | Description |
 |------|---------|------|-------------|
-| none/`latest` | `debian:buster-slim` | `amd64` | Atom + all dependencies |
-| `cuda` | `nvidia/cuda` | `amd64` | Atom + all dependencies + CUDA + CuDNN |
-| `opengl` | `nvidia/opengl` | `amd64` | Atom + all dependencies + OpenGL |
-| `opengl-cuda` | `nvidia/cuda` | `amd64` | Atom + all dependencies + OpenGL + CUDA + CuDNN |
-| `aarch64` | `debian:buster-slim` | `aarch64` | Atom + all dependencies cross-comiled for aarch64/ARMv8 |
+| `stock-amd64` | `debian:buster-slim` | `amd64` | Atom + all dependencies |
+| `cuda-amd64` | `nvidia/cuda` | `amd64` | Atom + all dependencies + CUDA + CuDNN |
+| `opengl-amd64` | `nvidia/opengl` | `amd64` | Atom + all dependencies + OpenGL |
+| `opengl-cuda-amd64` | `nvidia/cuda` | `amd64` | Atom + all dependencies + OpenGL + CUDA + CuDNN |
+| `stock-aarch64` | `debian:buster-slim` | `aarch64` | Atom + all dependencies cross-comiled for aarch64/ARMv8 |
 
 #### elementaryrobotics/nucleus
 
@@ -420,12 +425,16 @@ and take a long time to build from source and/or install.
 
 ### Images
 
+All base images are prepended by an Atom tag, i.e. `v1.4.1-`. The remainder of
+the tag can be found in the table below
+
 | Tag  | Base OS | Arch | Description |
 |------|---------|------|-------------|
-| `base` | `debian:buster-slim` | `amd64` | Build dependencies for Atom |
-| `base-cuda` | `nvidia/cuda` | `amd64` | Build dependencies for Atom + CUDA + CuDNN |
-| `base-opengl` | `nvidia/opengl` | `amd64` | Build dependencies for Atom + OpenGL |
-| `base-aarch64` | `debian:buster-slim` | `aarch64` | Build dependencies for Atom cross-comiled for aarch64/ARMv8 |
+| `base-stock-amd64` | `debian:buster-slim` | `amd64` | Build dependencies for Atom |
+| `base-cuda-amd64` | `nvidia/cuda` | `amd64` | Build dependencies for Atom + CUDA + CuDNN |
+| `base-opengl-cuda-amd64` | `nvidia/cuda` | `amd64` | Build dependencies for Atom + CUDA + CuDNN |
+| `base-opengl-amd64` | `nvidia/opengl` | `amd64` | Build dependencies for Atom + OpenGL |
+| `base-stock-aarch64` | `debian:buster-slim` | `aarch64` | Build dependencies for Atom cross-comiled for aarch64/ARMv8 |
 
 ### Updating a Base Image
 
