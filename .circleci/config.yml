@@ -159,7 +159,7 @@ aliases:
   # Base Build Matrix
   - &base_matrix
       parameters:
-        variant: ["stock", "opengl", "cuda", "opengl-cuda", "opencv"]
+        variant: ["stock", "opengl", "cuda", "opengl-cuda", "opengl-cuda-vnc", "opencv"]
         platform: ["amd64", "aarch64"]
       exclude:
         - variant: "opengl"
@@ -167,6 +167,8 @@ aliases:
         - variant: "cuda"
           platform: "aarch64"
         - variant: "opengl-cuda"
+          platform: "aarch64"
+        - variant: "opengl-cuda-vnc"
           platform: "aarch64"
 
 
