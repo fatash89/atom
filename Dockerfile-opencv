@@ -5,15 +5,11 @@
 ################################################################################
 
 ARG BASE_IMAGE
+ARG PRODUCTION_IMAGE
 FROM ${BASE_IMAGE} as with-opencv
 
 ARG ARCH=x86_64
 ARG DEBIAN_FRONTEND=noninteractive
-
-# Get list of pre-existing libraries so that we can copy over the
-#   ones that get added in the apt-get process when done
-RUN ls /usr/lib/x86_64-linux-gnu/ > /tmp/existing_libs.txt && \
-    ls /lib/x86_64-linux-gnu/ >> /tmp/existing_libs.txt
 
 # Install pre-requisites
 RUN apt-get update && apt-get install -y \
@@ -48,22 +44,21 @@ COPY ./languages/python/third-party/Pillow /atom/languages/python/third-party/Pi
 WORKDIR /atom/languages/python/third-party/Pillow
 RUN MAX_CONCURRENCY=8 python3 setup.py install
 
-# Copy all dependencies over to /usr/local/lib so they get
-#   copied into the production image. We need to do this since in the
-#   step to convert to production we minimize the size of the container
-#   by going back to the original base (typically debian:buster-slim) and
-#   just copying over /usr/local and other select things.
-RUN ls /usr/lib/x86_64-linux-gnu/ > /tmp/new_libs.txt && \
-    ls /lib/x86_64-linux-gnu/ >> /tmp/new_libs.txt && \
-    sort /tmp/existing_libs.txt > /tmp/existing_libs_sorted.txt && \
-    sort /tmp/new_libs.txt > /tmp/new_libs_sorted.txt && \
-    (diff --new-line-format="" --unchanged-line-format="" /tmp/new_libs_sorted.txt /tmp/existing_libs_sorted.txt > /tmp/diff_libs.txt || exit 0) && \
-    cd /usr/lib/x86_64-linux-gnu && ls libglib-2* >> /tmp/diff_libs.txt && \
-    cd /usr/lib/x86_64-linux-gnu && ls libgobject-2* >> /tmp/diff_libs.txt && \
-    cd /usr/lib/x86_64-linux-gnu && ls libgio-2* >> /tmp/diff_libs.txt && \
-    cd /usr/lib/x86_64-linux-gnu && ls libgssapi_krb5* >> /tmp/diff_libs.txt && \
-    cd /usr/lib/x86_64-linux-gnu && ls libgomp* >> /tmp/diff_libs.txt && \
-    cd /usr/lib/x86_64-linux-gnu && ls libxml2* >> /tmp/diff_libs.txt && \
-    cd /usr/lib/x86_64-linux-gnu && ls libicui18n* >> /tmp/diff_libs.txt && \
-    cd /usr/lib/x86_64-linux-gnu && ls libicuuc* >> /tmp/diff_libs.txt && \
-    xargs -a /tmp/diff_libs.txt -I {} cp -r /usr/lib/x86_64-linux-gnu/{} /usr/local/lib || cp -r /lib/x86_64-linux-gnu/{} /usr/local/lib
+RUN ldd /usr/local/lib/libopencv* | grep "=> /" | awk '{print $3}' | sort -u > /tmp/required_libs.txt
+
+FROM ${PRODUCTION_IMAGE} as no-deps
+
+RUN ls /lib/x86_64-linux-gnu/*.so* > /tmp/existing_libs.txt && \
+    ls /usr/lib/x86_64-linux-gnu/*.so* >> /tmp/existing_libs.txt
+
+FROM with-opencv as opencv-deps
+
+COPY --from=no-deps /tmp/existing_libs.txt /tmp/existing_libs.txt
+RUN diff --new-line-format="" --unchanged-line-format=""  /tmp/required_libs.txt /tmp/existing_libs.txt | grep -v /usr/local/lib > /tmp/libs_to_copy.txt
+RUN xargs -a /tmp/libs_to_copy.txt cp -L -t /usr/local/lib
+
+FROM ${BASE_IMAGE} as opencv-base
+
+COPY --from=opencv-deps /usr/local/lib /usr/local/lib
+COPY --from=opencv-deps /usr/local/include /usr/local/include
+COPY --from=opencv-deps /opt/venv /opt/venv
