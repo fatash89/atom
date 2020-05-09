@@ -524,7 +524,7 @@ jobs:
       previous:
         type: string
     executor: atom/build-ubuntu
-    resource_class: medium
+    resource_class: large
     steps:
       - build_shared_init
       - build_atom_base_variant_add:
