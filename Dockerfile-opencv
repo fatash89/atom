@@ -4,8 +4,16 @@
 #
 ################################################################################
 
+# Previous base we're going to build atop
 ARG BASE_IMAGE
+# Image this version of atom will ship with. Needed to determine which
+#   libraries we need to package up
 ARG PRODUCTION_IMAGE
+
+#
+# Build OpenCV
+#
+
 FROM ${BASE_IMAGE} as with-opencv
 
 ARG ARCH=x86_64
@@ -46,17 +54,30 @@ RUN MAX_CONCURRENCY=8 python3 setup.py install
 
 RUN ldd /usr/local/lib/libopencv* | grep "=> /" | awk '{print $3}' | sort -u > /tmp/required_libs.txt
 
+#
+# Determine libraries we'll ship with in production so we can see what's
+#   missing
+#
 FROM ${PRODUCTION_IMAGE} as no-deps
 
 RUN ls /lib/x86_64-linux-gnu/*.so* > /tmp/existing_libs.txt && \
     ls /usr/lib/x86_64-linux-gnu/*.so* >> /tmp/existing_libs.txt
 
+#
+# Copy missing libraries from production into /usr/local/lib
+#
 FROM with-opencv as opencv-deps
 
 COPY --from=no-deps /tmp/existing_libs.txt /tmp/existing_libs.txt
 RUN diff --new-line-format="" --unchanged-line-format=""  /tmp/required_libs.txt /tmp/existing_libs.txt | grep -v /usr/local/lib > /tmp/libs_to_copy.txt
 RUN xargs -a /tmp/libs_to_copy.txt cp -L -t /usr/local/lib
 
+#
+# Clean up and only ship the following folders:
+#   1. /usr/local/lib
+#   2. /usr/local/include
+#   3. /opt/venv
+#
 FROM ${BASE_IMAGE} as opencv-base
 
 COPY --from=opencv-deps /usr/local/lib /usr/local/lib
