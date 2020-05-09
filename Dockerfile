@@ -72,12 +72,7 @@ RUN apt-get update -y \
  && apt-get install -y --no-install-recommends apt-utils \
                                                python3-minimal \
                                                python3-pip \
-                                               libatomic1 \
-                                               libglib2.0-0 \
-                                               libxml2 \
-                                               libgomp1 \
-                                               libgssapi-krb5-2
-
+                                               libatomic1
 
 
 # Copy contents of python virtualenv and activate

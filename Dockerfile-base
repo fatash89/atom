@@ -46,7 +46,7 @@ RUN cd /atom/languages/c/third-party && make
 #
 
 # Create and activate python virtualenv
-RUN python3 -m venv /opt/venv
+RUN python3.7m -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 ENV LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
 
