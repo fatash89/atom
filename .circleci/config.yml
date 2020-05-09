@@ -462,7 +462,7 @@ commands:
           << : *build_atom_variant_shared_mapping
           << : *build_atom_base_add_shared_mapping
           file: << parameters.file >>
-          prev_image: << pipeline.parameters.atom_repo_name >>
+          prev_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
           prev_tag: base-build-<< pipeline.number >>-<< parameters.previous >>-<< parameters.platform >>
 
       # Push and Test
@@ -506,7 +506,7 @@ jobs:
     parameters:
       << : *build_atom_variant_shared_params
     executor: atom/build-ubuntu
-    resource_class: large
+    resource_class: medium
     steps:
       - build_shared_init
       - build_atom_base_variant:
@@ -522,7 +522,7 @@ jobs:
       previous:
         type: string
     executor: atom/build-ubuntu
-    resource_class: large
+    resource_class: medium
     steps:
       - build_shared_init
       - build_atom_base_variant_add:
