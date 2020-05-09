@@ -49,7 +49,10 @@ WORKDIR /atom/languages/python/third-party/Pillow
 RUN MAX_CONCURRENCY=8 python3 setup.py install
 
 # Copy all dependencies over to /usr/local/lib so they get
-#   copied into the production image
+#   copied into the production image. We need to do this since in the
+#   step to convert to production we minimize the size of the container
+#   by going back to the original base (typically debian:buster-slim) and
+#   just copying over /usr/local and other select things.
 RUN ls /usr/lib/x86_64-linux-gnu/ > /tmp/new_libs.txt && \
     ls /lib/x86_64-linux-gnu/ >> /tmp/new_libs.txt && \
     sort /tmp/existing_libs.txt > /tmp/existing_libs_sorted.txt && \
