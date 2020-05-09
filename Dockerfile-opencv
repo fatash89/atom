@@ -57,4 +57,8 @@ RUN ls /usr/lib/x86_64-linux-gnu/ > /tmp/new_libs.txt && \
     ls /lib/x86_64-linux-gnu/ >> /tmp/new_libs.txt && \
     sort /tmp/existing_libs.txt > /tmp/existing_libs_sorted.txt && \
     sort /tmp/new_libs.txt > /tmp/new_libs_sorted.txt && \
-    diff --new-line-format="" --unchanged-line-format="" /tmp/new_libs_sorted.txt /tmp/existing_libs_sorted.txt | xargs -I {} cp -r /usr/lib/x86_64-linux-gnu/{} /usr/local/lib || cp -r /lib/x86_64-linux-gnu/{} /usr/local/lib
+    (diff --new-line-format="" --unchanged-line-format="" /tmp/new_libs_sorted.txt /tmp/existing_libs_sorted.txt > /tmp/diff_libs.txt || exit 0) && \
+    cd /usr/lib/x86_64-linux-gnu && ls libglib-2.0* >> /tmp/diff_libs.txt && \
+    cd /usr/lib/x86_64-linux-gnu && ls libgssapi_krb5* >> /tmp/diff_libs.txt && \
+    cd /usr/lib/x86_64-linux-gnu && ls libgomp* >> /tmp/diff_libs.txt && \
+    xargs -a /tmp/diff_libs.txt -I {} cp -r /usr/lib/x86_64-linux-gnu/{} /usr/local/lib || cp -r /lib/x86_64-linux-gnu/{} /usr/local/lib
