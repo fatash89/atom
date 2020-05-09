@@ -19,7 +19,8 @@ RUN apt-get update && apt-get install -y \
     libopenexr-dev \
     libavcodec-dev \
     libavformat-dev \
-    libswscale-dev
+    libswscale-dev \
+    libwebp-dev
 
 # Install openCV + python3 bindings
 COPY ./third-party/opencv /atom/third-party/opencv
