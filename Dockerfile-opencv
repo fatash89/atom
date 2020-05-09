@@ -10,10 +10,14 @@ FROM ${BASE_IMAGE} as with-opencv
 ARG ARCH=x86_64
 ARG DEBIAN_FRONTEND=noninteractive
 
-COPY ./third-party/opencv /atom/third-party/opencv
-WORKDIR /atom/third-party/opencv
+# Install pre-requisites
+RUN apt-get update && apt-get install -y \
+    zlib1g-dev \
+    libjpeg62-turbo-dev
 
 # Install openCV + python3 bindings
+COPY ./third-party/opencv /atom/third-party/opencv
+WORKDIR /atom/third-party/opencv
 RUN mkdir -p build && cd build && cmake \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=/usr/local \
@@ -26,3 +30,8 @@ RUN mkdir -p build && cd build && cmake \
     ../ && \
     make -j8 && \
     make install
+
+# Install Pillow (PIL) as that's also used frequently with opencv
+COPY ./languages/python/third-party/Pillow /atom/languages/python/third-party/Pillow
+WORKDIR /atom/languages/python/third-party/Pillow
+RUN MAX_CONCURRENCY=8 python3 setup.py install
