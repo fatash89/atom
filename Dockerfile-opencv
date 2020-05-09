@@ -42,3 +42,18 @@ RUN mkdir -p build && cd build && cmake \
 COPY ./languages/python/third-party/Pillow /atom/languages/python/third-party/Pillow
 WORKDIR /atom/languages/python/third-party/Pillow
 RUN MAX_CONCURRENCY=8 python3 setup.py install
+
+# Copy all dependencies over to /usr/local/lib so they get
+#   copied into the production image
+RUN ldd /usr/local/lib/libopencv_* \
+    | grep "=> /" \
+    | awk '{print $3}' \
+    | grep -v libopencv \
+    | grep -v libc \
+    | grep -v libm \
+    | grep -v libstdc++ \
+    | grep -v libdl \
+    | grep -v libpthread \
+    | grep -v libgcc_s \
+    | grep -v librt \
+    | xargs -I '{}' cp -v '{}' /usr/local/lib
