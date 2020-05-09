@@ -109,40 +109,40 @@ aliases:
   # Atom Build Matrix
   - &atom_matrix
       parameters:
-        variant: ["stock", "opengl", "cuda", "opengl-cuda"]
+        variant: ["stock", "opengl-vnc", "cuda", "opengl-cuda-vnc"]
         platform: ["amd64", "aarch64"]
         component: ["atom", "nucleus"]
       exclude:
         # No opengl, CUDA, or opengl-cuda builds for AARCH64 atom
-        - variant: "opengl"
+        - variant: "opengl-vnc"
           platform: "aarch64"
           component: "atom"
         - variant: "cuda"
           platform: "aarch64"
           component: "atom"
-        - variant: "opengl-cuda"
+        - variant: "opengl-cuda-vnc"
           platform: "aarch64"
           component: "atom"
 
         # No opengl, CUDA, or opengl-cuda builds for AARCH64 nucleus
-        - variant: "opengl"
+        - variant: "opengl-vnc"
           platform: "aarch64"
           component: "nucleus"
         - variant: "cuda"
           platform: "aarch64"
           component: "nucleus"
-        - variant: "opengl-cuda"
+        - variant: "opengl-cuda-vnc"
           platform: "aarch64"
           component: "nucleus"
 
         # No opengl, CUDA, or opengl-cuda builds for AMD64 nucleus
-        - variant: "opengl"
+        - variant: "opengl-vnc"
           platform: "amd64"
           component: "nucleus"
         - variant: "cuda"
           platform: "amd64"
           component: "nucleus"
-        - variant: "opengl-cuda"
+        - variant: "opengl-cuda-vnc"
           platform: "amd64"
           component: "nucleus"
 
@@ -159,7 +159,7 @@ aliases:
   # Base Build Matrix
   - &base_matrix
       parameters:
-        variant: ["stock", "opengl", "cuda", "opengl-cuda", "opengl-cuda-vnc", "opencv"]
+        variant: ["stock", "opengl", "cuda", "opengl-cuda", "opengl-cuda-vnc", "opengl-vnc", "opencv"]
         platform: ["amd64", "aarch64"]
       exclude:
         - variant: "opengl"
@@ -170,11 +170,14 @@ aliases:
           platform: "aarch64"
         - variant: "opengl-cuda-vnc"
           platform: "aarch64"
+        - variant: "opengl-vnc"
+          platform: "aarch64"
 
 
   # Base tags in use for the various builds
   - &base_build_atom_tag "base-1024-stock-amd64"
-  - &base_build_atom_opengl_tag "base-1024-opengl-amd64"
+  - &base_build_atom_opengl_tag "base-1061-opengl-amd64"
+  - &base_build_atom_opengl_vnc_tag "base-1061-opengl-vnc-amd64"
   - &base_build_atom_cuda_tag "base-1058-cuda-amd64"
   - &base_build_atom_opengl_cuda_tag "base-1058-opengl-cuda-amd64"
   - &base_build_atom_opengl_cuda_vnc_tag "base-1058-opengl-cuda-vnc-amd64"
@@ -183,6 +186,7 @@ aliases:
       source_tag:
         - *base_build_atom_tag
         - *base_build_atom_opengl_tag
+        - *base_build_atom_opengl_vnc_tag
         - *base_build_atom_cuda_tag
         - *base_build_atom_opengl_cuda_tag
         - *base_build_atom_opengl_cuda_vnc_tag

@@ -10,10 +10,22 @@ FROM ${BASE_IMAGE} as with-opencv
 ARG ARCH=x86_64
 ARG DEBIAN_FRONTEND=noninteractive
 
+# Get list of pre-existing libraries so that we can copy over the
+#   ones that get added in the apt-get process when done
+RUN ls /usr/lib/x86_64-linux-gnu/ > /tmp/existing_libs.txt && \
+    ls /lib/x86_64-linux-gnu/ >> /tmp/existing_libs.txt
+
 # Install pre-requisites
 RUN apt-get update && apt-get install -y \
     zlib1g-dev \
-    libjpeg62-turbo-dev
+    libjpeg62-turbo-dev \
+    libpng-dev \
+    libtiff-dev \
+    libopenexr-dev \
+    libavcodec-dev \
+    libavformat-dev \
+    libswscale-dev \
+    libwebp-dev
 
 # Install openCV + python3 bindings
 COPY ./third-party/opencv /atom/third-party/opencv
@@ -35,3 +47,14 @@ RUN mkdir -p build && cd build && cmake \
 COPY ./languages/python/third-party/Pillow /atom/languages/python/third-party/Pillow
 WORKDIR /atom/languages/python/third-party/Pillow
 RUN MAX_CONCURRENCY=8 python3 setup.py install
+
+# Copy all dependencies over to /usr/local/lib so they get
+#   copied into the production image. We need to do this since in the
+#   step to convert to production we minimize the size of the container
+#   by going back to the original base (typically debian:buster-slim) and
+#   just copying over /usr/local and other select things.
+RUN ls /usr/lib/x86_64-linux-gnu/ > /tmp/new_libs.txt && \
+    ls /lib/x86_64-linux-gnu/ >> /tmp/new_libs.txt && \
+    sort /tmp/existing_libs.txt > /tmp/existing_libs_sorted.txt && \
+    sort /tmp/new_libs.txt > /tmp/new_libs_sorted.txt && \
+    diff --new-line-format="" --unchanged-line-format="" /tmp/new_libs_sorted.txt /tmp/existing_libs_sorted.txt | xargs -I {} cp -r /usr/lib/x86_64-linux-gnu/{} /usr/local/lib || cp -r /lib/x86_64-linux-gnu/{} /usr/local/lib

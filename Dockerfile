@@ -72,7 +72,12 @@ RUN apt-get update -y \
  && apt-get install -y --no-install-recommends apt-utils \
                                                python3-minimal \
                                                python3-pip \
-                                               libatomic1
+                                               libatomic1 \
+                                               libglib2.0-0 \
+                                               libxml2 \
+                                               libgomp1 \
+                                               libgssapi-krb5-2
+
 
 
 # Copy contents of python virtualenv and activate
@@ -82,6 +87,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Copy C builds
 COPY --from=atom-source /usr/local/lib /usr/local/lib
 COPY --from=atom-source /usr/local/include /usr/local/include
+ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib
 
 # Copy atom-cli
 COPY --from=atom-source /usr/local/bin/atom-cli /usr/local/bin/atom-cli
