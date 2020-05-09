@@ -70,7 +70,6 @@ FROM $PRODUCTION_IMAGE as atom
 # Install python
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends apt-utils \
-                                               python3-minimal \
                                                python3-pip \
                                                libatomic1
 
