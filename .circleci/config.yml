@@ -159,7 +159,7 @@ aliases:
   # Base Build Matrix
   - &base_matrix
       parameters:
-        variant: ["stock", "opengl", "cuda", "opengl-cuda"]
+        variant: ["stock", "opengl", "cuda", "opengl-cuda", "opencv"]
         platform: ["amd64", "aarch64"]
       exclude:
         - variant: "opengl"
@@ -376,16 +376,12 @@ commands:
   build_atom_base_test:
     parameters:
       <<: *build_atom_variant_shared_params
-      input_tag:
-        type: string
-        default: base-build-<< pipeline.number >>
-
     steps:
 
       # Build the atom variant with the base
       - build_atom_with_nucleus_variant:
           << : *build_atom_variant_shared_mapping
-          base_tag: << parameters.input_tag >>-<< pipeline.number >>-<< parameters.variant >>-<< parameters.platform >>
+          base_tag: base-build-<< pipeline.number >>-<< parameters.variant >>-<< parameters.platform >>
           production_image: << parameters.base_repo >>:<< parameters.base_tag >>
 
   build_dockerfile_atom_base:
@@ -394,13 +390,9 @@ commands:
       file:
         type: string
         default: Dockerfile-base
-      image_tag:
-        type: string
       prev_image:
         type: string
       prev_tag:
-        type: string
-      cache_tag:
         type: string
     steps:
 
@@ -410,12 +402,12 @@ commands:
           variant: << parameters.variant >>
           platform: << parameters.platform >>
           image_name: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
-          image_tag: << parameters.image_tag >>-<< pipeline.number >>
+          image_tag: base-build-<< pipeline.number >>
           build_args: >-
             --build-arg
             BASE_IMAGE=<< parameters.prev_image >>:<< parameters.prev_tag >>
             << parameters.build_args >>
-          cache_tag: << parameters.cache_tag >>
+          cache_tag: cache-base
           cache_repo: << parameters.cache_repo >>
           no_output_timeout: 3h
 
@@ -426,7 +418,7 @@ commands:
           variant: << parameters.variant >>
           platform: << parameters.platform >>
 
-  build_atom_base:
+  build_atom_base_variant:
     parameters:
       << : *build_atom_variant_shared_params
     steps:
@@ -435,107 +427,36 @@ commands:
       - build_dockerfile_atom_base:
           << : *build_atom_variant_shared_mapping
           file: Dockerfile-base
-          image_tag: base-build
           prev_image: << parameters.base_repo >>
           prev_tag: << parameters.base_tag >>
-          cache_tag: cache-base
 
-  build_atom_base_add_vnc:
+      # Push and Test
+      - build_atom_base_test:
+          << : *build_atom_variant_shared_mapping
+          base_repo: << parameters.base_repo >>
+          base_tag: << parameters.base_tag >>
+
+  build_atom_base_variant_add:
     parameters:
       << : *build_atom_variant_shared_params
-      input_tag:
-        type: string
+    file:
+      type: string
+    prev:
+      type: string
+      default: ""
     steps:
 
-      # Build the vanilla base
+        # Build the vanilla base
       - build_dockerfile_atom_base:
           << : *build_atom_variant_shared_mapping
           << : *build_atom_base_add_shared_mapping
-          file: Dockerfile-vnc
-          image_tag: base-build-with-vnc
-          cache_tag: cache-base-with-vnc
-
-  build_atom_base_add_opengl:
-    parameters:
-      << : *build_atom_variant_shared_params
-      input_tag:
-        type: string
-    steps:
-
-      # Build the vanilla base
-      - build_dockerfile_atom_base:
-          << : *build_atom_variant_shared_mapping
-          << : *build_atom_base_add_shared_mapping
-          file: Dockerfile-opengl
-          image_tag: base-build-with-opengl
-          cache_tag: cache-base-with-opengl
-
-  build_atom_base_variant:
-    parameters:
-      << : *build_atom_variant_shared_params
-    steps:
-
-      # Build the vanilla base
-      - build_atom_base:
-          << : *build_atom_variant_shared_mapping
-          base_repo: << parameters.base_repo >>
-          base_tag: << parameters.base_tag >>
+          file: << parameters.file >>
+          prev_image: << pipeline.parameters.atom_repo_name >>
+          prev_tag: base-build-<< pipeline.number >>-<< parameters.prev >>-<< parameters.platform >>
 
       # Push and Test
       - build_atom_base_test:
           << : *build_atom_variant_shared_mapping
-          input_tag: base-build
-          base_repo: << parameters.base_repo >>
-          base_tag: << parameters.base_tag >>
-
-  build_atom_base_variant_with_vnc:
-    parameters:
-      << : *build_atom_variant_shared_params
-    steps:
-
-      # Build the vanilla base
-      - build_atom_base:
-          << : *build_atom_variant_shared_mapping
-          base_repo: << parameters.base_repo >>
-          base_tag: << parameters.base_tag >>
-
-      # Add in the VNC
-      - build_atom_base_add_vnc:
-          << : *build_atom_variant_shared_mapping
-          input_tag: base-build
-
-      # Push and Test
-      - build_atom_base_test:
-          << : *build_atom_variant_shared_mapping
-          input_tag: base-build-with-vnc
-          base_repo: << parameters.base_repo >>
-          base_tag: << parameters.base_tag >>
-
-  build_atom_base_variant_with_vnc_opengl:
-    parameters:
-      << : *build_atom_variant_shared_params
-    steps:
-
-      # Build the vanilla base
-      - build_atom_base:
-          << : *build_atom_variant_shared_mapping
-          base_repo: << parameters.base_repo >>
-          base_tag: << parameters.base_tag >>
-
-      # Add in the VNC
-      - build_atom_base_add_vnc:
-          << : *build_atom_variant_shared_mapping
-          input_tag: base-build
-
-      # Add in OpenGL
-      - build_atom_base_add_opengl:
-          << : *build_atom_variant_shared_mapping
-          input_tag: base-build-with-vnc
-
-      # Push and Test
-      - build_atom_base_test:
-          << : *build_atom_variant_shared_mapping
-          input_tag: base-build-with-opengl
           base_repo: << parameters.base_repo >>
           base_tag: << parameters.base_tag >>
 
@@ -582,26 +503,14 @@ jobs:
           base_repo: << parameters.base_repo >>
           base_tag: << parameters.base_tag >>
 
-  build-base-with-vnc:
+  build-base-add:
     parameters:
       << : *build_atom_variant_shared_params
     executor: atom/build-ubuntu
     resource_class: large
     steps:
       - build_shared_init
-      - build_atom_base_variant_with_vnc:
-          << : *build_atom_variant_shared_mapping
-          base_repo: << parameters.base_repo >>
-          base_tag: << parameters.base_tag >>
-
-  build-base-with-vnc-opengl:
-    parameters:
-      << : *build_atom_variant_shared_params
-    executor: atom/build-ubuntu
-    resource_class: large
-    steps:
-      - build_shared_init
-      - build_atom_base_variant_with_vnc_opengl:
+      - build_atom_base_variant_add:
           << : *build_atom_variant_shared_mapping
           base_repo: << parameters.base_repo >>
           base_tag: << parameters.base_tag >>
@@ -990,7 +899,9 @@ workflows:
   base-build:
     jobs:
 
-      # Build base images
+      #
+      # Stock AMD64 base and variants
+      #
       - build-base:
           name: "build-base-<< matrix.variant >>-<< matrix.platform >>"
           matrix:
@@ -1004,7 +915,122 @@ workflows:
               only:
                 - /.*-build-base-all/
                 - /.*-build-base-atom/
+                - /.*-build-base-opencv/
 
+      - build-base-add:
+          name: "build-base-<< matrix.variant >>-<< matrix.platform >>"
+          matrix:
+            parameters:
+              variant: [ opencv ]
+              platform: [ amd64 ]
+              prev: [ stock ]
+          file: Dockerfile-opencv
+          base_repo: debian
+          base_tag: buster-slim
+          requires:
+            - build-base-<< matrix.prev >>-<< matrix.platform >>
+          filters:
+            branches:
+              only:
+                - /.*-build-base-all/
+                - /.*-build-base-opencv/
+
+      #
+      # Cuda AMD64 base and variants
+      #
+
+      - build-base:
+          name: "build-base-cuda-<< matrix.platform >>"
+          matrix:
+            parameters:
+              variant: [ cuda ]
+              platform: [ amd64 ]
+          base_repo: nvidia/cuda
+          base_tag: 10.2-cudnn7-runtime-ubuntu18.04
+          filters:
+            branches:
+              only:
+                - /.*-build-base-all/
+                - /.*-build-base-cuda/
+                - /.*-build-base-opengl-cuda/
+
+      - build-base-add:
+          name: "build-base-<< matrix.variant >>-<< matrix.platform >>"
+          matrix:
+            parameters:
+              variant: [ opengl-cuda ]
+              platform: [ amd64 ]
+              prev: [ cuda ]
+          file: Dockerfile-opengl
+          base_repo: nvidia/cuda
+          base_tag: 10.2-cudnn7-runtime-ubuntu18.04
+          requires:
+            - build-base-<< matrix.prev >>-<< matrix.platform >>
+          filters:
+            branches:
+              only:
+                - /.*-build-base-all/
+                - /.*-build-base-opengl-cuda/
+                - /.*-build-base-opengl-cuda-vnc/
+
+      - build-base-add:
+          name: "build-base-<< matrix.variant >>-<< matrix.platform >>"
+          matrix:
+            parameters:
+              variant: [opengl-cuda-vnc]
+              platform: [ amd64 ]
+              prev: [ opengl-cuda ]
+          file: Dockerfile-vnc
+          base_repo: nvidia/cuda
+          base_tag: 10.2-cudnn7-runtime-ubuntu18.04
+          requires:
+            - build-base-opengl-cuda-<< matrix.platform >>
+          filters:
+            branches:
+              only:
+                - /.*-build-base-all/
+                - /.*-build-base-opengl-cuda-vnc/
+
+      #
+      # OpenGL AMD64 base and variants
+      #
+
+      - build-base:
+          name: "build-base-<< matrix.variant >>-<< matrix.platform >>"
+          matrix:
+            parameters:
+              variant: [ opengl ]
+              platform: [ amd64 ]
+          base_repo: nvidia/opengl
+          base_tag: 1.0-glvnd-runtime-ubuntu18.04
+          filters:
+            branches:
+              only:
+                - /.*-build-base-all/
+                - /.*-build-base-opengl/
+                - /.*-build-base-opengl-vnc/
+
+      - build-base-add:
+          name: "build-base-<< matrix.variant >>-<< matrix.platform >>"
+          matrix:
+            parameters:
+              variant: [ opengl-vnc ]
+              platform: [ amd64 ]
+              prev: [ opengl ]
+          file: Dockerfile-vnc
+          base_repo: nvidia/opengl
+          base_tag: 1.0-glvnd-runtime-ubuntu18.04
+          requires:
+            - build-base-<< prev >>-<< matrix.platform >>
+          filters:
+            branches:
+              only:
+                - /.*-build-base-all/
+                - /.*-build-base-opengl-vnc/
+
+      #
+      # Stock AARCH64 base + variants
+      #
       - build-base:
           name: "build-base-<< matrix.variant >>-<< matrix.platform >>"
           matrix:
@@ -1020,48 +1046,28 @@ workflows:
               only:
                 - /.*-build-base-all/
                 - /.*-build-base-aarch64/
+                - /.*-build-base-opencv/
 
-      - build-base-with-vnc:
+      - build-base-add:
           name: "build-base-<< matrix.variant >>-<< matrix.platform >>"
           matrix:
             parameters:
-              variant: [ opengl ]
-              platform: [ amd64 ]
-          base_repo: nvidia/opengl
-          base_tag: 1.0-glvnd-runtime-ubuntu18.04
+              variant: [ opencv ]
+              platform: [ aarch64 ]
+              prev: [ stock ]
+          file: Dockerfile-opencv
+          base_repo: debian
+          base_tag: buster-slim
+          build_args: "--build-arg ARCH=aarch64"
+          test_valgrind: false
+          requires:
+            - build-base-<< matrix.prev >>-<< matrix.platform >>
           filters:
             branches:
               only:
                 - /.*-build-base-all/
-                - /.*-build-base-opengl/
+                - /.*-build-base-opencv/
 
-      - build-base:
-          name: "build-base-<< matrix.variant >>-<< matrix.platform >>"
-          matrix:
-            parameters:
-              variant: [ cuda ]
-              platform: [ amd64 ]
-          base_repo: nvidia/cuda
-          base_tag: 10.2-cudnn7-runtime-ubuntu18.04
-          filters:
-            branches:
-              only:
-                - /.*-build-base-all/
-                - /.*-build-base-cuda/
-
-      - build-base-with-vnc-opengl:
-          name: "build-base-<< matrix.variant >>-<< matrix.platform >>"
-          matrix:
-            parameters:
-              variant: [ opengl-cuda ]
-              platform: [ amd64 ]
-          base_repo: nvidia/cuda
-          base_tag: 10.2-cudnn7-runtime-ubuntu18.04
-          filters:
-            branches:
-              only:
-                - /.*-build-base-all/
-                - /.*-build-base-opengl-cuda/
 
       # Deploy base images. Don't need branch filters since they depend
       # on base builds with the branch filters
