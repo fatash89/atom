@@ -82,7 +82,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Copy C builds
 COPY --from=atom-source /usr/local/lib /usr/local/lib
 COPY --from=atom-source /usr/local/include /usr/local/include
-ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib
+ENV LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
 
 # Copy atom-cli
 COPY --from=atom-source /usr/local/bin/atom-cli /usr/local/bin/atom-cli
