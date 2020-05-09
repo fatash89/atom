@@ -175,8 +175,9 @@ aliases:
   # Base tags in use for the various builds
   - &base_build_atom_tag "base-1024-stock-amd64"
   - &base_build_atom_opengl_tag "base-1024-opengl-amd64"
-  - &base_build_atom_cuda_tag "base-1024-cuda-amd64"
-  - &base_build_atom_opengl_cuda_tag "base-1024-opengl-cuda-amd64"
+  - &base_build_atom_cuda_tag "base-1058-cuda-amd64"
+  - &base_build_atom_opengl_cuda_tag "base-1058-opengl-cuda-amd64"
+  - &base_build_atom_opengl_cuda_vnc_tag "base-1058-opengl-cuda-vnc-amd64"
   - &base_build_atom_aarch64_tag "base-1024-stock-aarch64"
   - &base_build_tags
       source_tag:
@@ -184,6 +185,7 @@ aliases:
         - *base_build_atom_opengl_tag
         - *base_build_atom_cuda_tag
         - *base_build_atom_opengl_cuda_tag
+        - *base_build_atom_opengl_cuda_vnc_tag
         - *base_build_atom_aarch64_tag
 
   # Helpful alias when building bases using additional Dockerfiles
