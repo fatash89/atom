@@ -951,6 +951,7 @@ workflows:
           file: Dockerfile-opencv
           base_repo: debian
           base_tag: buster-slim
+          build_args: "--build-arg PRODUCTION_IMAGE=debian:buster-slim"
           filters:
             branches:
               only:
@@ -1066,7 +1067,7 @@ workflows:
           file: Dockerfile-opencv
           base_repo: debian
           base_tag: buster-slim
-          build_args: "--build-arg ARCH=aarch64"
+          build_args: "--build-arg ARCH=aarch64 --build-arg PRODUCTION_IMAGE=debian:buster-slim"
           test_valgrind: false
           filters:
             branches:
