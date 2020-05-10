@@ -632,7 +632,7 @@ workflows:
           name: *atom_matrix_build_job_name
           matrix:
             parameters:
-              variant: [ opengl ]
+              variant: [ opengl-vnc ]
               platform: [ amd64 ]
           base_tag: *base_build_atom_opengl_tag
           production_image: nvidia/opengl:1.0-glvnd-runtime-ubuntu18.04
@@ -670,7 +670,7 @@ workflows:
           name: *atom_matrix_build_job_name
           matrix:
             parameters:
-              variant: [ opengl-cuda ]
+              variant: [ opengl-cuda-vnc ]
               platform: [ amd64 ]
           base_tag: *base_build_atom_opengl_cuda_tag
           production_image: nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04
