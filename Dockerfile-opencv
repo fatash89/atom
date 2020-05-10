@@ -17,6 +17,7 @@ ARG PRODUCTION_IMAGE
 FROM ${BASE_IMAGE} as with-opencv
 
 ARG DEBIAN_FRONTEND=noninteractive
+ARG ARCH=x86_64
 
 # Install pre-requisites
 RUN apt-get update && apt-get install -y \
