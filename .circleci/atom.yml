@@ -922,6 +922,7 @@ examples:
                 source_image: << pipeline.parameters.dockerhub_repo >>
                 source_tag: build-<< pipeline.number >>
                 target_image: << pipeline.parameters.dockerhub_repo >>
+                target_tag: ""
                 matrix:
                   parameters:
                     variant: [ << pipeline.parameters.atom_variant >> ]
