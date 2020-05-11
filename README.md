@@ -402,10 +402,14 @@ the tag can be found in the table below
 | Tag  | Base OS | Arch | Description |
 |------|---------|------|-------------|
 | `stock-amd64` | `debian:buster-slim` | `amd64` | Atom + all dependencies |
+| `opencv-amd64` | `debian:buster-slim` | `amd64` | Atom + OpenCV + all dependencies |
 | `cuda-amd64` | `nvidia/cuda` | `amd64` | Atom + all dependencies + CUDA + CuDNN |
-| `opengl-amd64` | `nvidia/opengl` | `amd64` | Atom + all dependencies + OpenGL |
 | `opengl-cuda-amd64` | `nvidia/cuda` | `amd64` | Atom + all dependencies + OpenGL + CUDA + CuDNN |
+| `opengl-cuda-vnc-amd64` | `nvidia/cuda` | `amd64` | Atom + all dependencies + OpenGL + CUDA + CuDNN + VNC for graphics |
+| `opengl-amd64` | `nvidia/opengl` | `amd64` | Atom + all dependencies + OpenGL |
+| `opengl-vnc-amd64` | `nvidia/opengl` | `amd64` | Atom + all dependencies + OpenGL + VNC for graphics |
 | `stock-aarch64` | `debian:buster-slim` | `aarch64` | Atom + all dependencies cross-comiled for aarch64/ARMv8 |
+| `opencv-aarch64` | `debian:buster-slim` | `aarch64` | Atom + all dependencies + OpenCV cross-comiled for aarch64/ARMv8 |
 
 #### elementaryrobotics/nucleus
 
@@ -431,10 +435,14 @@ the tag can be found in the table below
 | Tag  | Base OS | Arch | Description |
 |------|---------|------|-------------|
 | `base-stock-amd64` | `debian:buster-slim` | `amd64` | Build dependencies for Atom |
+| `base-opencv-amd64` | `debian:buster-slim` | `amd64` | Build dependencies for Atom + OpenCV |
 | `base-cuda-amd64` | `nvidia/cuda` | `amd64` | Build dependencies for Atom + CUDA + CuDNN |
 | `base-opengl-cuda-amd64` | `nvidia/cuda` | `amd64` | Build dependencies for Atom + CUDA + CuDNN |
+| `base-opengl-cuda-vnc-amd64` | `nvidia/cuda` | `amd64` | Build dependencies for Atom + CUDA + CuDNN + VNC |
 | `base-opengl-amd64` | `nvidia/opengl` | `amd64` | Build dependencies for Atom + OpenGL |
+| `base-opengl-amd64` | `nvidia/opengl` | `amd64` | Build dependencies for Atom + OpenGL + VNC |
 | `base-stock-aarch64` | `debian:buster-slim` | `aarch64` | Build dependencies for Atom cross-comiled for aarch64/ARMv8 |
+| `base-opencv-aarch64` | `debian:buster-slim` | `aarch64` | Build dependencies for Atom + OpenCV cross-comiled for aarch64/ARMv8 |
 
 ### Updating a Base Image
 
@@ -450,7 +458,7 @@ the base tag and `YYY` will be the CircleCI build number.
 5. Update the [aliases section of the CircleCI config](.circleci/config.yml) to use the new base
 6. Check in the results from (5) and merge the branch into master. The new base tag will be auto-pushed to the generic base tag `base-XXX` upon merge into master.
 
-#### Changes to `Dockerfile-base`
+#### Updating Base Dockerfiles
 
 The base dockerfile is not used in the production images in order to reduce image size. Instead, everything from the following directories is coped over:
 
@@ -458,18 +466,45 @@ The base dockerfile is not used in the production images in order to reduce imag
 - `/usr/local/include`
 - `/opt/venv`
 
-If you're adding something to the base (new library, etc.) ensure it is installed in `/usr/local`.
+If you're adding something to the base (new library, etc.) ensure it is installed in `/usr/local`. One trick to doing this with complex library dependencies (some installed by apt-get) can be seen in the [OpenCV base Dockerfile](Dockerfile-opencv):
+
+```
+FROM ${BASE_IMAGE} as with-opencv
+
+... install things with apt-get ...
+... build opencv ...
+
+# Last thing to do: figure out what OpenCV needs to run
+RUN ldd /usr/local/lib/libopencv* | grep "=> /" | awk '{print $3}' | sort -u > /tmp/required_libs.txt
+
+#
+# Determine libraries we'll ship with in production so we can see what's
+#   missing
+#
+FROM ${PRODUCTION_IMAGE} as no-deps
+
+ARG ARCH=x86_64
+
+RUN ls /lib/${ARCH}-linux-gnu/*.so* > /tmp/existing_libs.txt && \
+    ls /usr/lib/${ARCH}-linux-gnu/*.so* >> /tmp/existing_libs.txt
+
+#
+# Copy missing libraries from production into /usr/local/lib
+#
+FROM with-opencv as opencv-deps
+
+COPY --from=no-deps /tmp/existing_libs.txt /tmp/existing_libs.txt
+RUN diff --new-line-format="" --unchanged-line-format=""  /tmp/required_libs.txt /tmp/existing_libs.txt | grep -v /usr/local/lib > /tmp/libs_to_copy.txt
+RUN xargs -a /tmp/libs_to_copy.txt cp -L -t /usr/local/lib
+```
+
+OpenCV depends on a bit of a laundry list of things that we install with apt-get. If we just copy over `/usr/local/lib`, where we install OpenCV, we will get a littany of "cannot find shared library" errors when we go to launch anything that uses OpenCV. As such, in the final step of building OpenCV we use `ldd` to determine what shared libraries OpenCV needs to link against in production and put the info in `required_libs.txt`. We then make a stage FROM the eventual production image and see which libraries it comes with and put that info in `existing_libs.txt`. Finally, we copy the set of libraries that are in `required_libs.txt` and not in `existing_libs.txt` into `/usr/local/lib` before finishing the build. We use the `LD_LIBRARY_PATH` environment variable (set in all Atom images) to let the linker to look first in `/usr/local/lib` for any libraries it needs.
 
 #### Special Branches
 
-Branches ending in the names below will cause CI/CD to run rebuilds of the base
-images instead of the normal workflow:
-
-| Branch | Description |
-|--------|-------------|
-| `*build-base-all` | Build all base images. Use sparingly |
-| `*build-base-atom` | Build the normal Atom base image |
-| `*build-base-cuda` | Build the Atom + Cuda base image |
-| `*build-base-opengl` | Build the Atom + opengl base image |
-| `*build-base-opengl-cuda` | Build the Atom + opengl + Cuda base image |
-| `*build-base-aarch64` | Build the normal Atom base image x-compiled for ARM |
+Branches ending in some variant of `-build-base` will cause base builds
+instead of the typical Atom workflow. Please push to these branches sparingly
+and only when needed as these types of builds are usually, long, compute-intensive
+and expensive (especially aarch-64). This section will become stale quickly
+if we document the branch names here -- please consult the [CircleCI Config](.circleci/config.yml)
+in the Base Build section for exact branch names and what they do.
