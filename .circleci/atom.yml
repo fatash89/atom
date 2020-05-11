@@ -38,6 +38,9 @@ aliases:
       no_output_timeout:
         type: string
         default: 15m
+      use_git_lfs:
+        type: boolean
+        default: false
 
   # Mapping to pass build args through without modification
   - &build_basic_args_mapping
@@ -49,6 +52,7 @@ aliases:
       stage: << parameters.stage >>
       build_args: << parameters.build_args >>
       no_output_timeout: << parameters.no_output_timeout >>
+      use_git_lfs: << parameters.use_git_lfs >>
 
   # Basic docker build command. Uses shared args
   - &build_basic_command >-
@@ -486,6 +490,10 @@ commands:
     parameters:
       << : *build_basic_args
     steps:
+      - when:
+          condition: << parameters.use_git_lfs >>
+          steps:
+            - install_git_lfs
       - checkout
       - update_submodules
       - docker_login
@@ -502,6 +510,10 @@ commands:
       << : *build_basic_args
       << : *build_buildx_additional_args
     steps:
+      - when:
+          condition: << parameters.use_git_lfs >>
+          steps:
+            - install_git_lfs
       - checkout
       - update_submodules
       - docker_login
@@ -715,7 +727,7 @@ examples:
             target_image: << pipeline.parameters.dockerhub_repo >>
 
       orbs:
-        atom: elementaryrobotics/atom@0.1.4
+        atom: elementaryrobotics/atom@0.1.6
 
       workflows:
         version: 2
@@ -830,7 +842,7 @@ examples:
           default: elementaryrobotics/example-element
 
       orbs:
-        atom: elementaryrobotics/atom@0.1.4
+        atom: elementaryrobotics/atom@0.1.6
 
       workflows:
         version: 2

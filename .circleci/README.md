@@ -122,6 +122,35 @@ Then, when ready, promote to production (limited to ER staff only)
 circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 ```
 
+
+### Release Notes
+
+#### [v0.1.6](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.1.6)
+
+##### New Features
+
+- Adds `use_git_lfs` option to builds. If set to `true`, will install `git-lfs`
+on the machine before `checkout` so that the proper files are downloaded.
+
+##### Upgrade Steps
+
+Use in your workflows like below:
+```
+      - atom/build_buildx:
+          name: "build-<< matrix.platform >>"
+          matrix:
+            parameters:
+              platform: [ amd64, aarch64 ]
+          image_name: << pipeline.parameters.dockerhub_repo >>
+          image_tag: build-<< pipeline.number >>
+          cache_repo: << pipeline.parameters.dockerhub_repo >>
+          cache_tag: cache
+          use_git_lfs: true
+          filters:
+            tags:
+              only: /.*/
+```
+
 ### Release Notes
 
 #### [v0.1.5](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.1.5)
