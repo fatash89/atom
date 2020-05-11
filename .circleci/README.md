@@ -124,6 +124,13 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 
 ### Release Notes
 
+#### [v0.1.5](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.1.5)
+
+##### New Features
+
+- Fixes `test` command/job for `aarch64`
+- Updates/tweaks to examples
+
 #### [v0.1.4](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.1.4)
 
 ##### New Features
