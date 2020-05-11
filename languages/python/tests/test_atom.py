@@ -61,7 +61,7 @@ class TestAtom:
         """
         proc = Process(target=caller.command_send, args=("test_responder", "test_cmd", 0,))
         proc.start()
-        data = caller._rclient.xread({caller._make_command_id("test_responder"): "$"}, block=100)
+        data = caller._rclient.xread({caller._make_command_id("test_responder"): "$"}, block=1000)
         proc.join()
         stream, msgs = data[0] #since there's only one stream
         assert stream == b"command:test_responder"
