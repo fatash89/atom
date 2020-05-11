@@ -120,7 +120,6 @@ variables of your choice:
 |-----|---------|-------------|
 | `BASE_IMAGE` | elementaryrobotics/atom:base | Which base atom image to build atop. See [Base Images](#base-images) for choices |
 | `PRODUCTION_IMAGE` | debian:buster-slim | Which image to use for the slimmed, production stage. Typically best to use the `BASE_IMAGE` that was used when building the `base` that you chose to use. |
-| `INSTALL_OPENGL` | "" | Whether or not to install opengl in the production image. Anything non-empty will install opengl |
 
 #### Build Targets
 
@@ -133,7 +132,6 @@ below. Modify the `target` section in `docker-compose-dev.yml` to switch.
 | `nucleus` | Production build of nucleus. All dependencies, libraries and atom utilities installed. Everything else stripped out |
 | `atom-source` | Pre-production build. Contains everything in production and all source used to build it |
 | `test` | Production build of atom plus test dependencies/utilities |
-| `graphics` | Production build of atom plus NoVNC in order to run VNC-based graphics |
 
 ### Atom Base
 
@@ -148,23 +146,7 @@ $ docker build -f Dockerfile-base -t elementaryrobotics/atom:base .
 
 In addition to the vanilla base that can be built with Dockerfile-base, you
 can take the build product of Dockerfile-base and pass it through any of the
-additional Dockerfiles in the table below that add additional features into
-the build:
-
-| Additional Dockerfile | Description |
-|-----------------------|-------------|
-| `Dockerfile-vnc` | Adds in a VNC s.t. graphics can be rendered within the container and viewed in a browser. Requires OpenGL |
-| `Dockerfile-opengl` | Installs openGL |
-
-#### Building a base with additional Dockerfiles
-
-To build with an additional Dockerfile:
-
-```
-$ docker build -f <additional-dockerfile> BASE_IMAGE=<previous-built-base> -t elementaryrobotics/atom:base-with-addition .
-```
-
-where `additional-dockerfile` is an entry from the table above and `previous-built-base` is the image from a previous base built. In this fashion you can use these additional Dockerfiles to add many different things onto the atom base to suit your needs.
+additional Dockerfiles in the [Variants](#variants) section below.
 
 #### Build Arguments
 
@@ -175,6 +157,16 @@ There are a few build arguments when building the base:
 | `BASE_IMAGE` | debian:buster-slim | Which base docker image to build atom atop. Can be anything ubuntu/debian |
 | `BLAS_TARGET_CPU` | "" | Optional target CPU for which to compile the BLAS library. See [choices here](third-party/OpenBLAS/TargetList.txt) |
 | `PYARROW_EXTRA_CMAKE_ARGS` | "" | CMAKE arguments to be sent to the PyArrow build. Useful when x-compiling |
+
+#### Building a base with variants
+
+To build with a variant
+
+```
+$ docker build -f <Dockerfile-variant> BASE_IMAGE=<previous-built-base> -t elementaryrobotics/atom:base-variant .
+```
+
+where `Dockerfile-variant` is an entry from the table above and `previous-built-base` is the image from a previous base built. In this fashion you can use these additional Dockerfiles to add many different things onto the atom base to suit your needs.
 
 #### Rebuilding Atom on New Base
 
@@ -386,6 +378,92 @@ multiple places.
 
 The following images/tags are regularly maintained and built with each merge
 to `master` in this repo.
+
+### Variants
+
+Atom ships with many dependencies pre-compiled and pre-installed in the
+container to make development more consistent across platforms and codebases.
+You are always welcome to remove/override/reinstall any dependency as what you do
+in your Docker container won't affect any other element in the system.
+
+In order to track groups of dependencies we use the term `variant`, where the
+default `variant` is `stock`, i.e. no additional dependencies beyond what's
+needed to run Atom. In the tables below you'll find a description of the
+different variants of Atom and what they come with pre-installed. Note some
+release of Atoms are the combination of multiple variants -- these will
+come with all dependencies installed from all variants in the tag.
+
+#### `stock`
+
+The `stock` variant is built using [`Dockerfile-base`](Dockerfile-base)
+
+| Dependency | Version | Description |
+|------------|---------|-------------|
+| [`hiredis`](languages/c/third-party/hiredis/hiredis) | `v0.13.3` | C redis client library |
+| [`msgpack-c`](languages/c/third-party/msgpack-c/msgpack-c) | `3.2.1` | C/C++ msgpack library |
+| [`cython`](languages/python/third-party/cython) | `0.29.16` | Python<>C optimization tool |
+| [`OpenBLAS`](third-party/OpenBLAS) | `v0.3.9` | Linear Algebra library |
+| [`numpy`](languages/python/third-party/numpy) | `v1.18.3` | Python linear algebra library |
+| [`arrow`](third-party/apache-arrow) | `0.17.0` | Apache arrow serialization library (C/C++/Python) |
+| [`redis-py`](languages/python/third-party) | `3.4.1` | Python redis client |
+| [`redis`](third-party/redis) | `6.0-rc4` | Redis itself |
+
+#### `opencv`
+
+The `opencv` variant is built using [`Dockerfile-opencv`](Dockerfile-opencv)
+
+| Dependency | Version | Description |
+|------------|---------|-------------|
+| [`opencv`](third-party/opencv) | `4.3.0` | Computer Vision Libraries (C/C++/Python) |
+| [`pillow`](languages/python/third-party/Pillow) | `7.1.2` | Python image processing library |
+
+##### Dockerfile-opencv build arguments
+
+| Arg | Default | Description |
+|-----|---------|-------------|
+| `BASE_IMAGE` | N/A | Which image we should build from to install opencv into |
+| `PRODUCTION_IMAGE` | N/A | Image that this version of atom will eventually ship in, i.e. `debian:buster-slim`. This is needed to determine which libraries to package up |
+| `ARCH` | `x86_64` | Architecture we're building for. Pass `aarch64` for ARM |
+
+#### `opengl`
+
+The `opengl` variant is built using either [`Dockerfile-opengl`](Dockerfile-opengl) or
+using a BASE_IMAGE like `nvidia/opengl` that includes it. As such, the version
+of openGL installed can vary.
+
+##### Dockerfile-opengl build arguments
+
+| Arg | Default | Description |
+|-----|---------|-------------|
+| `BASE_IMAGE` | N/A | Which image we should build from to install opengl into |
+
+#### `cuda`
+
+The `cuda` variant is based off of an NVIDIA image and includes
+
+| Dependency | Version | Description |
+|------------|---------|-------------|
+| CUDA | `10.2` | NVIDIA graphics card accelerated math library |
+| CUDNN | `7.6` | NVIDIA graphics card accelerated machine learning library |
+
+#### `vnc`
+
+The `vnc` variant adds the ability to render graphics to an in-container display server that can
+be accessed through an internet browser, typically at port `6080`. This is nice
+since it allows users on mac/windows to be able to see and interact with graphical
+components built on atom without having to change the code. You write your code
+once, for linux, and the graphics can be used via the VNC over the internet and on
+all operating systems.
+
+The VNC variant is built using software from the following tools:
+- [`NoVNC`](third-party/noVNC)
+- [`docker-opengl`](third-party/docker-opengl)
+
+##### Dockerfile-vnc build arguments
+
+| Arg | Default | Description |
+|-----|---------|-------------|
+| `BASE_IMAGE` | N/A | Which image we should build from to install the VNC into |
 
 ### Images
 
