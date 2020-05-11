@@ -109,15 +109,21 @@ aliases:
   # Atom Build Matrix
   - &atom_matrix
       parameters:
-        variant: ["stock", "opengl-vnc", "cuda", "opengl-cuda-vnc"]
+        variant: ["stock", "opengl", "opengl-vnc", "cuda", "opengl-cuda", "opengl-cuda-vnc", "opencv"]
         platform: ["amd64", "aarch64"]
         component: ["atom", "nucleus"]
       exclude:
         # No opengl, CUDA, or opengl-cuda builds for AARCH64 atom
+        - variant: "opengl"
+          platform: "aarch64"
+          component: "atom"
         - variant: "opengl-vnc"
           platform: "aarch64"
           component: "atom"
         - variant: "cuda"
+          platform: "aarch64"
+          component: "atom"
+        - variant: "opengl-cuda"
           platform: "aarch64"
           component: "atom"
         - variant: "opengl-cuda-vnc"
@@ -134,6 +140,15 @@ aliases:
         - variant: "opengl-cuda-vnc"
           platform: "aarch64"
           component: "nucleus"
+        - variant: "opencv"
+          platform: "aarch64"
+          component: "nucleus"
+        - variant: "opengl"
+          platform: "aarch64"
+          component: "nucleus"
+        - variant: "opengl-cuda"
+          platform: "aarch64"
+          component: "nucleus"
 
         # No opengl, CUDA, or opengl-cuda builds for AMD64 nucleus
         - variant: "opengl-vnc"
@@ -145,6 +160,16 @@ aliases:
         - variant: "opengl-cuda-vnc"
           platform: "amd64"
           component: "nucleus"
+        - variant: "opencv"
+          platform: "amd64"
+          component: "nucleus"
+        - variant: "opengl"
+          platform: "amd64"
+          component: "nucleus"
+        - variant: "opengl-cuda"
+          platform: "amd64"
+          component: "nucleus"
+
 
   # Shared config around deployment logic
   - &atom_deploy_shared_mapping
@@ -175,22 +200,26 @@ aliases:
 
 
   # Base tags in use for the various builds
-  - &base_build_atom_tag "base-1024-stock-amd64"
-  - &base_build_atom_opengl_tag "base-1061-opengl-amd64"
-  - &base_build_atom_opengl_vnc_tag "base-1061-opengl-vnc-amd64"
-  - &base_build_atom_cuda_tag "base-1058-cuda-amd64"
-  - &base_build_atom_opengl_cuda_tag "base-1058-opengl-cuda-amd64"
-  - &base_build_atom_opengl_cuda_vnc_tag "base-1058-opengl-cuda-vnc-amd64"
-  - &base_build_atom_aarch64_tag "base-1024-stock-aarch64"
+  - &base_build_atom_stock_amd64_tag "base-1067-stock-amd64"
+  - &base_build_atom_opencv_amd64_tag "base-1067-opencv-amd64"
+  - &base_build_atom_opengl_amd64_tag "base-1067-opengl-amd64"
+  - &base_build_atom_opengl_vnc_amd64_tag "base-1067-opengl-vnc-amd64"
+  - &base_build_atom_cuda_amd64_tag "base-1067-cuda-amd64"
+  - &base_build_atom_opengl_cuda_amd64_tag "base-1067-opengl-cuda-amd64"
+  - &base_build_atom_opengl_cuda_vnc_amd64_tag "base-1067-opengl-cuda-vnc-amd64"
+  - &base_build_atom_stock_aarch64_tag "base-1067-stock-aarch64"
+  - &base_build_atom_opencv_aarch64_tag "base-1067-opencv-aarch64"
   - &base_build_tags
       source_tag:
-        - *base_build_atom_tag
-        - *base_build_atom_opengl_tag
-        - *base_build_atom_opengl_vnc_tag
-        - *base_build_atom_cuda_tag
-        - *base_build_atom_opengl_cuda_tag
-        - *base_build_atom_opengl_cuda_vnc_tag
-        - *base_build_atom_aarch64_tag
+        - *base_build_atom_stock_amd64_tag
+        - *base_build_atom_opencv_amd64_tag
+        - *base_build_atom_opengl_amd64_tag
+        - *base_build_atom_opengl_vnc_amd64_tag
+        - *base_build_atom_cuda_amd64_tag
+        - *base_build_atom_opengl_cuda_amd64_tag
+        - *base_build_atom_opengl_cuda_vnc_amd64_tag
+        - *base_build_atom_stock_aarch64_tag
+        - *base_build_atom_opencv_aarch64_tag
 
   # Helpful alias when building bases using additional Dockerfiles
   - &build_atom_base_add_shared_mapping
@@ -600,8 +629,10 @@ workflows:
       #   AMD64
       #     - stock
       #     - opengl
-      #     - opengl-cuda
+      #     - opengl-vnc
       #     - cuda
+      #     - opengl-cuda
+      #     - opengl-cuda-vnc
       #   AARCH64
       #     - stock
       #
@@ -617,7 +648,7 @@ workflows:
             parameters:
               variant: [ stock ]
               platform: [ amd64 ]
-          base_tag: *base_build_atom_tag
+          base_tag: *base_build_atom_stock_amd64_tag
           production_image: debian:buster-slim
           filters:
             tags:
@@ -627,14 +658,23 @@ workflows:
               ignore:
                 - /.*-build-base.*/
 
-      # AMD64 openGL
+      # AMD64 openGL + openGL-VNC
       - build-atom:
           name: *atom_matrix_build_job_name
           matrix:
             parameters:
-              variant: [ opengl-vnc ]
+              variant: [ opengl, opengl-vnc ]
               platform: [ amd64 ]
-          base_tag: *base_build_atom_opengl_tag
+              base_tag:
+                - *base_build_atom_opengl_amd64_tag
+                - *base_build_atom_opengl_vnc_amd64_tag
+            exclude:
+              - variant: opengl
+                platform: amd64
+                base_tag: *base_build_atom_opengl_vnc_amd64_tag
+              - variant: opengl-vnc
+                platform: amd64
+                base_tag: *base_build_atom_opengl_amd64_tag
           production_image: nvidia/opengl:1.0-glvnd-runtime-ubuntu18.04
           requires:
             - atom/check_flake8
@@ -646,14 +686,36 @@ workflows:
               ignore:
                 - /.*-build-base.*/
 
-      # AMD64 CUDA
+      # AMD64 CUDA, OpenGL-Cuda, OpenGL-Cuda-VNC
       - build-atom:
           name: *atom_matrix_build_job_name
           matrix:
             parameters:
-              variant: [ cuda ]
+              variant: [ cuda, opengl-cuda, opengl-cuda-vnc ]
               platform: [ amd64 ]
-          base_tag: *base_build_atom_cuda_tag
+              base_tag:
+                - *base_build_atom_cuda_amd64_tag
+                - *base_build_atom_opengl_cuda_amd64_tag
+                - *base_build_atom_opengl_cuda_vnc_amd64_tag
+            exclude:
+              - variant: cuda
+                platform: amd64
+                base_tag: *base_build_atom_opengl_cuda_amd64_tag
+              - variant: cuda
+                platform: amd64
+                base_tag: *base_build_atom_opengl_cuda_vnc_amd64_tag
+              - variant: opengl-cuda
+                platform: amd64
+                base_tag: *base_build_atom_cuda_amd64_tag
+              - variant: opengl-cuda
+                platform: amd64
+                base_tag: *base_build_atom_opengl_cuda_vnc_amd64_tag
+              - variant: opengl-cuda-vnc
+                platform: amd64
+                base_tag: *base_build_atom_cuda_amd64_tag
+              - variant: opengl-cuda-vnc
+                platform: amd64
+                base_tag: *base_build_atom_opengl_cuda_amd64_tag
           production_image: nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04
           requires:
             - atom/check_flake8
@@ -665,16 +727,16 @@ workflows:
               ignore:
                 - /.*-build-base.*/
 
-      # AMD64 OpenGL + CUDA
+      # AMD64 openCV
       - build-atom:
           name: *atom_matrix_build_job_name
           matrix:
             parameters:
-              variant: [ opengl-cuda-vnc ]
+              variant: [ opencv ]
               platform: [ amd64 ]
-          base_tag: *base_build_atom_opengl_cuda_tag
-          production_image: nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04
-          build_args: --build-arg INSTALL_OPENGL=y
+              base_tag:
+                - *base_build_atom_opencv_amd64_tag
+          production_image: debian:buster-slim
           requires:
             - atom/check_flake8
           filters:
@@ -696,7 +758,27 @@ workflows:
             parameters:
               variant: [ stock ]
               platform: [ aarch64 ]
-          base_tag: *base_build_atom_aarch64_tag
+          base_tag: *base_build_atom_stock_aarch64_tag
+          production_image: debian:buster-slim
+          test_valgrind: false
+          requires:
+            - atom/check_flake8
+          filters:
+            tags:
+              only:
+                - /.*/
+            branches:
+              ignore:
+                - /.*-build-base.*/
+
+      # AARCH64 OpenCV
+      - build-atom:
+          name: *atom_matrix_build_job_name
+          matrix:
+            parameters:
+              variant: [ opencv ]
+              platform: [ aarch64 ]
+          base_tag: *base_build_atom_opencv_aarch64_tag
           production_image: debian:buster-slim
           test_valgrind: false
           requires:
