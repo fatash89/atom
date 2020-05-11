@@ -61,7 +61,7 @@ class TestAtom:
         """
         proc = Process(target=caller.command_send, args=("test_responder", "test_cmd", 0,))
         proc.start()
-        data = caller._rclient.xread({caller._make_command_id("test_responder"): "$"}, block=100)
+        data = caller._rclient.xread({caller._make_command_id("test_responder"): "$"}, block=1000)
         proc.join()
         stream, msgs = data[0] #since there's only one stream
         assert stream == b"command:test_responder"
@@ -267,7 +267,7 @@ class TestAtom:
         proc_responder_0.join()
         proc_responder_1.join()
         # Wait to give the caller time to handle all the data from the streams
-        thread_caller.join(0.5)
+        thread_caller.join(5.0)
         caller._rclient.delete("stream:responder_0:stream_0")
         caller._rclient.delete("stream:responder_1:stream_1")
         for i in range(20):

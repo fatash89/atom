@@ -38,6 +38,9 @@ aliases:
       no_output_timeout:
         type: string
         default: 15m
+      use_git_lfs:
+        type: boolean
+        default: false
 
   # Mapping to pass build args through without modification
   - &build_basic_args_mapping
@@ -49,6 +52,7 @@ aliases:
       stage: << parameters.stage >>
       build_args: << parameters.build_args >>
       no_output_timeout: << parameters.no_output_timeout >>
+      use_git_lfs: << parameters.use_git_lfs >>
 
   # Basic docker build command. Uses shared args
   - &build_basic_command >-
@@ -486,6 +490,10 @@ commands:
     parameters:
       << : *build_basic_args
     steps:
+      - when:
+          condition: << parameters.use_git_lfs >>
+          steps:
+            - install_git_lfs
       - checkout
       - update_submodules
       - docker_login
@@ -502,6 +510,10 @@ commands:
       << : *build_basic_args
       << : *build_buildx_additional_args
     steps:
+      - when:
+          condition: << parameters.use_git_lfs >>
+          steps:
+            - install_git_lfs
       - checkout
       - update_submodules
       - docker_login
@@ -518,6 +530,7 @@ commands:
     parameters:
       << : *test_shared_args
     steps:
+      - enable_buildx
       - run_compose:
           file: << parameters.compose_file >>
           build_args: << parameters.compose_addl_args >> NUCLEUS_IMAGE=<< parameters.nucleus_repo >>:<< parameters.atom_version >>-stock-<< parameters.platform >> TEST_IMAGE=<< parameters.test_image >>:<< parameters.test_tag >>-<< parameters.variant >>-<< parameters.platform >>
@@ -695,7 +708,7 @@ examples:
           default: elementaryrobotics/atom
         atom_version:
           type: string
-          default: v1.3.1
+          default: v1.4.1
         atom_variant:
           type: string
           default: stock
@@ -714,7 +727,7 @@ examples:
             target_image: << pipeline.parameters.dockerhub_repo >>
 
       orbs:
-        atom: elementaryrobotics/atom@0.1.4
+        atom: elementaryrobotics/atom@0.1.6
 
       workflows:
         version: 2
@@ -820,16 +833,16 @@ examples:
           default: elementaryrobotics/atom
         atom_version:
           type: string
-          default: v1.3.1
+          default: v1.4.1
         atom_variant:
           type: string
-          default: stock
+          default: opencv
         dockerhub_repo:
           type: string
           default: elementaryrobotics/example-element
 
       orbs:
-        atom: elementaryrobotics/atom@0.1.4
+        atom: elementaryrobotics/atom@0.1.6
 
       workflows:
         version: 2
@@ -841,13 +854,12 @@ examples:
                 name: "build-<< matrix.platform >>"
                 matrix:
                   parameters:
-                    variant: [ << pipeline.parameters.atom_variant >> ]
                     platform: [ amd64, aarch64 ]
                 image_name: << pipeline.parameters.dockerhub_repo >>
                 image_tag: build-<< pipeline.number >>
                 cache_repo: << pipeline.parameters.dockerhub_repo >>
                 cache_tag: cache
-                build_args: --build-arg ATOM_IMAGE=<< pipeline.parameters.atom_repo >>:<< pipeline.parameters.atom_version >>-<< matrix.variant >>-<< matrix.platform >>
+                build_args: --build-arg ATOM_IMAGE=<< pipeline.parameters.atom_repo >>:<< pipeline.parameters.atom_version >>-<< pipeline.parameters.atom_variant >>-<< matrix.platform >>
                 filters:
                   tags:
                     only: /.*/
@@ -857,7 +869,6 @@ examples:
                 name: "test-<< matrix.platform >>"
                 matrix:
                   parameters:
-                    variant: [ << pipeline.parameters.atom_variant >> ]
                     platform: [ amd64, aarch64 ]
                 test_image: << pipeline.parameters.dockerhub_repo >>
                 test_tag: build-<< pipeline.number >>
@@ -889,7 +900,6 @@ examples:
                 target_tag: development-<< pipeline.number >>
                 matrix:
                   parameters:
-                    variant: [ << pipeline.parameters.atom_variant >> ]
                     platform: [ amd64, aarch64 ]
                 requires:
                   - build-<< matrix.platform >>
@@ -907,7 +917,6 @@ examples:
                 target_tag: master-<< pipeline.number >>
                 matrix:
                   parameters:
-                    variant: [ << pipeline.parameters.atom_variant >> ]
                     platform: [ amd64, aarch64 ]
                 requires:
                   - build-<< matrix.platform >>
@@ -922,9 +931,9 @@ examples:
                 source_image: << pipeline.parameters.dockerhub_repo >>
                 source_tag: build-<< pipeline.number >>
                 target_image: << pipeline.parameters.dockerhub_repo >>
+                target_tag: ""
                 matrix:
                   parameters:
-                    variant: [ << pipeline.parameters.atom_variant >> ]
                     platform: [ amd64, aarch64 ]
                 requires:
                   - build-<< matrix.platform >>
@@ -942,7 +951,6 @@ examples:
                 target_tag: ${CIRCLE_TAG}
                 matrix:
                   parameters:
-                    variant: [ << pipeline.parameters.atom_variant >> ]
                     platform: [ amd64, aarch64 ]
                 requires:
                   - build-<< matrix.platform >>
