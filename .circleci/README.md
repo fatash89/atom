@@ -125,6 +125,12 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 
 ### Release Notes
 
+#### [v0.1.7](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.1.7)
+
+##### New Features
+
+- Adds in `use_git_lfs` for test command
+
 #### [v0.1.6](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.1.6)
 
 ##### New Features
