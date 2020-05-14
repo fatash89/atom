@@ -1019,6 +1019,7 @@ workflows:
             branches:
               only:
                 - /.*-build-base-all/
+                - /.*-build-base-stock/
                 - /.*-build-base-atom/
                 - /.*-build-base-opencv/
                 - /.*-build-base-opencv-amd64/
@@ -1135,6 +1136,7 @@ workflows:
             branches:
               only:
                 - /.*-build-base-all/
+                - /.*-build-base-stock/
                 - /.*-build-base-aarch64/
                 - /.*-build-base-opencv/
                 - /.*-build-base-opencv-aarch64/
