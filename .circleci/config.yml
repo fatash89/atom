@@ -259,7 +259,7 @@ aliases:
 version: 2.1
 
 orbs:
-  atom:  elementaryrobotics/atom@0.1.4
+  atom:  elementaryrobotics/atom@0.1.7
 
 commands:
 
@@ -548,6 +548,19 @@ jobs:
           << : *build_atom_variant_shared_mapping
           base_repo: << parameters.base_repo >>
           base_tag: << parameters.base_tag >>
+
+  build-base-large:
+    parameters:
+      << : *build_atom_variant_shared_params
+    executor: atom/build-ubuntu
+    resource_class: large
+    steps:
+      - build_shared_init
+      - build_atom_base_variant:
+          << : *build_atom_variant_shared_mapping
+          base_repo: << parameters.base_repo >>
+          base_tag: << parameters.base_tag >>
+
 
   build-base-add:
     parameters:
@@ -1122,7 +1135,7 @@ workflows:
       #
       # Stock AARCH64 base + variants
       #
-      - build-base:
+      - build-base-large:
           << : *build_atom_base_shared
           matrix:
             parameters:
