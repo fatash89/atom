@@ -371,7 +371,7 @@ commands:
       - tag_and_push_image:
           source_image: << parameters.source_image >>
           source_tag: << parameters.source_tag >>-<< parameters.variant >>-<< parameters.platform >>
-          target_image: << parameters.source_image >>
+          target_image: << parameters.target_image >>
           target_tag: << parameters.target_tag >>-<< parameters.variant >>-<< parameters.platform >>
           target_tag_cmd: << parameters.target_tag_cmd >>
 
@@ -735,7 +735,7 @@ examples:
             target_image: << pipeline.parameters.dockerhub_repo >>
 
       orbs:
-        atom: elementaryrobotics/atom@0.1.7
+        atom: elementaryrobotics/atom@0.1.8
 
       workflows:
         version: 2
@@ -850,7 +850,7 @@ examples:
           default: elementaryrobotics/example-element
 
       orbs:
-        atom: elementaryrobotics/atom@0.1.7
+        atom: elementaryrobotics/atom@0.1.8
 
       workflows:
         version: 2
