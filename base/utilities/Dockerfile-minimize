@@ -15,11 +15,12 @@ ARG PRODUCTION_IMAGE
 # Determine libraries that are already in production
 #
 FROM ${PRODUCTION_IMAGE} as no-deps
-# Auto-set by Docker based on the --platform flag
+# Auto-set by Docker based on the --platform flag. Will be of the form
+#   linux/amd64 or linux/aarch64
 ARG TARGETPLATFORM
-
-RUN ls /lib/$( echo ${TARGETPLATFORM} | sed s/amd64/x86_64/g )-linux-gnu/*.so* > /tmp/existing_libs.txt && \
-    ls /usr/lib/$( echo ${TARGETPLATFORM} | sed s/amd64/x86_64/g )-linux-gnu/*.so* >> /tmp/existing_libs.txt
+RUN echo ${TARGETPLATFORM} | sed s/linux\\///g | sed s/amd64/x86_64/g > /tmp/arch.txt
+RUN ls /lib/$( cat /tmp/arch.txt )-linux-gnu/*.so* > /tmp/existing_libs.txt && \
+    ls /usr/lib/$( cat /tmp/arch.txt )-linux-gnu/*.so* >> /tmp/existing_libs.txt
 
 #
 # Copy missing libraries into /usr/local/lib

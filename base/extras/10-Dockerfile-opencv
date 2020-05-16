@@ -10,7 +10,7 @@ FROM ${BASE_IMAGE}
 
 ARG DEBIAN_FRONTEND=noninteractive
 # Auto-set by Docker based on the --platform flag. Will be of the form
-#   linux/amd64
+#   linux/amd64 or linux/aarch64
 ARG TARGETPLATFORM
 
 # Install openCV + python3 bindings
