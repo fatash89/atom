@@ -122,6 +122,9 @@ aliases:
         default: "."
       test_cmd:
         type: string
+      use_git_lfs:
+        type: boolean
+        default: false
 
   - &test_shared_args_mapping
       platform: << parameters.platform >>
@@ -135,6 +138,7 @@ aliases:
       container_name: << parameters.container_name >>
       container_test_dir: << parameters.container_test_dir >>
       test_cmd: << parameters.test_cmd >>
+      use_git_lfs: << parameters.use_git_lfs >>
 
   #
   # Deployment
@@ -367,7 +371,7 @@ commands:
       - tag_and_push_image:
           source_image: << parameters.source_image >>
           source_tag: << parameters.source_tag >>-<< parameters.variant >>-<< parameters.platform >>
-          target_image: << parameters.source_image >>
+          target_image: << parameters.target_image >>
           target_tag: << parameters.target_tag >>-<< parameters.variant >>-<< parameters.platform >>
           target_tag_cmd: << parameters.target_tag_cmd >>
 
@@ -642,6 +646,10 @@ jobs:
     parameters:
       << : *test_shared_args
     steps:
+      - when:
+          condition: << parameters.use_git_lfs >>
+          steps:
+            - install_git_lfs
       - checkout
       - docker_login
       - run_test:
@@ -727,7 +735,7 @@ examples:
             target_image: << pipeline.parameters.dockerhub_repo >>
 
       orbs:
-        atom: elementaryrobotics/atom@0.1.6
+        atom: elementaryrobotics/atom@0.1.8
 
       workflows:
         version: 2
@@ -842,7 +850,7 @@ examples:
           default: elementaryrobotics/example-element
 
       orbs:
-        atom: elementaryrobotics/atom@0.1.6
+        atom: elementaryrobotics/atom@0.1.8
 
       workflows:
         version: 2
