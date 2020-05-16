@@ -25,10 +25,10 @@ RUN ls /lib/$( echo ${TARGETPLATFORM} | sed s/amd64/x86_64/g )-linux-gnu/*.so* >
 # Copy missing libraries into /usr/local/lib
 #
 FROM ${BASE_IMAGE} as with-deps
-ARG LDD_CHECK_LIBS
+ARG REQUIRED_LIBS
 
 # Figure out which libraries we need
-ldd ${LDD_CHECK_LIBS} | grep "=> /" | awk '{print $3}' | sort -u > /tmp/required_libs.txt
+ldd ${REQUIRED_LIBS} | grep "=> /" | awk '{print $3}' | sort -u > /tmp/required_libs.txt
 
 # Copy over the file that lets us know what's already in the final
 #   image we're being built atop
