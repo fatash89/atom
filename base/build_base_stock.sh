@@ -14,7 +14,7 @@ docker-compose -f ${REGISTRY_COMPOSE} up -d
 export DOCKER_CLI_EXPERIMENTAL=enabled
 
 # Enable ARM support
-${DOCKER_CMD} run --rm --privileged docker/binfmt:66f9012c56a8316f9244ffd7622d7c21c1f6f28d
+docker run --rm --privileged docker/binfmt:66f9012c56a8316f9244ffd7622d7c21c1f6f28d
 
 # Create the builder and use the local network to talk
 #   to the registry
@@ -65,6 +65,9 @@ do
     # Move the current base
     CURRENT_BASE=${NEW_IMAGE}
 done
+
+# Pull the image
+docker pull ${CURRENT_BASE}
 
 # Do the final tag
 TAG_CMD="docker tag ${CURRENT_BASE} ${2}:${3}-${1}"
