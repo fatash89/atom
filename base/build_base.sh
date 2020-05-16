@@ -37,7 +37,7 @@ CURRENT_BASE=${4}
 for dockerfile in ${5}/*Dockerfile*
 do
     # Get the name of the new image
-    NEW_IMAGE=${REGISTRY_LOCATION}/${2}:base-${dockerfile##*/}-${1}
+    NEW_IMAGE=${REGISTRY_LOCATION}/${2}:base-${dockerfile##*/}-${5}-${1}
 
     # Check to see if we have custom args for this build
     ARGS_FILE=${5}/${dockerfile##*/*Dockerfile-}-${1}-args
@@ -56,7 +56,7 @@ do
         --progress=plain  \
         --push \
         --build-arg BASE_IMAGE=${CURRENT_BASE} \
-        --pull=false \
+        --pull=true \
         ${ADDITIONAL_ARGS} \
         ../."
     echo ${CMD_STRING}
@@ -88,7 +88,7 @@ if [ -f ${ARGS_FILE} ]; then
 fi
 
 # Do the build
-NEW_IMAGE=${REGISTRY_LOCATION}/${2}:base-minimize-${1}
+NEW_IMAGE=${REGISTRY_LOCATION}/${2}:base-minimize-${5}-${1}
 CMD_STRING="docker buildx build  \
     -f utilities/Dockerfile-minimize \
     --platform=linux/${1}  \
@@ -97,7 +97,7 @@ CMD_STRING="docker buildx build  \
     --push \
     --build-arg BASE_IMAGE=${CURRENT_BASE} \
     --build-arg PRODUCTION_IMAGE=${4}
-    --pull=false \
+    --pull=true \
     --target=minimized \
     ${ADDITIONAL_ARGS} \
     ../."
