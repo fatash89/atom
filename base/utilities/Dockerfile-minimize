@@ -49,13 +49,16 @@ RUN if [ -s /tmp/libs_to_copy.txt ];then xargs -a /tmp/libs_to_copy.txt cp -L -t
 #
 FROM ${PRODUCTION_IMAGE} as minimized
 
+# Set up the path to look to the venv first for python
+ENV PATH="/opt/venv/bin:$PATH"
+# Set up the LD_LIBRARY_PATH to look to /usr/local/lib
+ENV LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
+
 # Need a basic python install
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends apt-utils \
                                                python3-minimal \
                                                python3-pip
-ENV PATH="/opt/venv/bin:$PATH"
-
 # Copy over everything we built
 COPY --from=with-deps /usr/local/lib /usr/local/lib
 COPY --from=with-deps /usr/local/include /usr/local/include
