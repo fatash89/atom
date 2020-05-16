@@ -3,7 +3,7 @@
 # Docker command. For debug, switch this to "echo docker"
 #   to see the sequence of commands that will be run without
 #   having to actually run them
-DOCKER_CMD="echo docker"
+DOCKER_CMD="docker"
 
 # Turn on the Docker experimental CLI
 export DOCKER_CLI_EXPERIMENTAL=enabled
