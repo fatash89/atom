@@ -33,9 +33,9 @@ do
     CMD_STRING="docker buildx build  \
         -f ${dockerfile} \
         --platform=linux/${1}  \
-        -t ${NEW_IMAGE}  \
+        -t localhost:5000/${NEW_IMAGE}  \
         --progress=plain  \
-        --load  \
+        --push \
         --build-arg BASE_IMAGE=${CURRENT_BASE} \
         --pull=false \
         ${ADDITIONAL_ARGS} \
@@ -52,7 +52,7 @@ do
     fi
 
     # Move the current base
-    CURRENT_BASE=${NEW_IMAGE}
+    CURRENT_BASE=localhost:5000/${NEW_IMAGE}
 done
 
 # Do the final tag
