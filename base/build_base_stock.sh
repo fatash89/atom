@@ -18,7 +18,7 @@ CURRENT_BASE=${4}
 for dockerfile in stock/*Dockerfile*
 do
     # Get the name of the new image
-    NEW_IMAGE=${2}:base-${dockerfile##*/}
+    NEW_IMAGE=${2}:base-${dockerfile##*/}-${1}
 
     # Check to see if we have custom args for this build
     ARGS_FILE=stock/${dockerfile##*/*Dockerfile-}-${1}-args
@@ -37,6 +37,7 @@ do
         --progress=plain  \
         --load  \
         --build-arg BASE_IMAGE=${CURRENT_BASE} \
+        --pull=false \
         ${ADDITIONAL_ARGS} \
         ../."
     echo ${CMD_STRING}
@@ -55,4 +56,6 @@ do
 done
 
 # Do the final tag
-${DOCKER_CMD} tag ${CURRENT_BASE} ${2}:${3}
+TAG_CMD="docker tag ${CURRENT_BASE} ${2}:${3}-${1}"
+echo ${TAG_CMD}
+${TAG_CMD}
