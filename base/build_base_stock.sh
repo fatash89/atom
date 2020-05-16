@@ -1,9 +1,8 @@
 #!/bin/bash
 
-# Docker command. For debug, switch this to "echo docker"
-#   to see the sequence of commands that will be run without
-#   having to actually run them
-DOCKER_CMD="docker"
+# Docker command. For debug, comment this out and it
+#   won't run the build.
+RUN_BUILD="y"
 
 # Turn on the Docker experimental CLI
 export DOCKER_CLI_EXPERIMENTAL=enabled
@@ -31,7 +30,7 @@ do
     fi
 
     # Do the build
-    ${DOCKER_CMD} buildx build  \
+    CMD_STRING="docker buildx build  \
         -f ${dockerfile} \
         --platform=linux/${1}  \
         -t ${NEW_IMAGE}  \
@@ -39,7 +38,17 @@ do
         --load  \
         --build-arg BASE_IMAGE=${CURRENT_BASE} \
         ${ADDITIONAL_ARGS} \
-        ../.
+        ../."
+    echo ${CMD_STRING}
+    if [ ${RUN_BUILD} == "y" ]; then
+        ${CMD_STRING}
+    fi
+
+    # Check the exit status
+    if [ $? != "0" ]; then
+        echo "Build of ${dockerfile} failed! Exiting"
+        exit 1
+    fi
 
     # Move the current base
     CURRENT_BASE=${NEW_IMAGE}

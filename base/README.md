@@ -33,3 +33,8 @@ The build takes positional arguments as seen in the table below:
 | 2 | Docker repo for the resulting and intermediate images | `elementaryrobotics/atom`, etc. |
 | 3 | Docker Tag for the resulting image  | Tag for the final output of the build process | `base-stock-descriptor`, etc. |
 | 4 | Original Image/OS we should build Atom atop | `debian:buster-slim`, etc. |
+
+An example invocation for `amd64` can be found below:
+```
+./build_base_stock.sh amd64 elementaryrobotics/atom build-base-experimental debian:buster-slim
+```
