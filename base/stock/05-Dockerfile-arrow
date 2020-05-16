@@ -1,6 +1,6 @@
 ################################################################################
 #
-# Base image. Contains all third-party dependencies
+# stock: Dockerfile-arrow: Adds in C/C++ arrow support
 #
 ################################################################################
 

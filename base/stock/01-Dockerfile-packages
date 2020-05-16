@@ -1,6 +1,6 @@
 ################################################################################
 #
-# Base image. Contains all third-party dependencies
+# stock: Dockerfile-packages. Installs all packages needed for stock
 #
 ################################################################################
 

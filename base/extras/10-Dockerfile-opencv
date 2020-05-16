@@ -1,6 +1,6 @@
 ################################################################################
 #
-# Dockerfile for adding opencv into atom (or any debian-based image)
+# extras: Dockerfile-opencv. Adds in Opencv C/C++/Python
 #
 ################################################################################
 
@@ -9,6 +9,8 @@ ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 
 ARG DEBIAN_FRONTEND=noninteractive
+# Auto-set by Docker based on the --platform flag
+ARG TARGETPLATFORM
 
 # Install openCV + python3 bindings
 COPY ./third-party/opencv /atom/third-party/opencv

@@ -1,6 +1,6 @@
 ################################################################################
 #
-# Dockerfile for adding opencv into atom (or any debian-based image)
+# extras: Dockerfile-packages. Adds in packages needed for building extras
 #
 ################################################################################
 

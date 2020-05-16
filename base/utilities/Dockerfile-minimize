@@ -1,6 +1,7 @@
 ################################################################################
 #
-# Dockerfile for adding opencv into atom (or any debian-based image)
+# Dockerfile for minimizing a build and only copying over
+#   libraries and the python virtual environment
 #
 ################################################################################
 
@@ -14,6 +15,8 @@ ARG PRODUCTION_IMAGE
 # Determine libraries that are already in production
 #
 FROM ${PRODUCTION_IMAGE} as no-deps
+# Auto-set by Docker based on the --platform flag
+ARG TARGETPLATFORM
 
 RUN ls /lib/$( echo ${TARGETPLATFORM} | sed s/amd64/x86_64/g )-linux-gnu/*.so* > /tmp/existing_libs.txt && \
     ls /usr/lib/$( echo ${TARGETPLATFORM} | sed s/amd64/x86_64/g )-linux-gnu/*.so* >> /tmp/existing_libs.txt
@@ -24,11 +27,17 @@ RUN ls /lib/$( echo ${TARGETPLATFORM} | sed s/amd64/x86_64/g )-linux-gnu/*.so* >
 FROM ${BASE_IMAGE} as with-deps
 ARG LDD_CHECK_LIBS
 
-ADD ./base/ldd_check.sh /usr/local/bin/ldd_check.sh
-RUN /usr/local/bin/ldd_check.sh ${LDD_CHECK_LIBS}
+# Figure out which libraries we need
+ldd ${LDD_CHECK_LIBS} | grep "=> /" | awk '{print $3}' | sort -u > /tmp/required_libs.txt
 
+# Copy over the file that lets us know what's already in the final
+#   image we're being built atop
 COPY --from=no-deps /tmp/existing_libs.txt /tmp/existing_libs.txt
+
+# Figure out what we need to copy into /usr/local/lib.
 RUN diff --new-line-format="" --unchanged-line-format=""  /tmp/required_libs.txt /tmp/existing_libs.txt | grep -v /usr/local/lib > /tmp/libs_to_copy.txt
+
+# Copy things into /usr/local/lib
 RUN xargs -a /tmp/libs_to_copy.txt cp -L -t /usr/local/lib
 
 #
@@ -37,8 +46,8 @@ RUN xargs -a /tmp/libs_to_copy.txt cp -L -t /usr/local/lib
 #   2. /usr/local/include
 #   3. /opt/venv
 #
-FROM ${PRODUCTION_IMAGE} as opencv-base
+FROM ${PRODUCTION_IMAGE} as minimized
 
-COPY --from=opencv-deps /usr/local/lib /usr/local/lib
-COPY --from=opencv-deps /usr/local/include /usr/local/include
-COPY --from=opencv-deps /opt/venv /opt/venv
+COPY --from=with-deps /usr/local/lib /usr/local/lib
+COPY --from=with-deps /usr/local/include /usr/local/include
+COPY --from=with-deps /opt/venv /opt/venv

@@ -1,6 +1,7 @@
 ################################################################################
 #
-# Base image. Contains all third-party dependencies
+# stock: Dockerfile-python. Sets up python virtual envirnoment and adds
+#   in Cython.
 #
 ################################################################################
 ARG BASE_IMAGE

@@ -1,6 +1,6 @@
 ################################################################################
 #
-# Base image. Contains all third-party dependencies
+# stock: Dockerfile-python-redis. Adds in redis-py
 #
 ################################################################################
 
