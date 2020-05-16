@@ -1,7 +1,7 @@
 ################################################################################
 #
 # stock: Dockerfile-python. Sets up python virtual envirnoment and adds
-#   in Cython.
+#   in some basic additional things
 #
 ################################################################################
 ARG BASE_IMAGE
@@ -17,9 +17,11 @@ ARG DEBIAN_FRONTEND=noninteractive
 # Create and activate python virtualenv
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-ENV LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
 
 # Cython
 ADD ./languages/python/third-party/cython /atom/languages/python/third-party/cython
 WORKDIR /atom/languages/python/third-party/cython
 RUN python3 setup.py build -j8 install
+
+# Wheel
+RUN pip3 install wheel

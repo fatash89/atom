@@ -17,7 +17,6 @@ ARG TARGETPLATFORM
 COPY ./third-party/opencv /atom/third-party/opencv
 WORKDIR /atom/third-party/opencv
 RUN echo ${TARGETPLATFORM} | sed s/linux\\///g | sed s/amd64/x86_64/g > /tmp/arch.txt
-RUN cat /tmp/arch.txt
 RUN mkdir -p build && cd build && cmake \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=/usr/local \

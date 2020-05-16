@@ -30,3 +30,8 @@ RUN apt-get update -y \
       curl \
       pkg-config \
  && pip3 install --no-cache-dir --upgrade pip setuptools
+
+ #
+ # Set up the LD_LIBRARY_PATH to look to /usr/local/lib first
+ #
+ ENV LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
