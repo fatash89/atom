@@ -1,0 +1,28 @@
+################################################################################
+#
+# Dockerfile for adding opencv into atom (or any debian-based image)
+#
+################################################################################
+
+# Previous base we're going to build atop
+ARG BASE_IMAGE
+
+#
+# Build OpenCV
+#
+
+FROM ${BASE_IMAGE} as extras
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Install pre-requisites
+RUN apt-get update && apt-get install -y \
+    zlib1g-dev \
+    libjpeg62-turbo-dev \
+    libpng-dev \
+    libtiff-dev \
+    libopenexr-dev \
+    libavcodec-dev \
+    libavformat-dev \
+    libswscale-dev \
+    libwebp-dev

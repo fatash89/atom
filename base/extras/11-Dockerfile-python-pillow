@@ -1,0 +1,16 @@
+################################################################################
+#
+# Dockerfile for adding opencv into atom (or any debian-based image)
+#
+################################################################################
+
+# Previous base we're going to build atop
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Install Pillow (PIL) as that's also used frequently with opencv
+COPY ./languages/python/third-party/Pillow /atom/languages/python/third-party/Pillow
+WORKDIR /atom/languages/python/third-party/Pillow
+RUN MAX_CONCURRENCY=8 python3 setup.py install

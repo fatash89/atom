@@ -1,0 +1,44 @@
+################################################################################
+#
+# Dockerfile for adding opencv into atom (or any debian-based image)
+#
+################################################################################
+
+# Previous base we're going to build atop
+ARG BASE_IMAGE
+# Image this version of atom will ship with. Needed to determine which
+#   libraries we need to package up
+ARG PRODUCTION_IMAGE
+
+#
+# Determine libraries that are already in production
+#
+FROM ${PRODUCTION_IMAGE} as no-deps
+
+RUN ls /lib/$( echo ${TARGETPLATFORM} | sed s/amd64/x86_64/g )-linux-gnu/*.so* > /tmp/existing_libs.txt && \
+    ls /usr/lib/$( echo ${TARGETPLATFORM} | sed s/amd64/x86_64/g )-linux-gnu/*.so* >> /tmp/existing_libs.txt
+
+#
+# Copy missing libraries into /usr/local/lib
+#
+FROM ${BASE_IMAGE} as with-deps
+ARG LDD_CHECK_LIBS
+
+ADD ./base/ldd_check.sh /usr/local/bin/ldd_check.sh
+RUN /usr/local/bin/ldd_check.sh ${LDD_CHECK_LIBS}
+
+COPY --from=no-deps /tmp/existing_libs.txt /tmp/existing_libs.txt
+RUN diff --new-line-format="" --unchanged-line-format=""  /tmp/required_libs.txt /tmp/existing_libs.txt | grep -v /usr/local/lib > /tmp/libs_to_copy.txt
+RUN xargs -a /tmp/libs_to_copy.txt cp -L -t /usr/local/lib
+
+#
+# Clean up and only ship the following folders:
+#   1. /usr/local/lib
+#   2. /usr/local/include
+#   3. /opt/venv
+#
+FROM ${PRODUCTION_IMAGE} as opencv-base
+
+COPY --from=opencv-deps /usr/local/lib /usr/local/lib
+COPY --from=opencv-deps /usr/local/include /usr/local/include
+COPY --from=opencv-deps /opt/venv /opt/venv
