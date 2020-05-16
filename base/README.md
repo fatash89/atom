@@ -16,3 +16,20 @@ The base image is built through a series of Dockerfiles. This is designed as suc
 ## Stock and Variants
 
 All of the dependencies that are necessary to run a basic Atom element have their Dockerfiles found in the `stock` folder. The base image built from the resulting chain of these Dockerfiles is `stock`. All additional things/nice-to-haves for elements such as `opencv`, `opengl`, etc. can be found in the `variant` folder.
+
+## Building
+
+You'll need Docker version 19.0.3 or greater in order to build Atom images. This is because we use the new experimental `buildx` builder in order to get consistent results on ARM and AMD platforms.
+
+### Stock
+
+Since the build is a chain of Dockerfiles, we use a bash script to perform the build and produce the final output for the stock base image.
+
+The build takes positional arguments as seen in the table below:
+
+| Position | Description | Examples |
+|----------|-------------|---------|
+| 1 | Platform | `amd64` or `aarch64` |
+| 2 | Docker repo for the resulting and intermediate images | `elementaryrobotics/atom`, etc. |
+| 3 | Docker Tag for the resulting image  | Tag for the final output of the build process | `base-stock-descriptor`, etc. |
+| 4 | Original Image/OS we should build Atom atop | `debian:buster-slim`, etc. |
