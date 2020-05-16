@@ -38,7 +38,7 @@ COPY --from=no-deps /tmp/existing_libs.txt /tmp/existing_libs.txt
 RUN diff --new-line-format="" --unchanged-line-format=""  /tmp/required_libs.txt /tmp/existing_libs.txt | grep -v /usr/local/lib > /tmp/libs_to_copy.txt || exit 0
 
 # Copy things into /usr/local/lib
-RUN if [ $(cat /tmp/libs_to_copy.txt) ];then xargs -a /tmp/libs_to_copy.txt cp -L -t /usr/local/lib; fi
+RUN if [ -s /tmp/libs_to_copy.txt ];then xargs -a /tmp/libs_to_copy.txt cp -L -t /usr/local/lib; fi
 
 #
 # Clean up and only ship the following folders:

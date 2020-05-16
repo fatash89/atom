@@ -1,19 +1,38 @@
 ################################################################################
 #
-# Dockerfile for adding opengl into atom (or any debian-based image)
+# Dockerfile-packages: Install required packages for graphics extras
 #
 ################################################################################
 
-ARG BASE_IMAGE=elementaryrobotics/atom
+ARG BASE_IMAGE
 FROM ${BASE_IMAGE} as with-opengl
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-# Potentially install opengl
 RUN apt-get update && apt-get install -y \
-  --no-install-recommends \
-  libglvnd0 \
-  libgl1 \
-  libglx0 \
-  libegl1 \
-  libgles2
+    --no-install-recommends \
+    libglvnd0 \
+    libgl1 \
+    libgl1-mesa-dri \
+    menu \
+    libglx0 \
+    libegl1 \
+    libgles2 \
+    tzdata \
+    libxkbcommon-x11-0 \
+    libglib2.0-0 \
+    qt5-default \
+    build-essential \
+    python3-dev \
+    net-tools \
+    openbox \
+    supervisor \
+    tint2 \
+    x11-xserver-utils \
+    x11vnc \
+    xinit \
+    xserver-xorg-video-dummy \
+    xserver-xorg-input-void \
+    websockify \
+    sudo \
+    python-pip

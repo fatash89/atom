@@ -14,23 +14,7 @@ ADD third-party/noVNC /opt/noVNC
 
 # Install graphics
 # Note: supervisor-stdout must be installed with pip2 and not pip3
-RUN apt-get install -y --no-install-recommends \
-      libgl1-mesa-dri \
-      menu \
-      net-tools \
-      openbox \
-      supervisor \
-      tint2 \
-      x11-xserver-utils \
-      x11vnc \
-      xinit \
-      xserver-xorg-video-dummy \
-      xserver-xorg-input-void \
-      websockify \
-      sudo \
-      python-pip \
- && rm -f /usr/share/applications/x11vnc.desktop \
-# VNC
+RUN rm -f /usr/share/applications/x11vnc.desktop \
  && cd /opt/noVNC \
  && ln -s vnc_auto.html index.html \
  && pip2 install --no-cache-dir setuptools \
