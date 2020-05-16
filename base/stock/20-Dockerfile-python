@@ -3,7 +3,7 @@
 # Base image. Contains all third-party dependencies
 #
 ################################################################################
-
+ARG BASE_IMAGE
 FROM $BASE_IMAGE as base
 
 ARG DEBIAN_FRONTEND=noninteractive

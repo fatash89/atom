@@ -3,14 +3,14 @@
 # Base image. Contains all third-party dependencies
 #
 ################################################################################
-
+ARG BASE_IMAGE
 FROM $BASE_IMAGE as base
 
 ARG DEBIAN_FRONTEND=noninteractive
-ARG BLAS_TARGET_CPU=""
+ARG BLAS_ARGS=""
 
 # OpenBLAS
 ADD ./third-party/OpenBLAS /atom/third-party/OpenBLAS
 RUN cd /atom/third-party/OpenBLAS \
-  && make TARGET=${BLAS_TARGET_CPU} -j8 \
+  && make ${BLAS_ARGS} -j8 \
   && make PREFIX=/usr/local install
