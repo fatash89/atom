@@ -29,7 +29,7 @@ FROM ${BASE_IMAGE} as with-deps
 ARG REQUIRED_LIBS
 
 # Figure out which libraries we need
-ldd ${REQUIRED_LIBS} | grep "=> /" | awk '{print $3}' | sort -u > /tmp/required_libs.txt
+RUN ldd ${REQUIRED_LIBS} | grep "=> /" | awk '{print $3}' | sort -u > /tmp/required_libs.txt
 
 # Copy over the file that lets us know what's already in the final
 #   image we're being built atop
@@ -46,9 +46,11 @@ RUN xargs -a /tmp/libs_to_copy.txt cp -L -t /usr/local/lib
 #   1. /usr/local/lib
 #   2. /usr/local/include
 #   3. /opt/venv
+#   4. /usr/local/bin
 #
 FROM ${PRODUCTION_IMAGE} as minimized
 
 COPY --from=with-deps /usr/local/lib /usr/local/lib
 COPY --from=with-deps /usr/local/include /usr/local/include
 COPY --from=with-deps /opt/venv /opt/venv
+COPY --from=with-deps /usr/local/bin /usr/local/bin
