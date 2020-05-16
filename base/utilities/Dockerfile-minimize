@@ -35,10 +35,10 @@ RUN ldd $(ls /usr/local/lib/*.so*) $(ls /usr/local/lib/*.a*) $(ls /usr/local/bin
 COPY --from=no-deps /tmp/existing_libs.txt /tmp/existing_libs.txt
 
 # Figure out what we need to copy into /usr/local/lib.
-RUN diff --new-line-format="" --unchanged-line-format=""  /tmp/required_libs.txt /tmp/existing_libs.txt | grep -v /usr/local/lib > /tmp/libs_to_copy.txt
+RUN diff --new-line-format="" --unchanged-line-format=""  /tmp/required_libs.txt /tmp/existing_libs.txt | grep -v /usr/local/lib > /tmp/libs_to_copy.txt || exit 0
 
 # Copy things into /usr/local/lib
-RUN xargs -a /tmp/libs_to_copy.txt cp -L -t /usr/local/lib
+RUN if [ $(cat /tmp/libs_to_copy.txt) ];then xargs -a /tmp/libs_to_copy.txt cp -L -t /usr/local/lib; fi
 
 #
 # Clean up and only ship the following folders:
@@ -49,6 +49,14 @@ RUN xargs -a /tmp/libs_to_copy.txt cp -L -t /usr/local/lib
 #
 FROM ${PRODUCTION_IMAGE} as minimized
 
+# Need a basic python install
+RUN apt-get update -y \
+ && apt-get install -y --no-install-recommends apt-utils \
+                                               python3-minimal \
+                                               python3-pip
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy over everything we built
 COPY --from=with-deps /usr/local/lib /usr/local/lib
 COPY --from=with-deps /usr/local/include /usr/local/include
 COPY --from=with-deps /opt/venv /opt/venv

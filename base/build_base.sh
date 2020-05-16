@@ -98,6 +98,7 @@ CMD_STRING="docker buildx build  \
     --build-arg BASE_IMAGE=${CURRENT_BASE} \
     --build-arg PRODUCTION_IMAGE=${4}
     --pull=false \
+    --target=minimized \
     ${ADDITIONAL_ARGS} \
     ../."
 echo ${CMD_STRING}
