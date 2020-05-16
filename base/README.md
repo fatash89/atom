@@ -57,17 +57,24 @@ docker buildx build
 ... rest of build command
 ```
 
-## Stock and Variants
+## Base Options
 
-All of the dependencies that are necessary to run a basic Atom element have their Dockerfiles found in the `stock` folder. The base image built from the resulting chain of these Dockerfiles is `stock`. All additional things/nice-to-haves for elements such as `opencv`, `opengl`, etc. can be found in the `variant` folder.
+All of the dependencies that are necessary to run a basic Atom element have their Dockerfiles found in the `stock` folder. The base image built from the resulting chain of these Dockerfiles is `stock`. All additional things/nice-to-haves are broken out into groups in their own folder. The table below explains
+the options and what's in each.
+
+| Option | Description |
+|--------|-------------|
+| `stock` | Contains everything needed to run Atom |
+| `extras` | Contains additional libraries that many elements may need such as `opencv`, etc. |
+| `graphics` | Contains everything needed to use graphics in Atom such as `opengl`, a VNC, etc. |
 
 ## Building
 
 You'll need Docker version 19.0.3 or greater in order to build Atom images. This is because we use the new experimental `buildx` builder in order to get consistent results on ARM and AMD platforms.
 
-### Stock
+### Script
 
-Since the build is a chain of Dockerfiles, we use a bash script to perform the build and produce the final output for the stock base image.
+Since the build is a chain of Dockerfiles, we use a bash script to perform the build and produce the final output for any base image
 
 The build takes positional arguments as seen in the table below:
 
@@ -77,18 +84,19 @@ The build takes positional arguments as seen in the table below:
 | 2 | Docker repo for the resulting and intermediate images | `elementaryrobotics/atom`, etc. |
 | 3 | Docker Tag for the resulting image  | Tag for the final output of the build process | `base-stock-descriptor`, etc. |
 | 4 | Original Image/OS we should build Atom atop | `debian:buster-slim`, etc. |
+| 5 | Which base option we should build. | `stock`, etc. See table above |
 
-An example invocation for `amd64` can be found below:
+#### `stock`
+
+An example invocation for `stock` and `amd64` can be found below:
 ```
-./build_base_stock.sh amd64 elementaryrobotics/atom build-base-experimental debian:buster-slim
+./build_base.sh amd64 elementaryrobotics/atom build-base debian:buster-slim stock
 ```
 
 This will, for example, after some amount of time, produce an image named:
 ```
-elementaryrobotics/atom:build-base-experimental-amd64
+elementaryrobotics/atom:build-base-stock-amd64
 ```
-
-#### Explanation
 
 Under the hood, when running this script, there's a lot going on. What's happening is:
 
@@ -110,3 +118,16 @@ The following Dockerfile to be built will be `FROM` the image built in the
 previous run.
 4. At the end we `docker pull` the final version from the registry at `localhost:5000`
 onto your machine and tag it as commanded in the `build_base_stock.sh` invocation.
+
+#### `extras`
+
+The `extras` base can be built very similar to the `stock` base, with a few key differences:
+
+1. The original image, argument 4 of the script, should be the output of a stock build.
+2. We should specify the `extras` folder
+
+For example, if we wanted to build the `extras` base atop the `stock` base from the previous example, we could with:
+
+```
+./build_base.sh amd64 elementaryrobotics/atom build-base localhost:5000/elementaryrobotics/atom:build-base-stock-amd64 extras
+```

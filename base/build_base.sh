@@ -6,6 +6,7 @@ RUN_BUILD="y"
 
 # Docker-compose file to run the local registry
 REGISTRY_COMPOSE=docker-compose-registry.yml
+REGISTRY_LOCATION=localhost:5000
 
 # Launch the registry
 docker-compose -f ${REGISTRY_COMPOSE} up -d
@@ -24,15 +25,14 @@ docker buildx inspect --bootstrap
 # Note that we're starting with the original base image
 CURRENT_BASE=${4}
 
-# Now, we want to loop over the Dockerfiles in the stock
-#   folder.
-for dockerfile in stock/*Dockerfile*
+# Now, we want to loop over the Dockerfiles in the ${5} folder
+for dockerfile in ${5}/*Dockerfile*
 do
     # Get the name of the new image
-    NEW_IMAGE=localhost:5000/${2}:base-${dockerfile##*/}-${1}
+    NEW_IMAGE=${REGISTRY_LOCATION}/${2}:base-${dockerfile##*/}-${1}
 
     # Check to see if we have custom args for this build
-    ARGS_FILE=stock/${dockerfile##*/*Dockerfile-}-${1}-args
+    ARGS_FILE=${5}/${dockerfile##*/*Dockerfile-}-${1}-args
     ADDITIONAL_ARGS=""
     if [ -f ${ARGS_FILE} ]; then
         while read arg; do
@@ -66,11 +66,18 @@ do
     CURRENT_BASE=${NEW_IMAGE}
 done
 
+# Note the final output tag
+OUTPUT_TAG="${2}:${3}-${5}-${1}"
+
+# Push the final tag to the registry
+docker tag ${CURRENT_BASE} ${REGISTRY_LOCATION}/${OUTPUT_TAG}
+docker push ${REGISTRY_LOCATION}/${OUTPUT_TAG}
+
 # Pull the image
 docker pull ${CURRENT_BASE}
 
 # Do the final tag
-TAG_CMD="docker tag ${CURRENT_BASE} ${2}:${3}-${1}"
+TAG_CMD="docker tag ${CURRENT_BASE} ${OUTPUT_TAG}"
 echo ${TAG_CMD}
 ${TAG_CMD}
 
