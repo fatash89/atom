@@ -1,0 +1,32 @@
+################################################################################
+#
+# Base image. Contains all third-party dependencies
+#
+################################################################################
+
+ARG BASE_IMAGE=debian:buster-slim
+FROM $BASE_IMAGE as base
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+#
+# System-level installs
+#
+
+RUN apt-get update -y \
+ && apt-get install -y --no-install-recommends \
+      apt-utils \
+      git \
+      autoconf \
+      libtool \
+      cmake \
+      build-essential \
+      python3-minimal \
+      python3-pip \
+      python3-venv \
+      python3-dev \
+      flex \
+      bison \
+      curl \
+      pkg-config \
+ && pip3 install --no-cache-dir --upgrade pip setuptools

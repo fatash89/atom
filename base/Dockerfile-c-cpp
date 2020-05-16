@@ -1,0 +1,14 @@
+################################################################################
+#
+# Base image. Contains all third-party dependencies
+#
+################################################################################
+
+ARG BASE_IMAGE
+FROM $BASE_IMAGE as base
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Build third-party C dependencies
+ADD ./languages/c/third-party /atom/languages/c/third-party
+RUN cd /atom/languages/c/third-party && make

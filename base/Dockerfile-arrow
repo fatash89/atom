@@ -1,0 +1,33 @@
+################################################################################
+#
+# Base image. Contains all third-party dependencies
+#
+################################################################################
+
+ARG BASE_IMAGE
+FROM $BASE_IMAGE as base
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG PYARROW_EXTRA_CMAKE_ARGS=""
+
+# C/C++ Arrow
+ADD ./third-party/apache-arrow /atom/third-party/apache-arrow
+WORKDIR /atom/third-party/apache-arrow/python
+RUN mkdir -p /atom/third-party/apache-arrow/cpp/build \
+  && cd /atom/third-party/apache-arrow/cpp/build \
+  && cmake -DCMAKE_BUILD_TYPE=release \
+           -DOPENSSL_ROOT_DIR=/usr/local/ssl \
+           -DCMAKE_INSTALL_LIBDIR=lib \
+           -DCMAKE_INSTALL_PREFIX=/usr/local \
+           -DARROW_PARQUET=OFF \
+           -DARROW_PYTHON=ON \
+           -DARROW_PLASMA=ON \
+           -DARROW_BUILD_TESTS=OFF \
+           -DPYTHON_EXECUTABLE=/opt/venv/bin/python3 \
+           .. \
+  && make -j8 \
+  && make install
+
+# Pyarrow
+RUN cd /atom/third-party/apache-arrow/python \
+  && ARROW_HOME=/usr/local SETUPTOOLS_SCM_PRETEND_VERSION="0.17.0" python3 setup.py build_ext -j 8 --build-type=release --extra-cmake-args=${PYARROW_EXTRA_CMAKE_ARGS} install

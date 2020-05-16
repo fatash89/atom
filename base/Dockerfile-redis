@@ -1,0 +1,14 @@
+################################################################################
+#
+# Base image. Contains all third-party dependencies
+#
+################################################################################
+
+ARG BASE_IMAGE
+FROM $BASE_IMAGE as base
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Build redis
+ADD ./third-party/redis /atom/third-party/redis
+RUN cd /atom/third-party/redis && make -j8 && make PREFIX=/usr/local install

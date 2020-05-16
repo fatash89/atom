@@ -1,0 +1,24 @@
+################################################################################
+#
+# Base image. Contains all third-party dependencies
+#
+################################################################################
+
+FROM $BASE_IMAGE as base
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+
+#
+# Python deps
+#
+
+# Create and activate python virtualenv
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+ENV LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
+
+# Cython
+ADD ./languages/python/third-party/cython /atom/languages/python/third-party/cython
+WORKDIR /atom/languages/python/third-party/cython
+RUN python3 setup.py build -j8 install

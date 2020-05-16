@@ -1,0 +1,15 @@
+################################################################################
+#
+# Base image. Contains all third-party dependencies
+#
+################################################################################
+
+ARG BASE_IMAGE
+FROM $BASE_IMAGE as base
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Redis-py
+ADD ./languages/python/third-party/redis-py /atom/languages/python/third-party/redis-py
+RUN cd /atom/languages/python/third-party/redis-py \
+ && python3 setup.py install

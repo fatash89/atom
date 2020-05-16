@@ -1,0 +1,16 @@
+################################################################################
+#
+# Base image. Contains all third-party dependencies
+#
+################################################################################
+
+ARG BASE_IMAGE
+FROM $BASE_IMAGE as base
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Numpy
+ADD ./languages/python/third-party/numpy /atom/languages/python/third-party/numpy
+ADD ./languages/python/third-party/numpy.site.cfg /atom/languages/python/third-party/numpy/site.cfg
+WORKDIR /atom/languages/python/third-party/numpy
+RUN python3 setup.py build -j8 install
