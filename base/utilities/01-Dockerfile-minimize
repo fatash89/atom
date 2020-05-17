@@ -27,7 +27,7 @@ RUN ls /lib/$( cat /tmp/arch.txt )-linux-gnu/*.so* > /tmp/existing_libs.txt && \
 #
 FROM ${BASE_IMAGE} as with-deps
 ARG ADDITIONAL_LIB_LOCATIONS=""
-ARG ADDITIONAL_DIRECTORIES=""
+ARG ADDITIONAL_FILES=""
 
 # Figure out which libraries we need
 ADD ./ldd_find_libs.sh /tmp/ldd_find_libs.sh
@@ -48,7 +48,7 @@ RUN rm -rf /usr/local/lib/python3.7
 
 # And create the output tarball
 WORKDIR /
-RUN tar -czvpf minimized.tar.gz /usr/local/lib /usr/local/include /usr/local/bin /opt/venv /usr/lib/python* /usr/bin/python* ${ADDITIONAL_DIRECTORIES}
+RUN tar -czvpf minimized.tar.gz /usr/local/lib /usr/local/include /usr/local/bin /opt/venv /usr/lib/python* /usr/bin/python* ${ADDITIONAL_FILES}
 
 # Note that we should just spin up
 CMD ["tail", "-f", "/dev/null"]

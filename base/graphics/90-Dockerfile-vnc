@@ -9,36 +9,13 @@ FROM ${BASE_IMAGE} as with-vnc
 
 ARG DEBIAN_FRONTEND=noninteractive
 
+RUN apt-get update && apt-get -y install supervisor
+
 # Add in noVNC to /opt/noVNC
 ADD third-party/noVNC /opt/noVNC
-
-# Install graphics
-# Note: supervisor-stdout must be installed with pip2 and not pip3
-RUN rm -f /usr/share/applications/x11vnc.desktop \
- && cd /opt/noVNC \
- && ln -s vnc_auto.html index.html \
- && pip2 install --no-cache-dir setuptools \
- && pip2 install --no-cache-dir supervisor-stdout \
- && apt-get -y remove python-pip \
- && apt-get -y autoremove \
- && apt-get -y clean \
- && rm -rf /var/lib/apt/lists/*
+RUN cd /opt/noVNC && ln -s vnc_auto.html index.html
 
 # noVNC (http server) is on 6080, and the VNC server is on 5900
-EXPOSE 6080 5900
-COPY third-party/docker-opengl/etc/skel/.xinitrc /etc/skel/.xinitrc
-
-RUN useradd -m -s /bin/bash user
-USER user
-RUN cp /etc/skel/.xinitrc /home/user/
-USER root
-RUN echo "user ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/user
-
-COPY third-party/docker-opengl/etc /etc
-COPY third-party/docker-opengl/usr /usr
-
-# Need to run app with python2 instead of python3
-RUN var='#!/usr/bin/env python2' \
- && sed -i "1s@.*@${var}@" /usr/bin/graphical-app-launcher.py
-
-ENV DISPLAY :0
+ADD utilities/vnc/etc /vnc/etc
+WORKDIR /vnc
+RUN tar -czvpf vnc.tar.gz etc
