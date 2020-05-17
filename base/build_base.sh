@@ -84,7 +84,7 @@ ARGS_FILE=${5}/minimize-${1}-args
 ADDITIONAL_ARGS=""
 if [ -f ${ARGS_FILE} ]; then
     while read arg; do
-        ADDITIONAL_ARGS+="--build-arg ${arg}"
+        ADDITIONAL_ARGS+="--build-arg ${arg} "
     done < ${ARGS_FILE}
 fi
 

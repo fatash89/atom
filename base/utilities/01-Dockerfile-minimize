@@ -48,7 +48,7 @@ RUN rm -rf /usr/local/lib/python3.7
 
 # And create the output tarball
 WORKDIR /
-RUN tar -czvpf minimized.tar.gz /usr/local/lib /usr/local/include /usr/local/bin /opt/venv /usr/lib/python* /usr/bin/python* ${ADDITIONAL_FILES}
+RUN tar -czvpf minimized.tar.gz /usr/local/lib /usr/local/include /usr/local/bin /opt/venv /usr/lib/python* /usr/bin/python* $(echo ${ADDITIONAL_FILES} | sed "s/,/ /g" )
 
 # Note that we should just spin up
 CMD ["tail", "-f", "/dev/null"]

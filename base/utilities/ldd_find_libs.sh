@@ -12,6 +12,7 @@ for location in ${DEFAULT_LIB_LOCATIONS}; do
     LDD_CMD+="$(ls --format=commas ${location}) "
 done
 
+ADDITIONAL_LIB_LOCATIONS=$(echo ${ADDITIONAL_LIB_LOCATIONS} | sed "s/,/ /g")
 for location in ${ADDITIONAL_LIB_LOCATIONS}; do
     LDD_CMD+="$(ls --format=commas ${location}) "
 done
