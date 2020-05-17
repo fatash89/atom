@@ -1,2 +1,2 @@
-ADDITIONAL_LIB_LOCATIONS=/opt/venv/lib/python3.7/site-packages/PyQt5/*.so,/usr/bin/x11vnc,/usr/bin/xinit,/usr/lib/xorg/Xorg,/usr/bin/openbox,/usr/bin/tint2
-ADDITIONAL_FILES=/vnc/vnc.tar.gz,/usr/bin/x11vnc,/usr/bin/xinit,/usr/lib/xorg,/usr/bin/openbox,/usr/bin/tint2,/usr/bin/X,/usr/bin/Xorg
+ADDITIONAL_LIB_LOCATIONS=/opt/venv/lib/python3.7/site-packages/PyQt5/*.so,/usr/bin/x11vnc,/usr/bin/xinit,/usr/lib/xorg/Xorg,/usr/bin/openbox,/usr/bin/tint2,/usr/lib/xorg/modules/*.so*,/usr/lib/xorg/modules/*/*.so*
+ADDITIONAL_FILES=/vnc/vnc.tar.gz,/usr/bin/x11vnc,/usr/bin/xinit,/usr/lib/xorg,/usr/bin/openbox,/usr/bin/tint2,/usr/bin/X,/usr/bin/Xorg,/etc/X11
