@@ -25,7 +25,8 @@ RUN cd /opt/noVNC && ln -s vnc_auto.html index.html
 # noVNC (http server) is on 6080, and the VNC server is on 5900
 ADD utilities/vnc/etc /vnc/etc
 WORKDIR /vnc
-RUN tar -czvpf vnc.tar.gz etc
+RUN mkdir root && mv etc/skel/.xinitrc root/.xinitrc
+RUN tar -czvpf vnc.tar.gz etc root
 
 #
 # TODO: figure out how to remove these
