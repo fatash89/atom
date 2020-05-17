@@ -9,6 +9,9 @@ ARG PRODUCTION_IMAGE=debian:buster-slim
 FROM $BASE_IMAGE
 
 ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y \
+    cmake \
+    build-essential
 
 #
 # C client
