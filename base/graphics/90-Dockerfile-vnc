@@ -8,6 +8,9 @@ ARG BASE_IMAGE=elementaryrobotics/atom
 FROM ${BASE_IMAGE} as with-vnc
 
 ARG DEBIAN_FRONTEND=noninteractive
+ARG TARGETPLATFORM
+
+RUN echo ${TARGETPLATFORM} | sed s/linux\\///g | sed s/amd64/x86_64/g > /tmp/arch.txt
 
 # Need to install supervisor and websockify. Do so
 #   through pip3 so that they get included with the
@@ -26,9 +29,30 @@ RUN cd opt/noVNC && ln -s vnc_auto.html index.html
 # Set up link to python3 websockify in the venv
 RUN mkdir opt/noVNC/utils/websockify && ln -sf /opt/venv/bin/websockify opt/noVNC/utils/websockify/run
 
+# Add in everything else that the VNC requires from the rootfs
+RUN mkdir -p usr/bin && \
+    cp /usr/bin/x11vnc usr/bin && \
+    cp /usr/bin/xinit usr/bin && \
+    cp /usr/bin/openbox usr/bin && \
+    cp /usr/bin/tint2 usr/bin && \
+    cp /usr/bin/X usr/bin && \
+    cp /usr/bin/Xorg usr/bin && \
+    cp /usr/bin/xkbcomp usr/bin && \
+    cp /usr/bin/xsetroot usr/bin
+RUN mkdir -p usr/lib && \
+    cp -r /usr/lib/xorg usr/lib
+RUN mkdir -p usr/share && \
+    cp -r /usr/share/X11 usr/share && \
+    cp -r /usr/share/themes/Clearlooks usr/share
+RUN cp -r /etc/X11 etc ** && \
+    cp -r /etc/xdg/tint2 etc/xdg
+
 # Tar up everything we need for the VNC. This
 # will contain files that we'll copy over to:
 #   /etc
 #   /root
 #   /opt
-RUN tar -czvpf vnc.tar.gz etc root opt
+#   /usr/lib
+#   /usr/share
+#   /usr/bin
+RUN tar -czvpf vnc.tar.gz etc root opt usr
