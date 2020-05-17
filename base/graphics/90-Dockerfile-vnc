@@ -45,7 +45,10 @@ RUN mkdir -p usr/lib && \
     cp -r /usr/lib/xorg usr/lib
 RUN mkdir -p usr/share && \
     cp -r /usr/share/X11 usr/share && \
-    cp -r /usr/share/themes usr/share
+    cp -r /usr/share/themes usr/share && \
+    cp -r /usr/share/icons usr/share && \
+    cp -r /usr/share/fonts usr/share && \
+    cp -r /usr/share/tint2 usr/share
 RUN cp -r /etc/X11 etc ** && \
     cp -r /etc/xdg/tint2 etc/xdg
 
