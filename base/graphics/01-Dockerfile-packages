@@ -21,7 +21,9 @@ RUN apt-get update && apt-get install -y \
     tzdata \
     libxkbcommon-x11-0 \
     libglib2.0-0 \
-    qt5-default \
+    libqt5core5a \
+    libqt5gui5 \
+    libqt5x11extras5 \
     build-essential \
     python3-dev \
     net-tools \
