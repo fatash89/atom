@@ -1,2 +1,2 @@
-ADDITIONAL_LIB_LOCATIONS=/opt/venv/lib/python3.7/site-packages/PyQt5/*.so,/usr/bin/x11vnc,/usr/bin/xinit,/usr/lib/xorg/Xorg,/usr/bin/openbox,/usr/bin/tint2,/usr/lib/xorg/modules/*.so*,/usr/lib/xorg/modules/*/*.so*
-ADDITIONAL_FILES=/vnc/vnc.tar.gz,/usr/bin/x11vnc,/usr/bin/xinit,/usr/lib/xorg,/usr/bin/openbox,/usr/bin/tint2,/usr/bin/X,/usr/bin/Xorg,/etc/X11
+ADDITIONAL_LIB_LOCATIONS=/opt/venv/lib/python3.7/site-packages/PyQt5/*.so,/usr/bin/x11vnc,/usr/bin/xinit,/usr/lib/xorg/Xorg,/usr/bin/openbox,/usr/bin/tint2,/usr/lib/xorg/modules/*.so*,/usr/lib/xorg/modules/*/*.so*,/usr/lib/x86_64-linux-gnu/dri/swrast_dri.so,/usr/bin/xkbcomp,/usr/bin/xsetroot
+ADDITIONAL_FILES=/vnc/vnc.tar.gz,/usr/bin/x11vnc,/usr/bin/xinit,/usr/lib/xorg,/usr/bin/openbox,/usr/bin/tint2,/usr/bin/X,/usr/bin/Xorg,/etc/X11,/usr/lib/x86_64-linux-gnu/dri/swrast_dri.so,/usr/share/X11,/usr/bin/xkbcomp,/usr/bin/xsetroot,/usr/share/themes/Clearlooks
