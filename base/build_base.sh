@@ -102,7 +102,6 @@ CMD_STRING="docker buildx build  \
     --build-arg PRODUCTION_IMAGE=${4}
     --pull=true \
     --target=with-deps \
-    --no-cache \
     ${ADDITIONAL_ARGS} \
     utilities/."
 echo ${CMD_STRING}
@@ -136,7 +135,6 @@ CMD_STRING="docker buildx build  \
     --build-arg PRODUCTION_IMAGE=${4}
     --pull=true \
     --target=production \
-    --no-cache \
     utilities/."
 echo ${CMD_STRING}
 if [ ${RUN_BUILD} == "y" ]; then
@@ -160,11 +158,9 @@ CURRENT_BASE=${NEW_IMAGE}
 OUTPUT_TAG="${2}:${3}-${5}-${1}"
 
 # Push the final tag to the registry
+docker pull ${CURRENT_BASE}
 docker tag ${CURRENT_BASE} ${REGISTRY_LOCATION}/${OUTPUT_TAG}
 docker push ${REGISTRY_LOCATION}/${OUTPUT_TAG}
-
-# Pull the image
-docker pull ${CURRENT_BASE}
 
 # Do the final tag
 TAG_CMD="docker tag ${CURRENT_BASE} ${OUTPUT_TAG}"
