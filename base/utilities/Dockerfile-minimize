@@ -26,9 +26,11 @@ RUN ls /lib/$( cat /tmp/arch.txt )-linux-gnu/*.so* > /tmp/existing_libs.txt && \
 # Copy missing libraries into /usr/local/lib
 #
 FROM ${BASE_IMAGE} as with-deps
+ARG ADDITIONAL_LIB_LOCATIONS=""
 
 # Figure out which libraries we need
-RUN ldd $(ls /usr/local/lib/*.so*) $(ls /usr/local/lib/*.a*) $(ls /usr/local/bin/*) | grep "=> /" | awk '{print $3}' | sort -u > /tmp/required_libs.txt
+ADD ./utilities/ldd_find_libs.sh /tmp/ldd_find_libs.sh
+RUN /tmp/ldd_find_libs.sh
 
 # Copy over the file that lets us know what's already in the final
 #   image we're being built atop
