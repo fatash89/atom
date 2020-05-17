@@ -10,6 +10,7 @@ FROM ${BASE_IMAGE}
 ARG DEBIAN_FRONTEND=noninteractive
 ARG PYQT_VERSION=5.13.2
 ARG PYTHONBUFFERED=1
+ARG TARGETPLATFORM
 
 RUN echo ${TARGETPLATFORM} | sed s/linux\\///g | sed s/amd64/x86_64/g > /tmp/arch.txt
 
