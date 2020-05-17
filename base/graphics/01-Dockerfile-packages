@@ -5,7 +5,7 @@
 ################################################################################
 
 ARG BASE_IMAGE
-FROM ${BASE_IMAGE} as with-opengl
+FROM ${BASE_IMAGE}
 
 ARG DEBIAN_FRONTEND=noninteractive
 
