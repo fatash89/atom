@@ -10,6 +10,17 @@ FROM ${BASE_IMAGE} as with-vnc
 ARG DEBIAN_FRONTEND=noninteractive
 ARG TARGETPLATFORM
 
+RUN apt-get update && apt-get install -y \
+    net-tools \
+    openbox \
+    tint2 \
+    x11-xserver-utils \
+    x11vnc \
+    xinit \
+    xserver-xorg-video-dummy \
+    xserver-xorg-input-void \
+    procps
+
 RUN echo ${TARGETPLATFORM} | sed s/linux\\///g | sed s/amd64/x86_64/g > /tmp/arch.txt
 
 # Need to install supervisor and websockify. Do so

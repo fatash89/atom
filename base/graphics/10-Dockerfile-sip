@@ -10,6 +10,11 @@ FROM ${BASE_IMAGE}
 ARG DEBIAN_FRONTEND=noninteractive
 ARG SIP_VERSION=4.19.22
 
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    wget \
+    python3-dev
+
 RUN mkdir /sip && cd /sip && \
     wget https://www.riverbankcomputing.com/static/Downloads/sip/${SIP_VERSION}/sip-${SIP_VERSION}.tar.gz && \
     tar -xzvf sip-${SIP_VERSION}.tar.gz && \

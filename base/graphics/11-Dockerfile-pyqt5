@@ -11,6 +11,24 @@ ARG DEBIAN_FRONTEND=noninteractive
 ARG PYQT_VERSION=5.13.2
 ARG PYTHONBUFFERED=1
 
+RUN apt-get update && apt-get install -y \
+    wget \
+    libglvnd0 \
+    libgl1 \
+    libgl1-mesa-dri \
+    libglx0 \
+    libegl1 \
+    libgles2 \
+    tzdata \
+    libxkbcommon-x11-0 \
+    qt5-qmake \
+    libglib2.0-0 \
+    libqt5core5a \
+    libqt5gui5 \
+    libqt5x11extras5 \
+    build-essential \
+    python3-dev
+
 RUN mkdir /pyqt && cd /pyqt && \
     wget https://www.riverbankcomputing.com/static/Downloads/PyQt5/${PYQT_VERSION}/PyQt5-${PYQT_VERSION}.tar.gz && \
     tar -xzvf PyQt5-${PYQT_VERSION}.tar.gz && \
@@ -18,3 +36,5 @@ RUN mkdir /pyqt && cd /pyqt && \
     python3 configure.py --assume-shared --confirm-license && \
     make -j8 && \
     make install
+
+# Move libraries to where they should ultimately reside
