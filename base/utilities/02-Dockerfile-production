@@ -1,0 +1,22 @@
+################################################################################
+#
+# Final production image. Apply the tarball from the minimized
+#   version
+#
+################################################################################
+ARG PRODUCTION_IMAGE
+FROM ${PRODUCTION_IMAGE} as production
+
+# Set up the path to look to the venv first for python
+ENV PATH="/opt/venv/bin:$PATH"
+# Set up the LD_LIBRARY_PATH to look to /usr/local/lib
+ENV LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
+
+# Copy over everything we built
+ADD ./minimized.tar.gz /
+
+# Need a basic python install
+RUN apt-get update -y \
+ && apt-get install -y --no-install-recommends apt-utils \
+                                               python3-minimal \
+                                               python3-pip

@@ -27,9 +27,10 @@ RUN ls /lib/$( cat /tmp/arch.txt )-linux-gnu/*.so* > /tmp/existing_libs.txt && \
 #
 FROM ${BASE_IMAGE} as with-deps
 ARG ADDITIONAL_LIB_LOCATIONS=""
+ARG ADDITIONAL_DIRECTORIES=""
 
 # Figure out which libraries we need
-ADD ./base/utilities/ldd_find_libs.sh /tmp/ldd_find_libs.sh
+ADD ./ldd_find_libs.sh /tmp/ldd_find_libs.sh
 RUN /tmp/ldd_find_libs.sh
 
 # Copy over the file that lets us know what's already in the final
@@ -42,30 +43,9 @@ RUN diff --new-line-format="" --unchanged-line-format=""  /tmp/required_libs.txt
 # Copy things into /usr/local/lib
 RUN if [ -s /tmp/libs_to_copy.txt ];then xargs -a /tmp/libs_to_copy.txt cp -L -t /usr/local/lib; fi
 
-#
-# Clean up and only ship the following folders:
-#   1. /usr/local/lib
-#   2. /usr/local/include
-#   3. /opt/venv
-#   4. /usr/local/bin
-#
-FROM ${PRODUCTION_IMAGE} as minimized
+# And create the output tarball
+WORKDIR /
+RUN tar -czvpf minimized.tar.gz /usr/local/lib /usr/local/include /usr/local/bin /opt/venv ${ADDITIONAL_DIRECTORIES}
 
-# Set up the path to look to the venv first for python
-ENV PATH="/opt/venv/bin:$PATH"
-# Set up the LD_LIBRARY_PATH to look to /usr/local/lib
-ENV LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
-
-# Need a basic python install
-RUN apt-get update -y \
- && apt-get install -y --no-install-recommends apt-utils \
-                                               python3-minimal \
-                                               python3-pip
-# Upgrade to the latest pip
-RUN pip3 install --upgrade pip
-
-# Copy over everything we built
-COPY --from=with-deps /usr/local/lib /usr/local/lib
-COPY --from=with-deps /usr/local/include /usr/local/include
-COPY --from=with-deps /opt/venv /opt/venv
-COPY --from=with-deps /usr/local/bin /usr/local/bin
+# Note that we should just spin up
+CMD ["tail", "-f", "/dev/null"]

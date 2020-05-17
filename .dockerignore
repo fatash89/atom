@@ -7,7 +7,6 @@
 !/third-party/**
 !/utilities/**
 !/.circleci/**
-!/base/utilities/ldd_find_libs.sh
 
 !/launch_nucleus.sh
 !/redis.conf

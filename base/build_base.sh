@@ -32,6 +32,7 @@ docker buildx inspect --bootstrap
 
 # Note that we're starting with the original base image
 CURRENT_BASE=${4}
+docker pull ${CURRENT_BASE}
 
 # Now, we want to loop over the Dockerfiles in the ${5} folder
 for dockerfile in ${5}/*Dockerfile*
@@ -87,10 +88,12 @@ if [ -f ${ARGS_FILE} ]; then
     done < ${ARGS_FILE}
 fi
 
-# Do the build
+# Package all of the dependencies. This happens
+#   in a single stage and will create a tarball within
+#   the container at /minimized.tar.gz.
 NEW_IMAGE=${REGISTRY_LOCATION}/${2}:base-minimize-${5}-${1}
 CMD_STRING="docker buildx build  \
-    -f utilities/Dockerfile-minimize \
+    -f utilities/01-Dockerfile-minimize \
     --platform=linux/${1}  \
     -t ${NEW_IMAGE}  \
     --progress=plain  \
@@ -98,9 +101,10 @@ CMD_STRING="docker buildx build  \
     --build-arg BASE_IMAGE=${CURRENT_BASE} \
     --build-arg PRODUCTION_IMAGE=${4}
     --pull=true \
-    --target=minimized \
+    --target=with-deps \
+    --no-cache \
     ${ADDITIONAL_ARGS} \
-    ../."
+    utilities/."
 echo ${CMD_STRING}
 if [ ${RUN_BUILD} == "y" ]; then
     ${CMD_STRING}
@@ -109,6 +113,39 @@ fi
 # Check the exit status
 if [ $? != "0" ]; then
     echo "Build of minimized Dockerfile failed! Exiting"
+    exit 1
+fi
+
+# Need to launch the minimized container, copy the tarball
+#   into the utilities folder and shut down the container
+echo "Copying minimized tarball out"
+docker pull ${NEW_IMAGE}
+docker container create --name minimized ${NEW_IMAGE}
+docker container cp minimized:/minimized.tar.gz utilities/minimized.tar.gz
+docker container rm -f minimized
+
+# Now we need to apply the minimized tarball to our final
+#   production image
+NEW_IMAGE=${REGISTRY_LOCATION}/${2}:base-production-${5}-${1}
+CMD_STRING="docker buildx build  \
+    -f utilities/02-Dockerfile-production \
+    --platform=linux/${1}  \
+    -t ${NEW_IMAGE}  \
+    --progress=plain  \
+    --push \
+    --build-arg PRODUCTION_IMAGE=${4}
+    --pull=true \
+    --target=production \
+    --no-cache \
+    utilities/."
+echo ${CMD_STRING}
+if [ ${RUN_BUILD} == "y" ]; then
+    ${CMD_STRING}
+fi
+
+# Check the exit status
+if [ $? != "0" ]; then
+    echo "Build of production Dockerfile failed! Exiting"
     exit 1
 fi
 

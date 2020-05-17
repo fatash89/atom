@@ -1,0 +1,6 @@
+# ignore everything
+**
+
+# except
+!/ldd_find_libs.sh
+!/minimized.tar.gz
