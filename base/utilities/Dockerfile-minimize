@@ -29,7 +29,7 @@ FROM ${BASE_IMAGE} as with-deps
 ARG ADDITIONAL_LIB_LOCATIONS=""
 
 # Figure out which libraries we need
-ADD ./utilities/ldd_find_libs.sh /tmp/ldd_find_libs.sh
+ADD ./base/utilities/ldd_find_libs.sh /tmp/ldd_find_libs.sh
 RUN /tmp/ldd_find_libs.sh
 
 # Copy over the file that lets us know what's already in the final
