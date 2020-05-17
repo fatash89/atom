@@ -10,6 +10,11 @@ FROM ${BASE_IMAGE}
 
 ARG DEBIAN_FRONTEND=noninteractive
 
+# Install pre-requisites
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    python3-dev
+
 # Install Pillow (PIL) as that's also used frequently with opencv
 COPY ./languages/python/third-party/Pillow /atom/languages/python/third-party/Pillow
 WORKDIR /atom/languages/python/third-party/Pillow

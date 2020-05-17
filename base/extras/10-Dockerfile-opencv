@@ -12,11 +12,28 @@ ARG DEBIAN_FRONTEND=noninteractive
 # Auto-set by Docker based on the --platform flag. Will be of the form
 #   linux/amd64 or linux/aarch64
 ARG TARGETPLATFORM
+RUN echo ${TARGETPLATFORM} | sed s/linux\\///g | sed s/amd64/x86_64/g > /tmp/arch.txt
+
+# Install pre-requisites
+RUN apt-get update && apt-get install -y \
+    zlib1g-dev \
+    libjpeg62-turbo-dev \
+    libpng-dev \
+    libtiff-dev \
+    libopenexr-dev \
+    libavcodec-dev \
+    libavformat-dev \
+    libswscale-dev \
+    libwebp-dev \
+    autoconf \
+    libtool \
+    cmake \
+    build-essential \
+    python3-dev
 
 # Install openCV + python3 bindings
 COPY ./third-party/opencv /atom/third-party/opencv
 WORKDIR /atom/third-party/opencv
-RUN echo ${TARGETPLATFORM} | sed s/linux\\///g | sed s/amd64/x86_64/g > /tmp/arch.txt
 RUN mkdir -p build && cd build && cmake \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=/usr/local \
