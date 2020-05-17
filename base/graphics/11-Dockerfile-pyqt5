@@ -11,6 +11,8 @@ ARG DEBIAN_FRONTEND=noninteractive
 ARG PYQT_VERSION=5.13.2
 ARG PYTHONBUFFERED=1
 
+RUN echo ${TARGETPLATFORM} | sed s/linux\\///g | sed s/amd64/x86_64/g > /tmp/arch.txt
+
 RUN apt-get update && apt-get install -y \
     wget \
     libglvnd0 \
@@ -21,6 +23,7 @@ RUN apt-get update && apt-get install -y \
     libgles2 \
     tzdata \
     libxkbcommon-x11-0 \
+    qt5-default \
     qt5-qmake \
     libglib2.0-0 \
     libqt5core5a \
@@ -38,3 +41,6 @@ RUN mkdir /pyqt && cd /pyqt && \
     make install
 
 # Move libraries to where they should ultimately reside
+RUN cd /usr/lib/$(cat /tmp/arch.txt)-linux-gnu/ && \
+    cp libQt5* /usr/local/lib && \
+    cp -r qt5 /usr/local/lib

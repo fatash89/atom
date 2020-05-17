@@ -10,6 +10,8 @@ FROM ${BASE_IMAGE} as with-vnc
 ARG DEBIAN_FRONTEND=noninteractive
 ARG TARGETPLATFORM
 
+RUN echo ${TARGETPLATFORM} | sed s/linux\\///g | sed s/amd64/x86_64/g > /tmp/arch.txt
+
 RUN apt-get update && apt-get install -y \
     net-tools \
     openbox \
@@ -20,8 +22,6 @@ RUN apt-get update && apt-get install -y \
     xserver-xorg-video-dummy \
     xserver-xorg-input-void \
     procps
-
-RUN echo ${TARGETPLATFORM} | sed s/linux\\///g | sed s/amd64/x86_64/g > /tmp/arch.txt
 
 # Need to install supervisor and websockify. Do so
 #   through pip3 so that they get included with the
