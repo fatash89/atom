@@ -123,6 +123,15 @@ docker container create --name minimized ${NEW_IMAGE}
 docker container cp minimized:/minimized.tar.gz utilities/minimized.tar.gz
 docker container rm -f minimized
 
+# Now, we want to production-ize
+ARGS_FILE=${5}/production-${1}-args
+ADDITIONAL_ARGS=""
+if [ -f ${ARGS_FILE} ]; then
+    while read arg; do
+        ADDITIONAL_ARGS+="--build-arg ${arg} "
+    done < ${ARGS_FILE}
+fi
+
 # Now we need to apply the minimized tarball to our final
 #   production image
 NEW_IMAGE=${REGISTRY_LOCATION}/${2}:base-production-${5}-${1}
@@ -135,6 +144,7 @@ CMD_STRING="docker buildx build  \
     --build-arg PRODUCTION_IMAGE=${4}
     --pull=true \
     --target=production \
+    ${ADDITIONAL_ARGS} \
     utilities/."
 echo ${CMD_STRING}
 if [ ${RUN_BUILD} == "y" ]; then
