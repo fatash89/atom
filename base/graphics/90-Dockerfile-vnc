@@ -10,6 +10,8 @@ FROM ${BASE_IMAGE} as with-vnc
 ARG DEBIAN_FRONTEND=noninteractive
 ARG TARGETPLATFORM
 
+RUN echo ${TARGETPLATFORM} | sed s/linux\\///g | sed s/amd64/x86_64/g > /tmp/arch.txt
+
 RUN apt-get update && apt-get install -y \
     net-tools \
     openbox \
@@ -68,3 +70,7 @@ RUN cp /usr/bin/x11vnc /usr/local/bin && \
     cp /usr/lib/xorg/Xorg /usr/local/bin && \
     cp /usr/bin/xkbcomp /usr/local/bin && \
     cp /usr/bin/xsetroot /usr/local/bin
+
+# And move the libraries that don't get pulled
+#   automatically
+RUN cp /usr/lib/$( cat /tmp/arch.txt )-linux-gnu/dri/swrast_dri.so /usr/local/lib

@@ -43,5 +43,5 @@ RUN mkdir /pyqt && cd /pyqt && \
 
 # Move libraries to where they should ultimately reside
 RUN cd /usr/lib/$(cat /tmp/arch.txt)-linux-gnu/ && \
-    cp libQt5* /usr/local/lib && \
-    cp -r qt5 /usr/local/lib
+    cp --preserve=links libQt5X11Extras.so* /usr/local/lib && \
+    mkdir -p /usr/local/lib/qt5/plugins && cp -r qt5/plugins/* /usr/local/lib/qt5/plugins
