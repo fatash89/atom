@@ -30,15 +30,6 @@ RUN cd opt/noVNC && ln -s vnc_auto.html index.html
 RUN mkdir opt/noVNC/utils/websockify && ln -sf /opt/venv/bin/websockify opt/noVNC/utils/websockify/run
 
 # Add in everything else that the VNC requires from the rootfs
-RUN mkdir -p usr/bin && \
-    cp /usr/bin/x11vnc usr/bin && \
-    cp /usr/bin/xinit usr/bin && \
-    cp /usr/bin/openbox usr/bin && \
-    cp /usr/bin/tint2 usr/bin && \
-    cp /usr/bin/X usr/bin && \
-    cp /usr/bin/Xorg usr/bin && \
-    cp /usr/bin/xkbcomp usr/bin && \
-    cp /usr/bin/xsetroot usr/bin
 RUN mkdir -p usr/lib && \
     cp -r /usr/lib/xorg usr/lib
 RUN mkdir -p usr/share && \
@@ -56,3 +47,15 @@ RUN cp -r /etc/X11 etc ** && \
 #   /usr/share
 #   /usr/bin
 RUN tar -czvpf vnc.tar.gz etc root opt usr
+
+# And move all needed binaries to /usr/local/bin s.t.
+#   they get picked up by the part of the minimize
+#   script that checks for needed libraries
+RUN cp /usr/bin/x11vnc /usr/local/bin && \
+    cp /usr/bin/xinit /usr/local/bin && \
+    cp /usr/bin/openbox /usr/local/bin && \
+    cp /usr/bin/tint2 /usr/local/bin && \
+    cp /usr/bin/X /usr/local/bin && \
+    cp /usr/lib/xorg/Xorg /usr/local/bin && \
+    cp /usr/bin/xkbcomp /usr/local/bin && \
+    cp /usr/bin/xsetroot /usr/local/bin
