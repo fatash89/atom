@@ -43,9 +43,12 @@ RUN diff --new-line-format="" --unchanged-line-format=""  /tmp/required_libs.txt
 # Copy things into /usr/local/lib
 RUN if [ -s /tmp/libs_to_copy.txt ];then xargs -a /tmp/libs_to_copy.txt cp -L -t /usr/local/lib; fi
 
+# Remove Python installs from /usr/local/lib
+RUN rm -rf /usr/local/lib/python3.7
+
 # And create the output tarball
 WORKDIR /
-RUN tar -czvpf minimized.tar.gz /usr/local/lib /usr/local/include /usr/local/bin /opt/venv ${ADDITIONAL_DIRECTORIES}
+RUN tar -czvpf minimized.tar.gz /usr/local/lib /usr/local/include /usr/local/bin /opt/venv /usr/lib/python* /usr/bin/python* ${ADDITIONAL_DIRECTORIES}
 
 # Note that we should just spin up
 CMD ["tail", "-f", "/dev/null"]

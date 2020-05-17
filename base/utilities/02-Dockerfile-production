@@ -14,9 +14,3 @@ ENV LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
 
 # Copy over everything we built
 ADD ./minimized.tar.gz /
-
-# Need a basic python install
-RUN apt-get update -y \
- && apt-get install -y --no-install-recommends apt-utils \
-                                               python3-minimal \
-                                               python3-pip

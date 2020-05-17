@@ -5,7 +5,7 @@
 #   that we can copy them over
 #
 
-DEFAULT_LIB_LOCATIONS="/usr/local/lib/*.so* /usr/local/lib/*.a* /usr/local/bin/*"
+DEFAULT_LIB_LOCATIONS="/usr/local/lib/*.so* /usr/local/lib/*.a* /usr/local/bin/* /usr/bin/python*"
 
 LDD_CMD=""
 for location in ${DEFAULT_LIB_LOCATIONS}; do
