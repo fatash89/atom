@@ -1,0 +1,59 @@
+################################################################################
+#
+# Build in the source
+#
+################################################################################
+
+ARG BASE_IMAGE=elementaryrobotics/atom:base
+ARG PRODUCTION_IMAGE=debian:buster-slim
+FROM $BASE_IMAGE
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+#
+# C client
+#
+
+# Build the C library
+ADD ./languages/c /atom/languages/c
+RUN cd /atom/languages/c \
+ && make clean && make -j8 && make install
+
+#
+# C++ client
+#
+
+# Build and install the c++ library
+ADD ./languages/cpp /atom/languages/cpp
+RUN cd /atom/languages/cpp \
+ && make clean && make -j8 && make install
+
+#
+# Python client
+#
+
+# Build and install the python library
+# Add and install requirements first to use DLC
+ADD ./languages/python/requirements.txt /atom/languages/python/requirements.txt
+RUN pip3 install --no-cache-dir -r /atom/languages/python/requirements.txt
+ADD ./lua-scripts /atom/lua-scripts
+ADD ./languages/python /atom/languages/python
+RUN cd /atom/languages/python \
+ && python3 setup.py install
+
+#
+# Command-line utility
+#
+
+ADD ./utilities/atom-cli/requirements.txt /atom/utilities/atom-cli/requirements.txt
+RUN pip3 install --no-cache-dir -r /atom/utilities/atom-cli/requirements.txt
+ADD ./utilities/atom-cli /atom/utilities/atom-cli
+RUN cp /atom/utilities/atom-cli/atom-cli.py /usr/local/bin/atom-cli \
+ && chmod +x /usr/local/bin/atom-cli
+
+#
+# Finish up
+#
+
+# Change working directory back to atom location
+WORKDIR /atom
