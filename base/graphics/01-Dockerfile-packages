@@ -35,4 +35,5 @@ RUN apt-get update && apt-get install -y \
     xserver-xorg-input-void \
     websockify \
     sudo \
-    python-pip
+    python-pip \
+    wget
