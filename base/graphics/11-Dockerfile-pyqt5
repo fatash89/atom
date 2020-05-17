@@ -12,7 +12,7 @@ ARG PYQT_VERSION=5.13.2
 ARG PYTHONBUFFERED=1
 
 RUN mkdir /pyqt && cd /pyqt && \
-    wget https://www.riverbankcomputing.com/static/Downloads/PyQt5/PyQt5-${PYQT_VERSION}.tar.gz && \
+    wget https://www.riverbankcomputing.com/static/Downloads/PyQt5/${PYQT_VERSION}/PyQt5-${PYQT_VERSION}.tar.gz && \
     tar -xzvf PyQt5-${PYQT_VERSION}.tar.gz && \
     cd PyQt5-${PYQT_VERSION} && \
     python3 configure.py --assume-shared --confirm-license && \

@@ -11,7 +11,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 ARG SIP_VERSION=4.19.22
 
 RUN mkdir /sip && cd /sip && \
-    wget https://www.riverbankcomputing.com/static/Downloads/sip/sip-${SIP_VERSION}.tar.gz && \
+    wget https://www.riverbankcomputing.com/static/Downloads/sip/${SIP_VERSION}/sip-${SIP_VERSION}.tar.gz && \
     tar -xzvf sip-${SIP_VERSION}.tar.gz && \
     cd sip-${SIP_VERSION} && \
     python3 configure.py --sip-module PyQt5.sip && \
