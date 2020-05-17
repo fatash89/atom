@@ -9,12 +9,6 @@ FROM ${BASE_IMAGE} as with-vnc
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get -y install \
-    net-tools \
-    xinit \
-    xterm \
-    procps
-
 # Need to install websockify
 RUN pip3 install supervisor websockify
 

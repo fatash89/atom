@@ -26,14 +26,11 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     net-tools \
     openbox \
-    supervisor \
     tint2 \
     x11-xserver-utils \
     x11vnc \
     xinit \
     xserver-xorg-video-dummy \
     xserver-xorg-input-void \
-    websockify \
-    sudo \
-    python-pip \
-    wget
+    wget \
+    procps
