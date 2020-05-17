@@ -1,0 +1,19 @@
+################################################################################
+#
+# Dockerfile-pyqt5: Install pyqt5
+#
+################################################################################
+
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG PYQT_VERSION=5.14.3.dev2005051533
+
+RUN mkdir /pyqt && cd /pyqt && \
+    wget https://www.riverbankcomputing.com/static/Downloads/PyQt5/PyQt5-${PYQT_VERSION}.tar.gz && \
+    tar -xzvf PyQt5-${PYQT_VERSION}.tar.gz && \
+    cd PyQt5-${PYQT_VERSION} && \
+    python3 configure.py --assume-shared --confirm-license &&
+    make -j8 &&
+    make install

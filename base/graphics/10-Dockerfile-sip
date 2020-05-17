@@ -1,0 +1,17 @@
+################################################################################
+#
+# Dockerfile-sip: Install sip
+#
+################################################################################
+
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG SIP_VERSION=5.3.0.dev2005081717
+
+RUN mkdir /sip && cd /sip && \
+    wget https://www.riverbankcomputing.com/static/Downloads/sip/sip-${SIP_VERSION}.tar.gz && \
+    tar -xzvf sip-${SIP_VERSION}.tar.gz && \
+    cd sip-${SIP_VERSION} && \
+    python3 setup.py build -j8 install
