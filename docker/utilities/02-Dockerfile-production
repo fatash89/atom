@@ -19,4 +19,4 @@ ENV LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
 ADD ./minimized.tar.gz /
 
 # Install production libs
-RUN apt-get update && apt-get install -y $(echo ${PRODUCTION_PACKAGES} | sed "s/,/ /g")
+RUN apt-get update && apt-get install -y $(cat /minimize/production_packages.txt)

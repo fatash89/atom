@@ -28,6 +28,15 @@ RUN ls /lib/$( cat /tmp/arch.txt )-linux-gnu/*.so* > /tmp/existing_libs.txt && \
 FROM ${BASE_IMAGE} as with-deps
 ARG ADDITIONAL_LIB_LOCATIONS=""
 ARG ADDITIONAL_FILES=""
+ARG PRODUCTION_PACKAGES=""
+
+# Add the lib locations and files onto the ones we're tracking. This way
+#   we don't need subsequent base builds to keep passing the same arguments
+#   around
+RUN mkdir -p /minimize
+RUN echo ${ADDITIONAL_LIB_LOCATIONS} | tr , '\n' >> /minimize/additional_libs.txt
+RUN echo ${ADDITIONAL_FILES} | tr , '\n' >> /minimize/additional_files.txt
+RUN echo ${PRODUCTION_PACKAGES} | tr , '\n' >> /minimize/production_packages.txt
 
 # Figure out which libraries we need
 ADD ./ldd_find_libs.sh /tmp/ldd_find_libs.sh
@@ -48,7 +57,7 @@ RUN rm -rf /usr/local/lib/python3.7
 
 # And create the output tarball
 WORKDIR /
-RUN tar -czvpf minimized.tar.gz /usr/local/lib /usr/local/include /usr/local/bin /opt/venv /usr/lib/python* /usr/bin/python* /etc/ssl $(echo ${ADDITIONAL_FILES} | sed "s/,/ /g" )
+RUN tar -czvpf minimized.tar.gz /usr/local/lib /usr/local/include /usr/local/bin /opt/venv /usr/lib/python* /usr/bin/python* /etc/ssl /minimize $(cat /minimize/additional_files.txt)
 
 # Note that we should just spin up
 CMD ["tail", "-f", "/dev/null"]

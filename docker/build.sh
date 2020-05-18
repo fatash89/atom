@@ -1,5 +1,13 @@
 #!/bin/bash
 
+#
+# build_sh: Build a folder of Dockerfiles
+#   and create a production-ready minimized build
+#   as output.
+#
+# See README.md for arguments
+#
+
 # Docker command. For debug, comment this out and it
 #   won't run the build.
 RUN_BUILD="y"
@@ -141,7 +149,7 @@ CMD_STRING="docker buildx build  \
     -t ${NEW_IMAGE}  \
     --progress=plain  \
     --push \
-    --build-arg PRODUCTION_IMAGE=${4}
+    --build-arg PRODUCTION_IMAGE=${6}
     --pull=true \
     --target=production \
     ${ADDITIONAL_ARGS} \

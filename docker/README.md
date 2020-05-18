@@ -57,7 +57,7 @@ docker buildx build
 ... rest of build command
 ```
 
-## Base Options
+## Build Options
 
 All of the dependencies that are necessary to run a basic Atom element have their Dockerfiles found in the `stock` folder. The base image built from the resulting chain of these Dockerfiles is `stock`. All additional things/nice-to-haves are broken out into groups in their own folder. The table below explains
 the options and what's in each.
@@ -67,6 +67,7 @@ the options and what's in each.
 | `stock` | Contains everything needed to run Atom |
 | `extras` | Contains additional libraries that many elements may need such as `opencv`, etc. |
 | `graphics` | Contains everything needed to use graphics in Atom such as `opengl`, a VNC, etc. |
+| `atom` | Contains everything needed to add Atom |
 
 ## Building
 
@@ -85,6 +86,7 @@ The build takes positional arguments as seen in the table below:
 | 3 | Docker Tag for the resulting image  | Tag for the final output of the build process | `base-stock-descriptor`, etc. |
 | 4 | Original Image/OS we should build Atom atop | `debian:buster-slim`, etc. |
 | 5 | Which base option we should build. | `stock`, etc. See table above |
+| 6 | Production Image/OS. This will be passed to the final production stage so that we have the minimal number of layers possible | `debian:buster-slim` |
 
 #### `stock`
 
