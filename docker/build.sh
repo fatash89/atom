@@ -84,7 +84,7 @@ do
 done
 
 #
-# Minimize
+# Minimize --  determine dependencies and package up
 #
 
 # Now, we want to minimize
@@ -122,6 +122,11 @@ if [ $? != "0" ]; then
     echo "Build of minimized Dockerfile failed! Exiting"
     exit 1
 fi
+
+#
+# Production -- take the minimized tarball and copy/extract it into
+#   a fresh copy of the base OS
+#
 
 # Need to launch the minimized container, copy the tarball
 #   into the utilities folder and shut down the container
