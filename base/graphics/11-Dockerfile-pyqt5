@@ -45,3 +45,8 @@ RUN mkdir /pyqt && cd /pyqt && \
 RUN cd /usr/lib/$(cat /tmp/arch.txt)-linux-gnu/ && \
     cp --preserve=links libQt5X11Extras.so* /usr/local/lib && \
     mkdir -p /usr/local/lib/qt5/plugins && cp -r qt5/plugins/* /usr/local/lib/qt5/plugins
+
+# Need to make a symlink to the plugins so that Qt can
+#   find them. This is fairly annoying as we then
+#   need to be carrying this through our build system
+RUN ln -sf /usr/local/lib/qt5/plugins/platforms/ /usr/bin/platforms

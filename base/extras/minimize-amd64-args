@@ -1,2 +1,2 @@
 ADDITIONAL_LIB_LOCATIONS=/opt/venv/lib/python3.7/site-packages/PyQt5/*.so,/usr/lib/xorg/modules/*.so*,/usr/lib/xorg/modules/*/*.so*,/usr/local/lib/qt5/plugins/*/*.so
-ADDITIONAL_FILES=/vnc/vnc.tar.gz
+ADDITIONAL_FILES=/vnc/vnc.tar.gz,/usr/bin/platforms
