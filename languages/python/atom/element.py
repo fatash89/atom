@@ -122,22 +122,24 @@ class Element:
         Args:
             stream (string): The stream to delete.
         """
-        if stream not in self.streams:
-            raise Exception(f"Stream {stream} does not exist!")
-        self._rclient.delete(self._make_stream_id(self.name, stream))
-        self.streams.remove(stream)
+        pass
+        #if stream not in self.streams:
+        #    raise Exception(f"Stream {stream} does not exist!")
+        #self._rclient.delete(self._make_stream_id(self.name, stream))
+        #self.streams.remove(stream)
 
     def __del__(self):
         """
         Removes all elements with the same name.
         """
-        for stream in self.streams.copy():
-            self.clean_up_stream(stream)
-        try:
-            self._rclient.delete(self._make_response_id(self.name))
-            self._rclient.delete(self._make_command_id(self.name))
-        except redis.exceptions.RedisError:
-            raise Exception("Could not connect to nucleus!")
+        pass
+        #for stream in self.streams.copy():
+        #    self.clean_up_stream(stream)
+        #try:
+        #    self._rclient.delete(self._make_response_id(self.name))
+        #    self._rclient.delete(self._make_command_id(self.name))
+        #except redis.exceptions.RedisError:
+        #    raise Exception("Could not connect to nucleus!")
 
     def _release_pipeline(self, pipeline):
         """
@@ -517,19 +519,25 @@ class Element:
         group_last_cmd_id = self.command_last_id 
 
         try:
-            _pipe.xgroup_create(
+            _rclient.xgroup_create(
                 stream_name,
                 group_name,
-                group_last_cmd_id
+                group_last_cmd_id,
+                mkstream=True
             )
-            _pipe.execute()
+            #_pipe.execute()
         except redis.exceptions.ResponseError:
             # If we encounter a `ResponseError` we assume it's because of a `BUSYGROUP`
             # signal, implying the consumer group already exists for this command.
             #
             # Thus, we go on our merry way as we can successfully proceed pulling from the 
             # already created group :)
-            pass
+            if hasattr(self, '_host'):
+                _rclient = redis.StrictRedis(host=self._host, port=self._port)
+            else:
+                _rclient = redis.StrictRedis(unix_socket_path=self._socket_path)
+
+            _pipe = _rclient.pipeline()
 
         # make a new uuid for the consumer name
         # XXX: note that each invocation of `_command_loop` produces its 
@@ -591,7 +599,7 @@ class Element:
             if cmd_name not in self.handler_map.keys():
                 #print('cmd name: %s' % (cmd_name,))
                 #print('handler keys: %s' % (self.handler_map.keys(),))
-                self.log(LogLevel.ERR, "Received unsupported command: %s", cmd_name)
+                self.log(LogLevel.ERR, "Received unsupported command: %s" % (cmd_name,))
                 response = Response(
                     err_code=ATOM_COMMAND_UNSUPPORTED,
                     err_str="Unsupported command."
@@ -643,12 +651,12 @@ class Element:
         # clean up the consumer
         # TODO: consider try/except cleanup logic (note it is 
         #       not essential to delconsumer from a use case design pov)
-        _pipe.xgroup_delconsumer(
-            stream_name,
-            self._make_consumer_group_id(self.name),
-            consumer_uuid
-        )
-        _pipe.execute()
+        #_pipe.xgroup_delconsumer(
+        #    stream_name,
+        #    self._make_consumer_group_id(self.name),
+        #    consumer_uuid
+        #)
+        #_pipe.execute()
 
     # Triggers graceful exit of command loop
     def command_loop_shutdown(self):
