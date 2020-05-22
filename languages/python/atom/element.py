@@ -523,7 +523,7 @@ class Element:
                 group_last_cmd_id
             )
             _pipe.execute()
-        except redis.exceptoins.ResponseError:
+        except redis.exceptions.ResponseError:
             # If we encounter a `ResponseError` we assume it's because of a `BUSYGROUP`
             # signal, implying the consumer group already exists for this command.
             #
@@ -541,9 +541,9 @@ class Element:
             # Get oldest new command from element's command stream
             # XXX: note: consumer group consumer id is implicitly announced
             cmd_responses = _rclient.xreadgroup(
-                self.command_last_id 
                 group_name,
                 consumer_uuid,
+                {stream_name: '>'},
                 block=MAX_BLOCK,
                 count=1
             )
@@ -552,8 +552,10 @@ class Element:
                 continue
 
             cmd_stream_name, msgs = cmd_responses[0]
-            assert cmd_stream_name == stream_name, \
-                "Expected received stream name to match"
+
+            assert cmd_stream_name.decode() == stream_name, \
+                    "Expected received stream name to match: %s %s" % (cmd_stream_name, stream_name)
+            assert len(msgs) == 1, "expected one message: %s" % (msgs,)
 
             msg = msgs[0]  # we only read one
             cmd_id, cmd = msg
