@@ -186,6 +186,16 @@ class Element:
         """
         return f"command:{element_name}"
 
+    def _make_consumer_group_id(self, element_name):
+        """
+        Creates the string representation for an element's command stream id.
+
+        Args:
+            element_name (str): Name of the element to generate the id for.
+        """
+        return f"command:consumer_group:{element_name}"
+
+
     def _make_stream_id(self, element_name, stream_name):
         """
         Creates the string representation of an element's stream id.
@@ -507,7 +517,7 @@ class Element:
         #      no-op- no new consumer group is created).
         stream_name = self._make_command_id(self.name)
         group_name = self._make_consumer_group_id(self.name)
-        group_last_cmd_id = self._command_last_id if use_command_last_id else '>'
+        group_last_cmd_id = self.command_last_id 
 
         _pipe.xgroup_create(
             stream_name,
@@ -522,12 +532,12 @@ class Element:
         #      etc)
         consumer_uuid = str(uuid.uuid4())
         
-        while not self._command_loop_shutdown.isSet():
+        while not self._command_loop_shutdown.is_set():
             # Get oldest new command from element's command stream
             # XXX: note: consumer group consumer id is implicitly announced
             cmd_responses = _rclient.xreadgroup(
                 stream_name,
-                cg_name,
+                group_name,
                 consumer_uuid,
                 block=MAX_BLOCK,
                 count=1
