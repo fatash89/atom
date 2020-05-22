@@ -512,19 +512,24 @@ class Element:
         #      Element class.  However, by default it will than accept messages 
         #      newer than the creation of the consumer group.
         #      
-        #      Note that if the consumer group is already made `XGROUP CREATE` 
-        #      will return a handle to the existing consumer group (effectively a 
-        #      no-op- no new consumer group is created).
         stream_name = self._make_command_id(self.name)
         group_name = self._make_consumer_group_id(self.name)
         group_last_cmd_id = self.command_last_id 
 
-        _pipe.xgroup_create(
-            stream_name,
-            group_name,
-            group_last_cmd_id
-        )
-        _pipe.execute()
+        try:
+            _pipe.xgroup_create(
+                stream_name,
+                group_name,
+                group_last_cmd_id
+            )
+            _pipe.execute()
+        except redis.exceptoins.ResponseError:
+            # If we encounter a `ResponseError` we assume it's because of a `BUSYGROUP`
+            # signal, implying the consumer group already exists for this command.
+            #
+            # Thus, we go on our merry way as we can successfully proceed pulling from the 
+            # already created group :)
+            pass
 
         # make a new uuid for the consumer name
         # XXX: note that each invocation of `_command_loop` produces its 
@@ -536,7 +541,7 @@ class Element:
             # Get oldest new command from element's command stream
             # XXX: note: consumer group consumer id is implicitly announced
             cmd_responses = _rclient.xreadgroup(
-                stream_name,
+                self.command_last_id 
                 group_name,
                 consumer_uuid,
                 block=MAX_BLOCK,
