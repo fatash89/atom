@@ -3,6 +3,7 @@ import time
 import gc
 import copy
 from atom import Element
+from atom.element import ElementConnectionTimeoutError
 from multiprocessing import Process, Queue
 import numpy as np
 from threading import Thread
@@ -897,6 +898,19 @@ class TestAtom:
         ref_data = caller.reference_get(*ref_ids, serialization=None, force_serialization=True)
         for i in range(len(data)):
             assert unpackb(ref_data[i], raw=False) == data[i]
+
+    def test_timeout_ms(self):
+        then = time.time()
+
+        with pytest.raises(ElementConnectionTimeoutError):
+            e = Element('timeout-element-1', host='10.255.255.1', conn_timeout_ms=2000)
+            assert e._redis_connetion_timeout == 2.
+            e._rclient.keys()
+
+        now = time.time()
+        diff = now - then
+
+        assert int(round(diff, 2)) == 2
 
 
 def add_1(x):
