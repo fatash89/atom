@@ -18,6 +18,13 @@ from atom.messages import Acknowledge, Entry, Log, LogLevel, ENTRY_RESERVED_KEYS
 import atom.serialization as ser
 
 
+RESERVED_COMMANDS = [
+    COMMAND_LIST_COMMAND,
+    VERSION_COMMAND,
+    HEALTHCHECK_COMMAND
+]
+
+
 class ElementConnectionTimeoutError(redis.exceptions.TimeoutError):
     pass
 
@@ -47,7 +54,7 @@ class Element:
         self._rclient = None
         self._command_loop_shutdown = multiprocessing.Event()
         self._rpipeline_pool = Queue()
-        self.reserved_commands = [COMMAND_LIST_COMMAND, VERSION_COMMAND, HEALTHCHECK_COMMAND]
+        self.reserved_commands = RESERVED_COMMANDS
         self._timed_out = False
         try:
             if host is not None:
@@ -138,6 +145,15 @@ class Element:
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"
 
+    def _check_stream_refs_and_clean_up(self):
+        # if we have encountered a connection timeout there's no use
+        # in re-attempting stream cleanup commands as they will implicitly 
+        # cause the redis pool to reconnect and trigger a subsequent
+        # timeout incurring ~2x the intended timeout in some contexts 
+        if self._timed_out:
+            return
+
+
     def clean_up_stream(self, stream):
         """
         Deletes the specified stream.
@@ -145,11 +161,17 @@ class Element:
         Args:
             stream (string): The stream to delete.
         """
-        pass
-        #if stream not in self.streams:
-        #    raise Exception(f"Stream {stream} does not exist!")
-        #self._rclient.delete(self._make_stream_id(self.name, stream))
-        #self.streams.remove(stream)
+        return self._check_stream_references_and_collect()
+
+        if stream not in self.streams:
+            self.log(
+                LogLevel.WARNING,
+                "Stream '%s' is not present in Element "
+                "streams (element: %s)" % (stream, self.name)
+            )
+
+        self._rclient.delete(self._make_stream_id(self.name, stream))
+        self.streams.remove(stream)
 
     def __del__(self):
         """
@@ -555,19 +577,13 @@ class Element:
                 group_last_cmd_id,
                 mkstream=True
             )
-            #_pipe.execute()
         except redis.exceptions.ResponseError:
             # If we encounter a `ResponseError` we assume it's because of a `BUSYGROUP`
             # signal, implying the consumer group already exists for this command.
             #
             # Thus, we go on our merry way as we can successfully proceed pulling from the 
             # already created group :)
-            if hasattr(self, '_host'):
-                _rclient = redis.StrictRedis(host=self._host, port=self._port)
-            else:
-                _rclient = redis.StrictRedis(unix_socket_path=self._socket_path)
-
-            _pipe = _rclient.pipeline()
+            pass
 
         # make a new uuid for the consumer name
         # XXX: note that each invocation of `_command_loop` produces its 
@@ -612,7 +628,7 @@ class Element:
                 continue
 
             if not caller:
-                self.log(LogLevel.ERR, "No caller name present in command!")
+                self.log(LogLevel.ERR, "No caller name present in command!", _pipe=_pipe)
                 continue
 
             # Send acknowledge to caller
@@ -629,7 +645,7 @@ class Element:
             if cmd_name not in self.handler_map.keys():
                 #print('cmd name: %s' % (cmd_name,))
                 #print('handler keys: %s' % (self.handler_map.keys(),))
-                self.log(LogLevel.ERR, "Received unsupported command: %s" % (cmd_name,))
+                self.log(LogLevel.ERR, "Received unsupported command: %s" % (cmd_name,), _pipe=_pipe)
                 response = Response(
                     err_code=ATOM_COMMAND_UNSUPPORTED,
                     err_str="Unsupported command."
@@ -1009,7 +1025,7 @@ class Element:
 
         return ret[0].decode()
 
-    def log(self, level, msg, stdout=True):
+    def log(self, level, msg, stdout=True, _pipe=None):
         """
         Writes a message to log stream with loglevel.
 
@@ -1019,7 +1035,10 @@ class Element:
             stdout (bool, optional): Whether to write to stdout or only write to log stream.
         """
         log = Log(self.name, self.host, level, msg)
-        _pipe = self._rpipeline_pool.get()
+
+        if _pipe is None:
+            _pipe = self._rpipeline_pool.get()
+
         _pipe.xadd("log", vars(log), maxlen=STREAM_LEN)
         _pipe.execute()
         _pipe = self._release_pipeline(_pipe)

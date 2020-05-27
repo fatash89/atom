@@ -708,36 +708,36 @@ class TestAtom():
         proc.join()
         assert response["err_code"] == ATOM_COMMAND_UNSUPPORTED
 
-    #def test_command_timeout(self, caller, responder):
-    #    """
-    #    Element sends command to responder that does not return data within the timeout.
-    #    """
-    #    caller, caller_name = caller
-    #    responder, responder_name = responder
+    def test_command_timeout(self, caller, responder):
+        """
+        Element sends command to responder that does not return data within the timeout.
+        """
+        caller, caller_name = caller
+        responder, responder_name = responder
 
-    #    # Set a timeout of 10 ms
-    #    responder.command_add("loop", loop, 10)
-    #    proc = Process(target=responder.command_loop)
-    #    proc.start()
-    #    response = caller.command_send(responder_name, "loop", None)
-    #    proc.terminate()
-    #    proc.join()
-    #    assert response["err_code"] == ATOM_COMMAND_NO_RESPONSE
+        # Set a timeout of 10 ms
+        responder.command_add("loop", loop, 10)
+        proc = Process(target=responder.command_loop)
+        proc.start()
+        response = caller.command_send(responder_name, "loop", None)
+        proc.terminate()
+        proc.join()
+        assert response["err_code"] == ATOM_COMMAND_NO_RESPONSE
 
-    #def test_handler_returns_not_response(self, caller, responder):
-    #    """
-    #    Element calls command from responder that does not return an object of type Response.
-    #    """
-    #    caller, caller_name = caller
-    #    responder, responder_name = responder
+    def test_handler_returns_not_response(self, caller, responder):
+        """
+        Element calls command from responder that does not return an object of type Response.
+        """
+        caller, caller_name = caller
+        responder, responder_name = responder
 
-    #    responder.command_add("ret_not_response", lambda x: 0)
-    #    proc = Process(target=responder.command_loop)
-    #    proc.start()
-    #    response = caller.command_send(responder_name, "ret_not_response", None)
-    #    proc.terminate()
-    #    proc.join()
-    #    assert response["err_code"] == ATOM_CALLBACK_FAILED
+        responder.command_add("ret_not_response", lambda x: 0)
+        proc = Process(target=responder.command_loop)
+        proc.start()
+        response = caller.command_send(responder_name, "ret_not_response", None)
+        proc.terminate()
+        proc.join()
+        assert response["err_code"] == ATOM_CALLBACK_FAILED
 
     def test_log(self, caller):
         """

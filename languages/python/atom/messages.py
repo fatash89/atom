@@ -1,6 +1,7 @@
 from collections import namedtuple
 from enum import Enum
 from msgpack import packb
+
 import atom.serialization as ser
 
 
