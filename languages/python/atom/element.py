@@ -148,15 +148,6 @@ class Element:
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"
 
-    def _check_stream_refs_and_clean_up(self):
-        # if we have encountered a connection timeout there's no use
-        # in re-attempting stream cleanup commands as they will implicitly 
-        # cause the redis pool to reconnect and trigger a subsequent
-        # timeout incurring ~2x the intended timeout in some contexts 
-        if self._timed_out:
-            return
-
-
     def clean_up_stream(self, stream):
         """
         Deletes the specified stream.
@@ -164,8 +155,6 @@ class Element:
         Args:
             stream (string): The stream to delete.
         """
-        #return self._check_stream_references_and_collect()
-
         if stream not in self.streams:
             self.log(
                 LogLevel.WARNING,
@@ -181,6 +170,7 @@ class Element:
         """
         Removes all elements with the same name.
         """
+        self.command_loop_shutdown()
         if os.getpid() != self._pid:
             # we are in a child thread
             self.log(LogLevel.DEBUG, "cowardly refusing to clean up streams")
@@ -558,7 +548,13 @@ class Element:
                      work from the Element's shared command consumer group (defaults
                      to 1).
         """
-        #return self._command_loop()
+        # update self._pid in case we were constructed in a Parent thread but 
+        # `command_loop` was explicitly called as a sub-process
+        self._pid = os.getpid()
+
+        assert n_procs > 0
+        if n_procs == 1:
+            return self._command_loop()
         children = []
         for i in range(n_procs):
             child = os.fork()
@@ -612,13 +608,27 @@ class Element:
         while not self._command_loop_shutdown.is_set():
             # Get oldest new command from element's command stream
             # XXX: note: consumer group consumer id is implicitly announced
-            cmd_responses = _rclient.xreadgroup(
-                group_name,
-                consumer_uuid,
-                {stream_name: '>'},
-                block=MAX_BLOCK,
-                count=1
-            )
+            try:
+                cmd_responses = _rclient.xreadgroup(
+                    group_name,
+                    consumer_uuid,
+                    {stream_name: '>'},
+                    block=MAX_BLOCK,
+                    count=1
+                )
+            except redis.exceptions.ResponseError:
+                is_shutdown = self._command_loop_shutdown.is_set()
+                # have observed some race conditions in this critical region
+                # opt to only log in cases where we know that we are _not_
+                # shutdown
+                if not is_shutdown:
+                    self.log(
+                        LogLevel.ERROR,
+                        f"Attempted XREADGROUP on closed stream {stream_name} "
+                        "(is shutdown: %s)" % (is_shutdown,),
+                        _pipe=_pipe
+                    )
+                return
 
             if not cmd_responses:
                 continue

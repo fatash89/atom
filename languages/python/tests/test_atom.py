@@ -251,7 +251,7 @@ class TestAtom():
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == b"43"
 
-    def test_command_response_n_procs_2(self, caller, responder):
+    def test_command_response_n_procs_2(self, caller):
         """
         Element sends command and responder returns response.
         Tests expected use case of command response.
@@ -272,9 +272,10 @@ class TestAtom():
         response2 = caller.command_send('custom-element', "add_1_4", 43)
         response3 = caller.command_send('custom-element', "add_1_4", 44)
 
+        responder.command_loop_shutdown()
 
-        proc.terminate()
         proc.join()
+        proc.terminate()
 
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == b"43"
