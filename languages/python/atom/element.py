@@ -1,12 +1,14 @@
+import copy
 from multiprocessing import Process
 import multiprocessing
-import redis
 import threading
 import time
 import uuid
 import os
 from os import uname
 from queue import Queue
+
+import redis
 
 from atom.config import DEFAULT_REDIS_PORT, DEFAULT_REDIS_SOCKET, HEALTHCHECK_RETRY_INTERVAL
 from atom.config import LANG, VERSION, ACK_TIMEOUT, RESPONSE_TIMEOUT, STREAM_LEN, MAX_BLOCK
@@ -56,6 +58,7 @@ class Element:
         self._rpipeline_pool = Queue()
         self.reserved_commands = RESERVED_COMMANDS
         self._timed_out = False
+        self._pid = os.getpid()
         try:
             if host is not None:
                 self._host = host
@@ -161,13 +164,14 @@ class Element:
         Args:
             stream (string): The stream to delete.
         """
-        return self._check_stream_references_and_collect()
+        #return self._check_stream_references_and_collect()
 
         if stream not in self.streams:
             self.log(
                 LogLevel.WARNING,
                 "Stream '%s' is not present in Element "
-                "streams (element: %s)" % (stream, self.name)
+                "streams (element: %s)" % (stream, self.name),
+                _pipe=_pipe
             )
 
         self._rclient.delete(self._make_stream_id(self.name, stream))
@@ -177,21 +181,25 @@ class Element:
         """
         Removes all elements with the same name.
         """
-        pass
-        ## if we have encountered a connection timeout there's no use
-        ## in re-attempting stream cleanup commands as they will implicitly 
-        ## cause the redis pool to reconnect and trigger a subsequent
-        ## timeout incurring ~2x the intended timeout in some contexts 
-        #if self._timed_out:
-        #    return
+        if os.getpid() != self._pid:
+            # we are in a child thread
+            self.log(LogLevel.DEBUG, "cowardly refusing to clean up streams")
+            return
 
-        #for stream in self.streams.copy():
-        #    self.clean_up_stream(stream)
-        #try:
-        #    self._rclient.delete(self._make_response_id(self.name))
-        #    self._rclient.delete(self._make_command_id(self.name))
-        #except redis.exceptions.RedisError:
-        #    raise Exception("Could not connect to nucleus!")
+        # if we have encountered a connection timeout there's no use
+        # in re-attempting stream cleanup commands as they will implicitly 
+        # cause the redis pool to reconnect and trigger a subsequent
+        # timeout incurring ~2x the intended timeout in some contexts 
+        if self._timed_out:
+            return
+
+        for stream in self.streams.copy():
+            self.clean_up_stream(stream)
+        try:
+            self._rclient.delete(self._make_response_id(self.name))
+            self._rclient.delete(self._make_command_id(self.name))
+        except redis.exceptions.RedisError:
+            raise Exception("Could not connect to nucleus!")
 
     def _release_pipeline(self, pipeline):
         """
@@ -200,6 +208,7 @@ class Element:
         Args:
             pipeline (Redis Pipeline): The pipeline to release
         """
+        # TODO: check pid and if it is 0 then we're a child pid and should log warning
         pipeline.reset()
         self._rpipeline_pool.put(pipeline)
         return None
@@ -432,7 +441,16 @@ class Element:
         Returns:
             List of available commands for all elements or specified element.
         """
-        elements = self.get_all_elements() if element_name is None else [element_name]
+        if element_name is None:
+            elements = self.get_all_elements()
+        elif isinstance(element_name, str):
+            elements = [element_name]
+        elif isinstance(element_name, (list, tuple)):
+            elements = copy.deepcopy(element_name)
+        else:
+            raise ValueError("unsupported element_name: %s" % (element_name,))
+
+        #elements = self.get_all_elements() if element_name is None else [element_name]
         if ignore_caller and self.name in elements:
             elements.remove(self.name)
 
@@ -1019,7 +1037,8 @@ class Element:
         ret = _pipe.execute()
         _pipe = self._release_pipeline(_pipe)
 
-        if (type(ret) != list) or (len(ret) != 1) or (type(ret[0]) != bytes):
+        if ((not isinstance(ret, list)) or (len(ret) != 1) 
+                or (not isinstance(ret[0], bytes))):
             print(ret)
             raise ValueError("Failed to write data to stream")
 
@@ -1035,13 +1054,18 @@ class Element:
             stdout (bool, optional): Whether to write to stdout or only write to log stream.
         """
         log = Log(self.name, self.host, level, msg)
+        _release_pipe = False
 
         if _pipe is None:
+            _release_pipe = True
             _pipe = self._rpipeline_pool.get()
 
         _pipe.xadd("log", vars(log), maxlen=STREAM_LEN)
         _pipe.execute()
-        _pipe = self._release_pipeline(_pipe)
+
+        if _release_pipe:
+            _pipe = self._release_pipeline(_pipe)
+
         if stdout:
             print(msg)
 

@@ -23,7 +23,13 @@ from msgpack import packb, unpackb
 pytest.caller_incrementor = 0
 pytest.responder_incrementor = 0
 
+
 class TestAtom():
+    def _assert_cleaned_up(self, element):
+        for s in element.streams:
+            private_sn = element._make_stream_id(element.name, s)
+            exists_val = element._rclient.exists(private_sn)
+            assert not exists_val, "private redis stream key %s should not exist" % (private_sn,)
 
     @pytest.fixture
     def caller(self):
@@ -61,6 +67,7 @@ class TestAtom():
         print(caller.get_all_elements())
         assert responder_name in caller.get_all_elements()
         assert caller_name in responder.get_all_elements()
+
 
     def test_id_generation(self, caller):
         """
@@ -199,28 +206,33 @@ class TestAtom():
         assert "test_command" in responder.handler_map
         assert responder.timeouts["test_command"] == 123
 
-    #def test_clean_up_stream(self, responder):
-    #    """
-    #    Ensures that a stream can be removed from Redis and removed from responder's streams set.
-    #    """
-    #    responder, responder_name = responder
+    def test_clean_up_stream(self, responder):
+        """
+        Ensures that a stream can be removed from Redis and removed from responder's streams set.
+        """
+        responder, responder_name = responder
 
-    #    responder.entry_write("clean_me", {"data": 0})
-    #    assert "stream:%s:clean_me" % (responder_name,) in responder.get_all_streams()
-    #    responder.clean_up_stream("clean_me")
-    #    assert "stream:%s:clean_me" % (responder_name,) not in responder.get_all_streams()
-    #    assert "clean_me" not in responder.streams
+        responder.entry_write("clean_me", {"data": 0})
 
-    #def test_clean_up(self, responder):
-    #    """
-    #    Ensures that a responder can be removed from Redis
-    #    """
-    #    new_responder = Element("new_responder")
-    #    assert "new_responder" in responder.get_all_elements()
-    #    del new_responder
-    #    # Explicitly invoke collection after ref count set to 0
-    #    gc.collect()
-    #    assert "new_responder" not in responder.get_all_elements()
+        assert "stream:%s:clean_me" % (responder_name,) in responder.get_all_streams()
+        responder.clean_up_stream("clean_me")
+
+        assert "stream:%s:clean_me" % (responder_name,) not in responder.get_all_streams()
+        assert "clean_me" not in responder.streams
+        self._assert_cleaned_up(responder)
+
+    def test_clean_up(self, responder):
+        """
+        Ensures that a responder can be removed from Redis
+        """
+        responder, responder_name = responder
+
+        new_responder = Element("new_responder")
+        assert "new_responder" in responder.get_all_elements()
+        del new_responder
+        # Explicitly invoke collection after ref count set to 0
+        gc.collect()
+        assert "new_responder" not in responder.get_all_elements()
 
     def test_command_response(self, caller, responder):
         """
@@ -315,142 +327,148 @@ class TestAtom():
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == 124
 
-    #def test_listen_on_streams(self, caller):
-    #    """
-    #    Creates two responders publishing entries on their respective streams with
-    #    a caller listening on those streams and publishing data to a new stream.
-    #    This test ensures that the new stream contains all the data from the responders.
-    #    """
-    #    responder_0 = Element("responder_0")
-    #    responder_1 = Element("responder_1")
-    #    entries = set()
+    def test_listen_on_streams(self, caller, responder):
+        """
+        Creates two responders publishing entries on their respective streams with
+        a caller listening on those streams and publishing data to a new stream.
+        This test ensures that the new stream contains all the data from the responders.
+        """
+        caller, caller_name = caller
+        responder, responder_name = responder
 
-    #    def entry_write_loop(responder, stream_name, data):
-    #        # Wait until both responders and the caller are ready
-    #        while -1 not in entries or -2 not in entries:
-    #            responder.entry_write(stream_name, {"value": data-2}, serialization="msgpack")
-    #        for i in range(10):
-    #            responder.entry_write(stream_name, {"value": data}, serialization="msgpack")
-    #            data += 2
+        responder_0_name = responder_name + '_0'
+        responder_1_name = responder_name + '_1'
 
-    #    def add_entries(data):
-    #        entries.add(data["value"])
+        responder_0 = Element(responder_0_name)
+        responder_1 = Element(responder_1_name)
+        entries = set()
 
-    #    proc_responder_0 = Thread(target=entry_write_loop, args=(responder_0, "stream_0", 0,))
-    #    proc_responder_1 = Thread(target=entry_write_loop, args=(responder_1, "stream_1", 1,))
+        def entry_write_loop(responder, stream_name, data):
+            # Wait until both responders and the caller are ready
+            while -1 not in entries or -2 not in entries:
+                responder.entry_write(stream_name, {"value": data-2}, serialization="msgpack")
+            for i in range(10):
+                responder.entry_write(stream_name, {"value": data}, serialization="msgpack")
+                data += 2
 
-    #    stream_handlers = [
-    #        StreamHandler("responder_0", "stream_0", add_entries),
-    #        StreamHandler("responder_1", "stream_1", add_entries),
-    #    ]
-    #    thread_caller = Thread(target=caller.entry_read_loop, args=(stream_handlers, None, 1000, True,), daemon=True)
-    #    thread_caller.start()
-    #    proc_responder_0.start()
-    #    proc_responder_1.start()
-    #    proc_responder_0.join()
-    #    proc_responder_1.join()
-    #    # Wait to give the caller time to handle all the data from the streams
-    #    thread_caller.join(5.0)
-    #    caller._rclient.delete("stream:responder_0:stream_0")
-    #    caller._rclient.delete("stream:responder_1:stream_1")
-    #    for i in range(20):
-    #        assert i in entries
+        def add_entries(data):
+            entries.add(data["value"])
 
-    #def test_read_since(self, caller, responder):
-    #    """
-    #    Sets the current timestamp as last_id and writes 5 entries to a stream.
-    #    Ensures that we can get 5 entries since the last id using entry_read_since.
-    #    """
-    #    caller, caller_name = caller
-    #    responder, responder_name = responder
+        proc_responder_0 = Thread(target=entry_write_loop, args=(responder_0, "stream_0", 0,))
+        proc_responder_1 = Thread(target=entry_write_loop, args=(responder_1, "stream_1", 1,))
 
-    #    responder.entry_write("test_stream", {"data": None})
+        stream_handlers = [
+            StreamHandler(responder_0_name, "stream_0", add_entries),
+            StreamHandler(responder_1_name, "stream_1", add_entries),
+        ]
+        thread_caller = Thread(target=caller.entry_read_loop, args=(stream_handlers, None, 1000, True,), daemon=True)
+        thread_caller.start()
+        proc_responder_0.start()
+        proc_responder_1.start()
+        proc_responder_0.join()
+        proc_responder_1.join()
+        # Wait to give the caller time to handle all the data from the streams
+        thread_caller.join(5.0)
+        caller._rclient.delete(f"stream:{responder_0_name}:stream_0")
+        caller._rclient.delete(f"stream:{responder_1_name}:stream_1")
+        for i in range(20):
+            assert i in entries
 
-    #    # Sleep so that last_id is later than the first entry
-    #    time.sleep(0.01)
-    #    last_id = responder._get_redis_timestamp()
+    def test_read_since(self, caller, responder):
+        """
+        Sets the current timestamp as last_id and writes 5 entries to a stream.
+        Ensures that we can get 5 entries since the last id using entry_read_since.
+        """
+        caller, caller_name = caller
+        responder, responder_name = responder
 
-    #    # Sleep so that the entries are later than last_id
-    #    time.sleep(0.01)
+        responder.entry_write("test_stream", {"data": None})
 
-    #    for i in range(5):
-    #        responder.entry_write("test_stream", {"data": i})
+        # Sleep so that last_id is later than the first entry
+        time.sleep(0.01)
+        last_id = responder._get_redis_timestamp()
 
-    #    # Ensure this doesn't get an entry (because it's waiting for new entries and they never come)
-    #    entries = caller.entry_read_since(responder_name, "test_stream")
-    #    assert(len(entries) == 0)
+        # Sleep so that the entries are later than last_id
+        time.sleep(0.01)
 
-    #    # Ensure this gets all entries
-    #    entries = caller.entry_read_since(responder_name, "test_stream",last_id='0')
-    #    assert(len(entries) == 6)
+        for i in range(5):
+            responder.entry_write("test_stream", {"data": i})
 
-    #    # Ensure we get the correct number of entries since the last_id
-    #    entries = caller.entry_read_since(responder_name, "test_stream", last_id)
-    #    assert(len(entries) == 5)
+        # Ensure this doesn't get an entry (because it's waiting for new entries and they never come)
+        entries = caller.entry_read_since(responder_name, "test_stream")
+        assert(len(entries) == 0)
 
-    #    # Ensure that if we pass n, we get the n earliest entries since last_id
-    #    entries = caller.entry_read_since(responder_name, "test_stream", last_id, 2)
-    #    assert(len(entries) == 2)
-    #    assert entries[-1]["data"] == b"1"
+        # Ensure this gets all entries
+        entries = caller.entry_read_since(responder_name, "test_stream",last_id='0')
+        assert(len(entries) == 6)
 
-    #    # Ensure that last_id=='$' only gets new entries arriving after the call
-    #    q = Queue()
-    #    def wrapped_read(q):
-    #        q.put(caller.entry_read_since(responder_name, "test_stream", block=500))
-    #    proc = Process(target=wrapped_read, args=(q,))
-    #    proc.start()
-    #    time.sleep(0.1) #sleep to give the process time to start listening for new entries
-    #    responder.entry_write("test_stream", {"data": None})
-    #    entries = q.get()
-    #    proc.join()
-    #    proc.terminate()
-    #    assert(len(entries) == 1)
+        # Ensure we get the correct number of entries since the last_id
+        entries = caller.entry_read_since(responder_name, "test_stream", last_id)
+        assert(len(entries) == 5)
 
-    #def test_parallel_read_write(self, caller, responder):
-    #    """
-    #    Has the same responder class receiving commands on 1 thread,
-    #    while publishing to a stream on a 2nd thread at high volume.
-    #    Meanwhile, a caller quickly sends a series of commands to the responder and verifies
-    #    we get valid results back.
-    #    Ensures that we can safely send and receive using the same element class without concurrency issues.
-    #    """
-    #    caller, caller_name = caller
-    #    responder, responder_name = responder
+        # Ensure that if we pass n, we get the n earliest entries since last_id
+        entries = caller.entry_read_since(responder_name, "test_stream", last_id, 2)
+        assert(len(entries) == 2)
+        assert entries[-1]["data"] == b"1"
 
-    #    responder_0 = Element("responder_0")
-    #    # NO_OP command responds with whatever data it receives
-    #    def no_op_serialized(data):
-    #        return Response(data, serialization="msgpack")
-    #    responder_0.command_add("no_op", no_op_serialized, serialization="msgpack")
+        # Ensure that last_id=='$' only gets new entries arriving after the call
+        q = Queue()
+        def wrapped_read(q):
+            q.put(caller.entry_read_since(responder_name, "test_stream", block=500))
+        proc = Process(target=wrapped_read, args=(q,))
+        proc.start()
+        time.sleep(0.1) #sleep to give the process time to start listening for new entries
+        responder.entry_write("test_stream", {"data": None})
+        entries = q.get()
+        proc.join()
+        proc.terminate()
+        assert(len(entries) == 1)
 
-    #    # Entry write loop mimics high volume publisher
-    #    def entry_write_loop(responder):
-    #        for i in range(3000):
-    #            responder.entry_write("stream_0", {"value": 0}, serialization="msgpack")
-    #            time.sleep(0.0001)
+    def test_parallel_read_write(self, caller, responder):
+        """
+        Has the same responder class receiving commands on 1 thread,
+        while publishing to a stream on a 2nd thread at high volume.
+        Meanwhile, a caller quickly sends a series of commands to the responder and verifies
+        we get valid results back.
+        Ensures that we can safely send and receive using the same element class without concurrency issues.
+        """
+        caller, caller_name = caller
+        responder, responder_name = responder
+        responder_0_name = responder_name + '_0'
+        responder_0 = Element(responder_0_name)
+        # NO_OP command responds with whatever data it receives
+        def no_op_serialized(data):
+            return Response(data, serialization="msgpack")
+        responder_0.command_add("no_op", no_op_serialized, serialization="msgpack")
 
-    #    # Command loop thread to handle incoming commands
-    #    command_loop_thread = Thread(target=responder_0.command_loop, daemon=True)
-    #    # Entry write thread to publish a whole bunch to a stream
-    #    entry_write_thread = Thread(target=entry_write_loop, args=(responder_0,), daemon=True)
-    #    command_loop_thread.start()
-    #    entry_write_thread.start()
+        # Entry write loop mimics high volume publisher
+        def entry_write_loop(responder):
+            for i in range(3000):
+                responder.entry_write("stream_0", {"value": 0}, serialization="msgpack")
+                time.sleep(0.0001)
 
-    #    # Send a bunch of commands to responder and you should get valid responses back,
-    #    # even while its busy publishing to a stream
-    #    try:
-    #        for i in range(20):
-    #            response = caller.command_send("responder_0", "no_op", 1, serialization="msgpack")
-    #            assert response["err_code"] == ATOM_NO_ERROR
-    #            assert response["data"] == 1
-    #    finally:
-    #        # Cleanup threads
-    #        entry_write_thread.join()
-    #        responder.command_loop_shutdown()
-    #        command_loop_thread.join(0.5)
-    #        responder_0._rclient.delete("stream:responder_0:stream_0")
-    #        responder_0._rclient.delete("command:responder_0")
-    #        responder_0._rclient.delete("response:responder_0")
+        # Command loop thread to handle incoming commands
+        command_loop_thread = Thread(target=responder_0.command_loop, daemon=True)
+        # Entry write thread to publish a whole bunch to a stream
+        entry_write_thread = Thread(target=entry_write_loop, args=(responder_0,), daemon=True)
+        command_loop_thread.start()
+        entry_write_thread.start()
+
+        # Send a bunch of commands to responder and you should get valid responses back,
+        # even while its busy publishing to a stream
+        try:
+            for i in range(20):
+                response = caller.command_send(responder_0_name, "no_op", 1, serialization="msgpack")
+                assert response["err_code"] == ATOM_NO_ERROR
+                assert response["data"] == 1
+        finally:
+            # Cleanup threads
+            entry_write_thread.join()
+            responder.command_loop_shutdown()
+            command_loop_thread.join(0.5)
+            responder_0._rclient.delete(f"stream:{responder_0_name}:stream_0")
+            responder_0._rclient.delete(f"command:{responder_0_name}")
+            responder_0._rclient.delete(f"response:{responder_0_name}")
 
     def test_healthcheck_default(self, caller, responder):
         """
@@ -597,102 +615,109 @@ class TestAtom():
         command_loop_process.terminate()
         command_loop_process.join()
 
-    #def test_get_all_commands_with_version(self, caller, responder):
-    #    """
-    #    Ensure get_all_commands only queries support elements.
-    #    """
-    #    # Change responder reported version
-    #    responder.handler_map[VERSION_COMMAND]['handler'] = \
-    #        lambda: Response(data={'language': 'Python', 'version': 0.2}, serialization="msgpack")
-    #    # Create element with normal, supported version
-    #    responder2 = Element('responder2')
+    def test_get_all_commands_with_version(self, caller, responder):
+        """
+        Ensure get_all_commands only queries support elements.
+        """
+        caller, caller_name = caller
+        responder, responder_name = responder
 
-    #    # Add commands to both responders and start command loop
-    #    responder.command_add('foo_func0', lambda data: data)
-    #    responder2.command_add('foo_func0', lambda: None, timeout=500, serialization="msgpack")
-    #    responder2.command_add('foo_func1', lambda x, y: x + y, timeout=1, serialization="msgpack")
-    #    cl_process_1 = Process(target=responder.command_loop)
-    #    cl_process_2 = Process(target=responder2.command_loop)
-    #    cl_process_1.start()
-    #    cl_process_2.start()
+        # Change responder reported version
+        responder.handler_map[VERSION_COMMAND]['handler'] = \
+            lambda: Response(data={'language': 'Python', 'version': 0.2}, serialization="msgpack")
+        # Create element with normal, supported version
+        responder2_name = responder_name + '_2'
+        responder2 = Element(responder2_name)
 
-    #    # Retrieve commands
-    #    commands = caller.get_all_commands()
-    #    # Do not include responder's commands as the version is too low
-    #    desired_commands = ['responder2:foo_func0', 'responder2:foo_func1']
-    #    assert commands == desired_commands
+        # Add commands to both responders and start command loop
+        responder.command_add('foo_func0', lambda data: data)
+        responder2.command_add('foo_func0', lambda: None, timeout=500, serialization="msgpack")
+        responder2.command_add('foo_func1', lambda x, y: x + y, timeout=1, serialization="msgpack")
+        cl_process_1 = Process(target=responder.command_loop)
+        cl_process_2 = Process(target=responder2.command_loop)
+        cl_process_1.start()
+        cl_process_2.start()
 
-    #    cl_process_1.terminate()
-    #    cl_process_2.terminate()
-    #    cl_process_1.join()
-    #    cl_process_2.join()
-    #    del responder2
+        # Retrieve commands
+        commands = caller.get_all_commands(element_name=[responder_name, responder2_name])
+        # Do not include responder's commands as the version is too low
+        desired_commands = [f'{responder2_name}:foo_func0', f'{responder2_name}:foo_func1']
+        assert commands == desired_commands
 
-    #def test_get_all_commands(self, caller, responder):
-    #    """
-    #    Verify the response from the get_all_commands command
-    #    """
-    #    # Test with no available commands
-    #    assert caller.get_all_commands() == []
+        cl_process_1.terminate()
+        cl_process_2.terminate()
+        cl_process_1.join()
+        cl_process_2.join()
+        del responder2
 
-    #    # Set up two responders
-    #    test_name_1, test_name_2 = 'responder1', 'responder2'
-    #    responder1, responder2 = Element(test_name_1), Element(test_name_2)
+    def test_get_all_commands(self, caller, responder):
+        """
+        Verify the response from the get_all_commands command
+        """
+        caller, caller_name = caller
+        responder, responder_name = responder
 
-    #    proc1_function_data = [('foo_func0', lambda x: x + 3),
-    #                           ('foo_func1', lambda: None, 10, "arrow"),
-    #                           ('foo_func2', lambda x: None)]
-    #    proc2_function_data = [('foo_func0', lambda y: y * 3, 10),
-    #                           ('other_foo0', lambda y: None, 3, "msgpack"),
-    #                           ('other_foo1', lambda: 5)]
+        # Test with no available commands
+        assert caller.get_all_commands() == []
 
-    #    # Add functions
-    #    for data in proc1_function_data:
-    #        responder1.command_add(*data)
-    #    for data in proc2_function_data:
-    #        responder2.command_add(*data)
+        # Set up two responders
+        test_name_1, test_name_2 = responder_name + '_1', responder_name + '_2'
+        responder1, responder2 = Element(test_name_1), Element(test_name_2)
 
-    #    command_loop_1 = Process(target=responder1.command_loop)
-    #    command_loop_2 = Process(target=responder2.command_loop)
-    #    command_loop_1.start()
-    #    command_loop_2.start()
+        proc1_function_data = [('foo_func0', lambda x: x + 3),
+                               ('foo_func1', lambda: None, 10, "arrow"),
+                               ('foo_func2', lambda x: None)]
+        proc2_function_data = [('foo_func0', lambda y: y * 3, 10),
+                               ('other_foo0', lambda y: None, 3, "msgpack"),
+                               ('other_foo1', lambda: 5)]
 
-    #    # True function names
-    #    responder1_function_names = [f'{test_name_1}:foo_func{i}' for i in range(3)]
-    #    responder2_function_names = [f'{test_name_2}:foo_func0',
-    #                                 f'{test_name_2}:other_foo0',
-    #                                 f'{test_name_2}:other_foo1']
+        # Add functions
+        for data in proc1_function_data:
+            responder1.command_add(*data)
+        for data in proc2_function_data:
+            responder2.command_add(*data)
 
-    #    # Either order of function names is fine for testing all function names
-    #    command_list = caller.get_all_commands()
-    #    assert (command_list == responder1_function_names + responder2_function_names or
-    #            command_list == responder2_function_names + responder1_function_names)
+        command_loop_1 = Process(target=responder1.command_loop)
+        command_loop_2 = Process(target=responder2.command_loop)
+        command_loop_1.start()
+        command_loop_2.start()
 
-    #    # Test just functions for 1
-    #    command_list = caller.get_all_commands(test_name_1)
-    #    assert command_list == responder1_function_names
+        # True function names
+        responder1_function_names = [f'{test_name_1}:foo_func{i}' for i in range(3)]
+        responder2_function_names = [f'{test_name_2}:foo_func0',
+                                     f'{test_name_2}:other_foo0',
+                                     f'{test_name_2}:other_foo1']
 
-    #    # Test just functions for 2
-    #    command_list = caller.get_all_commands(test_name_2)
-    #    assert command_list == responder2_function_names
+        # Either order of function names is fine for testing all function names
+        command_list = caller.get_all_commands()
+        assert (command_list == responder1_function_names + responder2_function_names or
+                command_list == responder2_function_names + responder1_function_names)
 
-    #    # Cleanup
-    #    command_loop_1.terminate()
-    #    command_loop_2.terminate()
-    #    command_loop_1.join()
-    #    command_loop_2.join()
-    #    del responder1, responder2
+        # Test just functions for 1
+        command_list = caller.get_all_commands(test_name_1)
+        assert command_list == responder1_function_names
 
-    #def test_no_ack(self, caller, responder):
-    #    """
-    #    Element sends command and responder does not acknowledge.
-    #    """
-    #    caller, caller_name = caller
-    #    responder, responder_name = responder
+        # Test just functions for 2
+        command_list = caller.get_all_commands(test_name_2)
+        assert command_list == responder2_function_names
 
-    #    responder.command_add("add_1", add_1)
-    #    response = caller.command_send(responder_name, "add_1", 0)
-    #    assert response["err_code"] == ATOM_COMMAND_NO_ACK
+        # Cleanup
+        command_loop_1.terminate()
+        command_loop_2.terminate()
+        command_loop_1.join()
+        command_loop_2.join()
+        del responder1, responder2
+
+    def test_no_ack(self, caller, responder):
+        """
+        Element sends command and responder does not acknowledge.
+        """
+        caller, caller_name = caller
+        responder, responder_name = responder
+
+        responder.command_add("add_1", add_1)
+        response = caller.command_send(responder_name, "add_1", 0)
+        assert response["err_code"] == ATOM_COMMAND_NO_ACK
 
     def test_unsupported_command(self, caller, responder):
         """
