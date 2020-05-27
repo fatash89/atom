@@ -18,33 +18,52 @@ from atom.messages import Acknowledge, Entry, Log, LogLevel, ENTRY_RESERVED_KEYS
 import atom.serialization as ser
 
 
+class ElementConnectionTimeoutError(redis.exceptions.TimeoutError):
+    pass
+
 
 class Element:
-    def __init__(self, name, host=None, port=DEFAULT_REDIS_PORT, socket_path=DEFAULT_REDIS_SOCKET):
+    def __init__(self, name, host=None, port=DEFAULT_REDIS_PORT, 
+                 socket_path=DEFAULT_REDIS_SOCKET, conn_timeout_ms=30000):
         """
         Args:
             name (str): The name of the element to register with Atom.
             host (str, optional): The ip address of the Redis server to connect to.
             port (int, optional): The port of the Redis server to connect to.
             socket_path (str, optional): Path to Redis Unix socket.
+            conn_timeout_ms (int, optional): The number of milliseconds to wait 
+                                             before timing out when establishing 
+                                             a Redis connection
         """
+
         self.name = name
         self.host = uname().nodename
         self.handler_map = {}
         self.timeouts = {}
+        self._redis_connection_timeout = float(conn_timeout_ms / 1000.)
+        assert self._redis_connection_timeout > 0, \
+                "timeout must be positive and non-zero"
         self.streams = set()
         self._rclient = None
         self._command_loop_shutdown = multiprocessing.Event()
         self._rpipeline_pool = Queue()
         self.reserved_commands = [COMMAND_LIST_COMMAND, VERSION_COMMAND, HEALTHCHECK_COMMAND]
+        self._timed_out = False
         try:
             if host is not None:
                 self._host = host
                 self._port = port
-                self._rclient = redis.StrictRedis(host=self._host, port=self._port)
+                self._rclient = redis.StrictRedis(
+                    host=self._host,
+                    port=self._port,
+                    socket_connect_timeout=self._redis_connection_timeout
+                )
             else:
                 self._socket_path = socket_path
-                self._rclient = redis.StrictRedis(unix_socket_path=socket_path)
+                self._rclient = redis.StrictRedis(
+                    unix_socket_path=socket_path,
+                    socket_connect_timeout=self._redis_connection_timeout
+                )
 
             # Init our pool of redis clients/pipelines
             for i in range(REDIS_PIPELINE_POOL_SIZE):
@@ -108,9 +127,13 @@ class Element:
                     self._stream_reference_sha = script_response[0]
 
             self.log(LogLevel.INFO, "Element initialized.", stdout=False)
+        except redis.exceptions.TimeoutError:
+            self._timed_out = True
+            raise ElementConnectionTimeoutError()
 
         except redis.exceptions.RedisError:
             raise Exception("Could not connect to nucleus!")
+
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"
@@ -133,6 +156,13 @@ class Element:
         Removes all elements with the same name.
         """
         pass
+        ## if we have encountered a connection timeout there's no use
+        ## in re-attempting stream cleanup commands as they will implicitly 
+        ## cause the redis pool to reconnect and trigger a subsequent
+        ## timeout incurring ~2x the intended timeout in some contexts 
+        #if self._timed_out:
+        #    return
+
         #for stream in self.streams.copy():
         #    self.clean_up_stream(stream)
         #try:
