@@ -1,5 +1,6 @@
 import copy
 import multiprocessing
+from traceback import format_exc
 import threading
 import time
 import uuid
@@ -12,7 +13,7 @@ import redis
 from atom.config import DEFAULT_REDIS_PORT, DEFAULT_REDIS_SOCKET, HEALTHCHECK_RETRY_INTERVAL
 from atom.config import LANG, VERSION, ACK_TIMEOUT, RESPONSE_TIMEOUT, STREAM_LEN, MAX_BLOCK
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESPONSE
-from atom.config import ATOM_COMMAND_UNSUPPORTED, ATOM_CALLBACK_FAILED, ATOM_USER_ERRORS_BEGIN
+from atom.config import ATOM_COMMAND_UNSUPPORTED, ATOM_CALLBACK_FAILED, ATOM_USER_ERRORS_BEGIN, ATOM_INTERNAL_ERROR
 from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND, REDIS_PIPELINE_POOL_SIZE, COMMAND_LIST_COMMAND
 from atom.messages import Cmd, Response, StreamHandler, format_redis_py
 from atom.messages import Acknowledge, Entry, Log, LogLevel, ENTRY_RESERVED_KEYS
@@ -133,7 +134,7 @@ class Element:
                 if (not isinstance(script_response, list)) or \
                     (len(script_response) != 1) or \
                     (not isinstance(script_response[0], str)):
-                    self.log(LogLevel.ERROR, "Failed to load lua script stream_reference.lua")
+                    self.log(LogLevel.ERR, "Failed to load lua script stream_reference.lua")
                 else:
                     self._stream_reference_sha = script_response[0]
 
@@ -176,7 +177,7 @@ class Element:
             # the stream collection model and avoids weird clean up 
             # interleaves and race conditions
             self.log(
-                LogLevel.DEBUG,
+                LogLevel.ERR,
                 "Cowardly refusing to clean up streams during Element deletion"
                 " (child pid: %s, parent pid: %s)" % (cur_pid, self._pid)
             )
@@ -589,9 +590,7 @@ class Element:
             _rclient = redis.StrictRedis(host=self._host, port=self._port)
         else:
             _rclient = redis.StrictRedis(unix_socket_path=self._socket_path)
-
         _pipe = _rclient.pipeline()
-
         # get a group handle
         # XXX: if use_command_last_id is set then the group will receive 
         #      messages newer than the most recent command id observed by the 
@@ -601,7 +600,6 @@ class Element:
         stream_name = self._make_command_id(self.name)
         group_name = self._make_consumer_group_id(self.name)
         group_last_cmd_id = self.command_last_id 
-
         try:
             _rclient.xgroup_create(
                 stream_name,
@@ -616,13 +614,8 @@ class Element:
             # Thus, we go on our merry way as we can successfully proceed pulling from the 
             # already created group :)
             pass
-
         # make a new uuid for the consumer name
-        # XXX: note that each invocation of `_command_loop` produces its 
-        #      own uuid (no re-use across invocations, recovery scenarios 
-        #      etc)
         consumer_uuid = str(uuid.uuid4())
-        
         while not shutdown_event.is_set():
             # Get oldest new command from element's command stream
             # XXX: note: consumer group consumer id is implicitly announced
@@ -664,7 +657,6 @@ class Element:
                 cmd_name = cmd[b"cmd"].decode()
                 data = cmd[b"data"]
             except KeyError:
-                # TODO: log error/debug level?
                 # Ignore non-commands
                 continue
 
@@ -697,7 +689,20 @@ class Element:
                         serialization = self.handler_map[cmd_name]["serialization"]
 
                     data = ser.deserialize(data, method=serialization)
-                    response = self.handler_map[cmd_name]["handler"](data)
+                    try:
+                        response = self.handler_map[cmd_name]["handler"](data)
+                    except:
+                        self.log(LogLevel.ERR, "encountered error with command: %s\n%s" % (
+                            cmd_name,
+                            format_exc()
+                        ))
+                        # TODO: consider enabling debug mode with exception printing 
+                        #       in response
+                        response = Response(
+                            err_code=ATOM_INTERNAL_ERROR,
+                            err_str="encountered an internal exception "
+                                    "during command execution: %s" % (cmd_name,)
+                        )
                 else:
                     # healthcheck/version requests/command_list commands don't 
                     # care what data you are sending
@@ -730,16 +735,6 @@ class Element:
                 cmd_id #TODO bytes or int?
             )
             _pipe.execute()
-
-        # clean up the consumer
-        # TODO: consider try/except cleanup logic (note it is 
-        #       not essential to delconsumer from a use case design pov)
-        #_pipe.xgroup_delconsumer(
-        #    stream_name,
-        #    self._make_consumer_group_id(self.name),
-        #    consumer_uuid
-        #)
-        #_pipe.execute()
 
         os._exit(0)
 

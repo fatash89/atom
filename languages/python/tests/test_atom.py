@@ -251,6 +251,19 @@ class TestAtom():
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == b"43"
 
+    def test_log_fail_in_command_loop(self, caller, responder):
+        caller, caller_name = caller
+        responder, responder_name = responder
+        def fail(x):
+            raise ValueError("oh no")
+
+        responder.command_add("fail", fail)
+
+        # this should be a non-blocking call
+        responder.command_loop(n_procs=1, block=False)
+        response = caller.command_send(responder_name, "fail", 42)
+
+
     def test_command_response_n_procs_2_no_fork(self, caller, responder):
         """
         Element sends command and responder returns response.
@@ -1171,6 +1184,7 @@ class TestAtom():
         caller, caller_name = caller
         with pytest.raises(ValueError):
             caller.command_add('command_group', lambda x: x)
+
 
 
 def add_1(x):
