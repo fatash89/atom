@@ -146,7 +146,6 @@ class Element:
         except redis.exceptions.RedisError:
             raise Exception("Could not connect to nucleus!")
 
-
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"
 
@@ -167,16 +166,20 @@ class Element:
         self.streams.remove(stream)
 
     def __del__(self):
-        """
-        Removes all elements with the same name.
-        """
+        """Removes all elements with the same name."""
+        # if a command loop is runnning, shut it down
         self.command_loop_shutdown()
+
         cur_pid = os.getpid()
         if cur_pid != self._pid:
-            # we are in a child thread
+            # we are in a child process pid. The parent pid has the 
+            # responsibility to clean up streams. This simplifies
+            # the stream collection model and avoids weird clean up 
+            # interleaves and race conditions
             self.log(
                 LogLevel.DEBUG,
-                "Cowardly refusing to clean up streams in child pid %s" % (cur_pid,)
+                "Cowardly refusing to clean up streams during Element deletion"
+                " (child pid: %s, parent pid: %s)" % (cur_pid, self._pid)
             )
             return
 
@@ -473,7 +476,6 @@ class Element:
         """
         if not callable(handler):
             raise TypeError("Passed in handler is not a function!")
-
         if ((name in RESERVED_COMMANDS and name in self.handler_map)
             or name in DISALLOWED_COMMANDS):
             raise ValueError(
@@ -541,7 +543,7 @@ class Element:
 
             time.sleep(retry_interval)
 
-    def command_loop(self, n_procs=1):
+    def command_loop(self, n_procs=1, block=True, read_block_ms=1000):
         """Main command execution event loop
 
         For each worker process, performs the following event loop:
@@ -551,29 +553,39 @@ class Element:
             - Returns Response with processed data to caller
 
         Args:
-            n_procs: Number of worker processes.  Each worker process will pull
-                     work from the Element's shared command consumer group (defaults
-                     to 1).
+            n_procs (integer): Number of worker processes.  Each worker process 
+                               will pull work from the Element's shared command 
+                               consumer group (defaults to 1).
+            block (bool, optional): Wait for the response before returning 
+                                    from the function.
+                                       block.
+            read_block_ms (integer, optional): Number of milliseconds to block
+                                               for during a stream read insde of 
+                                               a command loop.
         """
-        # update self._pid in case we were constructed in a Parent thread but 
+        # update self._pid in case e.g. we were constructed in a parent thread but 
         # `command_loop` was explicitly called as a sub-process
         self._pid = os.getpid()
+        n_procs = int(n_procs)
+        assert n_procs > 0, "n_procs must be a positive integer"
 
-        assert n_procs > 0
-        if n_procs == 1:
-            return self._command_loop()
         children = []
+        parent = True
         for i in range(n_procs):
             child = os.fork()
             if child == 0:
-                self._command_loop()
+                parent = False
+                self._command_loop(self._command_loop_shutdown)
             else:
-                children.append(0)
+                children.append(child)
 
-        #TODO: waitpid
+        # block if kwarg is enabled
+        if parent and block:
+            for cpid in children:
+                os.waitpid(cpid, 0)
 
 
-    def _command_loop(self, use_command_last_id=False):
+    def _command_loop(self, shutdown_event, read_block_ms=1000):
         if hasattr(self, '_host'):
             _rclient = redis.StrictRedis(host=self._host, port=self._port)
         else:
@@ -612,7 +624,7 @@ class Element:
         #      etc)
         consumer_uuid = str(uuid.uuid4())
         
-        while not self._command_loop_shutdown.is_set():
+        while not shutdown_event.is_set():
             # Get oldest new command from element's command stream
             # XXX: note: consumer group consumer id is implicitly announced
             try:
@@ -620,21 +632,16 @@ class Element:
                     group_name,
                     consumer_uuid,
                     {stream_name: '>'},
-                    block=MAX_BLOCK,
+                    block=read_block_ms,
                     count=1
                 )
             except redis.exceptions.ResponseError:
-                is_shutdown = self._command_loop_shutdown.is_set()
-                # have observed some race conditions in this critical region
-                # opt to only log in cases where we know that we are _not_
-                # shutdown
-                if not is_shutdown:
-                    self.log(
-                        LogLevel.ERROR,
-                        f"Attempted XREADGROUP on closed stream {stream_name} "
-                        "(is shutdown: %s)" % (is_shutdown,),
-                        _pipe=_pipe
-                    )
+                self.log(
+                    LogLevel.ERR,
+                    f"Attempted XREADGROUP on closed stream {stream_name} "
+                    "(is shutdown: %s)" % (shutdown_event.is_set(),),
+                    _pipe=_pipe
+                )
                 return
 
             if not cmd_responses:
@@ -725,7 +732,6 @@ class Element:
             )
             _pipe.execute()
 
-
         # clean up the consumer
         # TODO: consider try/except cleanup logic (note it is 
         #       not essential to delconsumer from a use case design pov)
@@ -736,8 +742,10 @@ class Element:
         #)
         #_pipe.execute()
 
-    # Triggers graceful exit of command loop
+        os._exit(0)
+
     def command_loop_shutdown(self):
+        """Triggers graceful exit of command loop"""
         self._command_loop_shutdown.set()
 
     def command_send(self,

@@ -251,6 +251,35 @@ class TestAtom():
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == b"43"
 
+    def test_command_response_n_procs_2_no_fork(self, caller, responder):
+        """
+        Element sends command and responder returns response.
+        Tests expected use case of command response.
+        """
+        caller, caller_name = caller
+        responder, responder_name = responder
+
+        responder.command_add("add_1", add_1)
+
+        # this should be a non-blocking call
+        responder.command_loop(n_procs=2, block=False)
+
+        response = caller.command_send(responder_name, "add_1", 42)
+        response2 = caller.command_send(responder_name, "add_1", 43)
+        response3 = caller.command_send(responder_name, "add_1", 44)
+
+        responder.command_loop_shutdown()
+
+        assert response["err_code"] == ATOM_NO_ERROR
+        assert response["data"] == b"43"
+
+        assert response2["err_code"] == ATOM_NO_ERROR
+        assert response2["data"] == b"44"
+
+        assert response3["err_code"] == ATOM_NO_ERROR
+        assert response3["data"] == b"45"
+        time.sleep(0.5)
+        del responder
 
     def test_command_response_n_procs_2_threads(self, caller, responder):
         """
@@ -303,7 +332,6 @@ class TestAtom():
         responder.command_loop_shutdown()
 
         proc.join()
-        proc.terminate()
 
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == b"43"
@@ -313,7 +341,6 @@ class TestAtom():
 
         assert response3["err_code"] == ATOM_NO_ERROR
         assert response3["data"] == b"45"
-
 
     def test_command_response_legacy_serialized(self, caller, responder):
         """
