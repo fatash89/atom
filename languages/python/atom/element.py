@@ -578,7 +578,6 @@ class Element:
             for cpid in children:
                 os.waitpid(cpid, 0)
 
-
     def _command_loop(self, shutdown_event, read_block_ms=1000):
         if hasattr(self, '_host'):
             _rclient = redis.StrictRedis(host=self._host, port=self._port)
