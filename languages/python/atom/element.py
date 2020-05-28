@@ -161,7 +161,6 @@ class Element:
                 "Stream '%s' is not present in Element "
                 "streams (element: %s)" % (stream, self.name),
             )
-
         self._rclient.delete(self._make_stream_id(self.name, stream))
         self.streams.remove(stream)
 
@@ -169,7 +168,6 @@ class Element:
         """Removes all elements with the same name."""
         # if a command loop is runnning, shut it down
         self.command_loop_shutdown()
-
         cur_pid = os.getpid()
         if cur_pid != self._pid:
             # we are in a child process pid. The parent pid has the 
@@ -182,14 +180,12 @@ class Element:
                 " (child pid: %s, parent pid: %s)" % (cur_pid, self._pid)
             )
             return
-
         # if we have encountered a connection timeout there's no use
         # in re-attempting stream cleanup commands as they will implicitly 
         # cause the redis pool to reconnect and trigger a subsequent
         # timeout incurring ~2x the intended timeout in some contexts 
         if self._timed_out:
             return
-
         for stream in self.streams.copy():
             self.clean_up_stream(stream)
         try:
@@ -253,7 +249,6 @@ class Element:
             element_name (str): Name of the element to generate the id for.
         """
         return f"command:consumer_group:{element_name}"
-
 
     def _make_stream_id(self, element_name, stream_name):
         """
@@ -445,7 +440,6 @@ class Element:
             elements = copy.deepcopy(element_name)
         else:
             raise ValueError("unsupported element_name: %s" % (element_name,))
-
         if ignore_caller and self.name in elements:
             elements.remove(self.name)
 
@@ -735,7 +729,6 @@ class Element:
                 cmd_id #TODO bytes or int?
             )
             _pipe.execute()
-
         os._exit(0)
 
     def command_loop_shutdown(self):
@@ -1075,10 +1068,8 @@ class Element:
         if _pipe is None:
             _release_pipe = True
             _pipe = self._rpipeline_pool.get()
-
         _pipe.xadd("log", vars(log), maxlen=STREAM_LEN)
         _pipe.execute()
-
         if _release_pipe:
             _pipe = self._release_pipeline(_pipe)
 
@@ -1125,9 +1116,7 @@ class Element:
             serialized_datum = ser.serialize(datum, method=serialization)
             key = key + ":ser:" + (str(serialization) if serialization is not None else "none")
             _pipe.set(key, serialized_datum, px=px_val, nx=True)
-
             keys.append(key)
-
         response = _pipe.execute()
         _pipe = self._release_pipeline(_pipe)
 
