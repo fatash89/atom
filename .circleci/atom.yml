@@ -417,6 +417,10 @@ commands:
           name: Setup binfmt_misc
           command: cat /proc/sys/fs/binfmt_misc/qemu-aarch64 | grep enabled || docker run --rm --privileged docker/binfmt:66f9012c56a8316f9244ffd7622d7c21c1f6f28d
       - run:
+          name: docker buildx inspect
+          command: docker buildx inspect --bootstrap
+
+      - run:
           name: Switch to the multi-arch builder
           command: docker buildx ls | grep "build-buildx" || docker buildx create --use --name build-buildx
 
