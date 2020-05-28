@@ -684,11 +684,14 @@ class Element:
                     try:
                         response = self.handler_map[cmd_name]["handler"](data)
                     except:
-                        self.log(LogLevel.ERR, "encountered error with command: %s\n%s" % (
-                            cmd_name,
-                            format_exc(),
+                        self.log(
+                            LogLevel.ERR,
+                            "encountered error with command: %s\n%s" % (
+                                cmd_name,
+                                format_exc()
+                            ),
                             _pipe=_pipe
-                        ))
+                        )
                         # TODO: consider enabling debug mode with exception printing 
                         #       in response
                         response = Response(
