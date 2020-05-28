@@ -25,7 +25,7 @@ RESERVED_COMMANDS = [
     VERSION_COMMAND,
     HEALTHCHECK_COMMAND
 ]
-
+DISALLOWED_COMMANDS = ['command_group']
 
 class ElementConnectionTimeoutError(redis.exceptions.TimeoutError):
     pass
@@ -56,7 +56,6 @@ class Element:
         self._rclient = None
         self._command_loop_shutdown = multiprocessing.Event()
         self._rpipeline_pool = Queue()
-        self.reserved_commands = RESERVED_COMMANDS
         self._timed_out = False
         self._pid = os.getpid()
         try:
@@ -116,7 +115,10 @@ class Element:
             # Add command to query all commands
             self.command_add(
                 COMMAND_LIST_COMMAND,
-                lambda: Response(data=[k for k in self.handler_map if k not in self.reserved_commands], serialization="msgpack")
+                lambda: Response(
+                    data=[k for k in self.handler_map if k not in RESERVED_COMMANDS],
+                    serialization="msgpack"
+                )
             )
 
             # Load lua scripts
@@ -156,11 +158,9 @@ class Element:
             stream (string): The stream to delete.
         """
         if stream not in self.streams:
-            self.log(
-                LogLevel.WARNING,
+            raise RuntimeError(
                 "Stream '%s' is not present in Element "
                 "streams (element: %s)" % (stream, self.name),
-                _pipe=_pipe
             )
 
         self._rclient.delete(self._make_stream_id(self.name, stream))
@@ -171,9 +171,13 @@ class Element:
         Removes all elements with the same name.
         """
         self.command_loop_shutdown()
-        if os.getpid() != self._pid:
+        cur_pid = os.getpid()
+        if cur_pid != self._pid:
             # we are in a child thread
-            self.log(LogLevel.DEBUG, "cowardly refusing to clean up streams")
+            self.log(
+                LogLevel.DEBUG,
+                "Cowardly refusing to clean up streams in child pid %s" % (cur_pid,)
+            )
             return
 
         # if we have encountered a connection timeout there's no use
@@ -198,7 +202,6 @@ class Element:
         Args:
             pipeline (Redis Pipeline): The pipeline to release
         """
-        # TODO: check pid and if it is 0 then we're a child pid and should log warning
         pipeline.reset()
         self._rpipeline_pool.put(pipeline)
         return None
@@ -440,7 +443,6 @@ class Element:
         else:
             raise ValueError("unsupported element_name: %s" % (element_name,))
 
-        #elements = self.get_all_elements() if element_name is None else [element_name]
         if ignore_caller and self.name in elements:
             elements.remove(self.name)
 
@@ -471,8 +473,13 @@ class Element:
         """
         if not callable(handler):
             raise TypeError("Passed in handler is not a function!")
-        if name in self.reserved_commands and name in self.handler_map:
-            raise ValueError(f"'{name}' is a reserved command name dedicated to {name} commands, choose another name")
+
+        if ((name in RESERVED_COMMANDS and name in self.handler_map)
+            or name in DISALLOWED_COMMANDS):
+            raise ValueError(
+                f"'{name}' is a reserved command name dedicated to {name} "
+                 "commands, choose another name"
+             )
 
         if deserialize is not None:  # check for deprecated legacy mode
             serialization = "msgpack" if deserialize else None
@@ -671,26 +678,23 @@ class Element:
 
             # Send response to caller
             if cmd_name not in self.handler_map.keys():
-                #print('cmd name: %s' % (cmd_name,))
-                #print('handler keys: %s' % (self.handler_map.keys(),))
                 self.log(LogLevel.ERR, "Received unsupported command: %s" % (cmd_name,), _pipe=_pipe)
                 response = Response(
                     err_code=ATOM_COMMAND_UNSUPPORTED,
                     err_str="Unsupported command."
                 )
             else:
-                if cmd_name not in self.reserved_commands:
+                if cmd_name not in RESERVED_COMMANDS:
                     if "deserialize" in self.handler_map[cmd_name]:  # check for deprecated legacy mode
                         serialization = "msgpack" if self.handler_map[cmd_name]["deserialize"] else None
                     else:
                         serialization = self.handler_map[cmd_name]["serialization"]
 
                     data = ser.deserialize(data, method=serialization)
-                    #print('data: %s' % (data,))
-                    #print(self.handler_map[cmd_name])
                     response = self.handler_map[cmd_name]["handler"](data)
                 else:
-                    # healthcheck/version requests/command_list commands don't care what data you are sending
+                    # healthcheck/version requests/command_list commands don't 
+                    # care what data you are sending
                     response = self.handler_map[cmd_name]["handler"]()
 
                 # Add ATOM_USER_ERRORS_BEGIN to err_code to map to element error range

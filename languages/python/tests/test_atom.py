@@ -251,26 +251,54 @@ class TestAtom():
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == b"43"
 
-    def test_command_response_n_procs_2(self, caller):
+
+    def test_command_response_n_procs_2_threads(self, caller, responder):
         """
         Element sends command and responder returns response.
         Tests expected use case of command response.
         """
         caller, caller_name = caller
-        #responder, responder_name = responder
-        responder = Element('custom-element')
+        responder, responder_name = responder
 
-        responder.command_add("add_1_4", add_1)
+        responder.command_add("add_1", add_1)
+
+        thread = Thread(target=responder.command_loop, kwargs={'n_procs': 2})
+        thread.start()
+
+        response = caller.command_send(responder_name, "add_1", 42)
+        response2 = caller.command_send(responder_name, "add_1", 43)
+        response3 = caller.command_send(responder_name, "add_1", 44)
+
+        responder.command_loop_shutdown()
+
+        thread.join()
+
+        assert response["err_code"] == ATOM_NO_ERROR
+        assert response["data"] == b"43"
+
+        assert response2["err_code"] == ATOM_NO_ERROR
+        assert response2["data"] == b"44"
+
+        assert response3["err_code"] == ATOM_NO_ERROR
+        assert response3["data"] == b"45"
+
+
+    def test_command_response_n_procs_2(self, caller, responder):
+        """
+        Element sends command and responder returns response.
+        Tests expected use case of command response.
+        """
+        caller, caller_name = caller
+        responder, responder_name = responder
+
+        responder.command_add("add_1", add_1)
 
         proc = Process(target=responder.command_loop, kwargs={'n_procs': 2})
         proc.start()
-        #childpid = os.fork()
-        #if childpid == 0:
-        #    #responder.command_loop(n_procs=2)
-        #else:
-        response = caller.command_send('custom-element', "add_1_4", 42)
-        response2 = caller.command_send('custom-element', "add_1_4", 43)
-        response3 = caller.command_send('custom-element', "add_1_4", 44)
+
+        response = caller.command_send(responder_name, "add_1", 42)
+        response2 = caller.command_send(responder_name, "add_1", 43)
+        response3 = caller.command_send(responder_name, "add_1", 44)
 
         responder.command_loop_shutdown()
 
@@ -640,7 +668,9 @@ class TestAtom():
         cl_process_2.start()
 
         # Retrieve commands
-        commands = caller.get_all_commands(element_name=[responder_name, responder2_name])
+        commands = caller.get_all_commands(
+            element_name=[responder_name, responder2_name]
+        )
         # Do not include responder's commands as the version is too low
         desired_commands = [f'{responder2_name}:foo_func0', f'{responder2_name}:foo_func1']
         assert commands == desired_commands
@@ -1104,6 +1134,16 @@ class TestAtom():
         diff = now - then
 
         assert int(round(diff, 2)) == 2
+
+    def test_command_named_command_group(self, caller):
+        """
+        edge case- we disallow commands named 'command_group' because it 
+                   corresponds with a reserved redis key used for command 
+                   consumer groups
+        """
+        caller, caller_name = caller
+        with pytest.raises(ValueError):
+            caller.command_add('command_group', lambda x: x)
 
 
 def add_1(x):
