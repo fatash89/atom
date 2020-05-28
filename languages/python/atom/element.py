@@ -632,9 +632,7 @@ class Element:
 
             if not cmd_responses:
                 continue
-
             cmd_stream_name, msgs = cmd_responses[0]
-
             assert cmd_stream_name.decode() == stream_name, \
                     "Expected received stream name to match: %s %s" % (cmd_stream_name, stream_name)
             assert len(msgs) == 1, "expected one message: %s" % (msgs,)
@@ -688,7 +686,8 @@ class Element:
                     except:
                         self.log(LogLevel.ERR, "encountered error with command: %s\n%s" % (
                             cmd_name,
-                            format_exc()
+                            format_exc(),
+                            _pipe=_pipe
                         ))
                         # TODO: consider enabling debug mode with exception printing 
                         #       in response
