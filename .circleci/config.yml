@@ -782,6 +782,7 @@ workflows:
           production_image: debian:buster-slim
           test_valgrind: false
           requires:
+            - build-atom-stock-aarch64
             - atom/check_flake8
           filters:
             tags:
