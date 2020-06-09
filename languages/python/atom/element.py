@@ -1,4 +1,5 @@
 import copy
+from multiprocessing import Process
 import multiprocessing
 from traceback import format_exc
 import threading
@@ -25,7 +26,6 @@ RESERVED_COMMANDS = [
     VERSION_COMMAND,
     HEALTHCHECK_COMMAND
 ]
-DISALLOWED_COMMANDS = ['command_group']
 
 class ElementConnectionTimeoutError(redis.exceptions.TimeoutError):
     pass
@@ -51,7 +51,7 @@ class Element:
         self.timeouts = {}
         self._redis_connection_timeout = float(conn_timeout_ms / 1000.)
         assert self._redis_connection_timeout > 0, \
-                "timeout must be positive and non-zero"
+            "timeout must be positive and non-zero"
         self.streams = set()
         self._rclient = None
         self._command_loop_shutdown = multiprocessing.Event()
@@ -79,6 +79,10 @@ class Element:
                 self._rpipeline_pool.put(self._rclient.pipeline())
 
             _pipe = self._rpipeline_pool.get()
+
+            # increment global element ref counter
+            self._increment_command_group_counter(_pipe)
+
             _pipe.xadd(
                 self._make_response_id(self.name),
                 {
@@ -166,26 +170,30 @@ class Element:
 
     def __del__(self):
         """Removes all elements with the same name."""
-        # if a command loop is runnning, shut it down
-        self.command_loop_shutdown()
+
+        # If the spawning process's element is being deleted, we need
+        # to ensure we signal a shutdown to the children
         cur_pid = os.getpid()
-        if cur_pid != self._pid:
-            # we are in a child process pid. The parent pid has the 
-            # responsibility to clean up streams. This simplifies
-            # the stream collection model and avoids weird clean up 
-            # interleaves and race conditions
-            self.log(
-                LogLevel.ERR,
-                "Cowardly refusing to clean up streams during Element deletion"
-                " (child pid: %s, parent pid: %s)" % (cur_pid, self._pid)
-            )
-            return
+        if cur_pid == self._pid:
+            self.command_loop_shutdown()
+
+        # decrement ref count
+        try:
+            _pipe = self._rpipeline_pool.get()
+            self._decrement_command_group_counter(_pipe)
+            _pipe = self._release_pipeline(_pipe)
+        except redis.exceptions.TimeoutError:
+            # the connection is already stale or has timed out
+            pass
+
+    def _clean_up_streams(self):
         # if we have encountered a connection timeout there's no use
         # in re-attempting stream cleanup commands as they will implicitly 
         # cause the redis pool to reconnect and trigger a subsequent
         # timeout incurring ~2x the intended timeout in some contexts 
         if self._timed_out:
             return
+
         for stream in self.streams.copy():
             self.clean_up_stream(stream)
         try:
@@ -241,14 +249,25 @@ class Element:
         """
         return f"command:{element_name}"
 
-    def _make_consumer_group_id(self, element_name):
+    def _make_consumer_group_counter(self, element_name):
         """
-        Creates the string representation for an element's command stream id.
+        Creates the string representation for an element's command group 
+        stream counter id.
 
         Args:
             element_name (str): Name of the element to generate the id for.
         """
-        return f"command:consumer_group:{element_name}"
+        return f"command_consumer_group_counter:{element_name}"
+
+    def _make_consumer_group_id(self, element_name):
+        """
+        Creates the string representation for an element's command group 
+        stream id.
+
+        Args:
+            element_name (str): Name of the element to generate the id for.
+        """
+        return f"command_consumer_group:{element_name}"
 
     def _make_stream_id(self, element_name, stream_name):
         """
@@ -448,7 +467,11 @@ class Element:
             # Check support for command_list command
             if self._check_element_version(element, {'Python'}, 0.3):
                 # Retrieve commands for each element
-                elem_commands = self.command_send(element, COMMAND_LIST_COMMAND, serialization="msgpack")['data']
+                elem_commands = self.command_send(
+                    element,
+                    COMMAND_LIST_COMMAND,
+                    serialization="msgpack"
+                )['data']
                 # Rename each command pre-pending the element name
                 command_list.extend([f'{element}:{command}' for command in elem_commands])
         return command_list
@@ -470,8 +493,7 @@ class Element:
         """
         if not callable(handler):
             raise TypeError("Passed in handler is not a function!")
-        if ((name in RESERVED_COMMANDS and name in self.handler_map)
-            or name in DISALLOWED_COMMANDS):
+        if (name in RESERVED_COMMANDS and name in self.handler_map):
             raise ValueError(
                 f"'{name}' is a reserved command name dedicated to {name} "
                  "commands, choose another name"
@@ -563,20 +585,31 @@ class Element:
         n_procs = int(n_procs)
         assert n_procs > 0, "n_procs must be a positive integer"
 
-        children = []
-        parent = True
+        self.processes = []
         for i in range(n_procs):
-            child = os.fork()
-            if child == 0:
-                parent = False
-                self._command_loop(self._command_loop_shutdown)
-            else:
-                children.append(child)
+            p = Process(target=self._command_loop, args=(self._command_loop_shutdown,))
+            p.start()
+            self.processes.append(p)
 
-        # block if kwarg is enabled
-        if parent and block:
-            for cpid in children:
-                os.waitpid(cpid, 0)
+        if block:
+            for p in self.processes:
+                p.join()
+
+    def _increment_command_group_counter(self, _pipe):
+        _pipe.incr(self._make_consumer_group_counter(self.name))
+        result = _pipe.execute()[-1]
+        self.log(LogLevel.ERR, 'inrementing %s %s' % (self.name, result,))
+        return result
+
+    def _decrement_command_group_counter(self, _pipe):
+        _pipe.decr(self._make_consumer_group_counter(self.name))
+        result = _pipe.execute()[-1]
+        self.log(LogLevel.ERR, 'decrementing %s %s' % (self.name, result,))
+        if not result:
+            #TODO: consider logging
+            print('cleaning up stream')
+            self._clean_up_streams()
+        return result
 
     def _command_loop(self, shutdown_event, read_block_ms=1000):
         if hasattr(self, '_host'):
@@ -584,11 +617,17 @@ class Element:
         else:
             _rclient = redis.StrictRedis(unix_socket_path=self._socket_path)
         _pipe = _rclient.pipeline()
+
+        cur_pid = os.getpid()
+        if cur_pid != self._pid:
+            self._increment_command_group_counter(_pipe)
+
+
         # get a group handle
-        # XXX: if use_command_last_id is set then the group will receive 
-        #      messages newer than the most recent command id observed by the 
-        #      Element class.  However, by default it will than accept messages 
-        #      newer than the creation of the consumer group.
+        # note: if use_command_last_id is set then the group will receive 
+        #       messages newer than the most recent command id observed by the 
+        #       Element class.  However, by default it will than accept 
+        #       messages newer than the creation of the consumer group.
         #      
         stream_name = self._make_command_id(self.name)
         group_name = self._make_consumer_group_id(self.name)
@@ -611,7 +650,7 @@ class Element:
         consumer_uuid = str(uuid.uuid4())
         while not shutdown_event.is_set():
             # Get oldest new command from element's command stream
-            # XXX: note: consumer group consumer id is implicitly announced
+            # note: consumer group consumer id is implicitly announced
             try:
                 cmd_responses = _rclient.xreadgroup(
                     group_name,
@@ -623,17 +662,24 @@ class Element:
             except redis.exceptions.ResponseError:
                 self.log(
                     LogLevel.ERR,
-                    f"Attempted XREADGROUP on closed stream {stream_name} "
-                    "(is shutdown: %s)" % (shutdown_event.is_set(),),
+                    f"Recieved redis ResponseError.  Possible attempted "
+                    "XREADGROUP on closed stream %s (is shutdown: %s).  "
+                    "Please ensure you have performed the command_loop_shutdown"
+                    " command on the object running command_loop." % (
+                        stream_name,
+                        shutdown_event.is_set()
+                    ),
                     _pipe=_pipe
                 )
+                # TODO: decrement
+                self._clean_up_streams()
                 return
 
             if not cmd_responses:
                 continue
             cmd_stream_name, msgs = cmd_responses[0]
             assert cmd_stream_name.decode() == stream_name, \
-                    "Expected received stream name to match: %s %s" % (cmd_stream_name, stream_name)
+                "Expected received stream name to match: %s %s" % (cmd_stream_name, stream_name)
             assert len(msgs) == 1, "expected one message: %s" % (msgs,)
 
             msg = msgs[0]  # we only read one
@@ -691,8 +737,6 @@ class Element:
                             ),
                             _pipe=_pipe
                         )
-                        # TODO: consider enabling debug mode with exception printing 
-                        #       in response
                         response = Response(
                             err_code=ATOM_INTERNAL_ERROR,
                             err_str="encountered an internal exception "
@@ -727,10 +771,13 @@ class Element:
             _pipe.xack(
                 stream_name,
                 group_name, 
-                cmd_id #TODO bytes or int?
+                cmd_id
             )
             _pipe.execute()
-        os._exit(0)
+
+        #decr = self._decrement_command_group_counter(_pipe)
+        #print('decremented: %s' % (decr,))
+        #os._exit(0)
 
     def command_loop_shutdown(self):
         """Triggers graceful exit of command loop"""

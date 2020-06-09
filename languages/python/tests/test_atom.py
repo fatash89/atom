@@ -15,7 +15,8 @@ from atom import Element
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_UNSUPPORTED
 from atom.config import ATOM_COMMAND_NO_RESPONSE, ATOM_CALLBACK_FAILED
 from atom.config import ATOM_USER_ERRORS_BEGIN, HEALTHCHECK_RETRY_INTERVAL
-from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND, LANG, VERSION, COMMAND_LIST_COMMAND
+from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND, LANG, VERSION, \
+                        COMMAND_LIST_COMMAND
 from atom.messages import Response, StreamHandler, LogLevel
 from atom.contracts import RawContract, EmptyContract, BinaryProperty
 from msgpack import packb, unpackb
@@ -246,8 +247,9 @@ class TestAtom():
         proc = Process(target=responder.command_loop)
         proc.start()
         response = caller.command_send(responder_name, "add_1", 42)
-        proc.terminate()
+        responder.command_loop_shutdown()
         proc.join()
+        proc.terminate()
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == b"43"
 
@@ -262,7 +264,8 @@ class TestAtom():
         # this should be a non-blocking call
         responder.command_loop(n_procs=1, block=False)
         response = caller.command_send(responder_name, "fail", 42)
-
+        responder.command_loop_shutdown()
+        del responder
 
     def test_command_response_n_procs_2_no_fork(self, caller, responder):
         """
@@ -324,7 +327,6 @@ class TestAtom():
         assert response3["err_code"] == ATOM_NO_ERROR
         assert response3["data"] == b"45"
 
-
     def test_command_response_n_procs_2(self, caller, responder):
         """
         Element sends command and responder returns response.
@@ -370,8 +372,9 @@ class TestAtom():
         proc = Process(target=responder.command_loop)
         proc.start()
         response = caller.command_send(responder_name, "add_1_3", 0, serialize=True, deserialize=True)
-        proc.terminate()
+        responder.command_loop_shutdown()
         proc.join()
+        proc.terminate()
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == 1
 
@@ -391,8 +394,9 @@ class TestAtom():
         proc = Process(target=responder.command_loop)
         proc.start()
         response = caller.command_send(responder_name, "test_command", 123, serialization="msgpack")
-        proc.terminate()
+        responder.command_loop_shutdown()
         proc.join()
+        proc.terminate()
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == 124
 
@@ -489,6 +493,7 @@ class TestAtom():
         time.sleep(0.1) #sleep to give the process time to start listening for new entries
         responder.entry_write("test_stream", {"data": None})
         entries = q.get()
+        responder.command_loop_shutdown()
         proc.join()
         proc.terminate()
         assert(len(entries) == 1)
@@ -534,6 +539,7 @@ class TestAtom():
             # Cleanup threads
             entry_write_thread.join()
             responder.command_loop_shutdown()
+            responder_0.command_loop_shutdown()
             command_loop_thread.join(0.5)
             responder_0._rclient.delete(f"stream:{responder_0_name}:stream_0")
             responder_0._rclient.delete(f"command:{responder_0_name}")
@@ -551,8 +557,9 @@ class TestAtom():
         response = caller.command_send(responder_name, HEALTHCHECK_COMMAND)
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == b""
-        proc.terminate()
+        responder.command_loop_shutdown()
         proc.join()
+        proc.terminate()
 
     def test_healthcheck_success(self, caller, responder):
         """
@@ -568,8 +575,9 @@ class TestAtom():
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == b""
         assert response["err_str"] == "We're good"
-        proc.terminate()
+        responder.command_loop_shutdown()
         proc.join()
+        proc.terminate()
 
     def test_healthcheck_failure(self, caller, responder):
         """
@@ -585,8 +593,9 @@ class TestAtom():
         assert response["err_code"] == 5 + ATOM_USER_ERRORS_BEGIN
         assert response["data"] == b""
         assert response["err_str"] == "Camera is unplugged"
-        proc.terminate()
+        responder.command_loop_shutdown()
         proc.join()
+        proc.terminate()
 
     def test_wait_for_elements_healthy(self, caller, responder):
         """
@@ -628,8 +637,9 @@ class TestAtom():
             responder._rclient.delete("command:test_responder_2")
             responder._rclient.delete("response:test_responder_2")
 
-        proc.terminate()
+        responder.command_loop_shutdown()
         proc.join()
+        proc.terminate()
 
     def test_version_command(self, caller, responder):
         """
@@ -649,8 +659,9 @@ class TestAtom():
         assert response["data"] == {"version": float(".".join(VERSION.split(".")[:-1])), "language": LANG}
         response2 = caller.get_element_version(responder_name)
         assert response == response2
-        proc.terminate()
+        responder.command_loop_shutdown()
         proc.join()
+        proc.terminate()
 
     def test_command_list_command(self, caller, responder):
         """
@@ -664,8 +675,9 @@ class TestAtom():
         command_loop_process = Process(target=no_command_responder.command_loop)
         command_loop_process.start()
         assert caller.command_send(no_command_responder.name, COMMAND_LIST_COMMAND, serialization="msgpack")["data"] == []
-        command_loop_process.terminate()
+        no_command_responder.command_loop_shutdown()
         command_loop_process.join()
+        command_loop_process.terminate()
         del no_command_responder
 
         responder = Element('responder_with_commands')
@@ -681,8 +693,9 @@ class TestAtom():
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == ['foo_func1', 'foo_func2', 'foo_func3']
 
-        command_loop_process.terminate()
+        responder.command_loop_shutdown()
         command_loop_process.join()
+        command_loop_process.terminate()
 
     def test_get_all_commands_with_version(self, caller, responder):
         """
@@ -715,10 +728,13 @@ class TestAtom():
         desired_commands = [f'{responder2_name}:foo_func0', f'{responder2_name}:foo_func1']
         assert commands == desired_commands
 
-        cl_process_1.terminate()
-        cl_process_2.terminate()
+        responder.command_loop_shutdown()
+        responder2.command_loop_shutdown()
+
         cl_process_1.join()
         cl_process_2.join()
+        cl_process_1.terminate()
+        cl_process_2.terminate()
         del responder2
 
     def test_get_all_commands(self, caller, responder):
@@ -772,11 +788,14 @@ class TestAtom():
         command_list = caller.get_all_commands(test_name_2)
         assert command_list == responder2_function_names
 
+        responder1.command_loop_shutdown()
+        responder2.command_loop_shutdown()
         # Cleanup
-        command_loop_1.terminate()
-        command_loop_2.terminate()
         command_loop_1.join()
         command_loop_2.join()
+
+        command_loop_1.terminate()
+        command_loop_2.terminate()
         del responder1, responder2
 
     def test_no_ack(self, caller, responder):
@@ -800,8 +819,10 @@ class TestAtom():
         proc = Process(target=responder.command_loop)
         proc.start()
         response = caller.command_send(responder_name, "add_1", 0)
-        proc.terminate()
+
+        responder.command_loop_shutdown()
         proc.join()
+        proc.terminate()
         assert response["err_code"] == ATOM_COMMAND_UNSUPPORTED
 
     def test_command_timeout(self, caller, responder):
@@ -822,7 +843,8 @@ class TestAtom():
 
     def test_handler_returns_not_response(self, caller, responder):
         """
-        Element calls command from responder that does not return an object of type Response.
+        Element calls command from responder that does not return an object of 
+        type Response.
         """
         caller, caller_name = caller
         responder, responder_name = responder
@@ -831,8 +853,9 @@ class TestAtom():
         proc = Process(target=responder.command_loop)
         proc.start()
         response = caller.command_send(responder_name, "ret_not_response", None)
-        proc.terminate()
+        responder.command_loop_shutdown()
         proc.join()
+        proc.terminate()
         assert response["err_code"] == ATOM_CALLBACK_FAILED
 
     def test_log(self, caller):
@@ -842,8 +865,7 @@ class TestAtom():
         caller, caller_name = caller
         for i, severity in enumerate(LogLevel):
             caller.log(severity, f"severity {i}", stdout=False)
-        logs = caller._rclient.xread(
-            {"log": 0})[0][1]
+        logs = caller._rclient.xread({"log": 0})[0][1]
         logs = logs[-8:]
         for i in range(8):
             assert logs[i][1][b"msg"].decode() == f"severity {i}"
@@ -1175,20 +1197,9 @@ class TestAtom():
 
         assert int(round(diff, 2)) == 2
 
-    def test_command_named_command_group(self, caller):
-        """
-        edge case- we disallow commands named 'command_group' because it 
-                   corresponds with a reserved redis key used for command 
-                   consumer groups
-        """
-        caller, caller_name = caller
-        with pytest.raises(ValueError):
-            caller.command_add('command_group', lambda x: x)
-
-
-
 def add_1(x):
     return Response(int(x)+1)
+
 
 def loop(x):
     while True:
