@@ -11,6 +11,14 @@ FROM $BASE_IMAGE as atom-source
 ARG DEBIAN_FRONTEND=noninteractive
 
 #
+# Redis itself
+#
+
+# Build redis
+ADD ./third-party/redis /atom/third-party/redis
+RUN cd /atom/third-party/redis && make -j8 && make PREFIX=/usr/local install
+
+#
 # C client
 #
 

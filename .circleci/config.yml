@@ -677,7 +677,7 @@ workflows:
                 base_tag: *base_build_atom_opengl_amd64_tag
           production_image: nvidia/opengl:1.0-glvnd-runtime-ubuntu18.04
           requires:
-            - atom/check_flake8
+            - build-atom-stock-amd64
           filters:
             tags:
               only:
@@ -718,7 +718,7 @@ workflows:
                 base_tag: *base_build_atom_opengl_cuda_amd64_tag
           production_image: nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04
           requires:
-            - atom/check_flake8
+            - build-atom-stock-amd64
           filters:
             tags:
               only:
@@ -738,7 +738,7 @@ workflows:
                 - *base_build_atom_opencv_amd64_tag
           production_image: debian:buster-slim
           requires:
-            - atom/check_flake8
+            - build-atom-stock-amd64
           filters:
             tags:
               only:
@@ -761,8 +761,6 @@ workflows:
           base_tag: *base_build_atom_stock_aarch64_tag
           production_image: debian:buster-slim
           test_valgrind: false
-          requires:
-            - atom/check_flake8
           filters:
             tags:
               only:
@@ -782,7 +780,7 @@ workflows:
           production_image: debian:buster-slim
           test_valgrind: false
           requires:
-            - atom/check_flake8
+            - build-atom-stock-aarch64
           filters:
             tags:
               only:

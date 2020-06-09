@@ -109,10 +109,6 @@ RUN cd /atom/languages/python/third-party/redis-py \
 # the redis-server into the Nucleus
 #
 
-# Build redis
-ADD ./third-party/redis /atom/third-party/redis
-RUN cd /atom/third-party/redis && make -j8 && make PREFIX=/usr/local install
-
 #
 # Finish up
 #
