@@ -1380,3 +1380,4 @@ class Element:
             raise KeyError(f"Reference {key} doesn't exist")
 
         return data[0]
+
