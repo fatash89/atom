@@ -598,16 +598,28 @@ class Element:
     def _increment_command_group_counter(self, _pipe):
         _pipe.incr(self._make_consumer_group_counter(self.name))
         result = _pipe.execute()[-1]
-        self.log(LogLevel.ERR, 'inrementing %s %s' % (self.name, result,))
+        self.log(
+            LogLevel.DEBUG,
+            f'inrementing element {self.name} {result}',
+            stdout=False
+        )
         return result
 
     def _decrement_command_group_counter(self, _pipe):
         _pipe.decr(self._make_consumer_group_counter(self.name))
         result = _pipe.execute()[-1]
-        self.log(LogLevel.ERR, 'decrementing %s %s' % (self.name, result,))
+        self.log(
+            LogLevel.DEBUG,
+            f'decrementing element {self.name} {result}',
+            stdout=False
+        )
         if not result:
             #TODO: consider logging
-            print('cleaning up stream')
+            self.log(
+                LogLevel.DEBUG,
+                f'cleaning up stream {self.name}',
+                stdout=False
+            )
             self._clean_up_streams()
         return result
 
@@ -671,8 +683,6 @@ class Element:
                     ),
                     _pipe=_pipe
                 )
-                # TODO: decrement
-                self._clean_up_streams()
                 return
 
             if not cmd_responses:
@@ -768,16 +778,25 @@ class Element:
             # `XACK` the command we have just completed back to the consumer 
             # group to remove the command from the consumer group pending 
             # entry list (PEL).
-            _pipe.xack(
-                stream_name,
-                group_name, 
-                cmd_id
-            )
-            _pipe.execute()
-
-        #decr = self._decrement_command_group_counter(_pipe)
-        #print('decremented: %s' % (decr,))
-        #os._exit(0)
+            try:
+                _pipe.xack(
+                    stream_name,
+                    group_name, 
+                    cmd_id
+                )
+                _pipe.execute()
+            except:
+                self.log(
+                    LogLevel.ERR,
+                    "encountered error during xack (stream name:%s, group name: "
+                    "%s, cmd_id: %s)\n%s" % (
+                        stream_name,
+                        group_name,
+                        cmd_id,
+                        format_exc()
+                    ),
+                    _pipe=_pipe
+                )
 
     def command_loop_shutdown(self):
         """Triggers graceful exit of command loop"""
