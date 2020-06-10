@@ -630,9 +630,9 @@ class Element:
             _rclient = redis.StrictRedis(unix_socket_path=self._socket_path)
         _pipe = _rclient.pipeline()
 
-        cur_pid = os.getpid()
-        if cur_pid != self._pid:
-            self._increment_command_group_counter(_pipe)
+        #cur_pid = os.getpid()
+        #if cur_pid != self._pid:
+        #    self._increment_command_group_counter(_pipe)
 
 
         # get a group handle
