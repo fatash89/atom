@@ -275,6 +275,9 @@ commands:
           name: Python tests
           command: docker exec -it -w /atom/languages/python/tests << parameters.container >> pytest
       - run:
+          name: Clear redis DB
+          command: docker exec -it -w /atom/languages/python/tests << parameters.container >> redis-cli -h nucleus -c 'flushall'
+      - run:
           name: C tests
           command:  docker exec -it -w /atom/languages/c << parameters.container >> make test
       - run:
