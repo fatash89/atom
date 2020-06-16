@@ -585,6 +585,15 @@ class Element:
         n_procs = int(n_procs)
         assert n_procs > 0, "n_procs must be a positive integer"
 
+        thread_count = threading.active_count()
+        if thread_count > 1:
+            self.log(
+                LogLevel.WARNING,
+                f"[element:{self.name}] Active thread count is currently {thread_count}.  Child command_loop "
+                "processes will only copy one active thread's state and therefore may not "
+                "work properly."
+            )
+
         self.processes = []
         for i in range(n_procs):
             p = Process(target=self._command_loop, args=(self._command_loop_shutdown,))
