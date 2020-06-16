@@ -1184,6 +1184,19 @@ class TestAtom():
         for i in range(len(data)):
             assert unpackb(ref_data[i], raw=False) == data[i]
 
+    def test_command_response_wrong_n_procs(self, caller, responder):
+        """
+        Element sends command and responder returns response.
+        Tests expected use case of command response.
+        """
+        caller, caller_name = caller
+        responder, responder_name = responder
+
+        responder.command_add("add_1", add_1)
+        # this should be a non-blocking call
+        with pytest.raises(ValueError):
+            responder.command_loop(n_procs=-1)
+
     def test_timeout_ms(self):
         then = time.time()
 

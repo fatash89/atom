@@ -583,8 +583,18 @@ class Element:
         # `command_loop` was explicitly called as a sub-process
         self._pid = os.getpid()
         n_procs = int(n_procs)
-        assert n_procs > 0, "n_procs must be a positive integer"
+        if n_procs <= 0:
+            raise ValueError("n_procs must be a positive integer")
 
+        # note: This warning is emitted in situations where the calling process has more
+        #       than one active thread.  When the command_loop children processes are 
+        #       forked they will only copy the thread state of the active thread which
+        #       invoked the fork.  Other active thread state will *not* be copied to 
+        #       these descendent processes.  This may cause some problems with proper
+        #       execution of the Element's command_loop if the command depends on this
+        #       thread state being available on the descendent processes.
+        #       Please see the following Stack Overflow link for more context:
+        #       https://stackoverflow.com/questions/39890363/what-happens-when-a-thread-forks
         thread_count = threading.active_count()
         if thread_count > 1:
             self.log(
@@ -605,6 +615,7 @@ class Element:
                 p.join()
 
     def _increment_command_group_counter(self, _pipe):
+        """Incremeents reference counter for element stream collection"""
         _pipe.incr(self._make_consumer_group_counter(self.name))
         result = _pipe.execute()[-1]
         self.log(
@@ -615,6 +626,7 @@ class Element:
         return result
 
     def _decrement_command_group_counter(self, _pipe):
+        """Decrements reference counter for element stream collection"""
         _pipe.decr(self._make_consumer_group_counter(self.name))
         result = _pipe.execute()[-1]
         self.log(
@@ -632,7 +644,7 @@ class Element:
             self._clean_up_streams()
         return result
 
-    def _command_loop(self, shutdown_event, read_block_ms=1000):
+    def _command_loop(self, shutdown_event, read_block_ms=10000):
         if hasattr(self, '_host'):
             _rclient = redis.StrictRedis(host=self._host, port=self._port)
         else:
@@ -697,8 +709,13 @@ class Element:
             if not cmd_responses:
                 continue
             cmd_stream_name, msgs = cmd_responses[0]
-            assert cmd_stream_name.decode() == stream_name, \
-                "Expected received stream name to match: %s %s" % (cmd_stream_name, stream_name)
+            if cmd_stream_name.decode() != stream_name:
+                raise RuntimeError(
+                    "Expected received stream name to match: %s %s" % (
+                        cmd_stream_name,
+                        stream_name
+                    ))
+
             assert len(msgs) == 1, "expected one message: %s" % (msgs,)
 
             msg = msgs[0]  # we only read one
@@ -781,8 +798,15 @@ class Element:
             kv["cmd_id"] = cmd_id
             kv["element"] = self.name
             kv["cmd"] = cmd_name
-            _pipe.xadd(self._make_response_id(caller), kv, maxlen=STREAM_LEN)
-            _pipe.execute()
+            try:
+                _pipe.xadd(self._make_response_id(caller), kv, maxlen=STREAM_LEN)
+                _pipe.execute()
+            except:
+                # If we fail to xadd the response, go ahead and continue
+                # we will xack the response to bring it out of pending list.
+                # This command will be treated as being "handled" and will not 
+                # be re-attempted
+                pass
 
             # `XACK` the command we have just completed back to the consumer 
             # group to remove the command from the consumer group pending 
