@@ -1054,15 +1054,13 @@ class Element:
         """
         entries = []
         stream_id = self._make_stream_id(element_name, stream_name)
-
         if last_id and not isinstance(last_id, int):
-            raise TypeError('expected last_id to be an int, received %s' % (type(last_id,))
+            raise TypeError('expected last_id to be an int, received %s' % (type(last_id,)))
 
         kwargs = {'count': n}
         if last_id:
             kwargs.update({'min': last_id})
         uid_entries = self._rclient.xrevrange(stream_id, **kwargs)
-
         for uid, entry in uid_entries:
             entry = self._decode_entry(entry)
             serialization = self._get_serialization_method(
