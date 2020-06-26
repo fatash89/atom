@@ -1050,7 +1050,7 @@ class Element:
             last_id (int, optional): the recent stream_id to start entries from
 
             Deprecated:
-            deserialize (int, optional): Whether or not to deserialize the entries\
+            deserialize (bool, optional): Whether or not to deserialize the entries\
                                          using msgpack; defaults to None.
 
         Returns:
