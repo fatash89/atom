@@ -1213,18 +1213,10 @@ class TestAtom():
     def test_test_entry_read_n_last_id(self, caller, responder):
         caller, caller_name = caller
         responder, responder_name = responder
-        stream_name = caller._make_stream_id(responder_name, 'test_stream')
-
-        # assert last_id is now set
-        assert caller._entry_read_n_last_id[stream_name] == 0
 
         # no entries yet
         entries = caller.entry_read_n(responder_name, "test_stream", 5)
         assert entries == []
-
-        # assert last_id is now set
-        old_call_time =  caller._entry_read_n_last_id[stream_name]
-        assert old_call_time is not None
 
         # populate some entries
         for i in range(10):
@@ -1254,10 +1246,6 @@ class TestAtom():
         # ensure we just get the tail end by specifying the new _time
         entries = caller.entry_read_n(responder_name, "test_stream", 10, last_id=_time)
         assert all(int(i['data']) >= 30  and int(i['data']) <= 40 for i in entries)
-
-        new_call_time =  caller._entry_read_n_last_id[stream_name]
-        assert new_call_time > old_call_time
-
 
 
 def add_1(x):

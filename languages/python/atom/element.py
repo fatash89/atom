@@ -1,5 +1,4 @@
 import copy
-from collections import defaultdict
 from multiprocessing import Process
 import multiprocessing
 from traceback import format_exc
@@ -18,7 +17,7 @@ from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESP
 from atom.config import ATOM_COMMAND_UNSUPPORTED, ATOM_CALLBACK_FAILED, ATOM_USER_ERRORS_BEGIN, ATOM_INTERNAL_ERROR
 from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND, REDIS_PIPELINE_POOL_SIZE, COMMAND_LIST_COMMAND
 from atom.messages import Cmd, Response, StreamHandler, format_redis_py
-from atom.messages import Acknowledge, Entry, Log, LogLevel, ENTRY_RESERVED_KEYS
+
 import atom.serialization as ser
 
 
@@ -105,9 +104,6 @@ class Element:
             # Keep track of command_last_id to know last time the element's command stream was read from
             self.command_last_id = _pipe.execute()[-1].decode()
             _pipe = self._release_pipeline(_pipe)
-
-            # Keep track of stream last_id \forall streams
-            self._entry_read_n_last_id = defaultdict(int)
 
             # Init a default healthcheck, overridable
             # By default, if no healthcheck is set, we assume everything is ok and return error code 0
@@ -1058,9 +1054,9 @@ class Element:
         """
         entries = []
         stream_id = self._make_stream_id(element_name, stream_name)
+
         if last_id and not isinstance(last_id, int):
-            raise TypeError('expected an int')
-        last_id = last_id or self._entry_read_n_last_id[stream_id] or '-'
+            raise TypeError('expected last_id to be an int, received %s' % (type(last_id,))
 
         kwargs = {'count': n}
         if last_id:
@@ -1069,10 +1065,14 @@ class Element:
 
         for uid, entry in uid_entries:
             entry = self._decode_entry(entry)
-            serialization = self._get_serialization_method(entry, serialization, force_serialization, deserialize)
+            serialization = self._get_serialization_method(
+                entry,
+                serialization,
+                force_serialization,
+                deserialize
+            )
             entry = self._deserialize_entry(entry, method=serialization)
             entry["id"] = uid.decode()
-            self._entry_read_n_last_id[stream_id] = int(entry['id'].split('-')[0])
             entries.append(entry)
 
         return entries
