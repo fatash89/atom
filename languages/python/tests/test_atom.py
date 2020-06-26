@@ -1259,7 +1259,6 @@ class TestAtom():
         assert new_call_time > old_call_time
 
 
-
 def add_1(x):
     return Response(int(x)+1)
 
