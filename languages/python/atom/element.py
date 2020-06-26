@@ -1,4 +1,5 @@
 import copy
+from collections import defaultdict
 from multiprocessing import Process
 import multiprocessing
 from traceback import format_exc
@@ -104,6 +105,9 @@ class Element:
             # Keep track of command_last_id to know last time the element's command stream was read from
             self.command_last_id = _pipe.execute()[-1].decode()
             _pipe = self._release_pipeline(_pipe)
+
+            # Keep track of stream last_id \forall streams
+            self._entry_read_n_last_id = defaultdict(int)
 
             # Init a default healthcheck, overridable
             # By default, if no healthcheck is set, we assume everything is ok and return error code 0
@@ -1030,7 +1034,8 @@ class Element:
                     entry["id"] = uid.decode()
                     stream_handler_map[stream.decode()](entry)
 
-    def entry_read_n(self, element_name, stream_name, n, serialization=None, force_serialization=False, deserialize=None):
+    def entry_read_n(self, element_name, stream_name, n, serialization=None, 
+                     force_serialization=False, deserialize=None, last_id=None):
         """
         Gets the n most recent entries from the specified stream.
 
@@ -1042,22 +1047,32 @@ class Element:
                                            defaults to None.
             force_serialization (bool): Boolean to ignore "ser" key if found
                 in favor of the user-passed serialization. Defaults to false.
+            last_id (int, optional): the recent stream_id to start entries from
 
             Deprecated:
-            deserialize (bool, optional): Whether or not to deserialize the entries\
-                                          using msgpack; defaults to None.
+            deserialize (int, optional): Whether or not to deserialize the entries\
+                                         using msgpack; defaults to None.
 
         Returns:
             List of dicts containing the data of the entries
         """
         entries = []
         stream_id = self._make_stream_id(element_name, stream_name)
-        uid_entries = self._rclient.xrevrange(stream_id, count=n)
+        if last_id and not isinstance(last_id, int):
+            raise TypeError('expected an int')
+        last_id = last_id or self._entry_read_n_last_id[stream_id] or '-'
+
+        kwargs = {'count': n}
+        if last_id:
+            kwargs.update({'min': last_id})
+        uid_entries = self._rclient.xrevrange(stream_id, **kwargs)
+
         for uid, entry in uid_entries:
             entry = self._decode_entry(entry)
             serialization = self._get_serialization_method(entry, serialization, force_serialization, deserialize)
             entry = self._deserialize_entry(entry, method=serialization)
             entry["id"] = uid.decode()
+            self._entry_read_n_last_id[stream_id] = int(entry['id'].split('-')[0])
             entries.append(entry)
 
         return entries
