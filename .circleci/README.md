@@ -125,6 +125,14 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 
 ### Release Notes
 
+#### [v0.1.9](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.1.9)
+
+##### New Features
+
+- Replaces `master` with `latest`
+- Changes `deploy_master` job to `deploy_release`
+- Adds default `target_tag` of `""` to deploy commands
+
 #### [v0.1.8](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.1.8)
 
 ##### New Features
