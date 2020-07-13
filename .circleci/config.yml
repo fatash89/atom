@@ -803,7 +803,7 @@ workflows:
           filters:
             branches:
               ignore:
-                - master
+                - latest
       #
       # Atom Development tags: development-YYY-variant-platform
       #
@@ -819,15 +819,15 @@ workflows:
           filters:
             branches:
               ignore:
-                - master
+                - latest
 
       #
-      # Atom Master tags: master-YYY
+      # Atom Master tags: latest-YYY
       #
       - atom/deploy:
-          name: "deploy-master-<< matrix.component >>-<< matrix.variant >>-<< matrix.platform >>"
+          name: "deploy-latest-<< matrix.component >>-<< matrix.variant >>-<< matrix.platform >>"
           << : *atom_deploy_shared_mapping
-          target_tag: master-<< pipeline.number >>
+          target_tag: latest-<< pipeline.number >>
           matrix:
             << : *atom_matrix
           requires:
@@ -835,15 +835,15 @@ workflows:
           filters:
             branches:
               only:
-                - master
+                - latest
 
       #
-      # Atom Master tags: master-YYY-variant-platform
+      # Atom Master tags: latest-YYY-variant-platform
       #
       - atom/deploy:
-          name: "deploy-master-<< matrix.component >>-variant-<< matrix.variant >>-<< matrix.platform >>"
+          name: "deploy-latest-<< matrix.component >>-variant-<< matrix.variant >>-<< matrix.platform >>"
           << : *atom_deploy_shared_mapping
-          target_tag: master-<< pipeline.number >>
+          target_tag: latest-<< pipeline.number >>
           target_tag_cmd: "grep '.*'"
           matrix:
             << : *atom_matrix
@@ -852,13 +852,13 @@ workflows:
           filters:
             branches:
               only:
-                - master
+                - latest
 
       #
-      # Atom Latest tags: latest + aarch64 + opengl-cuda, etc.
+      # Atom release tags: latest + aarch64 + opengl-cuda, etc.
       #
-      - atom/deploy_latest:
-          name: "deploy-latest-<< matrix.component >>-variant-<< matrix.variant >>-<< matrix.platform >>"
+      - atom/deploy_release:
+          name: "deploy-release-<< matrix.component >>-variant-<< matrix.variant >>-<< matrix.platform >>"
           << : *atom_deploy_shared_mapping
           target_tag_cmd: "grep -oP '(?<=-).*' | sed s/stock/latest/g | sed s/-amd64//g | sed s/latest-aarch64/aarch64/g"
           target_tag: ""
@@ -869,12 +869,12 @@ workflows:
           filters:
             branches:
               only:
-                - master
+                - latest
       #
-      # Atom Latest tags: variant-platform
+      # Atom release tags: variant-platform
       #
-      - atom/deploy_latest:
-          name: "deploy-latest-<< matrix.component >>-variant-<< matrix.variant >>-<< matrix.platform >>"
+      - atom/deploy_release:
+          name: "deploy-release-<< matrix.component >>-variant-<< matrix.variant >>-<< matrix.platform >>"
           << : *atom_deploy_shared_mapping
           target_tag: ""
           target_tag_cmd: "grep -oP '(?<=-).*'"
@@ -885,7 +885,7 @@ workflows:
           filters:
             branches:
               only:
-                - master
+                - latest
 
       #
       # Atom Release tags: Git tag
@@ -950,11 +950,11 @@ workflows:
           filters:
             branches:
               ignore:
-                - master
+                - latest
 
-      # Builds of master branches. Deploy latest, master-Y and Heroku
+      # Builds of latest branches. Deploy latest, latest-Y and Heroku
       - atom/deploy:
-          name: "deploy-docs-master-latest"
+          name: "deploy-docs-latest-latest"
           << : *docs_deploy_shared_config
           target_tag: latest
           requires:
@@ -962,25 +962,25 @@ workflows:
           filters:
             branches:
               only:
-                - master
+                - latest
       - atom/deploy:
-          name: "deploy-docs-master-num"
+          name: "deploy-docs-latest-num"
           << : *docs_deploy_shared_config
-          target_tag: master-<< pipeline.number >>
+          target_tag: latest-<< pipeline.number >>
           requires:
             - build-docs
           filters:
             branches:
               only:
-                - master
+                - latest
       - deploy-docs-heroku:
-          name: "deploy-docs-master-heroku"
+          name: "deploy-docs-latest-heroku"
           requires:
             - build-docs
           filters:
             branches:
               only:
-                - master
+                - latest
 
       # Builds of tag branches, deploy tag
       - atom/deploy:
@@ -1171,9 +1171,9 @@ workflows:
           requires:
             - "build-base-<< matrix.variant >>-<< matrix.platform >>"
 
-      # Bump the base tags when merging into master
+      # Bump the base tags when merging into latest
       - atom/deploy_no_variant_platform:
-          name: "deploy-base-master-<< matrix.source_tag >>"
+          name: "deploy-base-latest-<< matrix.source_tag >>"
           source_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
           target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
           target_tag: << matrix.source_tag >>
@@ -1185,11 +1185,11 @@ workflows:
           filters:
             branches:
               only:
-                - master
+                - latest
 
       # Bump the base tags when tagging
       - atom/deploy_no_variant_platform:
-          name: "deploy-base-master-<< matrix.source_tag >>"
+          name: "deploy-base-latest-<< matrix.source_tag >>"
           source_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
           target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
           target_tag: ${CIRCLE_TAG}-<< matrix.source_tag >>
@@ -1216,7 +1216,7 @@ workflows:
           filters:
             branches:
               only:
-                - master
+                - latest
     jobs:
       - atom/build_buildx:
           << : *docs_build_shared_config
@@ -1230,4 +1230,4 @@ workflows:
           filters:
             branches:
               ignore:
-                - master
+                - latest
