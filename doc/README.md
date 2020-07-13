@@ -14,7 +14,7 @@ SDK. At a high level, it contains the following:
 
 ### On the Web
 
-The docs are currently published online [here](https://atomdocs.io). They are rebuilt and redeployed nightly as well as with every new merge into the `master` branch of this repo.
+The docs are currently published online [here](https://atomdocs.io). They are rebuilt and redeployed nightly as well as with every new merge into the `latest` branch of this repo.
 
 ### Using Docker
 

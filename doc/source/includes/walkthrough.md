@@ -17,7 +17,7 @@ This example is written in Python, please switch over to the `python` tab at rig
 
 ## Project Template
 
-Download the files below and put them into a new folder named `atombot` on your system. These files are taken from the [template](https://github.com/elementary-robotics/atom/tree/master/template) from the Atom OS repo. (Note your browser may add a .txt extension when you download Dockerfile below.  In that case remove the extension.)
+Download the files below and put them into a new folder named `atombot` on your system. These files are taken from the [template](https://github.com/elementary-robotics/atom/tree/latest/template) from the Atom OS repo. (Note your browser may add a .txt extension when you download Dockerfile below.  In that case remove the extension.)
 
 | File | Description |
 |------|-------------|

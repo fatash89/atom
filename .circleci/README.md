@@ -26,9 +26,9 @@ on the branch, they will be tagged as so:
 
 | branch | tag |
 |--------|-----|
-| `master` | `master-<< pipeline.number >>` |
-| `master` | `latest` |
-| Non-`master` | `development-<< pipeline.number >>` |
+| `latest` | `latest-<< pipeline.number >>` |
+| `latest` | `latest` |
+| Non-`latest` | `development-<< pipeline.number >>` |
 | tag, i.e. v1.3.1 | `v1.3.1` |
 
 Where `<< pipeline.number >>` is the CircleCI pipeline number for the build
@@ -43,9 +43,9 @@ specific), we push the following tags:
 
 | branch | tag |
 |--------|-----|
-| `master` | `master-<< pipeline.number >>-<< variant >>-<< platform >>` |
-| `master` | `<< variant >>-<< platform >>` |
-| Non-`master` | `development-<< pipeline.number >>-<< variant >>-<< platform >>` |
+| `latest` | `latest-<< pipeline.number >>-<< variant >>-<< platform >>` |
+| `latest` | `<< variant >>-<< platform >>` |
+| Non-`latest` | `development-<< pipeline.number >>-<< variant >>-<< platform >>` |
 | tag, i.e. v1.3.1 | `v1.3.1-<< variant >>-<< platform >>` |
 
 You are encouraged to switch to using the new tag scheme as it will help as
@@ -205,7 +205,7 @@ is currently either `amd64` or `aarch64`.
 run a command-line text replacement (grep, sed, etc.) on the tag field. By
 default, this field removes `-stock` and `-amd64` from the auto-generated tag
 s.t. stock builds for intel machines produce tags such as "development-X",
-"master-X", etc. as before. The auto-generated tag for builds automatically
+"latest-X", etc. as before. The auto-generated tag for builds automatically
 appends the variant and platform to the build product. In general you shouldn't
 need to mess with this field as it's mainly a crutch to let us use the matrix
 features and still get all of our tags as expected but you might want to
@@ -373,14 +373,14 @@ orbs:
 +       filters:
 +         tags:
 +           only: /.*/
-    - atom/deploy-master:
+    - atom/deploy-latest:
         requires:
 -         - build
 +         - atom/check_flake8
         filters:
           branches:
             only:
-              - master
+              - latest
           tags:
             only: /.*/
 ```
@@ -495,7 +495,7 @@ These target params will be automatically used by the deploy jobs to pull this b
 Created 02/05/2020.
 
 ##### Bug fixes
-- Removed git commit hashes from deployed `master` image tags
+- Removed git commit hashes from deployed `latest` image tags
 
 ##### Upgrade Steps
 - Reference the v0.0.5 orb in `config.yml` with
@@ -524,14 +524,14 @@ orbs:
 
 ```diff
   jobs:
-    - atom/deploy-master:
+    - atom/deploy-latest:
 +       output_timeout: 20m
         requires:
           - build
         filters:
           branches:
             only:
-              - master
+              - latest
           tags:
             only: /.*/
 ```
@@ -543,7 +543,7 @@ Created 01/30/2020.
 - New command for install and authentication of Git LFS; use with `atom/install_git_lfs`.
 
 ##### Bug Fixes
-- The `deploy-dev`, `deploy-master`, and `deploy-tag` jobs were fixed to include workspace attachment and docker login steps.
+- The `deploy-dev`, `deploy-latest`, and `deploy-tag` jobs were fixed to include workspace attachment and docker login steps.
 
 ##### Upgrade Steps
 - Reference the v0.0.3 orb in `config.yml` with
@@ -565,14 +565,14 @@ Created 01/31/2020.
 
 ##### New Features
 - Added builds on GitHub tags.
-  - Will push Docker images tagged with `<GitHub tag>`, `master-<CircleCI build num>`, and `latest`.
+  - Will push Docker images tagged with `<GitHub tag>`, `latest-<CircleCI build num>`, and `latest`.
 - Orb commands parameterized for increased flexibility of use.
   - Default parameters have been set to preserve existing functionality.
-- Added commands for pushing individual dev/master/tag images without repeating workspace attachment and docker login (as in existing jobs).
+- Added commands for pushing individual dev/latest/tag images without repeating workspace attachment and docker login (as in existing jobs).
 - New `load_image` command for use in the above that does not include workspace attachment or docker login.
 
 ##### Known Bugs
-- The `deploy-dev`, `deploy-master`, and `deploy-tag` jobs do not include workspace attachment or docker login. Orb should be upgraded to v0.0.3 if using these jobs.
+- The `deploy-dev`, `deploy-latest`, and `deploy-tag` jobs do not include workspace attachment or docker login. Orb should be upgraded to v0.0.3 if using these jobs.
 
 ##### Upgrade Steps
 - Reference the v0.0.2 orb in `config.yml` with
@@ -597,17 +597,17 @@ orbs:
 +           only: /.*/
 ```
 
-- Update any `deploy-master` jobs to also run on GitHub tags with the following:
+- Update any `deploy-latest` jobs to also run on GitHub tags with the following:
 
 ```diff
   jobs:
-    - atom/deploy-master:
+    - atom/deploy-latest:
         requires:
           - build
         filters:
           branches:
             only:
-              - master
+              - latest
 +         tags:
 +           only: /.*/
 ```

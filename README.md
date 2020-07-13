@@ -377,7 +377,7 @@ containers in order to eliminate the hassle of building/installing `atom` in
 multiple places.
 
 The following images/tags are regularly maintained and built with each merge
-to `master` in this repo.
+to `latest` in this repo.
 
 ### Variants
 
@@ -534,7 +534,7 @@ are:
 with a new tag, `base-XXX-YYY` to the appropriate DockerHub repo. `XXX` will be
 the base tag and `YYY` will be the CircleCI build number.
 5. Update the [aliases section of the CircleCI config](.circleci/config.yml) to use the new base
-6. Check in the results from (5) and merge the branch into master. The new base tag will be auto-pushed to the generic base tag `base-XXX` upon merge into master.
+6. Check in the results from (5) and merge the branch into latest. The new base tag will be auto-pushed to the generic base tag `base-XXX` upon merge into latest.
 
 #### Updating Base Dockerfiles
 
