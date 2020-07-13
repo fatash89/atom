@@ -663,15 +663,15 @@ jobs:
       target_tag_cmd:
         type: string
         # By default, strip off "-stock" and "-amd64" tags so that builds
-        # show up with the legacy tags of development-YYY, master-YYY, etc.
+        # show up with the legacy tags of development-YYY, latest-YYY, etc.
         default: sed s/-stock//g | sed s/-amd64//g
     steps:
       - setup_remote_docker
       - deploy_image:
           << : *deploy_shared_args_mapping
 
-  # Special case: deploy to latest. Requires a different tag command
-  deploy_latest:
+  # Special case: deploy release tags. Requires a different tag command
+  deploy_release:
     executor: docker-in-docker
     parameters:
       << : *deploy_shared_args
@@ -789,23 +789,23 @@ examples:
                 filters:
                   branches:
                     ignore:
-                      - master
+                      - latest
 
-            # Deploy Master
+            # Deploy latest
             - atom/deploy:
-                name: "deploy-master"
-                target_tag: master-<< pipeline.number >>
+                name: "deploy-latest"
+                target_tag: latest-<< pipeline.number >>
                 << : *deploy_shared
                 requires:
                   - build
                 filters:
                   branches:
                     only:
-                      - master
+                      - latest
 
             # Deploy latest
-            - atom/deploy_latest:
-                name: "deploy-latest"
+            - atom/deploy_release:
+                name: "deploy-release"
                 target_tag: ""
                 << : *deploy_shared
                 requires:
@@ -813,7 +813,7 @@ examples:
                 filters:
                   branches:
                     only:
-                      - master
+                      - latest
 
             # Deploy tag
             - atom/deploy:
@@ -914,15 +914,15 @@ examples:
                 filters:
                   branches:
                     ignore:
-                      - master
+                      - latest
 
-            # Deploy Master
+            # Deploy tagged latest
             - atom/deploy:
-                name: "deploy-master-<< matrix.platform >>"
+                name: "deploy-latest-<< matrix.platform >>"
                 source_image: << pipeline.parameters.dockerhub_repo >>
                 source_tag: build-<< pipeline.number >>
                 target_image: << pipeline.parameters.dockerhub_repo >>
-                target_tag: master-<< pipeline.number >>
+                target_tag: latest-<< pipeline.number >>
                 matrix:
                   parameters:
                     platform: [ amd64, aarch64 ]
@@ -931,11 +931,11 @@ examples:
                 filters:
                   branches:
                     only:
-                      - master
+                      - latest
 
-            # Deploy latest
-            - atom/deploy_latest:
-                name: "deploy-latest-<< matrix.platform >>"
+            # Deploy release
+            - atom/deploy_release:
+                name: "deploy-release-<< matrix.platform >>"
                 source_image: << pipeline.parameters.dockerhub_repo >>
                 source_tag: build-<< pipeline.number >>
                 target_image: << pipeline.parameters.dockerhub_repo >>
@@ -948,7 +948,7 @@ examples:
                 filters:
                   branches:
                     only:
-                      - master
+                      - latest
 
             # Deploy tag
             - atom/deploy:
