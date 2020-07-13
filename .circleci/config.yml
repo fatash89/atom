@@ -860,8 +860,6 @@ workflows:
       - atom/deploy_release:
           name: "deploy-release-<< matrix.component >>-variant-<< matrix.variant >>-<< matrix.platform >>"
           << : *atom_deploy_shared_mapping
-          target_tag_cmd: "grep -oP '(?<=-).*' | sed s/stock/latest/g | sed s/-amd64//g | sed s/latest-aarch64/aarch64/g"
-          target_tag: ""
           matrix:
             << : *atom_matrix
           requires:
@@ -874,9 +872,8 @@ workflows:
       # Atom release tags: variant-platform
       #
       - atom/deploy_release:
-          name: "deploy-release-<< matrix.component >>-variant-<< matrix.variant >>-<< matrix.platform >>"
+          name: "deploy-release-<< matrix.component >>-variant-<< matrix.variant >>-<< matrix.platform >>-platform"
           << : *atom_deploy_shared_mapping
-          target_tag: ""
           target_tag_cmd: "grep -oP '(?<=-).*'"
           matrix:
             << : *atom_matrix

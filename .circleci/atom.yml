@@ -158,6 +158,7 @@ aliases:
         type: string
       target_tag:
         type: string
+        default: ""
       platform:
         type: string
         default: "amd64"
@@ -806,7 +807,6 @@ examples:
             # Deploy latest
             - atom/deploy_release:
                 name: "deploy-release"
-                target_tag: ""
                 << : *deploy_shared
                 requires:
                   - build
@@ -939,7 +939,6 @@ examples:
                 source_image: << pipeline.parameters.dockerhub_repo >>
                 source_tag: build-<< pipeline.number >>
                 target_image: << pipeline.parameters.dockerhub_repo >>
-                target_tag: ""
                 matrix:
                   parameters:
                     platform: [ amd64, aarch64 ]
