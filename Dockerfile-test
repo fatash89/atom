@@ -1,0 +1,62 @@
+FROM elementaryrobotics/atom as test
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+#
+# Install test dependencies
+#
+
+# Install googletest
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+    libgtest-dev \
+    cmake \
+    build-essential \
+    python3-pip \
+ && cd /usr/src/gtest \
+ && cmake CMakeLists.txt \
+ && make -j8 \
+ && cp *.a /usr/lib
+
+
+# Install C++ coverage tools
+RUN apt-get install -y lcov
+
+# Install valgrind
+RUN apt-get install -y --no-install-recommends valgrind
+
+#Install gdb
+RUN apt-get install -y gdb
+
+# Install pytest
+RUN pip3 install --no-cache-dir pytest
+
+# Copy source code
+COPY ./languages/c/ /atom/languages/c
+COPY ./languages/cpp/ /atom/languages/cpp
+COPY ./languages/python/tests /atom/languages/python/tests
+
+# Install the redis client library: cpp_redis
+RUN cd ./languages/cpp/third-party/cpp_redis \
+&& mkdir build && cd build \
+&& cmake .. -DCMAKE_BUILD_TYPE=Release \
+&& make \
+&& make install
+
+
+# Install boost (dependency for bredis)
+# to ./boostrap.sh, add "-with -libraryname" for libraries that need to be built separately
+RUN  apt-get install -y wget
+RUN wget https://dl.bintray.com/boostorg/release/1.73.0/source/boost_1_73_0.tar.gz
+RUN tar xzvf boost_1_69_0.tar.gz 
+RUN cd boost_1_73_0 && ./bootstrap.sh 
+RUN cd boost_1_73_0 && ./b2; exit 0
+RUN cd boost_1_73_0 && ./b2 install; exit 0
+
+
+# Install the redis client library: bredis
+RUN cd ./languages/cpp/third-party/cpp-bredis \
+#&& mkdir build && cd build \
+&& cd build && cmake .. \
+&& make
+

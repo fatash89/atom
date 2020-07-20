@@ -19,6 +19,7 @@
 #include "element.h"
 #include "element_response.h"
 #include "element_read_map.h"
+#include <cpp_redis/cpp_redis>
 
 // Need to use the atom namespace
 using namespace atom;
@@ -907,9 +908,18 @@ bool readerHandler(
 	std::cout << "In reader handler" << std::endl;
 	int *i = (int *)user_data;
 
+    std::cout<<"user_data: " << *i << " e.size: " << e.size()<<std::endl;
+
 	if ((e.size() == 1) && (e.getKey("foo") == "bar")) {
+        std::cout<<"found foo"<<std::endl;
 		*i += 1;
 	}
+/*     else if ((e.size() == 1) && (e.getKey("foo2") == "bar2"))
+    {
+        std::cout<<"found foo2"<<std::endl;
+        *i += 1;
+    } */
+    
 	return true;
 }
 
@@ -918,36 +928,54 @@ void reader_element(int &i)
 {
 	Element elem("reader");
 	ElementReadMap m;
-	m.addHandler("testing", "reader", { "foo" }, readerHandler, &i);
+	m.addHandler("testing", "reader", { "foo" }, readerHandler, &i); //with user data
+//    m.addHandler("testing", "reader", { "foo2" }, readerHandler); //without user data
 	elem.entryReadLoop(m, 3);
 }
 
-// Tests readLoop API
-// TEST_F(ElementTest, readLoop) {
+// Tests readLoop API -- possible race condition! #TODO: fix it.
+ TEST_F(ElementTest, readLoop) {
 
-// 	// Make the reader thread
-// 	int count = 0;
-// 	std::thread reader(reader_element, std::ref(count));
+ 	// Make the reader thread
+ 	int count = 0;
+ 	std::thread reader(reader_element, std::ref(count));
+    Element element1("one");
+	Element element2("two");
 
-// 	// Wait until the reader element is alive
-// 	while (true) {
-// 		std::vector<std::string> elements;
-// 		ASSERT_EQ(element->getAllElements(elements), ATOM_NO_ERROR);
-// 		if (std::find(elements.begin(), elements.end(), "reader") != elements.end()) {
-// 			break;
-// 		}
-// 		usleep(100000);
-// 	}
+ 	// Wait until the reader element is alive
+ 	while (true) {
+ 		std::vector<std::string> elements;
+ 		ASSERT_EQ(element->getAllElements(elements), ATOM_NO_ERROR);
+ 		if (std::find(elements.begin(), elements.end(), "reader") != elements.end()) {
+            std::cout<<"Found reader"<<std::endl;
+            
+            if(std::find(elements.begin(), elements.end(), "one") != elements.end()){
+                std::cout<<"Found one!"<<std::endl;
+                
+                if(std::find(elements.begin(), elements.end(), "two") != elements.end()){
+                    std::cout<<"Found two!" <<std::endl;
+                    break;
+                } else{ std::cout<<"Didn't find two."<<std::endl;}
+                break;
 
-// 	// Publish "foo" : "bar" on our "reader" stream
-// 	entry_data_t data;
-// 	data["foo"] = "bar";
-// 	for (int i = 0; i < 3; ++i) {
-// 		ASSERT_EQ(element->entryWrite("reader", data), ATOM_NO_ERROR);
-// 	}
+            } else{ std::cout<<"Didn't find one."<<std::endl;}
+            break;
+ 		}
+        break;
+ 		usleep(100000);
+ 	}
+    std::cout<<"out of loop"<<std::endl;
 
-// 	// Wait for the reader thread to finish up
-// 	reader.join();
+ 	// Publish "foo" : "bar" on our "reader" stream
+ 	entry_data_t data;
+ 	data["foo"] = "bar";
+    //data["foo2"] = "bar2";
+ 	for (int i = 0; i < 3; ++i) {
+ 		ASSERT_EQ(element->entryWrite("reader", data), ATOM_NO_ERROR);
+ 	}
 
-// 	ASSERT_EQ(count, 3);
-// }
+ 	// Wait for the reader thread to finish up
+ 	reader.join();
+
+ 	ASSERT_EQ(count, 3);
+ }

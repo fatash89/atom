@@ -19,6 +19,7 @@ INCLUDE_DIR:=inc
 BUILD_DIR:=build
 THIRDPARTY_DIR:=third-party
 HIREDIS_BUILD_DIR:=/usr/local
+BOOST_INCLUDE_DIR:=/usr/local/include/boost
 
 CPP_SRCS := $(wildcard $(SOURCE_DIR)/*.cc)
 CPP_OBJS = $(addprefix $(BUILD_DIR)/lib/,$(notdir $(CPP_SRCS:.cc=.o)))
@@ -34,16 +35,22 @@ TEST_SRCS := $(wildcard $(TEST_DIR)/*.cc) $(wildcard $(SOURCE_DIR)/*.cc)
 TEST_OBJS = $(addprefix $(TEST_DIR)/$(BUILD_DIR)/,$(notdir $(TEST_SRCS:.cc=.o)))
 vpath %.cc $(sort $(dir $(TEST_SRCS)))
 
+CLIENTS_DIR:=clients
+RC_BINARY1:=cpp_redis_client
+RC_ASYNC_BINARY1:= async_cpp_redis_client
+RC_BINARY2:=bredis_client
+RC_ASYNC_BINARY2:= async_bredis_client
+
 # Check to see if we got a test filter
 ifeq ($(TEST_FILTER),)
 	TEST_FILTER:="*"
 endif
 
 # CFLAGS
-CFLAGS := -std=c++11 -Wall -Werror -fPIC -I${INCLUDE_DIR} -I${HIREDIS_BUILD_DIR}/include/ -g
+CFLAGS := -std=c++11 -Wall -Werror -fPIC -I${INCLUDE_DIR} -I${HIREDIS_BUILD_DIR}/include/ -I${HIREDIS_BUILD_DIR}/include/tacopie -I${HIREDIS_BUILD_DIR}/include/cpp_redis -g -fprofile-arcs -ftest-coverage
 
 #LDFLAGS
-LDFLAGS := -L${HIREDIS_BUILD_DIR}/lib -Wl,-rpath,${HIREDIS_BUILD_DIR}/lib -latom -lhiredis -lpthread
+LDFLAGS := -L${HIREDIS_BUILD_DIR}/lib -Wl,-rpath,${HIREDIS_BUILD_DIR}/lib -latom -lhiredis -ltacopie -lcpp_redis -lpthread -fprofile-arcs -ftest-coverage -p 
 
 $(BUILD_DIR)/lib/%.o: src/%.cc $(HEADER_OBJS) | $(BUILD_DIR)/lib
 	@ echo "Compiling $<"
@@ -85,6 +92,20 @@ $(TEST_DIR)/$(BUILD_DIR)/$(TEST_BINARY): $(TEST_OBJS) $(HEADER_OBJS) | $(TEST_DI
 	@ echo "Linking $@"
 	@ $(CXX) $(filter %.o,$^) -L${BUILD_DIR}/lib -Wl,-rpath,${BUILD_DIR}/lib -latom -lgtest_main -lgtest $(LDFLAGS) -o $@
 
+#for the test clients
+$(CLIENTS_DIR)/$(BUILD_DIR):
+	@ echo "Creating $@"
+	@ mkdir $@
+$(CLIENTS_DIR)/$(BUILD_DIR)/$(RC_BINARY1):
+	@ g++ -o $(RC_BINARY1) ./clients/cpp_redis_client.cc -L$/usr/local/lib -l cpp_redis -l tacopie -lpthread -ggdb
+$(CLIENTS_DIR)/$(BUILD_DIR)/$(RC_BINARY2):
+	@ g++ -I/atom/languages/cpp/third-party/cpp-bredis/include -I$(BOOST_INCLUDE_DIR) -I$(INCLUDE_DIR) -o $(RC_BINARY2) ./clients/bredis_client.cc -L/usr/local/lib/ -lboost_system -lboost_thread -lpthread -ggdb
+$(CLIENTS_DIR)/$(BUILD_DIR)/$(RC_ASYNC_BINARY1):
+	@ g++ -o $(RC_ASYNC_BINARY1) ./clients/async_cpp_redis_client.cc -L$/usr/local/lib -l cpp_redis -l tacopie -lpthread -ggdb
+$(CLIENTS_DIR)/$(BUILD_DIR)/$(RC_ASYNC_BINARY2):
+	@ g++ -I/atom/languages/cpp/third-party/cpp-bredis/include -I$(BOOST_INCLUDE_DIR) -I$(INCLUDE_DIR) -o $(RC_ASYNC_BINARY2) ./clients/async_bredis_client.cc -L/usr/local/lib/ -lboost_system -lboost_thread -lpthread -ggdb
+
+
 .PHONY: all
 all: $(BUILD_DIR)/lib/$(OUTPUT_NAME)
 
@@ -97,6 +118,14 @@ install: $(BUILD_DIR)/lib/$(OUTPUT_NAME)
 .PHONY: test
 test: $(TEST_DIR)/$(BUILD_DIR)/$(TEST_BINARY)
 	./$(TEST_DIR)/$(BUILD_DIR)/$(TEST_BINARY) --gtest_filter=$(TEST_FILTER)
+	lcov -c --directory ./$(TEST_DIR)/$(BUILD_DIR)/. --output-file ./$(TEST_DIR)/$(BUILD_DIR)/main_coverage.info
+	genhtml ./$(TEST_DIR)/$(BUILD_DIR)/main_coverage.info --output-directory ./$(TEST_DIR)/$(BUILD_DIR)/out
+
+.PHONY: client
+client: $(CLIENTS_DIR)/$(BUILD_DIR)/$(RC_BINARY1)
+client: $(CLIENTS_DIR)/$(BUILD_DIR)/$(RC_BINARY2)
+client: $(CLIENTS_DIR)/$(BUILD_DIR)/$(RC_ASYNC_BINARY1)
+#client: $(CLIENTS_DIR)/$(BUILD_DIR)/$(RC_ASYNC_BINARY2)
 
 .PHONY: clean
 clean:
