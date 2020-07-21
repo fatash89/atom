@@ -30,8 +30,9 @@ namespace atom {
     ' -------------
     ' Hiding things here
     ' -------------
-        hide atom::Redis_ConnectionPool
+        ' hide atom::Redis_ConnectionPool
         hide <<struct>> circle
+        hide atom::Reference
 
     ' -------------
     ' Class Organization
@@ -39,7 +40,8 @@ namespace atom {
 
     Redis o-- Bredis 
     Redis_ConnectionPool o-- Redis
-    Element_Service o-- Redis
+    Element_Service o-- Redis_ConnectionPool
+    ' Element_Service o-- Redis
     Element o-- Reference
     Element_Service o-- Element
     Element_Service o-- Serialization
@@ -59,9 +61,11 @@ namespace atom {
 
     class atom::Redis_ConnectionPool{
         -{field} int max_connections
-        -{field} std::map<std::string, Redis> connections
+        -{field} std::map<std::string, Redis<socket_t, endpoint_t> > connections
         +{method} Redis make_connection()
+        +{method} Redis get_connection()
         +{method} void release_connection(Redis conn)
+        +{method} void close_connection(Redis conn)
     }
 
     ' -------------
@@ -74,20 +78,38 @@ namespace atom {
         -{field} boost::asio::io_context ioc_
         -{field} Buffer rx_buff
         -{field} Buffer tx_buff
+        
+        ----
+        -- Connect/Disconnect Socket To Redis Server --
         +{method} void connect(std::string ip, int port)
         +{method} void connect(std::string unix_address)
-        +{method} std::string get_timestamp()
         +{method} void close()
+
+        ----
+        -- Load Scripts --
         +{method} void load_scripts(std::string filename)
+
+        ----
+        -- Get timstamp from Redis Server --
+        +{method} std::string get_timestamp()
+
+        ----
+        -- Consumer Group Counters --
         +{method} std::string increment_cgroup_count(std::string element_name, atom::error error)
         +{method} std::string decrement_cgroup_count(std::string element_name, atom::error error)
+
+        ----
+        -- Send Commands to Redis Server --
         +{method} Reply xadd(std::string stream_name, std::string field, std::string value, atom::error error)
         +{method} Reply xrange(std::string stream_name,  std::string first_id, std::string last_id, atom::error error, int count=0)
         +{method} Reply xreadgroup(std::string group_name, std::string consumer_id, std::string stream_name, int block, int count,  atom::error error,)
+        +{method} Reply xgroup_create(std::string stream_name, std::string group_name, std::string group_last_command_id, bool make_stream=true)
         +{method} Reply xread(std::string count, std::vector<std::string> stream_names, std::vector<std::string> last_ids, std::bool block)
         +{method} Reply xack(std::string stream_name, std::string group_name, std::string commad_id)
         +{method} Reply set(std::string key, std::vector<char> value, atom::error error, int EX=0, int PX=0, bool NX=false, bool XX=false, bool KEEPTTL)
 
+        ----
+        -- Helper Functions --
         -{method} atom::error_code error_detect(Buffer * buffer)
         -{method} std::string make_consumer_group_counter(std::string element_name)
         -{method} std::string parse_reply(std::vector<char> data) 
@@ -108,17 +130,28 @@ namespace atom {
     '    handles serialization/deserialization for MsgPack and Arrow Types
     ' -------------
     class Serialization {
-        ' index by serialization method, enables access to desired serialization/deserialization method
-        ' by serialization method
-        +{field} std::map<std::string, std::function> serialize_data
-        +{field} std::map<std::string, std::function> deserialize_data
+        -- Map of Function Pointers --
+        ' index by serialization name, enables access to desired serialization method
+        -{field} std::map<std::string, std::function> serializers
 
-        +{method} MsgPack serialize_msgpack(std::vector<char> data)
-        +{method} MsgPack deserialize_msgpack(std::vector<char> data)
+        ----
+        -- Serialization/Deserialization --
 
-        +{method} Arrow serialize_arrow(std::vector<char> data)
-        +{method} Arrow deserialize_arrow(std::vector<char> data)
+        +{method} template<typename T> T serialize(std::string serialization Args&&... args)
+        +{method} std::vector<char> deserialize(MsgPack data)
+        +{method} std::vector<char> deserialize(Arrow data)
 
+        ----
+        -- Different Serialization/Deserialization Methods --
+        -{method} MsgPack serialize_msgpack(std::vector<char> data)
+        -{method} Arrow serialize_arrow(std::vector<char> data)
+
+        ----
+        -- Add Serialization/Deserialization Functions to Map --
+        -{method} template<typename T> void insert_serialization(std::string serialization, T function)
+        
+        ----
+        -- Serialization Check for Arrow--
         -{method} is_serializable(std::string method)
     }
 
@@ -148,28 +181,47 @@ namespace atom {
 
     class atom::Element {
         +{field} std::string name
-
         -{field} std::map<std::string, Reference> references
         -{field} std::map<std::string, Command_Handler> command_handlers
-        -{field} Redis connection
+        -{field} Redis<socket_t, endpoint_t> connection
         -{field} std::vector<std::string> streams
         -{field} std::string atom_version
         -{field} std::string language
 
+        ----
+        -- Clean-up Element --
         +{method} delete_element()
+
+        ----
+        -- Get Element Specific Streams --
         ' get method
         +{method} std::vector<std::string> get_streams() 
+
+        ----
+        -- Write Element Specific Data  --
         +{method} void entry_write(std::string stream_name, std::map data, atom::error error, int maxlen=1024, std::string serialization="none")
+        
+        ----
+        -- Remove Element Specific Stream --
+        +{method} void remove_stream(std::string stream_name)
+
+        ----
+        -- Set Element Specific Health Check --
         +{method} void set_healthcheck(Health_Handler handler)
 
+        ----
+        -- Element Specific Commanding/Handling --
         +{method} void add_command(std::string command_name, Command_Handler handler, std::chrono::milliseconds timeout)
         +{method} void command_loop(int n_commands=0, int n_threads=0)
         +{method} void exit_command_loop(int n_commands=0, int n_threads=0, atom::error error)
 
+        ----
+        -- Element Specific Reference Creation/Removal --
         +{method} std::vector<std::string> create_reference(std::vector<char> data, std::string serialization="none", atom::error error, std::chrono::milliseconds timeout=0)
         +{method} void remove_reference(std::vector<std::string> keys)
-        +{method} void remove_stream(std::string stream_name)
 
+        ----
+        -- ID creation helpers --
         -{method} std::string make_reference_id()
     }
 
@@ -180,31 +232,39 @@ namespace atom {
     '    interface with other created elements via reads
     ' -------------
 
-    class atom::Element_Service {
-        -{field} Redis connection 
+    class atom::Element_Service <socket_t, endpoint_t> {
+        -{field} Redis<socket_t, endpoint_t> connection 
+        -{field} Redis_ConnectionPool connection_pool
         -{field} std::map<std::string, Element*> elements
         -{field} Serialization serializer
+        ----
+        -- Element Creation and Removal --
         +{method} int num_elements()
         +{method} Element create_element(std::string element_name, atom::error error)
         +{method} void remove_element(std::string element_name, atom::error error) 
 
+        ----
+        -- Read From Other Elements --
         +{method} Buffer * entry_read_n(std::string element_name, std::string stream_name, int num_entries, atom::error error, std::string serialization="none", bool force_serialization=false)
         +{method} Buffer * entry_read_since(std::string element_name, std::string stream_name, int num_entries, atom::error error, std::string last_id="0", std::string serialization="none", bool force_serialization=false)
         ' v map of element names, mapped to list of stream name, handler pairs
         +{method} void entry_read_loop(std::map<std::string, std::map<std::string, Stream_Handler>> read_streams, int num_loops=0, std::chrono::milliseconds timeout=0, std::string serialization="none", bool force_serialization=false)
+        
+        ----
+        -- Send Commands to Other Elements --
         +{method} Response send_command(std::string element_name, std::string command_name, bool block=True, std::chrono::milliseconds timeout=ACK_TIMEOUT, std::string serialization="none")
 
-
-
-        +{method} void log(atom::Log_Level level, std::string message, bool print_stdout = false)
+        ----
+        -- Get Information about Other Elements --
         +{method} std::map<std::string, Element> get_all_elements()
         +{method} std::vector<std::string> get_all_streams()
         +{method} std::map<std::string, std::vector<std::string>> get_all_streams(std::string element_name)
         ' v for commands of all elements if no arg is passed in
         +{method} std::map<std::string, std::vector<std::string>> get_all_commands()
         +{method} std::map<std::string, std::vector<std::string>> get_all_commands(std::string element_name)
-        +{method} void wait_until_elements_healthy(std::vector<std::string> element_names)
 
+        ----
+        -- Get Information about References--
         ' map is <reference key, corresponding binary data>
         ' for binary data, assuming automatic deserizalization
         +{method} std::map<std::string, std::vector<char>> get_reference(std::vector<std::string> keys)
@@ -214,11 +274,23 @@ namespace atom {
         +{method} std::map<std::string, std::string> create_reference_from_stream(std::string element_name, std::string stream_name, std::string stream_id="", std::chrono::milliseconds timeout=0)
         +{method} std::chrono::milliseconds get_reference_timeout(std::string key)
         +{method} void update_reference_timeout(std::string key, std::chrono::milliseconds timeout)
-        
+                
+        ----
+        -- Wait for Health Check --
+        +{method} void wait_until_elements_healthy(std::vector<std::string> element_names)
+
+        ----
+        -- Serialization Helper Functions --
         -{method} std::string get_serialization_method(std::vector<char> data)
         ' v for binary data, NOT assuming automatic deserizalization (legacy)
         -{method} std::string get_serialization_method(std::vector<char> data, std::string serialization="none", bool force_serialization=false)     
 
+        ----
+        -- Logging --
+        +{method} void log(atom::Log_Level level, std::string message, bool print_stdout = false)
+
+        ----
+        -- ID creation helpers --
         -{method} std::string make_response_id(std::string element_name)
         -{method} std::string make_command_id(std::string element_name)
         -{method} std::string make_stream_id(std::string element_name, std::string stream_name)
