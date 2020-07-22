@@ -36,10 +36,7 @@
 	url = git@github.com:python-pillow/Pillow.git
 [submodule "languages/cpp/third-party/cpp_redis"]
 	path = languages/cpp/third-party/cpp_redis
-	url = git@github.com/cpp-redis/cpp_redis.git
+	url = https://github.com/cpp-redis/cpp_redis.git
 [submodule "languages/cpp/third-party/cpp-bredis"]
 	path = languages/cpp/third-party/cpp-bredis
-	url = git@github.com/basiliscos/cpp-bredis
-[submodule "languages/cpp/third-party/acl"]
-	path = languages/cpp/third-party/acl
-	url = https://github.com/acl-dev/acl
+	url = https://github.com/basiliscos/cpp-bredis
