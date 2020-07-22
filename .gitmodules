@@ -37,3 +37,6 @@
 [submodule "metrics/grafana-redis-datasource"]
 	path = metrics/grafana-redis-datasource
 	url = https://github.com/RedisTimeSeries/grafana-redis-datasource
+[submodule "languages/cpp/third-party/cpp-bredis"]
+	path = languages/cpp/third-party/cpp-bredis
+	url = https://github.com/basiliscos/cpp-bredis
