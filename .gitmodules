@@ -34,3 +34,6 @@
 [submodule "languages/python/third-party/Pillow"]
 	path = languages/python/third-party/Pillow
 	url = git@github.com:python-pillow/Pillow.git
+[submodule "languages/cpp/third-party/cpp-bredis"]
+	path = languages/cpp/third-party/cpp-bredis
+	url = https://github.com/basiliscos/cpp-bredis
