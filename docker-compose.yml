@@ -14,7 +14,7 @@ services:
 
   atom:
     container_name: atom
-    image: elementaryrobotics/atom
+    image: elementaryrobotics/atom:latest-cpp-rewrite
     volumes:
       - type: volume
         source: shared

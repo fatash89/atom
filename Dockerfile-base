@@ -37,6 +37,12 @@ RUN apt-get update -y \
 # C/C++ deps
 #
 
+# Build third-party C++ dependencies
+ADD ./languages/cpp/third-party /atom/languages/cpp/third-party
+RUN cd /atom/languages/cpp/third-party/boost && ./bootstrap.sh 
+RUN cd /atom/languages/cpp/third-party/boost && ./b2; exit 0
+RUN cd /atom/languages/cpp/third-party/boost && ./b2 install; exit 0
+
 # Build third-party C dependencies
 ADD ./languages/c/third-party /atom/languages/c/third-party
 RUN cd /atom/languages/c/third-party && make
