@@ -463,6 +463,7 @@ FROM atom as test
 
 # Install dependencies
 RUN apt-get update \
+<<<<<<< HEAD
    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
    libgtest-dev \
    cmake \
@@ -476,6 +477,19 @@ RUN cd /usr/src/gtest \
    && set -x \
    && { cp lib/*.a /usr/lib || cp *.a /usr/lib; } \
    && set +x
+=======
+ && apt-get install -y --no-install-recommends \
+    libgtest-dev \
+    cmake \
+    build-essential \
+    python3-pip \
+    lcov \
+    gdb \
+ && cd /usr/src/gtest \
+ && cmake CMakeLists.txt \
+ && make -j8 \
+ && cp *.a /usr/lib
+>>>>>>> 060a0ec... Dependencies and Testing: add Bredis and Boost dependencies, cpp coverage
 
 # Install valgrind
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends valgrind

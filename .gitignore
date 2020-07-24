@@ -7,3 +7,4 @@ dist/
 poetry.lock
 .python-version
 pyrightconfig.json
+*.out

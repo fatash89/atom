@@ -18,7 +18,8 @@ INCLUDE_DIR:=inc
 
 BUILD_DIR:=build
 THIRDPARTY_DIR:=third-party
-HIREDIS_BUILD_DIR:=/usr/local
+THIRDPARTY_BUILD_DIR:=/usr/local
+BREDIS_INCLUDE_DIR:=$(THIRDPARTY_DIR)/cpp-bredis
 
 CPP_SRCS := $(wildcard $(SOURCE_DIR)/*.cc)
 CPP_OBJS = $(addprefix $(BUILD_DIR)/lib/,$(notdir $(CPP_SRCS:.cc=.o)))
@@ -40,10 +41,10 @@ ifeq ($(TEST_FILTER),)
 endif
 
 # CFLAGS
-CFLAGS := -std=c++11 -Wall -Werror -fPIC -I${INCLUDE_DIR} -I${HIREDIS_BUILD_DIR}/include/ -g
+CFLAGS := -std=c++11 -Wall -Werror -fPIC -I${INCLUDE_DIR} -I${THIRDPARTY_BUILD_DIR}/include/ -I${BREDIS_INCLUDE_DIR}/include/ -g
 
 #LDFLAGS
-LDFLAGS := -L${HIREDIS_BUILD_DIR}/lib -Wl,-rpath,${HIREDIS_BUILD_DIR}/lib -latom -lhiredis -lpthread
+LDFLAGS := -L${THIRDPARTY_BUILD_DIR}/lib -Wl,-rpath,${THIRDPARTY_BUILD_DIR}/lib -latom -lhiredis -lpthread
 
 $(BUILD_DIR)/lib/%.o: src/%.cc $(HEADER_OBJS) | $(BUILD_DIR)/lib
 	@ echo "Compiling $<"
@@ -79,11 +80,11 @@ $(TEST_DIR)/$(BUILD_DIR)/%.o: test/%.cc $(HEADER_OBJS) | $(TEST_DIR)/$(BUILD_DIR
 
 $(TEST_DIR)/$(BUILD_DIR)/%.o: src/%.cc $(HEADER_OBJS) | $(TEST_DIR)/$(BUILD_DIR)
 	@ echo "Compiling $<"
-	@ $(CXX) -c $(CFLAGS) -o $@ $(filter %.cc,$^)
+	@ $(CXX) -c $(CFLAGS) -fprofile-arcs -ftest-coverage -o $@ $(filter %.cc,$^)
 
 $(TEST_DIR)/$(BUILD_DIR)/$(TEST_BINARY): $(TEST_OBJS) $(HEADER_OBJS) | $(TEST_DIR)/$(BUILD_DIR)
 	@ echo "Linking $@"
-	@ $(CXX) $(filter %.o,$^) -L${BUILD_DIR}/lib -Wl,-rpath,${BUILD_DIR}/lib -latom -lgtest_main -lgtest $(LDFLAGS) -o $@
+	@ $(CXX) $(filter %.o,$^) -L${BUILD_DIR}/lib -Wl,-rpath,${BUILD_DIR}/lib -latom -lgtest_main -lgtest $(LDFLAGS) -fprofile-arcs -ftest-coverage -o $@
 
 .PHONY: all
 all: $(BUILD_DIR)/lib/$(OUTPUT_NAME)
@@ -97,6 +98,9 @@ install: $(BUILD_DIR)/lib/$(OUTPUT_NAME)
 .PHONY: test
 test: $(TEST_DIR)/$(BUILD_DIR)/$(TEST_BINARY)
 	./$(TEST_DIR)/$(BUILD_DIR)/$(TEST_BINARY) --gtest_filter=$(TEST_FILTER)
+	mkdir -p ./$(TEST_DIR)/$(BUILD_DIR)/coverage/
+	lcov -c --directory ./$(TEST_DIR)/$(BUILD_DIR)/ --output-file ./$(TEST_DIR)/$(BUILD_DIR)/coverage/main_coverage.info
+	genhtml ./$(TEST_DIR)/$(BUILD_DIR)/coverage/main_coverage.info --output-directory ./$(TEST_DIR)/$(BUILD_DIR)/coverage/
 
 .PHONY: clean
 clean:
