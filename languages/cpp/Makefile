@@ -99,9 +99,7 @@ install: $(BUILD_DIR)/lib/$(OUTPUT_NAME)
 test: $(TEST_DIR)/$(BUILD_DIR)/$(TEST_BINARY)
 	./$(TEST_DIR)/$(BUILD_DIR)/$(TEST_BINARY) --gtest_filter=$(TEST_FILTER)
 	mkdir -p ./$(TEST_DIR)/$(BUILD_DIR)/coverage/
-	lcov -c --directory ./$(TEST_DIR)/$(BUILD_DIR)/ --output-file ./$(TEST_DIR)/$(BUILD_DIR)/coverage/main_coverage.info
-	genhtml ./$(TEST_DIR)/$(BUILD_DIR)/coverage/main_coverage.info --output-directory ./$(TEST_DIR)/$(BUILD_DIR)/coverage/
-
+	
 .PHONY: clean
 clean:
 	rm -rf $(BUILD_DIR)
