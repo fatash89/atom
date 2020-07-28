@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-ARG BASE_IMAGE=elementaryrobotics/atom:cpp-rewrite
+ARG BASE_IMAGE=elementaryrobotics/atom:base
 ARG PRODUCTION_IMAGE=debian:buster-slim
 FROM $BASE_IMAGE as atom-source
 
@@ -142,8 +142,6 @@ RUN apt-get update \
     cmake \
     build-essential \
     python3-pip \
-    lcov \
-    gdb \
  && cd /usr/src/gtest \
  && cmake CMakeLists.txt \
  && make -j8 \
