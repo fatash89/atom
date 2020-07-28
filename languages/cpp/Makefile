@@ -44,7 +44,7 @@ endif
 CFLAGS := -std=c++11 -Wall -Werror -fPIC -I${INCLUDE_DIR} -I${THIRDPARTY_BUILD_DIR}/include/ -I${BREDIS_INCLUDE_DIR}/include/ -g
 
 #LDFLAGS
-LDFLAGS := -L${THIRDPARTY_BUILD_DIR}/lib -Wl,-rpath,${THIRDPARTY_BUILD_DIR}/lib -latom -lhiredis -lpthread
+LDFLAGS := -L${THIRDPARTY_BUILD_DIR}/lib -Wl,-rpath,${THIRDPARTY_BUILD_DIR}/lib -latom -lhiredis -lpthread -lboost_system -lboost_thread
 
 $(BUILD_DIR)/lib/%.o: src/%.cc $(HEADER_OBJS) | $(BUILD_DIR)/lib
 	@ echo "Compiling $<"

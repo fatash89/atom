@@ -39,9 +39,11 @@ RUN apt-get update -y \
 
 # Build third-party C++ dependencies
 ADD ./languages/cpp/third-party /atom/languages/cpp/third-party
-RUN cd /atom/languages/cpp/third-party/boost && ./bootstrap.sh 
+RUN cd /atom/languages/cpp/third-party/boost && ./bootstrap.sh --with-libraries=chrono,serialization,system,thread,math,timer,iostreams,exception,date_time \
 RUN cd /atom/languages/cpp/third-party/boost && ./b2; exit 0
 RUN cd /atom/languages/cpp/third-party/boost && ./b2 install; exit 0
+
+COPY ./languages/cpp/third-party/cpp-bredis  /usr/local/include/cpp-bredis
 
 # Build third-party C dependencies
 ADD ./languages/c/third-party /atom/languages/c/third-party
