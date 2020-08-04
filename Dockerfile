@@ -397,6 +397,7 @@ COPY --from=atom-source /usr/local/lib /usr/local/lib
 COPY --from=atom-source /usr/local/include /usr/local/include
 COPY --from=atom-source /usr/local/bin /usr/local/bin
 ENV LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
+ENV DEFAULT_LOG_LEVEL=INFO
 
 # Set Python3.8 as the default if it's not already
 RUN ln -sf /usr/local/bin/python3.8 /usr/bin/python3
