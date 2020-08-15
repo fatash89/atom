@@ -11,6 +11,7 @@ from atom.element import ElementConnectionTimeoutError
 import numpy as np
 import pytest
 import os
+import redis
 
 from atom import Element
 from atom.config import DEFAULT_REDIS_SOCKET, DEFAULT_REDIS_PORT
@@ -48,8 +49,39 @@ class TestAtom():
     def _element_cleanup(self, element):
         element.command_loop_shutdown(block=True)
 
+    def _get_redis_client(self):
+        if TEST_REDIS_HOST is not None:
+            client = redis.StrictRedis(
+                host=TEST_REDIS_HOST,
+                port=TEST_REDIS_PORT
+            )
+        else:
+            client = redis.StrictRedis(
+                unix_socket_path=TEST_REDIS_SOCKET
+            )
+
+        return client
+
+    @pytest.fixture(autouse=True)
+    def client(self):
+        """
+        Run at setup, creates a redis client and flushes
+        all existing keys in the DB to ensure no interaction
+        between the tests and a fresh startup state between the
+        tests
+        """
+
+        client = self._get_redis_client()
+        client.flushall()
+        keys = client.keys()
+        print(f"Keys at beginning: {keys}")
+        assert keys == []
+        yield client
+
+        del client
+
     @pytest.fixture
-    def caller(self):
+    def caller(self, client):
         """
         Sets up the caller before each test function is run.
         Tears down the caller after each test is run.
@@ -58,11 +90,16 @@ class TestAtom():
         caller = self._element_create(caller_name)
         yield caller, caller_name
         pytest.caller_incrementor += 1
-        del caller
-        gc.collect()
+
+        # Need to manually call the delete method to
+        #   clean up the object since garbage collection
+        #   won't get to it until all fixtures have run and
+        #   then the check_redis_end fixture won't be able
+        #   to see how well we cleaned up
+        caller.__del__()
 
     @pytest.fixture
-    def responder(self):
+    def responder(self, client):
         """
         Sets up the responder before each test function is run.
         Tears down the responder after each test is run.
@@ -71,8 +108,30 @@ class TestAtom():
         responder = self._element_create(responder_name)
         yield responder, responder_name
         pytest.responder_incrementor += 1
-        del responder
-        gc.collect()
+
+        # Need to manually call the delete method to
+        #   clean up the object since garbage collection
+        #   won't get to it until all fixtures have run and
+        #   then the check_redis_end fixture won't be able
+        #   to see how well we cleaned up
+        responder.__del__()
+
+    @pytest.fixture(autouse=True)
+    def check_redis_end(self):
+        """
+        Runs at end -- IMPORTANT: must depend on caller and responder
+        in order to ensure it runs after the caller and responder
+        cleanup.
+        """
+
+        client = self._get_redis_client()
+        yield
+
+        keys = client.keys()
+        print(f"Keys at end: {keys}")
+        assert (keys == [] or keys == [b'log'])
+
+        del client
 
     def test_caller_responder_exist(self, caller, responder):
         """
