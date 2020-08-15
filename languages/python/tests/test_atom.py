@@ -48,6 +48,7 @@ class TestAtom():
 
     def _element_cleanup(self, element):
         element.command_loop_shutdown(block=True)
+        element._clean_up()
 
     def _get_redis_client(self):
         if TEST_REDIS_HOST is not None:
@@ -74,14 +75,13 @@ class TestAtom():
         client = self._get_redis_client()
         client.flushall()
         keys = client.keys()
-        print(f"Keys at beginning: {keys}")
         assert keys == []
         yield client
 
         del client
 
     @pytest.fixture
-    def caller(self, client):
+    def caller(self, client, check_redis_end):
         """
         Sets up the caller before each test function is run.
         Tears down the caller after each test is run.
@@ -96,10 +96,10 @@ class TestAtom():
         #   won't get to it until all fixtures have run and
         #   then the check_redis_end fixture won't be able
         #   to see how well we cleaned up
-        caller.__del__()
+        caller._clean_up()
 
     @pytest.fixture
-    def responder(self, client):
+    def responder(self, client, check_redis_end):
         """
         Sets up the responder before each test function is run.
         Tears down the responder after each test is run.
@@ -114,7 +114,7 @@ class TestAtom():
         #   won't get to it until all fixtures have run and
         #   then the check_redis_end fixture won't be able
         #   to see how well we cleaned up
-        responder.__del__()
+        responder._clean_up()
 
     @pytest.fixture(autouse=True)
     def check_redis_end(self):
@@ -125,10 +125,9 @@ class TestAtom():
         """
 
         client = self._get_redis_client()
-        yield
+        yield client
 
         keys = client.keys()
-        print(f"Keys at end: {keys}")
         assert (keys == [] or keys == [b'log'])
 
         del client
@@ -512,6 +511,9 @@ class TestAtom():
         caller._rclient.delete(f"stream:{responder_1_name}:stream_1")
         for i in range(20):
             assert i in entries
+
+        self._element_cleanup(responder_0)
+        self._element_cleanup(responder_1)
 
     def test_read_since(self, caller, responder):
         """
@@ -911,6 +913,7 @@ class TestAtom():
         ref_id = caller.reference_create(data)[0]
         ref_data = caller.reference_get(ref_id)[0]
         assert ref_data == data
+        caller.reference_delete(ref_id)
 
     def test_reference_doesnt_exist(self, caller):
         caller, caller_name = caller
@@ -924,6 +927,7 @@ class TestAtom():
         ref_id = caller.reference_create(data, serialize=True)[0]
         ref_data = caller.reference_get(ref_id, deserialize=True)[0]
         assert ref_data == data
+        caller.reference_delete(ref_id)
 
     def test_reference_arrow(self, caller):
         """
@@ -935,6 +939,7 @@ class TestAtom():
         ref_id = caller.reference_create(data, serialization="arrow")[0]
         ref_data = caller.reference_get(ref_id)[0]
         assert ref_data == data
+        caller.reference_delete(ref_id)
 
     def test_reference_msgpack_dne(self, caller):
         caller, caller_name = caller
@@ -949,6 +954,7 @@ class TestAtom():
         ref_data = caller.reference_get(*ref_ids)
         for i in range(len(data)):
             assert ref_data[i] == data[i]
+        caller.reference_delete(*ref_ids)
 
     def test_reference_multiple_msgpack(self, caller):
         caller, caller_name = caller
@@ -957,6 +963,7 @@ class TestAtom():
         ref_data = caller.reference_get(*ref_ids)
         for i in range(len(data)):
             assert ref_data[i] == data[i]
+        caller.reference_delete(*ref_ids)
 
     def test_reference_multiple_mixed_serialization(self, caller):
         caller, caller_name = caller
@@ -967,6 +974,7 @@ class TestAtom():
         ref_data = caller.reference_get(*ref_ids)
         for ref, orig in zip(ref_data, data):
             assert ref == orig
+        caller.reference_delete(*ref_ids)
 
     def test_reference_get_timeout_ms(self, caller):
         caller, caller_name = caller
@@ -977,6 +985,7 @@ class TestAtom():
         time.sleep(0.1)
         ref_still_remaining_ms = caller.reference_get_timeout_ms(ref_id)
         assert (ref_still_remaining_ms < ref_remaining_ms) and (ref_still_remaining_ms > 0)
+        caller.reference_delete(ref_id)
 
     def test_reference_update_timeout_ms(self, caller):
         caller, caller_name = caller
@@ -988,6 +997,7 @@ class TestAtom():
         caller.reference_update_timeout_ms(ref_id, 10000)
         ref_updated_ms = caller.reference_get_timeout_ms(ref_id)
         assert (ref_updated_ms > 1000) and (ref_updated_ms <= 10000)
+        caller.reference_delete(ref_id)
 
     def test_reference_remove_timeout(self, caller):
         caller, caller_name = caller
@@ -999,6 +1009,7 @@ class TestAtom():
         caller.reference_update_timeout_ms(ref_id, 0)
         ref_updated_ms = caller.reference_get_timeout_ms(ref_id)
         assert ref_updated_ms == -1
+        caller.reference_delete(ref_id)
 
     def test_reference_delete(self, caller):
         caller, caller_name = caller
@@ -1069,6 +1080,7 @@ class TestAtom():
         key_dict = caller.reference_create_from_stream(caller.name, stream_name, timeout_ms=0)
         ref_data = caller.reference_get(key_dict["data"])[0]
         assert ref_data == stream_data["data"]
+        caller.reference_delete(key_dict["data"])
 
     def test_reference_create_from_stream_multiple_keys(self, caller):
         caller, caller_name = caller
@@ -1080,6 +1092,7 @@ class TestAtom():
         for key in key_dict:
             ref_data = caller.reference_get(key_dict[key])[0]
             assert ref_data == stream_data[key]
+        caller.reference_delete(*key_dict.values())
 
     def test_reference_create_from_stream_multiple_keys_legacy_serialization(self, caller):
         caller, caller_name = caller
@@ -1092,6 +1105,7 @@ class TestAtom():
         for key in key_dict:
             ref_data = caller.reference_get(key_dict[key], deserialize=True)[0]
             assert ref_data == orig_stream_data[key]
+        caller.reference_delete(*key_dict.values())
 
     def test_reference_create_from_stream_multiple_keys_arrow(self, caller):
         caller, caller_name = caller
@@ -1104,6 +1118,7 @@ class TestAtom():
         for key in key_dict:
             ref_data = caller.reference_get(key_dict[key])[0]
             assert ref_data == orig_stream_data[key]
+        caller.reference_delete(*key_dict.values())
 
     def test_reference_create_from_stream_multiple_keys_persist(self, caller):
         caller, caller_name = caller
@@ -1114,6 +1129,7 @@ class TestAtom():
         key_dict = caller.reference_create_from_stream(caller.name, stream_name, timeout_ms=0)
         for key in key_dict:
             assert caller.reference_get_timeout_ms(key_dict[key]) == -1
+        caller.reference_delete(*key_dict.values())
 
     def test_reference_create_from_stream_multiple_keys_timeout(self, caller):
         caller, caller_name = caller
@@ -1155,6 +1171,7 @@ class TestAtom():
                 ref_data = caller.reference_get(key_dict[key])[0]
                 correct_data = get_data(i)
                 assert ref_data == correct_data[key]
+            caller.reference_delete(*key_dict.values())
 
         # Now, check the final piece and make sure it's the most recent
         key_dict = caller.reference_create_from_stream(caller.name, stream_name, timeout_ms=0)
@@ -1165,6 +1182,8 @@ class TestAtom():
             ref_data = caller.reference_get(key_dict[key])[0]
             correct_data = get_data(9)
             assert ref_data == correct_data[key]
+
+        caller.reference_delete(*key_dict.values())
 
     def test_entry_read_n_ignore_serialization(self, caller):
         caller, caller_name = caller
@@ -1199,6 +1218,7 @@ class TestAtom():
         ref_data = caller.reference_get(*ref_ids, serialization=None, force_serialization=True)
         for i in range(len(data)):
             assert unpackb(ref_data[i], raw=False) == data[i]
+        caller.reference_delete(*ref_ids)
 
     def test_command_response_wrong_n_procs(self, caller, responder):
         """
