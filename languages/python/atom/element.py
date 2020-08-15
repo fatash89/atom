@@ -64,6 +64,7 @@ class Element:
         self._timed_out = False
         self._pid = os.getpid()
         self._cleaned_up = False
+        self.processes = []
         try:
             if host is not None:
                 self._host = host
