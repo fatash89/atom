@@ -10,8 +10,10 @@ from atom.element import ElementConnectionTimeoutError
 
 import numpy as np
 import pytest
+import os
 
 from atom import Element
+from atom.config import DEFAULT_REDIS_SOCKET, DEFAULT_REDIS_PORT
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_UNSUPPORTED
 from atom.config import ATOM_COMMAND_NO_RESPONSE, ATOM_CALLBACK_FAILED
 from atom.config import ATOM_USER_ERRORS_BEGIN, HEALTHCHECK_RETRY_INTERVAL
@@ -24,6 +26,9 @@ from msgpack import packb, unpackb
 pytest.caller_incrementor = 0
 pytest.responder_incrementor = 0
 
+TEST_REDIS_SOCKET = os.getenv('TEST_REDIS_SOCKET', DEFAULT_REDIS_SOCKET)
+TEST_REDIS_HOST = os.getenv('TEST_REDIS_HOST', None)
+TEST_REDIS_PORT = os.getenv('TEST_REDIS_PORT', DEFAULT_REDIS_PORT)
 
 class TestAtom():
     def _assert_cleaned_up(self, element):
@@ -31,6 +36,9 @@ class TestAtom():
             private_sn = element._make_stream_id(element.name, s)
             exists_val = element._rclient.exists(private_sn)
             assert not exists_val, "private redis stream key %s should not exist" % (private_sn,)
+
+    def _element_create(self, name, host=TEST_REDIS_HOST, port=TEST_REDIS_PORT, socket_path=TEST_REDIS_SOCKET, conn_timeout_ms=2000, data_timeout_ms=5000):
+        return Element(name, host=host, port=port, socket_path=socket_path, conn_timeout_ms=conn_timeout_ms, data_timeout_ms=data_timeout_ms)
 
     def _element_start(self, element, caller, read_block_ms=500, do_healthcheck=True, healthcheck_interval=0.5):
         element.command_loop(block=False, read_block_ms=read_block_ms)
@@ -47,7 +55,7 @@ class TestAtom():
         Tears down the caller after each test is run.
         """
         caller_name = "test_caller_%s" % (pytest.caller_incrementor,)
-        caller = Element(caller_name)
+        caller = self._element_create(caller_name)
         yield caller, caller_name
         pytest.caller_incrementor += 1
         del caller
@@ -60,7 +68,7 @@ class TestAtom():
         Tears down the responder after each test is run.
         """
         responder_name = "test_responder_%s"  % (pytest.responder_incrementor,)
-        responder = Element(responder_name)
+        responder = self._element_create(responder_name)
         yield responder, responder_name
         pytest.responder_incrementor += 1
         del responder
@@ -236,7 +244,7 @@ class TestAtom():
         """
         responder, responder_name = responder
 
-        new_responder = Element("new_responder")
+        new_responder = self._element_create("new_responder")
         assert "new_responder" in responder.get_all_elements()
         del new_responder
         # Explicitly invoke collection after ref count set to 0
@@ -411,8 +419,8 @@ class TestAtom():
         responder_0_name = responder_name + '_0'
         responder_1_name = responder_name + '_1'
 
-        responder_0 = Element(responder_0_name)
-        responder_1 = Element(responder_1_name)
+        responder_0 = self._element_create(responder_0_name)
+        responder_1 = self._element_create(responder_1_name)
         entries = set()
 
         def entry_write_loop(responder, stream_name, data):
@@ -508,7 +516,7 @@ class TestAtom():
         caller, caller_name = caller
         responder, responder_name = responder
         responder_0_name = responder_name + '_0'
-        responder_0 = Element(responder_0_name)
+        responder_0 = self._element_create(responder_0_name)
         # NO_OP command responds with whatever data it receives
         def no_op_serialized(data):
             return Response(data, serialization="msgpack")
@@ -557,7 +565,7 @@ class TestAtom():
         Verify a successful response from a custom healthcheck
         """
         caller, caller_name = caller
-        responder = Element('healthcheck_success_responder')
+        responder = self._element_create('healthcheck_success_responder')
 
         responder.healthcheck_set(lambda: Response(err_code=0, err_str="We're good"))
         self._element_start(responder, caller)
@@ -571,7 +579,7 @@ class TestAtom():
         """
         Verify a failed response from a custom healthcheck
         """
-        responder = Element('healthcheck_failure_responder')
+        responder = self._element_create('healthcheck_failure_responder')
         caller, caller_name = caller
 
         responder.healthcheck_set(lambda: Response(err_code=5, err_str="Camera is unplugged"))
@@ -607,7 +615,7 @@ class TestAtom():
         assert wait_for_elements_thread.is_alive()
 
         try:
-            responder_2 = Element("test_responder_2")
+            responder_2 = self._element_create("test_responder_2")
             self._element_start(responder_2, caller, do_healthcheck=False)
 
             # test_responder_2 is alive now, so both healthchecks should succeed and thread should exit roughly within the retry interval
@@ -648,13 +656,13 @@ class TestAtom():
         responder, responder_name = responder
 
         # Test with no commands
-        no_command_responder = Element('no_command_responder')
+        no_command_responder = self._element_create('no_command_responder')
         self._element_start(no_command_responder, caller)
         assert caller.command_send(no_command_responder.name, COMMAND_LIST_COMMAND, serialization="msgpack")["data"] == []
         self._element_cleanup(no_command_responder)
         del no_command_responder
 
-        responder = Element('responder_with_commands')
+        responder = self._element_create('responder_with_commands')
         # Add commands to responder
         responder.command_add('foo_func1', lambda data: data)
         responder.command_add('foo_func2', lambda: None, timeout=500, serialization="msgpack")
@@ -680,7 +688,7 @@ class TestAtom():
             lambda: Response(data={'language': 'Python', 'version': 0.2}, serialization="msgpack")
         # Create element with normal, supported version
         responder2_name = responder_name + '_2'
-        responder2 = Element(responder2_name)
+        responder2 = self._element_create(responder2_name)
 
         # Add commands to both responders and start command loop
         responder.command_add('foo_func0', lambda data: data)
@@ -713,7 +721,7 @@ class TestAtom():
 
         # Set up two responders
         test_name_1, test_name_2 = responder_name + '_1', responder_name + '_2'
-        responder1, responder2 = Element(test_name_1), Element(test_name_2)
+        responder1, responder2 = self._element_create(test_name_1), self._element_create(test_name_2)
 
         proc1_function_data = [('foo_func0', lambda x: x + 3),
                                ('foo_func1', lambda: None, 10, "arrow"),
@@ -1150,7 +1158,7 @@ class TestAtom():
         then = time.time()
 
         with pytest.raises(ElementConnectionTimeoutError):
-            e = Element('timeout-element-1', host='10.255.255.1', conn_timeout_ms=2000)
+            e = self._element_create('timeout-element-1', host='10.255.255.1', conn_timeout_ms=2000)
             assert e._redis_connetion_timeout == 2.
             e._rclient.keys()
 
