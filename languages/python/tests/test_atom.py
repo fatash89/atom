@@ -32,6 +32,14 @@ class TestAtom():
             exists_val = element._rclient.exists(private_sn)
             assert not exists_val, "private redis stream key %s should not exist" % (private_sn,)
 
+    def _element_start(self, element, caller, read_block_ms=500, do_healthcheck=True, healthcheck_interval=0.5):
+        element.command_loop(block=False, read_block_ms=read_block_ms)
+        if do_healthcheck:
+            caller.wait_for_elements_healthy([element.name], retry_interval=healthcheck_interval)
+
+    def _element_cleanup(self, element):
+        element.command_loop_shutdown(block=True)
+
     @pytest.fixture
     def caller(self):
         """
@@ -244,12 +252,9 @@ class TestAtom():
         responder, responder_name = responder
 
         responder.command_add("add_1", add_1)
-        proc = Process(target=responder.command_loop)
-        proc.start()
+        self._element_start(responder, caller)
         response = caller.command_send(responder_name, "add_1", 42)
-        responder.command_loop_shutdown()
-        proc.join()
-        proc.terminate()
+        self._element_cleanup(responder)
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == b"43"
 
@@ -369,12 +374,9 @@ class TestAtom():
             return Response(data+1, serialize=True)
 
         responder.command_add("add_1_3", add_1_serialized, deserialize=True)
-        proc = Process(target=responder.command_loop)
-        proc.start()
+        self._element_start(responder, caller)
         response = caller.command_send(responder_name, "add_1_3", 0, serialize=True, deserialize=True)
-        responder.command_loop_shutdown()
-        proc.join()
-        proc.terminate()
+        self._element_cleanup(responder)
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == 1
 
@@ -391,12 +393,9 @@ class TestAtom():
         responder.command_add("test_command", add_1_arrow_serialized, serialization="msgpack")
         assert "test_command" in responder.handler_map
         assert responder.handler_map["test_command"]["serialization"] == "msgpack"
-        proc = Process(target=responder.command_loop)
-        proc.start()
+        self._element_start(responder, caller)
         response = caller.command_send(responder_name, "test_command", 123, serialization="msgpack")
-        responder.command_loop_shutdown()
-        proc.join()
-        proc.terminate()
+        self._element_cleanup(responder)
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == 124
 
@@ -522,10 +521,9 @@ class TestAtom():
                 time.sleep(0.0001)
 
         # Command loop thread to handle incoming commands
-        command_loop_thread = Thread(target=responder_0.command_loop, daemon=True)
+        self._element_start(responder_0, caller)
         # Entry write thread to publish a whole bunch to a stream
         entry_write_thread = Thread(target=entry_write_loop, args=(responder_0,), daemon=True)
-        command_loop_thread.start()
         entry_write_thread.start()
 
         # Send a bunch of commands to responder and you should get valid responses back,
@@ -538,12 +536,8 @@ class TestAtom():
         finally:
             # Cleanup threads
             entry_write_thread.join()
-            responder.command_loop_shutdown()
-            responder_0.command_loop_shutdown()
-            command_loop_thread.join(0.5)
-            responder_0._rclient.delete(f"stream:{responder_0_name}:stream_0")
-            responder_0._rclient.delete(f"command:{responder_0_name}")
-            responder_0._rclient.delete(f"response:{responder_0_name}")
+            self._element_cleanup(responder_0)
+            del responder_0
 
     def test_healthcheck_default(self, caller, responder):
         """
@@ -552,14 +546,11 @@ class TestAtom():
         caller, caller_name = caller
         responder, responder_name = responder
 
-        proc = Process(target=responder.command_loop)
-        proc.start()
+        self._element_start(responder, caller)
         response = caller.command_send(responder_name, HEALTHCHECK_COMMAND)
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == b""
-        responder.command_loop_shutdown()
-        proc.join()
-        proc.terminate()
+        self._element_cleanup(responder)
 
     def test_healthcheck_success(self, caller, responder):
         """
@@ -569,15 +560,12 @@ class TestAtom():
         responder = Element('healthcheck_success_responder')
 
         responder.healthcheck_set(lambda: Response(err_code=0, err_str="We're good"))
-        proc = Process(target=responder.command_loop)
-        proc.start()
+        self._element_start(responder, caller)
         response = caller.command_send('healthcheck_success_responder', HEALTHCHECK_COMMAND)
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == b""
         assert response["err_str"] == "We're good"
-        responder.command_loop_shutdown()
-        proc.join()
-        proc.terminate()
+        self._element_cleanup(responder)
 
     def test_healthcheck_failure(self, caller, responder):
         """
@@ -587,15 +575,12 @@ class TestAtom():
         caller, caller_name = caller
 
         responder.healthcheck_set(lambda: Response(err_code=5, err_str="Camera is unplugged"))
-        proc = Process(target=responder.command_loop)
-        proc.start()
+        self._element_start(responder, caller, do_healthcheck=False)
         response = caller.command_send('healthcheck_failure_responder', HEALTHCHECK_COMMAND)
         assert response["err_code"] == 5 + ATOM_USER_ERRORS_BEGIN
         assert response["data"] == b""
         assert response["err_str"] == "Camera is unplugged"
-        responder.command_loop_shutdown()
-        proc.join()
-        proc.terminate()
+        self._element_cleanup(responder)
 
     def test_wait_for_elements_healthy(self, caller, responder):
         """
@@ -604,8 +589,7 @@ class TestAtom():
         caller, caller_name = caller
         responder, responder_name = responder
 
-        proc = Process(target=responder.command_loop)
-        proc.start()
+        self._element_start(responder, caller)
 
         def wait_for_elements_check(caller, elements_to_check):
             caller.wait_for_elements_healthy(elements_to_check)
@@ -624,22 +608,17 @@ class TestAtom():
 
         try:
             responder_2 = Element("test_responder_2")
-            command_loop_thread = Thread(target=responder_2.command_loop, daemon=True)
-            command_loop_thread.start()
+            self._element_start(responder_2, caller, do_healthcheck=False)
 
             # test_responder_2 is alive now, so both healthchecks should succeed and thread should exit roughly within the retry interval
             wait_for_elements_thread.join(HEALTHCHECK_RETRY_INTERVAL + 1.0)
             assert not wait_for_elements_thread.is_alive()
         finally:
             # Cleanup threads
-            responder_2.command_loop_shutdown()
-            command_loop_thread.join(0.5)
-            responder._rclient.delete("command:test_responder_2")
-            responder._rclient.delete("response:test_responder_2")
+            self._element_cleanup(responder_2)
+            del responder_2
 
-        responder.command_loop_shutdown()
-        proc.join()
-        proc.terminate()
+        self._element_cleanup(responder)
 
     def test_version_command(self, caller, responder):
         """
@@ -648,8 +627,7 @@ class TestAtom():
         caller, caller_name = caller
         responder, responder_name = responder
 
-        proc = Process(target=responder.command_loop)
-        proc.start()
+        self._element_start(responder, caller)
         response = caller.command_send(
             responder_name,
             VERSION_COMMAND,
@@ -659,25 +637,21 @@ class TestAtom():
         assert response["data"] == {"version": float(".".join(VERSION.split(".")[:-1])), "language": LANG}
         response2 = caller.get_element_version(responder_name)
         assert response == response2
-        responder.command_loop_shutdown()
-        proc.join()
-        proc.terminate()
+        self._element_cleanup(responder)
 
     def test_command_list_command(self, caller, responder):
         """
         Verify the response from the COMMAND_LIST_COMMAND command
         """
+
         caller, caller_name = caller
         responder, responder_name = responder
 
         # Test with no commands
         no_command_responder = Element('no_command_responder')
-        command_loop_process = Process(target=no_command_responder.command_loop)
-        command_loop_process.start()
+        self._element_start(no_command_responder, caller)
         assert caller.command_send(no_command_responder.name, COMMAND_LIST_COMMAND, serialization="msgpack")["data"] == []
-        no_command_responder.command_loop_shutdown()
-        command_loop_process.join()
-        command_loop_process.terminate()
+        self._element_cleanup(no_command_responder)
         del no_command_responder
 
         responder = Element('responder_with_commands')
@@ -685,17 +659,14 @@ class TestAtom():
         responder.command_add('foo_func1', lambda data: data)
         responder.command_add('foo_func2', lambda: None, timeout=500, serialization="msgpack")
         responder.command_add('foo_func3', lambda x, y: x + y, timeout=1, serialization="msgpack")
-        command_loop_process = Process(target=responder.command_loop)
-        command_loop_process.start()
+        self._element_start(responder, caller)
 
         # Test with three commands
         response = caller.command_send(responder.name, COMMAND_LIST_COMMAND, serialization="msgpack")
         assert response["err_code"] == ATOM_NO_ERROR
         assert response["data"] == ['foo_func1', 'foo_func2', 'foo_func3']
 
-        responder.command_loop_shutdown()
-        command_loop_process.join()
-        command_loop_process.terminate()
+        self._element_cleanup(responder)
 
     def test_get_all_commands_with_version(self, caller, responder):
         """
@@ -715,10 +686,8 @@ class TestAtom():
         responder.command_add('foo_func0', lambda data: data)
         responder2.command_add('foo_func0', lambda: None, timeout=500, serialization="msgpack")
         responder2.command_add('foo_func1', lambda x, y: x + y, timeout=1, serialization="msgpack")
-        cl_process_1 = Process(target=responder.command_loop)
-        cl_process_2 = Process(target=responder2.command_loop)
-        cl_process_1.start()
-        cl_process_2.start()
+        self._element_start(responder, caller)
+        self._element_start(responder2, caller)
 
         # Retrieve commands
         commands = caller.get_all_commands(
@@ -728,13 +697,8 @@ class TestAtom():
         desired_commands = [f'{responder2_name}:foo_func0', f'{responder2_name}:foo_func1']
         assert commands == desired_commands
 
-        responder.command_loop_shutdown()
-        responder2.command_loop_shutdown()
-
-        cl_process_1.join()
-        cl_process_2.join()
-        cl_process_1.terminate()
-        cl_process_2.terminate()
+        self._element_cleanup(responder)
+        self._element_cleanup(responder2)
         del responder2
 
     def test_get_all_commands(self, caller, responder):
@@ -764,10 +728,8 @@ class TestAtom():
         for data in proc2_function_data:
             responder2.command_add(*data)
 
-        command_loop_1 = Process(target=responder1.command_loop)
-        command_loop_2 = Process(target=responder2.command_loop)
-        command_loop_1.start()
-        command_loop_2.start()
+        self._element_start(responder1, caller)
+        self._element_start(responder2, caller)
 
         # True function names
         responder1_function_names = [f'{test_name_1}:foo_func{i}' for i in range(3)]
@@ -788,15 +750,10 @@ class TestAtom():
         command_list = caller.get_all_commands(test_name_2)
         assert command_list == responder2_function_names
 
-        responder1.command_loop_shutdown()
-        responder2.command_loop_shutdown()
-        # Cleanup
-        command_loop_1.join()
-        command_loop_2.join()
-
-        command_loop_1.terminate()
-        command_loop_2.terminate()
-        del responder1, responder2
+        self._element_cleanup(responder1)
+        self._element_cleanup(responder2)
+        del responder1
+        del responder2
 
     def test_no_ack(self, caller, responder):
         """
@@ -816,13 +773,10 @@ class TestAtom():
         caller, caller_name = caller
         responder, responder_name = responder
 
-        proc = Process(target=responder.command_loop)
-        proc.start()
+        self._element_start(responder, caller)
         response = caller.command_send(responder_name, "add_1", 0)
 
-        responder.command_loop_shutdown()
-        proc.join()
-        proc.terminate()
+        self._element_cleanup(responder)
         assert response["err_code"] == ATOM_COMMAND_UNSUPPORTED
 
     def test_command_timeout(self, caller, responder):
@@ -833,29 +787,24 @@ class TestAtom():
         responder, responder_name = responder
 
         # Set a timeout of 10 ms
-        responder.command_add("loop", loop, 10)
-        proc = Process(target=responder.command_loop)
-        proc.start()
-        response = caller.command_send(responder_name, "loop", None)
-        proc.terminate()
-        proc.join()
+        responder.command_add("sleep_ms", sleep_ms, 10, serialization='msgpack')
+        self._element_start(responder, caller)
+        response = caller.command_send(responder_name, "sleep_ms", 1000, serialization='msgpack')
+        self._element_cleanup(responder)
         assert response["err_code"] == ATOM_COMMAND_NO_RESPONSE
 
     def test_handler_returns_not_response(self, caller, responder):
         """
-        Element calls command from responder that does not return an object of 
+        Element calls command from responder that does not return an object of
         type Response.
         """
         caller, caller_name = caller
         responder, responder_name = responder
 
         responder.command_add("ret_not_response", lambda x: 0)
-        proc = Process(target=responder.command_loop)
-        proc.start()
+        self._element_start(responder, caller)
         response = caller.command_send(responder_name, "ret_not_response", None)
-        responder.command_loop_shutdown()
-        proc.join()
-        proc.terminate()
+        self._element_cleanup(responder)
         assert response["err_code"] == ATOM_CALLBACK_FAILED
 
     def test_log(self, caller):
@@ -1213,7 +1162,5 @@ class TestAtom():
 def add_1(x):
     return Response(int(x)+1)
 
-
-def loop(x):
-    while True:
-        time.sleep(0.1)
+def sleep_ms(x):
+    time.sleep(x / 1000.0)
