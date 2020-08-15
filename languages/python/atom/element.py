@@ -206,6 +206,7 @@ class Element:
         try:
             self._rclient.delete(self._make_response_id(self.name))
             self._rclient.delete(self._make_command_id(self.name))
+            self._rclient.delete(self._make_consumer_group_counter(self.name))
         except redis.exceptions.RedisError:
             raise Exception("Could not connect to nucleus!")
 
