@@ -566,7 +566,7 @@ class Element:
 
             time.sleep(retry_interval)
 
-    def command_loop(self, n_procs=1, block=True, read_block_ms=1000):
+    def command_loop(self, n_procs=1, block=True, read_block_ms=1000, join_timeout=10.0):
         """Main command execution event loop
 
         For each worker process, performs the following event loop:
@@ -585,6 +585,10 @@ class Element:
             read_block_ms (integer, optional): Number of milliseconds to block
                                                for during a stream read insde of
                                                a command loop.
+            join_timeout (integer, optional): If block=True, how long to wait while
+                                              joining threads at the end of the
+                                              command loop before raising an
+                                              exception
         """
         # update self._pid in case e.g. we were constructed in a parent thread but
         # `command_loop` was explicitly called as a sub-process
@@ -618,7 +622,7 @@ class Element:
             self.processes.append(p)
 
         if block:
-            self._command_loop_join()
+            self._command_loop_join(join_timeout=join_timeout)
 
     def _increment_command_group_counter(self, _pipe):
         """Incremeents reference counter for element stream collection"""
@@ -837,16 +841,16 @@ class Element:
                     _pipe=_pipe
                 )
 
-    def _command_loop_join(self):
+    def _command_loop_join(self, join_timeout=10.0):
         """Waits for all threads from command loop to be finished"""
         for p in self.processes:
-            p.join()
+            p.join(join_timeout)
 
-    def command_loop_shutdown(self, block=False):
+    def command_loop_shutdown(self, block=False, join_timeout=10.0):
         """Triggers graceful exit of command loop"""
         self._command_loop_shutdown.set()
         if block:
-            self._command_loop_join()
+            self._command_loop_join(join_timeout=join_timeout)
 
     def command_send(self,
                      element_name,
