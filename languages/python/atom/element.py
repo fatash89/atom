@@ -613,7 +613,7 @@ class Element:
 
         self.processes = []
         for i in range(n_procs):
-            p = Process(target=self._command_loop, args=(self._command_loop_shutdown,))
+            p = Process(target=self._command_loop, args=(self._command_loop_shutdown,), kwargs={'read_block_ms' : read_block_ms})
             p.start()
             self.processes.append(p)
 
@@ -650,7 +650,7 @@ class Element:
             self._clean_up_streams()
         return result
 
-    def _command_loop(self, shutdown_event, read_block_ms=10000):
+    def _command_loop(self, shutdown_event, read_block_ms=1000):
         if hasattr(self, '_host'):
             _rclient = redis.StrictRedis(host=self._host, port=self._port)
         else:
