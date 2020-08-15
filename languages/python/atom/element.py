@@ -618,8 +618,7 @@ class Element:
             self.processes.append(p)
 
         if block:
-            for p in self.processes:
-                p.join()
+            self._command_loop_join()
 
     def _increment_command_group_counter(self, _pipe):
         """Incremeents reference counter for element stream collection"""
@@ -838,9 +837,16 @@ class Element:
                     _pipe=_pipe
                 )
 
-    def command_loop_shutdown(self):
+    def _command_loop_join(self):
+        """Waits for all threads from command loop to be finished"""
+        for p in self.processes:
+            p.join()
+
+    def command_loop_shutdown(self, block=False):
         """Triggers graceful exit of command loop"""
         self._command_loop_shutdown.set()
+        if block:
+            self._command_loop_join()
 
     def command_send(self,
                      element_name,
