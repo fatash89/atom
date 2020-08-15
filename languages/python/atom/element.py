@@ -63,6 +63,7 @@ class Element:
         self._rpipeline_pool = Queue()
         self._timed_out = False
         self._pid = os.getpid()
+        self._cleaned_up = False
         try:
             if host is not None:
                 self._host = host
@@ -175,23 +176,30 @@ class Element:
         self._rclient.delete(self._make_stream_id(self.name, stream))
         self.streams.remove(stream)
 
+    def _clean_up(self):
+        """Clean up everything for the element"""
+
+        if not self._cleaned_up:
+            # If the spawning process's element is being deleted, we need
+            # to ensure we signal a shutdown to the children
+            cur_pid = os.getpid()
+            if cur_pid == self._pid:
+                self.command_loop_shutdown()
+
+            # decrement ref count
+            try:
+                _pipe = self._rpipeline_pool.get()
+                self._decrement_command_group_counter(_pipe)
+                _pipe = self._release_pipeline(_pipe)
+            except redis.exceptions.TimeoutError:
+                # the connection is already stale or has timed out
+                pass
+
+            self._cleaned_up = True
+
     def __del__(self):
-        """Removes all elements with the same name."""
-
-        # If the spawning process's element is being deleted, we need
-        # to ensure we signal a shutdown to the children
-        cur_pid = os.getpid()
-        if cur_pid == self._pid:
-            self.command_loop_shutdown()
-
-        # decrement ref count
-        try:
-            _pipe = self._rpipeline_pool.get()
-            self._decrement_command_group_counter(_pipe)
-            _pipe = self._release_pipeline(_pipe)
-        except redis.exceptions.TimeoutError:
-            # the connection is already stale or has timed out
-            pass
+        """Clean up"""
+        self._clean_up()
 
     def _clean_up_streams(self):
         # if we have encountered a connection timeout there's no use
