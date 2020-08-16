@@ -19,6 +19,16 @@ ADD ./third-party/redis /atom/third-party/redis
 RUN cd /atom/third-party/redis && make -j8 && make PREFIX=/usr/local install
 
 #
+# Redis time series module. Should eventually make its way
+#   into the base, but for now can live in here
+#
+ADD ./third-party/RedisTimeSeries /atom/third-party/RedisTimeSeries
+WORKDIR /atom/third-party/RedisTimeSeries
+RUN ./deps/readies/bin/getpy2
+RUN ./system-setup.py
+RUN make build
+
+#
 # C client
 #
 
@@ -58,6 +68,7 @@ RUN pip3 install --no-cache-dir -r /atom/utilities/atom-cli/requirements.txt
 ADD ./utilities/atom-cli /atom/utilities/atom-cli
 RUN cp /atom/utilities/atom-cli/atom-cli.py /usr/local/bin/atom-cli \
  && chmod +x /usr/local/bin/atom-cli
+
 
 #
 # Finish up
@@ -114,6 +125,8 @@ FROM atom as nucleus
 
 # Add in redis-server
 COPY --from=atom-source /usr/local/bin/redis-server /usr/local/bin/redis-server
+# Add in redis-time-series
+COPY --from=atom-source /atom/third-party/RedisTimeSeries/bin/redistimeseries.so /etc/redis/redistimeseries.so
 
 # Add in supervisor and config files
 RUN apt-get install -y supervisor
