@@ -132,6 +132,7 @@ COPY --from=atom-source /atom/third-party/RedisTimeSeries/bin/redistimeseries.so
 RUN apt-get install -y supervisor
 ADD ./config/nucleus/supervisor /etc/supervisor
 ADD ./config/nucleus/redis /etc/redis
+RUN mkdir /metrics
 
 CMD [ "/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf" ]
 
