@@ -115,11 +115,12 @@ FROM atom as nucleus
 # Add in redis-server
 COPY --from=atom-source /usr/local/bin/redis-server /usr/local/bin/redis-server
 
-ADD ./launch_nucleus.sh /nucleus/launch.sh
-ADD ./redis.conf /nucleus/redis.conf
-WORKDIR /nucleus
-RUN chmod +x launch.sh
-CMD ["./launch.sh"]
+# Add in supervisor and config files
+RUN apt-get install -y supervisor
+ADD ./config/nucleus/supervisor /etc/supervisor
+ADD ./config/nucleus/redis /etc/redis
+
+CMD [ "/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf" ]
 
 ################################################################################
 #
