@@ -1556,7 +1556,10 @@ class Element:
         we set execute=False.
 
         NOTE: REDIS TIME-SERIES WILL AUTO-CREATE THE METRIC IF IT DOES NOT
-            EXIST. As such, we have a retention argument here similar to
+            EXIST. This is being tracked in
+                https://github.com/RedisTimeSeries/RedisTimeSeries/issues/397
+
+            As such, we have a retention argument here similar to
             metric_create. It is not recommended to rely on this as you cannot
             add rules in this step. Please do not rely on this -- the reason
             the retention is broken out here is that the default is 0 and thus
