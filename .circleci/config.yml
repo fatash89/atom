@@ -273,7 +273,7 @@ commands:
     steps:
       - run:
           name: Python tests
-          command: docker exec -it -w /atom/languages/python/tests << parameters.container >> pytest -vv --durations=0 -k test_command_list_command --capture=tee-sys
+          command: docker exec -it -w /atom/languages/python/tests << parameters.container >> pytest -vv --durations=0 --capture=tee-sys
       - run:
           name: C tests
           command:  docker exec -it -w /atom/languages/c << parameters.container >> make test
