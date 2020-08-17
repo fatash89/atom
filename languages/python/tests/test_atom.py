@@ -1281,6 +1281,103 @@ class TestAtom():
         data = metrics.info("some_metric_avg")
         assert data.retention_msecs == 604800
 
+    def test_metric_add(self, caller, metrics):
+        caller, caller_name = caller
+        caller.metric_create("some_metric", retention=10000)
+        caller.metric_add("some_metric", 42)
+
+        # make a metric and have the timestamp auto-created
+        data = metrics.get("some_metric")
+        assert data[1] == 42
+        # Make sure the auto-generated timestamp is within 1s of the unix time
+        assert ((time.time() * 1000) - data[0] < 1000)
+
+    def test_metric_add_set_timestamp_int(self, caller, metrics):
+        caller, caller_name = caller
+        caller.metric_create("some_metric", retention=10000)
+        caller.metric_add("some_metric", 42, timestamp=1)
+
+        # make a metric and have the timestamp auto-created
+        data = metrics.get("some_metric")
+        assert data[1] == 42
+        assert data[0] == 1
+
+    def test_metric_add_set_timestamp_time(self, caller, metrics):
+        caller, caller_name = caller
+        curr_time = int(time.time() * 1000)
+        caller.metric_create("some_metric", retention=10000)
+        caller.metric_add("some_metric", 42, timestamp=curr_time)
+
+        # make a metric and have the timestamp auto-created
+        data = metrics.get("some_metric")
+        assert data[1] == 42
+        assert data[0] == curr_time
+
+    def test_metric_add_multiple(self, caller, metrics):
+        caller, caller_name = caller
+        curr_time = int(time.time() * 1000)
+        caller.metric_create("some_metric", retention=10000)
+        caller.metric_add("some_metric", 42)
+        time.sleep(0.001)
+        caller.metric_add("some_metric", 2020)
+
+        # make a metric and have the timestamp auto-created
+        data = metrics.range("some_metric", 0, -1)
+        print(data)
+
+    def test_metric_async(self, caller, metrics):
+        caller, caller_name = caller
+        caller.metric_create("some_metric", retention=10000)
+        caller.metric_add("some_metric", 42, execute=False)
+
+        data = metrics.get("some_metric")
+        assert data == None
+        caller.metrics_flush()
+        data = metrics.get("some_metric")
+        assert data[1] == 42
+
+    def test_metric_async_timestamp_jitter(self, caller, metrics):
+        caller, caller_name = caller
+        caller.metric_create("some_metric", retention=10000)
+        caller.metric_add("some_metric", 42, execute=False)
+        add_time = time.time()
+
+        data = metrics.get("some_metric")
+        assert data == None
+
+        time.sleep(2.0)
+        flush_time = time.time()
+
+        caller.metrics_flush()
+        data = metrics.get("some_metric")
+        assert data[1] == 42
+
+        # Make sure the timestamp gets set at the flush and
+        #   not the add
+        assert (data[0] - int(1000 * add_time)) > 2000
+        assert (data[0] - int(1000 * flush_time)) < 1000
+
+    def test_metric_async_use_curr_time(self, caller, metrics):
+        caller, caller_name = caller
+        caller.metric_create("some_metric", retention=10000)
+        caller.metric_add("some_metric", 42, execute=False, use_curr_time=True)
+        add_time = time.time()
+
+        data = metrics.get("some_metric")
+        assert data == None
+
+        time.sleep(2.0)
+        flush_time = time.time()
+
+        caller.metrics_flush()
+        data = metrics.get("some_metric")
+        assert data[1] == 42
+
+        # Make sure the timestamp gets set at the add and not the
+        #   flush
+        assert (int(1000 * add_time) - data[0]) < 1000
+        assert (int(1000 * flush_time) - data[0]) > 2000
+
 
 def add_1(x):
     return Response(int(x)+1)

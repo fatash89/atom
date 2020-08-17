@@ -7,7 +7,7 @@ import time
 import uuid
 import os
 from os import uname
-from queue import Queue
+from queue import Queue, LifoQueue
 
 import redis
 from redistimeseries.client import Client as RedisTimeSeries
@@ -57,7 +57,8 @@ class Element:
         self._rclient = None
         self._command_loop_shutdown = multiprocessing.Event()
         self._rpipeline_pool = Queue()
-        self._mpipeline_pool = Queue()
+        self._mpipeline_pool = LifoQueue()
+        self._mpipeline_async_pool = LifoQueue()
         self._timed_out = False
         self._pid = os.getpid()
         try:
@@ -215,7 +216,7 @@ class Element:
         except redis.exceptions.RedisError:
             raise Exception("Could not connect to nucleus!")
 
-    def _release_pipeline(self, pipeline):
+    def _release_pipeline(self, pipeline, metrics=False):
         """
         Resets the specified pipeline and returns it to the pool of available pipelines.
 
@@ -225,6 +226,59 @@ class Element:
         pipeline.reset()
         self._rpipeline_pool.put(pipeline)
         return None
+
+    def _get_metrics_pipeline(self):
+        """
+        Get a pipeline for use in metrics. We'll try to reuse
+        a pipeline that needs flushing (i.e. called with execute=False)
+        previously and then fall back on using a standard pipeline if not.
+
+        Return:
+            pipeline: the pipeline itself
+            len(pipeline): how much data is in the pipeline. This
+                will be needed to filter out other peoples' data
+                if it happened to be in your pipeline before your commands
+                were added.
+        """
+        pipeline = None
+
+        # Try to get it from the async pool
+        if not self._mpipeline_async_pool.empty():
+            try:
+                pipeline = self._mpipeline_async_pool.get()
+            except queue.Empty:
+                pass
+
+        if pipeline is None:
+            pipeline = self._mpipeline_pool.get()
+
+        return pipeline, len(pipeline)
+
+    def _release_metrics_pipeline(self, pipeline, prev_len, execute=True):
+        """
+        Release (and perhaps execute) a pipeline that was used for a metrics
+        call. If execute is TRUE we will execute the pipeline and return
+        it to the general pool. If execute is FALSE we will not execute the
+        pipeline and we will put it back into the async pool. Then, it will get
+        executed either when someone flushes or opportunistically by
+        the next person who releases a pipeline with execute=True.
+
+        Args:
+            pipeline: pipeline to release (return value 0 of _get_metrics_pipeline)
+            prev_len: previous length of the pipeline before we got it (return
+                value 1 of _get_metrics_pipeline)
+        """
+        data = None
+
+        if execute:
+            data = pipeline.execute()
+            pipeline.reset()
+            self._mpipeline_pool.put(pipeline)
+        else:
+            self._mpipeline_async_pool.put(pipeline)
+
+        # Only return the data that we care about (if any)
+        return data[prev_len:] if data else None
 
     def _update_response_id_if_older(self, new_id):
         """
@@ -1448,13 +1502,101 @@ class Element:
                     [2]: aggregation retention, i.e. how long to keep this aggregated stat for
         """
 
-        _pipe = self._mpipeline_pool.get()
+        _pipe, prev_len = self._get_metrics_pipeline()
         _pipe.create(key, retention_msecs=retention, labels=labels)
         if rules:
             for rule in rules.keys():
                 _pipe.create(rule, retention_msecs=rules[rule][2], labels=labels)
                 _pipe.createrule(key, rule, rules[rule][0], rules[rule][1])
-        data = _pipe.execute()
-        _pipe = self._release_pipeline(_pipe)
+        data = self._release_metrics_pipeline(_pipe, prev_len, execute=True)
+        return data
 
-        print(data)
+    def metric_add(self, key, value, timestamp='*', use_curr_time=False, execute=True, retention=60000, labels=None):
+        """
+        Adds a metric at the given key with the given value. Timestamp
+            can be set if desired, leaving at the default of '*' will result
+            in using the redis-server's timestamp which is usually good enough.
+
+        NOTE: The execute argument is quite interesting! By default, we will
+        execute, which means we'll go ahead and transact the metric to the
+        redis server. This may not be something you want to do in the critical
+        path, however. So, we offer the option to add the command to the
+        pipeline but not execute it. This will then require an explicit call to
+        metrics_flush() which will iterate over all of the outstanding
+        pipelines and execute them, thereby flushing everyone's metrics. It's
+        recommended not to set execute=False unless you're in the critical
+        path of a timing-intense task and can't afford the network
+        transaction, but it's a nice feature to have to allow the metrics to
+        be buffered in-memory if that is a use case of yours. One thing that
+        will be affected by the execute=False will be the timestamp of your
+        packet if left as '*', i.e. the timestamp won't be recorded
+        until the metric hits the server so there will be some jitter/inaccuracy.
+        This can be accounted for by setting the timestamp manually. One
+        final note here is that we will opportunistically flush if someone
+        else using the element happens to do a metric_add call with execute=True
+        in order to minimize the latency/jitter here.
+
+        NOTE: REDIS TIME-SERIES WILL AUTO-CREATE THE METRIC IF IT DOES NOT
+            EXIST. As such, we have a retention argument here similar to
+            metric_create. It is not recommended to rely on this as you cannot
+            add rules in this step. Please do not rely on this -- the reason
+            the retention is broken out here is that the default is 0 and thus
+            the fail cause for calling metric_add without calling metric_create
+            would be unbounded growth of a metric which is quite bad. It's not
+            worth the overhead of checking in redis to prevent this, use the
+            API in this way if you must but please be warned.
+
+        Args:
+            key (str): Key to use for the metric
+            value (int/float): Value to be adding to the time series
+            timetamp (int, optional): Timestamp to use for the value in the time
+                series. Leave at default to use the redis server's built-in
+                timestamp.
+            use_curr_time (bool, optional): If TRUE, ignores timestamp argument
+                and sets the timestamp to the current wallclock time in
+                milliseconds. This is useful for async patterns where you don't
+                know how long it will take for the timestamp to get to the
+                redis server.
+            execute (bool, optional): Leave TRUE (default) to send the metric to
+                the redis server in this function call. Leave FALSE to just add
+                the metric to the pipeline (buffering it in memory) until it gets
+                written out either by someone else or with a flush() call. See
+                note above
+            labels (dictionary, optional): Optional labels to add to the
+                data. Each key should be a string and each value should also
+                be a string.
+            retention (int, optional): How long to keep data for the metric,
+                in milliseconds. Default 60000ms == 1 minute. Be careful with
+                this, it will grow unbounded if set to 0.
+        """
+
+        _pipe, prev_len = self._get_metrics_pipeline()
+        timestamp_val = timestamp if not use_curr_time else int(round(time.time() * 1000))
+        _pipe.add(key, timestamp_val, value, retention_msecs=retention, labels=labels)
+        data = self._release_metrics_pipeline(_pipe, prev_len, execute=execute)
+        return data
+
+    def metrics_flush(self):
+        """
+        Attempt to execute all currently outstanding async pipelines, if any
+
+        NOTE: Not technically guaranteed to flush all stats. There's
+        a condition in the logic where as we're looping over the async
+        pool there is an async-style pipeline (or multiple) out in the
+        wild that will be returned to the pool when done. If this happens
+        then that particular pipeline will not be flushed. We shouldn't
+        be able to get into any terrible patterns here where such a pattern
+        always holds -- it's pretty unlikely to be the case (famous last
+        words). For now it's OK, we'll come back to it if it turns out to
+        be a problem.
+        """
+
+        while not self._mpipeline_async_pool.empty():
+            try:
+                pipeline = self._mpipeline_async_pool.get()
+            except queue.Empty:
+                break
+
+            pipeline.execute()
+            pipeline.reset()
+            self._mpipeline_pool.put(pipeline)
