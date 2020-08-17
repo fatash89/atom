@@ -1326,6 +1326,19 @@ class TestAtom():
         assert data[0][1] == 42
         assert data[1][1] == 2020
 
+    def test_metric_add_multiple_handle_same_timestamp(self, caller, metrics):
+        caller, caller_name = caller
+        curr_time = int(time.time() * 1000)
+        caller.metric_create("some_metric", retention=10000)
+        caller.metric_add("some_metric", 42, timestamp=1234)
+        caller.metric_add("some_metric", 2020, timestamp=1234)
+
+        # make a metric and have the timestamp auto-created
+        data = metrics.range("some_metric", 0, -1)
+        assert len(data) == 1
+        assert data[0][1] == 42
+        assert data[0][0] == 1234
+
     def test_metric_async(self, caller, metrics):
         caller, caller_name = caller
         caller.metric_create("some_metric", retention=10000)
@@ -1350,6 +1363,33 @@ class TestAtom():
         data = metrics.range("some_metric", 0, -1)
         assert data[0][1] == 42
         assert data[1][1] == 2020
+
+    def test_metric_add_multiple_async_handle_same_timestamp(self, caller, metrics):
+        caller, caller_name = caller
+        curr_time = int(time.time() * 1000)
+        caller.metric_create("some_metric", retention=10000)
+        caller.metric_add("some_metric", 42, execute=False)
+        caller.metric_add("some_metric", 2020, execute=False)
+
+        data = metrics.get("some_metric")
+        assert data == None
+
+        caller.metrics_flush()
+
+        # make a metric and have the timestamp auto-created
+        data = metrics.range("some_metric", 0, -1)
+
+        # There's a super-slim chance this makes it through if the
+        #   calls are on a millisecond boundary
+        assert len(data) == 1 or len(data) == 2
+
+        # Make sure the first piece is there
+        assert data[0][1] == 42
+
+        # if the second happens to be there, check it as well
+        if len(data) == 2:
+            assert data[1][1] == 2020
+            assert data[0][0] != data[1][0]
 
     def test_metric_async_timestamp_jitter(self, caller, metrics):
         caller, caller_name = caller

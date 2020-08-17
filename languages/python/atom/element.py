@@ -255,6 +255,24 @@ class Element:
 
         return pipeline, len(pipeline)
 
+    def _metrics_execute(self, pipeline):
+        """
+        Execute a metrics pipeline, handling known issues
+
+        Args:
+            pipeline: pipeline to execute
+        """
+
+        try:
+            data = pipeline.execute()
+        #  KNOWN ISSUE WITH NO WORKAROUND: Adding two metrics values with the
+        #   same timestamp throws this error. We generally shouldn't hit this,
+        #   but if we do we shouldn't crash because of it -- lowing metrics
+        #   is not the end of the world here.
+        except redis.exceptions.ResponseError as e:
+            self.log(LogLevel.ERR, f"Failed to write metrics (likely due to 2x metrics with same timestamp) with exception {e}")
+
+
     def _release_metrics_pipeline(self, pipeline, prev_len, execute=True):
         """
         Release (and perhaps execute) a pipeline that was used for a metrics
@@ -272,7 +290,7 @@ class Element:
         data = None
 
         if execute:
-            data = pipeline.execute()
+            self._metrics_execute(pipeline)
             pipeline.reset()
             self._mpipeline_pool.put(pipeline)
         else:
@@ -1598,6 +1616,6 @@ class Element:
             except queue.Empty:
                 break
 
-            pipeline.execute()
+            self._metrics_execute(pipeline)
             pipeline.reset()
             self._mpipeline_pool.put(pipeline)
