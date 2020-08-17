@@ -11,6 +11,8 @@ from atom.element import ElementConnectionTimeoutError
 import numpy as np
 import pytest
 
+from redistimeseries.client import Client as RedisTimeSeries
+
 from atom import Element
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_UNSUPPORTED
 from atom.config import ATOM_COMMAND_NO_RESPONSE, ATOM_CALLBACK_FAILED
@@ -33,7 +35,7 @@ class TestAtom():
             assert not exists_val, "private redis stream key %s should not exist" % (private_sn,)
 
     @pytest.fixture
-    def caller(self):
+    def caller(self, metrics):
         """
         Sets up the caller before each test function is run.
         Tears down the caller after each test is run.
@@ -46,7 +48,7 @@ class TestAtom():
         gc.collect()
 
     @pytest.fixture
-    def responder(self):
+    def responder(self, metrics):
         """
         Sets up the responder before each test function is run.
         Tears down the responder after each test is run.
@@ -57,6 +59,15 @@ class TestAtom():
         pytest.responder_incrementor += 1
         del responder
         gc.collect()
+
+    @pytest.fixture
+    def metrics(self):
+        metrics = RedisTimeSeries(
+            unix_socket_path="/shared/metrics.sock"
+        )
+        metrics.flushall()
+        yield metrics
+        del metrics
 
     def test_caller_responder_exist(self, caller, responder):
         """
@@ -843,7 +854,7 @@ class TestAtom():
 
     def test_handler_returns_not_response(self, caller, responder):
         """
-        Element calls command from responder that does not return an object of 
+        Element calls command from responder that does not return an object of
         type Response.
         """
         caller, caller_name = caller
@@ -1209,6 +1220,67 @@ class TestAtom():
         diff = now - then
 
         assert int(round(diff, 2)) == 2
+
+    def test_metrics_create_basic(self, caller, metrics):
+        caller, caller_name = caller
+        caller.metric_create("some_metric", retention=10000)
+
+        data = metrics.info("some_metric")
+        assert data.retention_msecs == 10000
+
+    def test_metrics_create_label(self, caller, metrics):
+        caller, caller_name = caller
+        label_dict = {"single" : "label"}
+        caller.metric_create("some_metric", labels=label_dict)
+
+        data = metrics.info("some_metric")
+        assert data.labels == label_dict
+
+    def test_metrics_create_labels(self, caller, metrics):
+        caller, caller_name = caller
+        label_dict = {"label1" : "hello", "label2" : "world"}
+        caller.metric_create("some_metric", labels=label_dict)
+
+        data = metrics.info("some_metric")
+        assert data.labels == label_dict
+
+    def test_metrics_create_rule(self, caller, metrics):
+        caller, caller_name = caller
+        rule_dict = {"some_metric_sum" : ("sum", 10000, 200000)}
+        caller.metric_create("some_metric", rules=rule_dict)
+
+        data = metrics.info("some_metric")
+        assert len(data.rules) == 1
+        assert data.rules[0][0] == b'some_metric_sum'
+        assert data.rules[0][1] == 10000
+        assert data.rules[0][2] == b'SUM'
+
+        data = metrics.info("some_metric_sum")
+        assert data.retention_msecs == 200000
+
+    def test_metrics_create_rules(self, caller, metrics):
+        caller, caller_name = caller
+        rule_dict = {"some_metric_sum" : ("sum", 10000, 200000), "some_metric_avg" : ("avg", 86400, 604800)}
+
+        caller.metric_create("some_metric", rules=rule_dict)
+
+        data = metrics.info("some_metric")
+        assert len(data.rules) == 2
+        sum_idx = 0 if data.rules[0][0] == b'some_metric_sum' else 1
+        avg_idx = 1 if sum_idx == 0 else 0
+        assert data.rules[sum_idx][0] == b'some_metric_sum'
+        assert data.rules[sum_idx][1] == 10000
+        assert data.rules[sum_idx][2] == b'SUM'
+        assert data.rules[avg_idx][0] == b'some_metric_avg'
+        assert data.rules[avg_idx][1] == 86400
+        assert data.rules[avg_idx][2] == b'AVG'
+
+        data = metrics.info("some_metric_sum")
+        assert data.retention_msecs == 200000
+
+        data = metrics.info("some_metric_avg")
+        assert data.retention_msecs == 604800
+
 
 def add_1(x):
     return Response(int(x)+1)

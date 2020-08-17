@@ -10,8 +10,9 @@ from os import uname
 from queue import Queue
 
 import redis
+from redistimeseries.client import Client as RedisTimeSeries
 
-from atom.config import DEFAULT_REDIS_PORT, DEFAULT_REDIS_SOCKET, HEALTHCHECK_RETRY_INTERVAL
+from atom.config import DEFAULT_REDIS_PORT, DEFAULT_METRICS_PORT, DEFAULT_REDIS_SOCKET, DEFAULT_METRICS_SOCKET, HEALTHCHECK_RETRY_INTERVAL
 from atom.config import LANG, VERSION, ACK_TIMEOUT, RESPONSE_TIMEOUT, STREAM_LEN, MAX_BLOCK
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESPONSE
 from atom.config import ATOM_COMMAND_UNSUPPORTED, ATOM_CALLBACK_FAILED, ATOM_USER_ERRORS_BEGIN, ATOM_INTERNAL_ERROR
@@ -32,16 +33,16 @@ class ElementConnectionTimeoutError(redis.exceptions.TimeoutError):
 
 
 class Element:
-    def __init__(self, name, host=None, port=DEFAULT_REDIS_PORT, 
-                 socket_path=DEFAULT_REDIS_SOCKET, conn_timeout_ms=30000):
+    def __init__(self, name, host=None, port=DEFAULT_REDIS_PORT, metrics_port=DEFAULT_METRICS_PORT,
+                 socket_path=DEFAULT_REDIS_SOCKET, metrics_socket_path=DEFAULT_METRICS_SOCKET, conn_timeout_ms=30000):
         """
         Args:
             name (str): The name of the element to register with Atom.
             host (str, optional): The ip address of the Redis server to connect to.
             port (int, optional): The port of the Redis server to connect to.
             socket_path (str, optional): Path to Redis Unix socket.
-            conn_timeout_ms (int, optional): The number of milliseconds to wait 
-                                             before timing out when establishing 
+            conn_timeout_ms (int, optional): The number of milliseconds to wait
+                                             before timing out when establishing
                                              a Redis connection
         """
 
@@ -56,6 +57,7 @@ class Element:
         self._rclient = None
         self._command_loop_shutdown = multiprocessing.Event()
         self._rpipeline_pool = Queue()
+        self._mpipeline_pool = Queue()
         self._timed_out = False
         self._pid = os.getpid()
         try:
@@ -67,16 +69,27 @@ class Element:
                     port=self._port,
                     socket_connect_timeout=self._redis_connection_timeout
                 )
+                self._mclient = RedisTimeSeries(
+                    host=self._host,
+                    port=self._metrics_port,
+                    socket_connect_timeout=self._redis_connection_timeout
+                )
             else:
                 self._socket_path = socket_path
                 self._rclient = redis.StrictRedis(
                     unix_socket_path=socket_path,
                     socket_connect_timeout=self._redis_connection_timeout
                 )
+                self._mclient = RedisTimeSeries(
+                    unix_socket_path=metrics_socket_path,
+                    socket_connect_timeout=self._redis_connection_timeout
+                )
 
             # Init our pool of redis clients/pipelines
             for i in range(REDIS_PIPELINE_POOL_SIZE):
                 self._rpipeline_pool.put(self._rclient.pipeline())
+            for i in range(REDIS_PIPELINE_POOL_SIZE):
+                self._mpipeline_pool.put(self._mclient.pipeline())
 
             _pipe = self._rpipeline_pool.get()
 
@@ -188,9 +201,9 @@ class Element:
 
     def _clean_up_streams(self):
         # if we have encountered a connection timeout there's no use
-        # in re-attempting stream cleanup commands as they will implicitly 
+        # in re-attempting stream cleanup commands as they will implicitly
         # cause the redis pool to reconnect and trigger a subsequent
-        # timeout incurring ~2x the intended timeout in some contexts 
+        # timeout incurring ~2x the intended timeout in some contexts
         if self._timed_out:
             return
 
@@ -251,7 +264,7 @@ class Element:
 
     def _make_consumer_group_counter(self, element_name):
         """
-        Creates the string representation for an element's command group 
+        Creates the string representation for an element's command group
         stream counter id.
 
         Args:
@@ -261,7 +274,7 @@ class Element:
 
     def _make_consumer_group_id(self, element_name):
         """
-        Creates the string representation for an element's command group 
+        Creates the string representation for an element's command group
         stream id.
 
         Args:
@@ -563,23 +576,23 @@ class Element:
         """Main command execution event loop
 
         For each worker process, performs the following event loop:
-            - Waits for command to be put in element's command stream consumer 
+            - Waits for command to be put in element's command stream consumer
               group
             - Sends Acknowledge to caller and then runs command
             - Returns Response with processed data to caller
 
         Args:
-            n_procs (integer): Number of worker processes.  Each worker process 
-                               will pull work from the Element's shared command 
+            n_procs (integer): Number of worker processes.  Each worker process
+                               will pull work from the Element's shared command
                                consumer group (defaults to 1).
-            block (bool, optional): Wait for the response before returning 
+            block (bool, optional): Wait for the response before returning
                                     from the function.
                                        block.
             read_block_ms (integer, optional): Number of milliseconds to block
-                                               for during a stream read insde of 
+                                               for during a stream read insde of
                                                a command loop.
         """
-        # update self._pid in case e.g. we were constructed in a parent thread but 
+        # update self._pid in case e.g. we were constructed in a parent thread but
         # `command_loop` was explicitly called as a sub-process
         self._pid = os.getpid()
         n_procs = int(n_procs)
@@ -587,9 +600,9 @@ class Element:
             raise ValueError("n_procs must be a positive integer")
 
         # note: This warning is emitted in situations where the calling process has more
-        #       than one active thread.  When the command_loop children processes are 
+        #       than one active thread.  When the command_loop children processes are
         #       forked they will only copy the thread state of the active thread which
-        #       invoked the fork.  Other active thread state will *not* be copied to 
+        #       invoked the fork.  Other active thread state will *not* be copied to
         #       these descendent processes.  This may cause some problems with proper
         #       execution of the Element's command_loop if the command depends on this
         #       thread state being available on the descendent processes.
@@ -657,14 +670,14 @@ class Element:
 
 
         # get a group handle
-        # note: if use_command_last_id is set then the group will receive 
-        #       messages newer than the most recent command id observed by the 
-        #       Element class.  However, by default it will than accept 
+        # note: if use_command_last_id is set then the group will receive
+        #       messages newer than the most recent command id observed by the
+        #       Element class.  However, by default it will than accept
         #       messages newer than the creation of the consumer group.
-        #      
+        #
         stream_name = self._make_command_id(self.name)
         group_name = self._make_consumer_group_id(self.name)
-        group_last_cmd_id = self.command_last_id 
+        group_last_cmd_id = self.command_last_id
         try:
             _rclient.xgroup_create(
                 stream_name,
@@ -676,7 +689,7 @@ class Element:
             # If we encounter a `ResponseError` we assume it's because of a `BUSYGROUP`
             # signal, implying the consumer group already exists for this command.
             #
-            # Thus, we go on our merry way as we can successfully proceed pulling from the 
+            # Thus, we go on our merry way as we can successfully proceed pulling from the
             # already created group :)
             pass
         # make a new uuid for the consumer name
@@ -721,7 +734,7 @@ class Element:
             msg = msgs[0]  # we only read one
             cmd_id, cmd = msg
 
-            # Set the command_last_id to this command's id to keep track of our 
+            # Set the command_last_id to this command's id to keep track of our
             # last read
             self.command_last_id = cmd_id.decode()
 
@@ -743,7 +756,7 @@ class Element:
             else:
                 timeout = self.timeouts[cmd_name]
             acknowledge = Acknowledge(self.name, cmd_id, timeout)
-            
+
             _pipe.xadd(self._make_response_id(caller), vars(acknowledge), maxlen=STREAM_LEN)
             _pipe.execute()
 
@@ -779,7 +792,7 @@ class Element:
                                     "during command execution: %s" % (cmd_name,)
                         )
                 else:
-                    # healthcheck/version requests/command_list commands don't 
+                    # healthcheck/version requests/command_list commands don't
                     # care what data you are sending
                     response = self.handler_map[cmd_name]["handler"]()
 
@@ -804,17 +817,17 @@ class Element:
             except:
                 # If we fail to xadd the response, go ahead and continue
                 # we will xack the response to bring it out of pending list.
-                # This command will be treated as being "handled" and will not 
+                # This command will be treated as being "handled" and will not
                 # be re-attempted
                 pass
 
-            # `XACK` the command we have just completed back to the consumer 
-            # group to remove the command from the consumer group pending 
+            # `XACK` the command we have just completed back to the consumer
+            # group to remove the command from the consumer group pending
             # entry list (PEL).
             try:
                 _pipe.xack(
                     stream_name,
-                    group_name, 
+                    group_name,
                     cmd_id
                 )
                 _pipe.execute()
@@ -1146,7 +1159,7 @@ class Element:
         ret = _pipe.execute()
         _pipe = self._release_pipeline(_pipe)
 
-        if ((not isinstance(ret, list)) or (len(ret) != 1) 
+        if ((not isinstance(ret, list)) or (len(ret) != 1)
                 or (not isinstance(ret[0], bytes))):
             print(ret)
             raise ValueError("Failed to write data to stream")
@@ -1414,3 +1427,34 @@ class Element:
 
         return data[0]
 
+    def metric_create(self, key, retention=60000, labels=None, rules=None):
+        """
+        Create a metric at the given key with retention and labels.
+
+        Args:
+            key (str): Key to use for the metric
+            retention (int, optional): How long to keep data for the metric,
+                in milliseconds. Default 60000ms == 1 minute. Be careful with
+                this, it will grow unbounded if set to 0.
+            labels (dictionary, optional): Optional labels to add to the
+                data. Each key should be a string and each value should also
+                be a string.
+            rules (dictionary, optional): Optional dictionary of rules to apply
+                to the metric using TS.CREATERULE (https://oss.redislabs.com/redistimeseries/commands/#tscreaterule)
+                Each key in the dictionary should be a new time series key and
+                the value should be a tuple with the following items:
+                    [0]: aggregation type (str, one of: avg, sum, min, max, range, count, first, last, std.p, std.s, var.p, var.s)
+                    [1]: aggregation time bucket (int, milliseconds over which to perform aggregation)
+                    [2]: aggregation retention, i.e. how long to keep this aggregated stat for
+        """
+
+        _pipe = self._mpipeline_pool.get()
+        _pipe.create(key, retention_msecs=retention, labels=labels)
+        if rules:
+            for rule in rules.keys():
+                _pipe.create(rule, retention_msecs=rules[rule][2], labels=labels)
+                _pipe.createrule(key, rule, rules[rule][0], rules[rule][1])
+        data = _pipe.execute()
+        _pipe = self._release_pipeline(_pipe)
+
+        print(data)
