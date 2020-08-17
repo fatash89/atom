@@ -12,7 +12,6 @@ DEFAULT_METRICS_SOCKET = "/shared/metrics.sock"
 HEALTHCHECK_COMMAND = "healthcheck"
 VERSION_COMMAND = "version"
 COMMAND_LIST_COMMAND = "command_list"
-VERSION = "1.7.0"
 
 # Error codes
 ATOM_NO_ERROR = 0

@@ -65,6 +65,7 @@ class Element:
             if host is not None:
                 self._host = host
                 self._port = port
+                self._metrics_port = metrics_port
                 self._rclient = redis.StrictRedis(
                     host=self._host,
                     port=self._port,
