@@ -1391,7 +1391,7 @@ class TestAtom():
             assert data[1][1] == 2020
             assert data[0][0] != data[1][0]
 
-    def test_metric_async_timestamp_jitter(self, caller, metrics):
+    def test_metric_async_timestamp_no_jitter(self, caller, metrics):
         caller, caller_name = caller
         caller.metric_create("some_metric", retention=10000)
         caller.metric_add("some_metric", 42, execute=False)
@@ -1409,8 +1409,8 @@ class TestAtom():
 
         # Make sure the timestamp gets set at the flush and
         #   not the add
-        assert (data[0] - int(1000 * add_time)) > 2000
-        assert (data[0] - int(1000 * flush_time)) < 1000
+        assert (int(1000 * add_time) - data[0]) < 1000
+        assert (int(1000 * flush_time) - data[0]) > 2000
 
     def test_metric_async_use_curr_time(self, caller, metrics):
         caller, caller_name = caller
