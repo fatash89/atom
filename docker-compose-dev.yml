@@ -9,13 +9,25 @@ services:
       dockerfile: Dockerfile
       target: nucleus
       args:
-        BASE_IMAGE: elementaryrobotics/atom:base
+        BASE_IMAGE: elementaryrobotics/atom:v1.7.1-base-stock-amd64
     volumes:
       - type: volume
         source: shared
         target: /shared
         volume:
           nocopy: true
+      - "./:/metrics"
+    ports:
+      - "6379:6379"
+      - "6380:6380"
+
+  grafana:
+    container_name: grafana
+    image: grafana/grafana
+    environment:
+      - "GF_INSTALL_PLUGINS=redis-datasource"
+    ports:
+      - "3001:3000"
 
   atom:
     container_name: atom
@@ -24,7 +36,7 @@ services:
       dockerfile: Dockerfile
       target: test
       args:
-        BASE_IMAGE: elementaryrobotics/atom:base
+        BASE_IMAGE: elementaryrobotics/atom:v1.7.1-base-stock-amd64
     volumes:
       - type: volume
         source: shared
