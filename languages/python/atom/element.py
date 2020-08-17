@@ -1532,10 +1532,10 @@ class Element:
         will be affected by the execute=False will be the timestamp of your
         packet if left as '*', i.e. the timestamp won't be recorded
         until the metric hits the server so there will be some jitter/inaccuracy.
-        This can be accounted for by setting the timestamp manually. One
-        final note here is that we will opportunistically flush if someone
-        else using the element happens to do a metric_add call with execute=True
-        in order to minimize the latency/jitter here.
+        Due to this and due to the fact that two metrics hitting the server at the
+        same time will throw an error since they'll resolve to the same
+        timestamp we'll force the behvaior as if use_curr_time=True when
+        we set execute=False.
 
         NOTE: REDIS TIME-SERIES WILL AUTO-CREATE THE METRIC IF IT DOES NOT
             EXIST. As such, we have a retention argument here similar to
@@ -1557,12 +1557,12 @@ class Element:
                 and sets the timestamp to the current wallclock time in
                 milliseconds. This is useful for async patterns where you don't
                 know how long it will take for the timestamp to get to the
-                redis server.
+                redis server. NOTE: execute = TRUE triggers the same behavior.
             execute (bool, optional): Leave TRUE (default) to send the metric to
                 the redis server in this function call. Leave FALSE to just add
                 the metric to the pipeline (buffering it in memory) until it gets
                 written out either by someone else or with a flush() call. See
-                note above
+                note above.
             labels (dictionary, optional): Optional labels to add to the
                 data. Each key should be a string and each value should also
                 be a string.
@@ -1572,7 +1572,7 @@ class Element:
         """
 
         _pipe, prev_len = self._get_metrics_pipeline()
-        timestamp_val = timestamp if not use_curr_time else int(round(time.time() * 1000))
+        timestamp_val = timestamp if (not use_curr_time and execute) else int(round(time.time() * 1000))
         _pipe.add(key, timestamp_val, value, retention_msecs=retention, labels=labels)
         data = self._release_metrics_pipeline(_pipe, prev_len, execute=execute)
         return data

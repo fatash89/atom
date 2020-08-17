@@ -1323,7 +1323,8 @@ class TestAtom():
 
         # make a metric and have the timestamp auto-created
         data = metrics.range("some_metric", 0, -1)
-        print(data)
+        assert data[0][1] == 42
+        assert data[1][1] == 2020
 
     def test_metric_async(self, caller, metrics):
         caller, caller_name = caller
@@ -1335,6 +1336,20 @@ class TestAtom():
         caller.metrics_flush()
         data = metrics.get("some_metric")
         assert data[1] == 42
+
+    def test_metric_add_multiple_async(self, caller, metrics):
+        caller, caller_name = caller
+        curr_time = int(time.time() * 1000)
+        caller.metric_create("some_metric", retention=10000)
+        caller.metric_add("some_metric", 42, execute=False)
+        time.sleep(0.001)
+        caller.metric_add("some_metric", 2020, execute=False)
+        caller.metrics_flush()
+
+        # make a metric and have the timestamp auto-created
+        data = metrics.range("some_metric", 0, -1)
+        assert data[0][1] == 42
+        assert data[1][1] == 2020
 
     def test_metric_async_timestamp_jitter(self, caller, metrics):
         caller, caller_name = caller
