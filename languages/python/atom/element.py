@@ -32,17 +32,21 @@ class ElementConnectionTimeoutError(redis.exceptions.TimeoutError):
 
 
 class Element:
-    def __init__(self, name, host=None, port=DEFAULT_REDIS_PORT, 
-                 socket_path=DEFAULT_REDIS_SOCKET, conn_timeout_ms=30000):
+    def __init__(self, name, host=None, port=DEFAULT_REDIS_PORT,
+                 socket_path=DEFAULT_REDIS_SOCKET, conn_timeout_ms=5000,
+                 data_timeout_ms=5000):
         """
         Args:
             name (str): The name of the element to register with Atom.
             host (str, optional): The ip address of the Redis server to connect to.
             port (int, optional): The port of the Redis server to connect to.
             socket_path (str, optional): Path to Redis Unix socket.
-            conn_timeout_ms (int, optional): The number of milliseconds to wait 
-                                             before timing out when establishing 
+            conn_timeout_ms (int, optional): The number of milliseconds to wait
+                                             before timing out when establishing
                                              a Redis connection
+            data_timeout_ms (int, optional): The number of milliseconds to wait
+                                             before timing out while waiting for
+                                             data back over a Redis connection.
         """
 
         self.name = name
@@ -50,6 +54,7 @@ class Element:
         self.handler_map = {}
         self.timeouts = {}
         self._redis_connection_timeout = float(conn_timeout_ms / 1000.)
+        self._redis_data_timeout = float(data_timeout_ms / 1000.)
         assert self._redis_connection_timeout > 0, \
             "timeout must be positive and non-zero"
         self.streams = set()
@@ -58,6 +63,8 @@ class Element:
         self._rpipeline_pool = Queue()
         self._timed_out = False
         self._pid = os.getpid()
+        self._cleaned_up = False
+        self.processes = []
         try:
             if host is not None:
                 self._host = host
@@ -65,12 +72,14 @@ class Element:
                 self._rclient = redis.StrictRedis(
                     host=self._host,
                     port=self._port,
+                    socket_timeout=self._redis_data_timeout,
                     socket_connect_timeout=self._redis_connection_timeout
                 )
             else:
                 self._socket_path = socket_path
                 self._rclient = redis.StrictRedis(
                     unix_socket_path=socket_path,
+                    socket_timeout=self._redis_data_timeout,
                     socket_connect_timeout=self._redis_connection_timeout
                 )
 
@@ -168,29 +177,36 @@ class Element:
         self._rclient.delete(self._make_stream_id(self.name, stream))
         self.streams.remove(stream)
 
+    def _clean_up(self):
+        """Clean up everything for the element"""
+
+        if not self._cleaned_up:
+            # If the spawning process's element is being deleted, we need
+            # to ensure we signal a shutdown to the children
+            cur_pid = os.getpid()
+            if cur_pid == self._pid:
+                self.command_loop_shutdown()
+
+            # decrement ref count
+            try:
+                _pipe = self._rpipeline_pool.get()
+                self._decrement_command_group_counter(_pipe)
+                _pipe = self._release_pipeline(_pipe)
+            except redis.exceptions.TimeoutError:
+                # the connection is already stale or has timed out
+                pass
+
+            self._cleaned_up = True
+
     def __del__(self):
-        """Removes all elements with the same name."""
-
-        # If the spawning process's element is being deleted, we need
-        # to ensure we signal a shutdown to the children
-        cur_pid = os.getpid()
-        if cur_pid == self._pid:
-            self.command_loop_shutdown()
-
-        # decrement ref count
-        try:
-            _pipe = self._rpipeline_pool.get()
-            self._decrement_command_group_counter(_pipe)
-            _pipe = self._release_pipeline(_pipe)
-        except redis.exceptions.TimeoutError:
-            # the connection is already stale or has timed out
-            pass
+        """Clean up"""
+        self._clean_up()
 
     def _clean_up_streams(self):
         # if we have encountered a connection timeout there's no use
-        # in re-attempting stream cleanup commands as they will implicitly 
+        # in re-attempting stream cleanup commands as they will implicitly
         # cause the redis pool to reconnect and trigger a subsequent
-        # timeout incurring ~2x the intended timeout in some contexts 
+        # timeout incurring ~2x the intended timeout in some contexts
         if self._timed_out:
             return
 
@@ -199,6 +215,7 @@ class Element:
         try:
             self._rclient.delete(self._make_response_id(self.name))
             self._rclient.delete(self._make_command_id(self.name))
+            self._rclient.delete(self._make_consumer_group_counter(self.name))
         except redis.exceptions.RedisError:
             raise Exception("Could not connect to nucleus!")
 
@@ -251,7 +268,7 @@ class Element:
 
     def _make_consumer_group_counter(self, element_name):
         """
-        Creates the string representation for an element's command group 
+        Creates the string representation for an element's command group
         stream counter id.
 
         Args:
@@ -261,7 +278,7 @@ class Element:
 
     def _make_consumer_group_id(self, element_name):
         """
-        Creates the string representation for an element's command group 
+        Creates the string representation for an element's command group
         stream id.
 
         Args:
@@ -559,27 +576,31 @@ class Element:
 
             time.sleep(retry_interval)
 
-    def command_loop(self, n_procs=1, block=True, read_block_ms=1000):
+    def command_loop(self, n_procs=1, block=True, read_block_ms=1000, join_timeout=10.0):
         """Main command execution event loop
 
         For each worker process, performs the following event loop:
-            - Waits for command to be put in element's command stream consumer 
+            - Waits for command to be put in element's command stream consumer
               group
             - Sends Acknowledge to caller and then runs command
             - Returns Response with processed data to caller
 
         Args:
-            n_procs (integer): Number of worker processes.  Each worker process 
-                               will pull work from the Element's shared command 
+            n_procs (integer): Number of worker processes.  Each worker process
+                               will pull work from the Element's shared command
                                consumer group (defaults to 1).
-            block (bool, optional): Wait for the response before returning 
+            block (bool, optional): Wait for the response before returning
                                     from the function.
                                        block.
             read_block_ms (integer, optional): Number of milliseconds to block
-                                               for during a stream read insde of 
+                                               for during a stream read insde of
                                                a command loop.
+            join_timeout (integer, optional): If block=True, how long to wait while
+                                              joining threads at the end of the
+                                              command loop before raising an
+                                              exception
         """
-        # update self._pid in case e.g. we were constructed in a parent thread but 
+        # update self._pid in case e.g. we were constructed in a parent thread but
         # `command_loop` was explicitly called as a sub-process
         self._pid = os.getpid()
         n_procs = int(n_procs)
@@ -587,9 +608,9 @@ class Element:
             raise ValueError("n_procs must be a positive integer")
 
         # note: This warning is emitted in situations where the calling process has more
-        #       than one active thread.  When the command_loop children processes are 
+        #       than one active thread.  When the command_loop children processes are
         #       forked they will only copy the thread state of the active thread which
-        #       invoked the fork.  Other active thread state will *not* be copied to 
+        #       invoked the fork.  Other active thread state will *not* be copied to
         #       these descendent processes.  This may cause some problems with proper
         #       execution of the Element's command_loop if the command depends on this
         #       thread state being available on the descendent processes.
@@ -606,13 +627,12 @@ class Element:
 
         self.processes = []
         for i in range(n_procs):
-            p = Process(target=self._command_loop, args=(self._command_loop_shutdown,))
+            p = Process(target=self._command_loop, args=(self._command_loop_shutdown,), kwargs={'read_block_ms' : read_block_ms})
             p.start()
             self.processes.append(p)
 
         if block:
-            for p in self.processes:
-                p.join()
+            self._command_loop_join(join_timeout=join_timeout)
 
     def _increment_command_group_counter(self, _pipe):
         """Incremeents reference counter for element stream collection"""
@@ -644,7 +664,7 @@ class Element:
             self._clean_up_streams()
         return result
 
-    def _command_loop(self, shutdown_event, read_block_ms=10000):
+    def _command_loop(self, shutdown_event, read_block_ms=1000):
         if hasattr(self, '_host'):
             _rclient = redis.StrictRedis(host=self._host, port=self._port)
         else:
@@ -657,14 +677,14 @@ class Element:
 
 
         # get a group handle
-        # note: if use_command_last_id is set then the group will receive 
-        #       messages newer than the most recent command id observed by the 
-        #       Element class.  However, by default it will than accept 
+        # note: if use_command_last_id is set then the group will receive
+        #       messages newer than the most recent command id observed by the
+        #       Element class.  However, by default it will than accept
         #       messages newer than the creation of the consumer group.
-        #      
+        #
         stream_name = self._make_command_id(self.name)
         group_name = self._make_consumer_group_id(self.name)
-        group_last_cmd_id = self.command_last_id 
+        group_last_cmd_id = self.command_last_id
         try:
             _rclient.xgroup_create(
                 stream_name,
@@ -676,7 +696,7 @@ class Element:
             # If we encounter a `ResponseError` we assume it's because of a `BUSYGROUP`
             # signal, implying the consumer group already exists for this command.
             #
-            # Thus, we go on our merry way as we can successfully proceed pulling from the 
+            # Thus, we go on our merry way as we can successfully proceed pulling from the
             # already created group :)
             pass
         # make a new uuid for the consumer name
@@ -721,7 +741,7 @@ class Element:
             msg = msgs[0]  # we only read one
             cmd_id, cmd = msg
 
-            # Set the command_last_id to this command's id to keep track of our 
+            # Set the command_last_id to this command's id to keep track of our
             # last read
             self.command_last_id = cmd_id.decode()
 
@@ -743,7 +763,7 @@ class Element:
             else:
                 timeout = self.timeouts[cmd_name]
             acknowledge = Acknowledge(self.name, cmd_id, timeout)
-            
+
             _pipe.xadd(self._make_response_id(caller), vars(acknowledge), maxlen=STREAM_LEN)
             _pipe.execute()
 
@@ -779,7 +799,7 @@ class Element:
                                     "during command execution: %s" % (cmd_name,)
                         )
                 else:
-                    # healthcheck/version requests/command_list commands don't 
+                    # healthcheck/version requests/command_list commands don't
                     # care what data you are sending
                     response = self.handler_map[cmd_name]["handler"]()
 
@@ -804,17 +824,17 @@ class Element:
             except:
                 # If we fail to xadd the response, go ahead and continue
                 # we will xack the response to bring it out of pending list.
-                # This command will be treated as being "handled" and will not 
+                # This command will be treated as being "handled" and will not
                 # be re-attempted
                 pass
 
-            # `XACK` the command we have just completed back to the consumer 
-            # group to remove the command from the consumer group pending 
+            # `XACK` the command we have just completed back to the consumer
+            # group to remove the command from the consumer group pending
             # entry list (PEL).
             try:
                 _pipe.xack(
                     stream_name,
-                    group_name, 
+                    group_name,
                     cmd_id
                 )
                 _pipe.execute()
@@ -831,9 +851,16 @@ class Element:
                     _pipe=_pipe
                 )
 
-    def command_loop_shutdown(self):
+    def _command_loop_join(self, join_timeout=10.0):
+        """Waits for all threads from command loop to be finished"""
+        for p in self.processes:
+            p.join(join_timeout)
+
+    def command_loop_shutdown(self, block=False, join_timeout=10.0):
         """Triggers graceful exit of command loop"""
         self._command_loop_shutdown.set()
+        if block:
+            self._command_loop_join(join_timeout=join_timeout)
 
     def command_send(self,
                      element_name,
@@ -1146,7 +1173,7 @@ class Element:
         ret = _pipe.execute()
         _pipe = self._release_pipeline(_pipe)
 
-        if ((not isinstance(ret, list)) or (len(ret) != 1) 
+        if ((not isinstance(ret, list)) or (len(ret) != 1)
                 or (not isinstance(ret[0], bytes))):
             print(ret)
             raise ValueError("Failed to write data to stream")
@@ -1413,4 +1440,3 @@ class Element:
             raise KeyError(f"Reference {key} doesn't exist")
 
         return data[0]
-
