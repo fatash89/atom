@@ -34,7 +34,7 @@ class ElementConnectionTimeoutError(redis.exceptions.TimeoutError):
 
 class Element:
     def __init__(self, name, host=None, port=DEFAULT_REDIS_PORT, metrics_port=DEFAULT_METRICS_PORT,
-                 socket_path=DEFAULT_REDIS_SOCKET, metrics_socket_path=DEFAULT_METRICS_SOCKET, conn_timeout_ms=30000):
+                 socket_path=DEFAULT_REDIS_SOCKET, metrics_socket_path=DEFAULT_METRICS_SOCKET, conn_timeout_ms=30000, data_timeout_ms=5000):
         """
         Args:
             name (str): The name of the element to register with Atom.
@@ -44,6 +44,9 @@ class Element:
             conn_timeout_ms (int, optional): The number of milliseconds to wait
                                              before timing out when establishing
                                              a Redis connection
+            data_timeout_ms (int, optional): The number of milliseconds to wait
+                                             before timing out while waiting for
+                                             data back over a Redis connection.
         """
 
         self.name = name
@@ -51,6 +54,7 @@ class Element:
         self.handler_map = {}
         self.timeouts = {}
         self._redis_connection_timeout = float(conn_timeout_ms / 1000.)
+        self._redis_data_timeout = float(data_timeout_ms / 1000.)
         assert self._redis_connection_timeout > 0, \
             "timeout must be positive and non-zero"
         self.streams = set()
@@ -61,6 +65,8 @@ class Element:
         self._mpipeline_async_pool = LifoQueue()
         self._timed_out = False
         self._pid = os.getpid()
+        self._cleaned_up = False
+        self.processes = []
         try:
             if host is not None:
                 self._host = host
@@ -69,6 +75,7 @@ class Element:
                 self._rclient = redis.StrictRedis(
                     host=self._host,
                     port=self._port,
+                    socket_timeout=self._redis_data_timeout,
                     socket_connect_timeout=self._redis_connection_timeout
                 )
                 self._mclient = RedisTimeSeries(
@@ -80,6 +87,7 @@ class Element:
                 self._socket_path = socket_path
                 self._rclient = redis.StrictRedis(
                     unix_socket_path=socket_path,
+                    socket_timeout=self._redis_data_timeout,
                     socket_connect_timeout=self._redis_connection_timeout
                 )
                 self._mclient = RedisTimeSeries(
@@ -183,23 +191,30 @@ class Element:
         self._rclient.delete(self._make_stream_id(self.name, stream))
         self.streams.remove(stream)
 
+    def _clean_up(self):
+        """Clean up everything for the element"""
+
+        if not self._cleaned_up:
+            # If the spawning process's element is being deleted, we need
+            # to ensure we signal a shutdown to the children
+            cur_pid = os.getpid()
+            if cur_pid == self._pid:
+                self.command_loop_shutdown()
+
+            # decrement ref count
+            try:
+                _pipe = self._rpipeline_pool.get()
+                self._decrement_command_group_counter(_pipe)
+                _pipe = self._release_pipeline(_pipe)
+            except redis.exceptions.TimeoutError:
+                # the connection is already stale or has timed out
+                pass
+
+            self._cleaned_up = True
+
     def __del__(self):
-        """Removes all elements with the same name."""
-
-        # If the spawning process's element is being deleted, we need
-        # to ensure we signal a shutdown to the children
-        cur_pid = os.getpid()
-        if cur_pid == self._pid:
-            self.command_loop_shutdown()
-
-        # decrement ref count
-        try:
-            _pipe = self._rpipeline_pool.get()
-            self._decrement_command_group_counter(_pipe)
-            _pipe = self._release_pipeline(_pipe)
-        except redis.exceptions.TimeoutError:
-            # the connection is already stale or has timed out
-            pass
+        """Clean up"""
+        self._clean_up()
 
     def _clean_up_streams(self):
         # if we have encountered a connection timeout there's no use
@@ -214,6 +229,7 @@ class Element:
         try:
             self._rclient.delete(self._make_response_id(self.name))
             self._rclient.delete(self._make_command_id(self.name))
+            self._rclient.delete(self._make_consumer_group_counter(self.name))
         except redis.exceptions.RedisError:
             raise Exception("Could not connect to nucleus!")
 
@@ -645,7 +661,7 @@ class Element:
 
             time.sleep(retry_interval)
 
-    def command_loop(self, n_procs=1, block=True, read_block_ms=1000):
+    def command_loop(self, n_procs=1, block=True, read_block_ms=1000, join_timeout=10.0):
         """Main command execution event loop
 
         For each worker process, performs the following event loop:
@@ -664,6 +680,10 @@ class Element:
             read_block_ms (integer, optional): Number of milliseconds to block
                                                for during a stream read insde of
                                                a command loop.
+            join_timeout (integer, optional): If block=True, how long to wait while
+                                              joining threads at the end of the
+                                              command loop before raising an
+                                              exception
         """
         # update self._pid in case e.g. we were constructed in a parent thread but
         # `command_loop` was explicitly called as a sub-process
@@ -692,13 +712,12 @@ class Element:
 
         self.processes = []
         for i in range(n_procs):
-            p = Process(target=self._command_loop, args=(self._command_loop_shutdown,))
+            p = Process(target=self._command_loop, args=(self._command_loop_shutdown,), kwargs={'read_block_ms' : read_block_ms})
             p.start()
             self.processes.append(p)
 
         if block:
-            for p in self.processes:
-                p.join()
+            self._command_loop_join(join_timeout=join_timeout)
 
     def _increment_command_group_counter(self, _pipe):
         """Incremeents reference counter for element stream collection"""
@@ -730,7 +749,7 @@ class Element:
             self._clean_up_streams()
         return result
 
-    def _command_loop(self, shutdown_event, read_block_ms=10000):
+    def _command_loop(self, shutdown_event, read_block_ms=1000):
         if hasattr(self, '_host'):
             _rclient = redis.StrictRedis(host=self._host, port=self._port)
         else:
@@ -917,9 +936,16 @@ class Element:
                     _pipe=_pipe
                 )
 
-    def command_loop_shutdown(self):
+    def _command_loop_join(self, join_timeout=10.0):
+        """Waits for all threads from command loop to be finished"""
+        for p in self.processes:
+            p.join(join_timeout)
+
+    def command_loop_shutdown(self, block=False, join_timeout=10.0):
         """Triggers graceful exit of command loop"""
         self._command_loop_shutdown.set()
+        if block:
+            self._command_loop_join(join_timeout=join_timeout)
 
     def command_send(self,
                      element_name,
