@@ -278,6 +278,7 @@ class Element:
         Args:
             pipeline: pipeline to execute
         """
+        data = None
 
         try:
             data = pipeline.execute()
@@ -288,6 +289,7 @@ class Element:
         except redis.exceptions.ResponseError as e:
             self.log(LogLevel.ERR, f"Failed to write metrics (likely due to 2x metrics with same timestamp) with exception {e}")
 
+        return data
 
     def _release_metrics_pipeline(self, pipeline, prev_len, execute=True):
         """
@@ -306,7 +308,7 @@ class Element:
         data = None
 
         if execute:
-            self._metrics_execute(pipeline)
+            data = self._metrics_execute(pipeline)
             pipeline.reset()
             self._mpipeline_pool.put(pipeline)
         else:
@@ -1526,7 +1528,7 @@ class Element:
 
         return data[0]
 
-    def metric_create(self, key, retention=60000, labels=None, rules=None):
+    def metric_create(self, key, retention=60000, labels=None, rules=None, update=False):
         """
         Create a metric at the given key with retention and labels.
 
@@ -1545,6 +1547,11 @@ class Element:
                     [0]: aggregation type (str, one of: avg, sum, min, max, range, count, first, last, std.p, std.s, var.p, var.s)
                     [1]: aggregation time bucket (int, milliseconds over which to perform aggregation)
                     [2]: aggregation retention, i.e. how long to keep this aggregated stat for
+            update: (boolean, optional): We will call TS.CREATE to attempt to
+                create the key
+
+        Return:
+            boolean, true on success
         """
 
         _pipe, prev_len = self._get_metrics_pipeline()
@@ -1554,7 +1561,7 @@ class Element:
                 _pipe.create(rule, retention_msecs=rules[rule][2], labels=labels)
                 _pipe.createrule(key, rule, rules[rule][0], rules[rule][1])
         data = self._release_metrics_pipeline(_pipe, prev_len, execute=True)
-        return data
+        return bool(data)
 
     def metric_add(self, key, value, timestamp='*', use_curr_time=False, execute=True, retention=60000, labels=None):
         """
@@ -1616,6 +1623,10 @@ class Element:
             retention (int, optional): How long to keep data for the metric,
                 in milliseconds. Default 60000ms == 1 minute. Be careful with
                 this, it will grow unbounded if set to 0.
+
+        Return:
+            list of integers representing the timestamps created. None on
+                failure.
         """
 
         _pipe, prev_len = self._get_metrics_pipeline()
@@ -1637,14 +1648,22 @@ class Element:
         always holds -- it's pretty unlikely to be the case (famous last
         words). For now it's OK, we'll come back to it if it turns out to
         be a problem.
+
+        return:
+            list of lists. Each sublist in the return is the return of calling
+            execute on any outstanding pipeline. Length of the list returned
+            is equal to the number of pipelines flushed.
         """
 
+        data = []
         while not self._mpipeline_async_pool.empty():
             try:
                 pipeline = self._mpipeline_async_pool.get()
             except queue.Empty:
                 break
 
-            self._metrics_execute(pipeline)
+            data.append(self._metrics_execute(pipeline))
             pipeline.reset()
             self._mpipeline_pool.put(pipeline)
+
+        return data
