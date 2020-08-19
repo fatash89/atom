@@ -15,17 +15,15 @@ services:
   atom:
     container_name: test_atom
     image: $ATOM_IMAGE
+    network_mode: "service:nucleus"
     volumes:
       - type: volume
         source: shared
         target: /shared
         volume:
           nocopy: true
-    # - ".:/atom"
     depends_on:
       - "nucleus"
-    ports:
-      - "6080:6080"
     environment:
       - "GRAPHICS=1"
     command: tail -f /dev/null
