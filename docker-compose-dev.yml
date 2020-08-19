@@ -20,6 +20,7 @@ services:
     ports:
       - "6379:6379"
       - "6380:6380"
+      - "6080:6080"
 
   grafana:
     container_name: grafana
@@ -44,10 +45,9 @@ services:
         volume:
           nocopy: true
       - ".:/atom"
+    network_mode: "service:nucleus"
     depends_on:
       - "nucleus"
-    ports:
-      - "6080:6080"
     environment:
       - "GRAPHICS=1"
     command: tail -f /dev/null

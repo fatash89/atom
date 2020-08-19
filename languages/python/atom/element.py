@@ -8,6 +8,7 @@ import uuid
 import os
 from os import uname
 from queue import Queue, LifoQueue
+from queue import Empty as QueueEmpty
 
 import redis
 from redistimeseries.client import Client as RedisTimeSeries
@@ -33,14 +34,21 @@ class ElementConnectionTimeoutError(redis.exceptions.TimeoutError):
 
 
 class Element:
-    def __init__(self, name, host=None, port=DEFAULT_REDIS_PORT, metrics_port=DEFAULT_METRICS_PORT,
-                 socket_path=DEFAULT_REDIS_SOCKET, metrics_socket_path=DEFAULT_METRICS_SOCKET, conn_timeout_ms=30000, data_timeout_ms=5000):
+    def __init__(self, name, host=None, port=DEFAULT_REDIS_PORT, metrics_host=None, metrics_port=DEFAULT_METRICS_PORT,
+                 socket_path=DEFAULT_REDIS_SOCKET, metrics_socket_path=DEFAULT_METRICS_SOCKET, conn_timeout_ms=30000, data_timeout_ms=5000, enforce_metrics=False):
         """
         Args:
             name (str): The name of the element to register with Atom.
             host (str, optional): The ip address of the Redis server to connect to.
             port (int, optional): The port of the Redis server to connect to.
             socket_path (str, optional): Path to Redis Unix socket.
+            metrics_host (str, optional): The ip address of the metrics Redis server to connect to.
+            metrics_port (int, optional): The port of the metrics Redis server to connect to.
+            metrics_socket_path (str, optional): Path to metrics Redis Unix socket.
+            enforce_metrics (bool, optional): While metrics is a relatively new feature
+                this will allow an element to connect to a nucleus without metrics
+                and fail with a log but not throw an error. This enables us to be backwards
+                compatible with older setups.
             conn_timeout_ms (int, optional): The number of milliseconds to wait
                                              before timing out when establishing
                                              a Redis connection
@@ -67,111 +75,155 @@ class Element:
         self._pid = os.getpid()
         self._cleaned_up = False
         self.processes = []
+
+        # Set up redis client for main redis
+        if host is not None:
+            self._host = host
+            self._port = port
+            self._rclient = redis.StrictRedis(
+                host=self._host,
+                port=self._port,
+                socket_timeout=self._redis_data_timeout,
+                socket_connect_timeout=self._redis_connection_timeout
+            )
+        else:
+            self._socket_path = socket_path
+            self._rclient = redis.StrictRedis(
+                unix_socket_path=socket_path,
+                socket_timeout=self._redis_data_timeout,
+                socket_connect_timeout=self._redis_connection_timeout
+            )
+
+        # Set up redis client for metrics
+        if metrics_host is not None:
+            self._metrics_host = metrics_host
+            self._metrics_port = metrics_port
+            self._mclient = RedisTimeSeries(
+                host=self._metrics_host,
+                port=self._metrics_port,
+                socket_timeout=self._redis_data_timeout,
+                socket_connect_timeout=self._redis_connection_timeout
+            )
+        else:
+            self._metrics_socket_path = metrics_socket_path
+            self._mclient = RedisTimeSeries(
+                unix_socket_path=self._metrics_socket_path,
+                socket_timeout=self._redis_data_timeout,
+                socket_connect_timeout=self._redis_connection_timeout
+            )
+
+        #
+        # Set up Atom
+        #
+        self._redis_connected = False
         try:
-            if host is not None:
-                self._host = host
-                self._port = port
-                self._metrics_port = metrics_port
-                self._rclient = redis.StrictRedis(
-                    host=self._host,
-                    port=self._port,
-                    socket_timeout=self._redis_data_timeout,
-                    socket_connect_timeout=self._redis_connection_timeout
-                )
-                self._mclient = RedisTimeSeries(
-                    host=self._host,
-                    port=self._metrics_port,
-                    socket_connect_timeout=self._redis_connection_timeout
-                )
-            else:
-                self._socket_path = socket_path
-                self._rclient = redis.StrictRedis(
-                    unix_socket_path=socket_path,
-                    socket_timeout=self._redis_data_timeout,
-                    socket_connect_timeout=self._redis_connection_timeout
-                )
-                self._mclient = RedisTimeSeries(
-                    unix_socket_path=metrics_socket_path,
-                    socket_connect_timeout=self._redis_connection_timeout
-                )
+            data = self._rclient.ping()
+            if not data:
+                # Don't have redis, so need to only print to stdout
+                self.log(LogLevel.WARNING, f"Invalid ping response {data} from redis server!", redis=False)
 
-            # Init our pool of redis clients/pipelines
-            for i in range(REDIS_PIPELINE_POOL_SIZE):
-                self._rpipeline_pool.put(self._rclient.pipeline())
-            for i in range(REDIS_PIPELINE_POOL_SIZE):
-                self._mpipeline_pool.put(self._mclient.pipeline())
-
-            _pipe = self._rpipeline_pool.get()
-
-            # increment global element ref counter
-            self._increment_command_group_counter(_pipe)
-
-            _pipe.xadd(
-                self._make_response_id(self.name),
-                {
-                    "language": LANG,
-                    "version": VERSION
-                },
-                maxlen=STREAM_LEN)
-            # Keep track of response_last_id to know last time the client's response stream was read from
-            self.response_last_id = _pipe.execute()[-1].decode()
-            self.response_last_id_lock = threading.Lock()
-
-            _pipe.xadd(
-                self._make_command_id(self.name),
-                {
-                    "language": LANG,
-                    "version": VERSION
-                },
-                maxlen=STREAM_LEN)
-            # Keep track of command_last_id to know last time the element's command stream was read from
-            self.command_last_id = _pipe.execute()[-1].decode()
-            _pipe = self._release_pipeline(_pipe)
-
-            # Init a default healthcheck, overridable
-            # By default, if no healthcheck is set, we assume everything is ok and return error code 0
-            self.healthcheck_set(lambda: Response())
-
-            # Init a version check callback which reports our language/version
-            current_major_version = ".".join(VERSION.split(".")[:-1])
-            self.command_add(
-                VERSION_COMMAND,
-                lambda: Response(data={"language": LANG, "version": float(current_major_version)}, serialization="msgpack")
-            )
-
-            # Add command to query all commands
-            self.command_add(
-                COMMAND_LIST_COMMAND,
-                lambda: Response(
-                    data=[k for k in self.handler_map if k not in RESERVED_COMMANDS],
-                    serialization="msgpack"
-                )
-            )
-
-            # Load lua scripts
-            self._stream_reference_sha = None
-            this_dir, this_filename = os.path.split(__file__)
-            with open(os.path.join(this_dir, 'stream_reference.lua')) as f:
-                data = f.read()
-                _pipe = self._rpipeline_pool.get()
-                _pipe.script_load(data)
-                script_response = _pipe.execute()
-                _pipe = self._release_pipeline(_pipe)
-
-                if (not isinstance(script_response, list)) or \
-                    (len(script_response) != 1) or \
-                    (not isinstance(script_response[0], str)):
-                    self.log(LogLevel.ERR, "Failed to load lua script stream_reference.lua")
-                else:
-                    self._stream_reference_sha = script_response[0]
-
-            self.log(LogLevel.INFO, "Element initialized.", stdout=False)
         except redis.exceptions.TimeoutError:
             self._timed_out = True
             raise ElementConnectionTimeoutError()
 
         except redis.exceptions.RedisError:
             raise Exception("Could not connect to nucleus!")
+
+        # Note we connected to redis
+        self._redis_connected = True
+
+        # Init our pool of redis clients/pipelines
+        for i in range(REDIS_PIPELINE_POOL_SIZE):
+            self._rpipeline_pool.put(self._rclient.pipeline())
+
+        _pipe = self._rpipeline_pool.get()
+
+        # increment global element ref counter
+        self._increment_command_group_counter(_pipe)
+
+        _pipe.xadd(
+            self._make_response_id(self.name),
+            {
+                "language": LANG,
+                "version": VERSION
+            },
+            maxlen=STREAM_LEN)
+        # Keep track of response_last_id to know last time the client's response stream was read from
+        self.response_last_id = _pipe.execute()[-1].decode()
+        self.response_last_id_lock = threading.Lock()
+
+        _pipe.xadd(
+            self._make_command_id(self.name),
+            {
+                "language": LANG,
+                "version": VERSION
+            },
+            maxlen=STREAM_LEN)
+        # Keep track of command_last_id to know last time the element's command stream was read from
+        self.command_last_id = _pipe.execute()[-1].decode()
+        _pipe = self._release_pipeline(_pipe)
+
+        # Init a default healthcheck, overridable
+        # By default, if no healthcheck is set, we assume everything is ok and return error code 0
+        self.healthcheck_set(lambda: Response())
+
+        # Init a version check callback which reports our language/version
+        current_major_version = ".".join(VERSION.split(".")[:-1])
+        self.command_add(
+            VERSION_COMMAND,
+            lambda: Response(data={"language": LANG, "version": float(current_major_version)}, serialization="msgpack")
+        )
+
+        # Add command to query all commands
+        self.command_add(
+            COMMAND_LIST_COMMAND,
+            lambda: Response(
+                data=[k for k in self.handler_map if k not in RESERVED_COMMANDS],
+                serialization="msgpack"
+            )
+        )
+
+        # Load lua scripts
+        self._stream_reference_sha = None
+        this_dir, this_filename = os.path.split(__file__)
+        with open(os.path.join(this_dir, 'stream_reference.lua')) as f:
+            data = f.read()
+            _pipe = self._rpipeline_pool.get()
+            _pipe.script_load(data)
+            script_response = _pipe.execute()
+            _pipe = self._release_pipeline(_pipe)
+
+            if (not isinstance(script_response, list)) or \
+                (len(script_response) != 1) or \
+                (not isinstance(script_response[0], str)):
+                self.log(LogLevel.ERR, "Failed to load lua script stream_reference.lua")
+            else:
+                self._stream_reference_sha = script_response[0]
+
+        self.log(LogLevel.INFO, "Element initialized.")
+
+        #
+        # Set up metrics
+        #
+        self._metrics_enabled = True
+        try:
+            data = self._mclient.ping()
+            if not data:
+                # Don't have redis, so need to only print to stdout
+                self.log(LogLevel.WARNING, f"Invalid ping response {data} from metrics server", redis=False)
+
+            # Create pipeline pool
+            for i in range(REDIS_PIPELINE_POOL_SIZE):
+                self._mpipeline_pool.put(self._mclient.pipeline())
+
+            self.log(LogLevel.INFO, "Metrics initialized.")
+
+        except (redis.exceptions.TimeoutError, redis.exceptions.RedisError, redis.exceptions.ConnectionError) as e:
+            self.log(LogLevel.ERR, f"Unable to connect to metrics server, error {e}")
+            if enforce_metrics:
+                raise Exception("Unable to connect to metrics server")
+            else:
+                self._metrics_enabled = False
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"
@@ -202,13 +254,14 @@ class Element:
                 self.command_loop_shutdown()
 
             # decrement ref count
-            try:
-                _pipe = self._rpipeline_pool.get()
-                self._decrement_command_group_counter(_pipe)
-                _pipe = self._release_pipeline(_pipe)
-            except redis.exceptions.TimeoutError:
-                # the connection is already stale or has timed out
-                pass
+            if self._redis_connected:
+                try:
+                    _pipe = self._rpipeline_pool.get()
+                    self._decrement_command_group_counter(_pipe)
+                    _pipe = self._release_pipeline(_pipe)
+                except redis.exceptions.TimeoutError:
+                    # the connection is already stale or has timed out
+                    pass
 
             self._cleaned_up = True
 
@@ -244,11 +297,17 @@ class Element:
         self._rpipeline_pool.put(pipeline)
         return None
 
-    def _get_metrics_pipeline(self):
+    def _get_metrics_pipeline(self, timeout=1):
         """
         Get a pipeline for use in metrics. We'll try to reuse
         a pipeline that needs flushing (i.e. called with execute=False)
         previously and then fall back on using a standard pipeline if not.
+
+        Args:
+            timeout (int, optional): Number of seconds to block on a get
+                from the pipeline pool. We should almost never see waits on
+                getting a pipeline but don't want to hang in the event it
+                does start happening
 
         Return:
             pipeline: the pipeline itself
@@ -262,12 +321,16 @@ class Element:
         # Try to get it from the async pool
         if not self._mpipeline_async_pool.empty():
             try:
-                pipeline = self._mpipeline_async_pool.get()
-            except queue.Empty:
+                pipeline = self._mpipeline_async_pool.get(timeout=timeout)
+            except QueueEmpty:
                 pass
 
         if pipeline is None:
-            pipeline = self._mpipeline_pool.get()
+            try:
+                pipeline = self._mpipeline_pool.get(timeout=timeout)
+            except QueueEmpty:
+                self.log(LogLevel.ERR, "Failed to get metrics pipeline, something is very wrong!")
+                return None, 0
 
         return pipeline, len(pipeline)
 
@@ -1267,7 +1330,7 @@ class Element:
 
         return ret[0].decode()
 
-    def log(self, level, msg, stdout=True, _pipe=None):
+    def log(self, level, msg, stdout=True, _pipe=None, redis=True):
         """
         Writes a message to log stream with loglevel.
 
@@ -1275,17 +1338,23 @@ class Element:
             level (messages.LogLevel): Unix syslog severity of message.
             message (str): The message to write for the log.
             stdout (bool, optional): Whether to write to stdout or only write to log stream.
+            _pipe (pipeline, optional): Pipeline to use for the log message to
+                be sent to redis
+            redis (bool, optional): Default true, whether to log to
+                redis or not
         """
         log = Log(self.name, self.host, level, msg)
-        _release_pipe = False
 
-        if _pipe is None:
-            _release_pipe = True
-            _pipe = self._rpipeline_pool.get()
-        _pipe.xadd("log", vars(log), maxlen=STREAM_LEN)
-        _pipe.execute()
-        if _release_pipe:
-            _pipe = self._release_pipeline(_pipe)
+        if redis:
+            _release_pipe = False
+
+            if _pipe is None:
+                _release_pipe = True
+                _pipe = self._rpipeline_pool.get()
+            _pipe.xadd("log", vars(log), maxlen=STREAM_LEN)
+            _pipe.execute()
+            if _release_pipe:
+                _pipe = self._release_pipeline(_pipe)
 
         if stdout:
             print(msg)
@@ -1563,6 +1632,9 @@ class Element:
             boolean, true on success
         """
 
+        if not self._metrics_enabled:
+            return False
+
         # Try to make the key. Need to know if the key already exists in order
         #   to figure out if this will fail
         _pipe, prev_len = self._get_metrics_pipeline()
@@ -1678,6 +1750,8 @@ class Element:
             list of integers representing the timestamps created. None on
                 failure.
         """
+        if not self._metrics_enabled:
+            return None
 
         _pipe, prev_len = self._get_metrics_pipeline()
         timestamp_val = timestamp if (not use_curr_time and execute) else int(round(time.time() * 1000))
@@ -1704,12 +1778,14 @@ class Element:
             execute on any outstanding pipeline. Length of the list returned
             is equal to the number of pipelines flushed.
         """
+        if not self._metrics_enabled:
+            return None
 
         data = []
         while not self._mpipeline_async_pool.empty():
             try:
                 pipeline = self._mpipeline_async_pool.get()
-            except queue.Empty:
+            except QueueEmpty:
                 break
 
             data.append(self._metrics_execute(pipeline))
