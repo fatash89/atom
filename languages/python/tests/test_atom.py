@@ -1583,6 +1583,16 @@ class TestAtom():
 
         my_elem._clean_up()
 
+    def test_metrics_remote_nonexist_enforced(self, caller, metrics):
+        enforced = False
+
+        try:
+            my_elem = Element('test_metrics_no_redis', metrics_host="127.0.0.1", metrics_port=6381, enforce_metrics=True)
+        except:
+            enforced = True
+
+        assert enforced == True
+
     def test_metrics_socket_nonexist(self, caller, metrics):
         my_elem = Element('test_metrics_no_redis', metrics_socket_path="/shared/nonexistent.sock")
         assert my_elem != None
@@ -1591,6 +1601,16 @@ class TestAtom():
         assert data == False
 
         my_elem._clean_up()
+
+    def test_metrics_socket_nonexist_enforced(self, caller, metrics):
+        enforced = False
+
+        try:
+            my_elem = Element('test_metrics_no_redis', metrics_socket_path="/shared/nonexistent.sock", enforce_metrics=True)
+        except:
+            enforced = True
+
+        assert enforced == True
 
     def test_metrics_turned_off(self, caller, metrics):
         os.environ["ATOM_USE_METRICS"] = "FALSE"

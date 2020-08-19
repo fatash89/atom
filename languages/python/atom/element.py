@@ -227,6 +227,11 @@ class Element:
             except (redis.exceptions.TimeoutError, redis.exceptions.RedisError, redis.exceptions.ConnectionError) as e:
                 self.log(LogLevel.ERR, f"Unable to connect to metrics server, error {e}")
                 if enforce_metrics:
+
+                    # Clean up the redis part of the element since that
+                    #   was initialized OK
+                    self._clean_up()
+
                     raise Exception("Unable to connect to metrics server")
 
     def __repr__(self):
