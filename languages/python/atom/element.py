@@ -1548,20 +1548,70 @@ class Element:
                     [1]: aggregation time bucket (int, milliseconds over which to perform aggregation)
                     [2]: aggregation retention, i.e. how long to keep this aggregated stat for
             update: (boolean, optional): We will call TS.CREATE to attempt to
-                create the key
+                create the key. If this is FALSE (default) we'll return TRUE. If this
+                is set to TRUE, then if the key already exists we'll do the following:
+                    1. call TS.INFO on the key to ket its current labels and rules
+                    2. call TS.ALTER to set the new retention value and labels
+                    3. delete all existing rules
+                    4. Add in the new rules
+                This should result in the key matching the spec provided without
+                    ever causing a failed insert on the key as it will always
+                    exist and the key is never deleted.
+
 
         Return:
             boolean, true on success
         """
 
+        # Try to make the key. Need to know if the key already exists in order
+        #   to figure out if this will fail
         _pipe, prev_len = self._get_metrics_pipeline()
         _pipe.create(key, retention_msecs=retention, labels=labels)
+        data = self._release_metrics_pipeline(_pipe, prev_len, execute=True)
+
+        # If we failed to create the key it already exists. If
+        #   we want to update we'll go ahead and do so, otherwise
+        #   we will just fail out here.
+        if not data and not update:
+            return False
+
+        # If we need to update the key, delete all existing rules
+        #   and call ALTER to change retention and labels
+        if update:
+
+            # Need to get info about the key
+            _pipe, prev_len = self._get_metrics_pipeline()
+            _pipe.info(key)
+            data = self._release_metrics_pipeline(_pipe, prev_len)
+            if not data:
+                return False
+
+            _pipe, prev_len = self._get_metrics_pipeline()
+
+            # If we have any rules, delete them
+            if len(data[0].rules) > 0:
+                for rule in data[0].rules:
+                    _pipe.deleterule(key, rule[0])
+
+            # Now we want to alter the rule to match our new retention and
+            #   labels
+            _pipe.alter(key, retention_msecs=retention, labels=labels)
+
+            data = self._release_metrics_pipeline(_pipe, prev_len, execute=True)
+            if not data:
+                return False
+
+        # If we have new rules to add, add them
         if rules:
+            _pipe, prev_len = self._get_metrics_pipeline()
             for rule in rules.keys():
                 _pipe.create(rule, retention_msecs=rules[rule][2], labels=labels)
                 _pipe.createrule(key, rule, rules[rule][0], rules[rule][1])
-        data = self._release_metrics_pipeline(_pipe, prev_len, execute=True)
-        return bool(data)
+            data = self._release_metrics_pipeline(_pipe, prev_len, execute=True)
+            if not data:
+                return False
+
+        return True
 
     def metric_add(self, key, value, timestamp='*', use_curr_time=False, execute=True, retention=60000, labels=None):
         """
