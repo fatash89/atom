@@ -1443,7 +1443,7 @@ class TestAtom():
         assert len(data) == 1 and type(data[0]) == list and len(data[0]) == 1 and type(data[0][0]) == int
 
         data = caller.metric_add("some_metric", 2020, timestamp=1234)
-        assert data == None
+        assert len(data) == 1 and type(data[0]) == list and data[0][0] == None
 
         # make a metric and have the timestamp auto-created
         data = metrics.range(f"{caller.name}:some_metric", 0, -1)
@@ -1461,8 +1461,7 @@ class TestAtom():
         data = metrics.get(f"{caller.name}:some_metric")
         assert data == None
         data = caller.metrics_flush()
-        assert len(data) == 1 and type(data[0]) == list and len(data[0]) == 1 and type(data[0][0]) == int
-
+        assert data != None
         data = metrics.get(f"{caller.name}:some_metric")
         assert type(data[0]) == int and data[1] == 42
 
@@ -1477,8 +1476,7 @@ class TestAtom():
         data = caller.metric_add("some_metric", 2020, execute=False)
         assert data == None
         data = caller.metrics_flush()
-        assert len(data) == 1 and type(data[0]) == list and len(data[0]) == 2 and type(data[0][0]) == int and type(data[0][1]) == int
-
+        assert data != None
         # make a metric and have the timestamp auto-created
         data = metrics.range(f"{caller.name}:some_metric", 0, -1)
         assert len(data) == 2 and data[0][1] == 42 and data[1][1] == 2020
@@ -1497,8 +1495,7 @@ class TestAtom():
         assert data == None
 
         data = caller.metrics_flush()
-        print(data)
-        assert len(data) == 1 and data[0] == None
+        assert data != None
 
         # make a metric and have the timestamp auto-created
         data = metrics.range(f"{caller.name}:some_metric", 0, -1)
@@ -1530,7 +1527,7 @@ class TestAtom():
         flush_time = time.time()
 
         data = caller.metrics_flush()
-        assert len(data) == 1 and type(data[0]) == list and len(data[0]) == 1 and type(data[0][0]) == int
+        assert data != None
 
         data = metrics.get(f"{caller.name}:some_metric")
         assert data[1] == 42
@@ -1555,7 +1552,7 @@ class TestAtom():
         flush_time = time.time()
 
         data = caller.metrics_flush()
-        assert len(data) == 1 and type(data[0]) == list and len(data[0]) == 1 and type(data[0][0]) == int
+        assert data != None
 
         data = metrics.get(f"{caller.name}:some_metric")
         assert data[1] == 42

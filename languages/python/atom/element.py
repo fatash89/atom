@@ -1816,11 +1816,12 @@ class Element:
         _pipe.madd(((_key, timestamp_val, value),))
         data = self._release_metrics_pipeline(_pipe, prev_len, execute=execute)
 
-        if type(data) == list:
+        if data:
             for i, val in enumerate(data):
-                if isinstance(val, redis.exceptions.ResponseError):
-                    self.log(LogLevel.Error, f"metrics add error: {val}")
-                    data[i] == None
+                for j, timestamp in enumerate(val):
+                    if isinstance(timestamp, redis.exceptions.ResponseError):
+                        self.log(LogLevel.ERR, f"metrics add error: {timestamp}")
+                        val[j] = None
 
         # Since we're using madd instead of add (in order to not auto-create)
         #   we need to extract the outer list here for simplicity.
