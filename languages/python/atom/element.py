@@ -18,15 +18,21 @@ from atom.config import LANG, VERSION, ACK_TIMEOUT, RESPONSE_TIMEOUT, STREAM_LEN
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESPONSE
 from atom.config import ATOM_COMMAND_UNSUPPORTED, ATOM_CALLBACK_FAILED, ATOM_USER_ERRORS_BEGIN, ATOM_INTERNAL_ERROR
 from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND, REDIS_PIPELINE_POOL_SIZE, COMMAND_LIST_COMMAND
+from atom.config import METRICS_ELEMENT_LABEL
 from atom.messages import Cmd, Response, StreamHandler, format_redis_py
 from atom.messages import Acknowledge, Entry, Log, LogLevel, ENTRY_RESERVED_KEYS
 import atom.serialization as ser
 
-
+# Reserved commands
 RESERVED_COMMANDS = [
     COMMAND_LIST_COMMAND,
     VERSION_COMMAND,
     HEALTHCHECK_COMMAND
+]
+
+# Reserved metrics labels
+RESERVED_METRICS_LABELS = [
+    METRICS_ELEMENT_LABEL
 ]
 
 class ElementConnectionTimeoutError(redis.exceptions.TimeoutError):
@@ -470,6 +476,43 @@ class Element:
             return stream_name
         else:
             return f"stream:{element_name}:{stream_name}"
+
+    def _make_metric_id(self, element_name, key):
+        """
+        Creates the string representation of a metric ID created by an
+        element
+
+        Args:
+            element_name (str): Name of the element to generate the metric ID for
+            key: Original key passed by the caller
+        """
+        return f"{element_name}:{key}"
+
+    def _metric_add_default_labels(self, labels):
+        """
+        Adds the default labels that come at an element-level. For now
+            only the element name but in the future should add in the
+            device ID and/or compute running on, etc.
+
+        Raises:
+            AtomError: if a reserved label key is used
+        """
+
+        # Make the default labels
+        default_labels = {}
+        default_labels[METRICS_ELEMENT_LABEL] = self.name
+
+        # If we have pre-existing labels, make sure they don't have any
+        #   reserved keys and then return the combined dictionaries
+        if labels:
+            for label in labels:
+                if label in RESERVED_METRICS_LABELS:
+                    raise AtomError(f"'{label}' is a reserved key in labels")
+
+            return {**labels, **default_labels}
+        # Otherwise just return the defaults
+        else:
+            return default_labels
 
     def _make_reference_id(self):
         """
@@ -1638,7 +1681,7 @@ class Element:
                     [0]: aggregation type (str, one of: avg, sum, min, max, range, count, first, last, std.p, std.s, var.p, var.s)
                     [1]: aggregation time bucket (int, milliseconds over which to perform aggregation)
                     [2]: aggregation retention, i.e. how long to keep this aggregated stat for
-            update: (boolean, optional): We will call TS.CREATE to attempt to
+            update (boolean, optional): We will call TS.CREATE to attempt to
                 create the key. If this is FALSE (default) we'll return TRUE. If this
                 is set to TRUE, then if the key already exists we'll do the following:
                     1. call TS.INFO on the key to ket its current labels and rules
@@ -1657,10 +1700,15 @@ class Element:
         if not self._metrics_enabled:
             return False
 
+        # Replace the user-passed key with the metric ID
+        _key = self._make_metric_id(self.name, key)
+        # Add in the default labels
+        _labels = self._metric_add_default_labels(labels)
+
         # Try to make the key. Need to know if the key already exists in order
         #   to figure out if this will fail
         _pipe, prev_len = self._get_metrics_pipeline()
-        _pipe.create(key, retention_msecs=retention, labels=labels)
+        _pipe.create(_key, retention_msecs=retention, labels=_labels)
         data = self._release_metrics_pipeline(_pipe, prev_len, execute=True)
 
         # If we failed to create the key it already exists. If
@@ -1675,7 +1723,7 @@ class Element:
 
             # Need to get info about the key
             _pipe, prev_len = self._get_metrics_pipeline()
-            _pipe.info(key)
+            _pipe.info(_key)
             data = self._release_metrics_pipeline(_pipe, prev_len)
             if not data:
                 return False
@@ -1685,11 +1733,11 @@ class Element:
             # If we have any rules, delete them
             if len(data[0].rules) > 0:
                 for rule in data[0].rules:
-                    _pipe.deleterule(key, rule[0])
+                    _pipe.deleterule(_key, rule[0])
 
             # Now we want to alter the rule to match our new retention and
             #   labels
-            _pipe.alter(key, retention_msecs=retention, labels=labels)
+            _pipe.alter(_key, retention_msecs=retention, labels=_labels)
 
             data = self._release_metrics_pipeline(_pipe, prev_len, execute=True)
             if not data:
@@ -1699,19 +1747,23 @@ class Element:
         if rules:
             _pipe, prev_len = self._get_metrics_pipeline()
             for rule in rules.keys():
-                _pipe.create(rule, retention_msecs=rules[rule][2], labels=labels)
-                _pipe.createrule(key, rule, rules[rule][0], rules[rule][1])
+                rule_key = self._make_metric_id(self.name, rule)
+                _pipe.create(rule_key, retention_msecs=rules[rule][2], labels=_labels)
+                _pipe.createrule(_key, rule_key, rules[rule][0], rules[rule][1])
             data = self._release_metrics_pipeline(_pipe, prev_len, execute=True)
             if not data:
                 return False
 
         return True
 
-    def metric_add(self, key, value, timestamp='*', use_curr_time=False, execute=True, retention=60000, labels=None):
+    def metric_add(self, key, value, timestamp='*', use_curr_time=False, execute=True):
         """
         Adds a metric at the given key with the given value. Timestamp
             can be set if desired, leaving at the default of '*' will result
             in using the redis-server's timestamp which is usually good enough.
+
+        NOTE: The metric MUST have been created with metric_create before calling
+            metric_add. Otherwise, this will error out
 
         NOTE: The execute argument is quite interesting! By default, we will
         execute, which means we'll go ahead and transact the metric to the
@@ -1732,19 +1784,6 @@ class Element:
         timestamp we'll force the behvaior as if use_curr_time=True when
         we set execute=False.
 
-        NOTE: REDIS TIME-SERIES WILL AUTO-CREATE THE METRIC IF IT DOES NOT
-            EXIST. This is being tracked in
-                https://github.com/RedisTimeSeries/RedisTimeSeries/issues/397
-
-            As such, we have a retention argument here similar to
-            metric_create. It is not recommended to rely on this as you cannot
-            add rules in this step. Please do not rely on this -- the reason
-            the retention is broken out here is that the default is 0 and thus
-            the fail cause for calling metric_add without calling metric_create
-            would be unbounded growth of a metric which is quite bad. It's not
-            worth the overhead of checking in redis to prevent this, use the
-            API in this way if you must but please be warned.
-
         Args:
             key (str): Key to use for the metric
             value (int/float): Value to be adding to the time series
@@ -1761,12 +1800,6 @@ class Element:
                 the metric to the pipeline (buffering it in memory) until it gets
                 written out either by someone else or with a flush() call. See
                 note above.
-            labels (dictionary, optional): Optional labels to add to the
-                data. Each key should be a string and each value should also
-                be a string.
-            retention (int, optional): How long to keep data for the metric,
-                in milliseconds. Default 60000ms == 1 minute. Be careful with
-                this, it will grow unbounded if set to 0.
 
         Return:
             list of integers representing the timestamps created. None on
@@ -1775,10 +1808,22 @@ class Element:
         if not self._metrics_enabled:
             return None
 
+        # Replace the user-passed key with the metric ID
+        _key = self._make_metric_id(self.name, key)
+
         _pipe, prev_len = self._get_metrics_pipeline()
         timestamp_val = timestamp if (not use_curr_time and execute) else int(round(time.time() * 1000))
-        _pipe.add(key, timestamp_val, value, retention_msecs=retention, labels=labels)
+        _pipe.madd(((_key, timestamp_val, value),))
         data = self._release_metrics_pipeline(_pipe, prev_len, execute=execute)
+
+        if type(data) == list:
+            for i, val in enumerate(data):
+                if isinstance(val, redis.exceptions.ResponseError):
+                    self.log(LogLevel.Error, f"metrics add error: {val}")
+                    data[i] == None
+
+        # Since we're using madd instead of add (in order to not auto-create)
+        #   we need to extract the outer list here for simplicity.
         return data
 
     def metrics_flush(self):
