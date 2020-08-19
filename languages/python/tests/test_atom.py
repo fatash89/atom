@@ -1379,7 +1379,8 @@ class TestAtom():
         data = caller.metric_create("some_metric", retention=10000)
         assert data == True
 
-        data = caller.metric_add("some_metric", 42)
+        data = caller.metric_add(("some_metric", 42))
+        print(data)
         assert len(data) == 1 and type(data[0]) == list and len(data[0]) == 1 and type(data[0][0]) == int
 
         # make a metric and have the timestamp auto-created
@@ -1394,7 +1395,7 @@ class TestAtom():
         data = caller.metric_create("some_metric", retention=10000)
         assert data == True
 
-        data = caller.metric_add("some_metric", 42, timestamp=1)
+        data = caller.metric_add(("some_metric", 42, 1))
         assert len(data) == 1 and type(data[0]) == list and len(data[0]) == 1 and type(data[0][0]) == int
 
         # make a metric and have the timestamp auto-created
@@ -1408,7 +1409,7 @@ class TestAtom():
         data = caller.metric_create("some_metric", retention=10000)
         assert data == True
 
-        data = caller.metric_add("some_metric", 42, timestamp=curr_time)
+        data = caller.metric_add(("some_metric", 42, curr_time))
         assert len(data) == 1 and type(data[0]) == list and len(data[0]) == 1 and type(data[0][0]) == int
 
         # make a metric and have the timestamp auto-created
@@ -1422,11 +1423,11 @@ class TestAtom():
         data = caller.metric_create("some_metric", retention=10000)
         assert data == True
 
-        data = caller.metric_add("some_metric", 42)
+        data = caller.metric_add(("some_metric", 42))
         assert len(data) == 1 and type(data[0]) == list and len(data[0]) == 1 and type(data[0][0]) == int
 
         time.sleep(0.001)
-        data = caller.metric_add("some_metric", 2020)
+        data = caller.metric_add(("some_metric", 2020))
         assert len(data) == 1 and type(data[0]) == list and len(data[0]) == 1 and type(data[0][0]) == int
 
         # make a metric and have the timestamp auto-created
@@ -1439,10 +1440,10 @@ class TestAtom():
         curr_time = int(time.time() * 1000)
         data = caller.metric_create("some_metric", retention=10000)
         assert data == True
-        data = caller.metric_add("some_metric", 42, timestamp=1234)
+        data = caller.metric_add(("some_metric", 42, 1234))
         assert len(data) == 1 and type(data[0]) == list and len(data[0]) == 1 and type(data[0][0]) == int
 
-        data = caller.metric_add("some_metric", 2020, timestamp=1234)
+        data = caller.metric_add(("some_metric", 2020, 1234))
         assert len(data) == 1 and type(data[0]) == list and data[0][0] == None
 
         # make a metric and have the timestamp auto-created
@@ -1455,7 +1456,7 @@ class TestAtom():
         caller, caller_name = caller
         data = caller.metric_create("some_metric", retention=10000)
         assert data == True
-        data = caller.metric_add("some_metric", 42, execute=False)
+        data = caller.metric_add(("some_metric", 42), execute=False)
         assert data == None
 
         data = metrics.get(f"{caller.name}:some_metric")
@@ -1465,15 +1466,51 @@ class TestAtom():
         data = metrics.get(f"{caller.name}:some_metric")
         assert type(data[0]) == int and data[1] == 42
 
+    def test_metrics_add_multiple_simultaneous(self, caller, metrics):
+        caller, caller_name = caller
+        curr_time = int(time.time() * 1000)
+        data = caller.metric_create("some_metric", retention=10000)
+        assert data == True
+        data = caller.metric_create("some_other_metric", retention=10000)
+        assert data == True
+        data = caller.metric_add(("some_metric", 42), ("some_other_metric", 2020))
+        assert data != None
+
+        # make a metric and have the timestamp auto-created
+        data = metrics.range(f"{caller.name}:some_metric", 0, -1)
+        assert len(data) == 1 and data[0][1] == 42
+        data = metrics.range(f"{caller.name}:some_other_metric", 0, -1)
+        assert len(data) == 1 and data[0][1] == 2020
+
+    def test_metrics_add_multiple_simultaneous_async(self, caller, metrics):
+        caller, caller_name = caller
+        curr_time = int(time.time() * 1000)
+        data = caller.metric_create("some_metric", retention=10000)
+        assert data == True
+        data = caller.metric_create("some_other_metric", retention=10000)
+        assert data == True
+        data = caller.metric_add(("some_metric", 42), ("some_other_metric", 2020), execute=False)
+        assert data == None
+
+        time.sleep(0.001)
+        data = caller.metrics_flush()
+        assert data != None
+
+        # make a metric and have the timestamp auto-created
+        data = metrics.range(f"{caller.name}:some_metric", 0, -1)
+        assert len(data) == 1 and data[0][1] == 42
+        data = metrics.range(f"{caller.name}:some_other_metric", 0, -1)
+        assert len(data) == 1 and data[0][1] == 2020
+
     def test_metrics_add_multiple_async(self, caller, metrics):
         caller, caller_name = caller
         curr_time = int(time.time() * 1000)
         data = caller.metric_create("some_metric", retention=10000)
         assert data == True
-        data = caller.metric_add("some_metric", 42, execute=False)
+        data = caller.metric_add(("some_metric", 42), execute=False)
         assert data == None
         time.sleep(0.001)
-        data = caller.metric_add("some_metric", 2020, execute=False)
+        data = caller.metric_add(("some_metric", 2020), execute=False)
         assert data == None
         data = caller.metrics_flush()
         assert data != None
@@ -1486,9 +1523,9 @@ class TestAtom():
         curr_time = int(time.time() * 1000)
         data = caller.metric_create("some_metric", retention=10000)
         assert data == True
-        data = caller.metric_add("some_metric", 42, execute=False)
+        data = caller.metric_add(("some_metric", 42), execute=False)
         assert data == None
-        data = caller.metric_add("some_metric", 2020, execute=False)
+        data = caller.metric_add(("some_metric", 2020), execute=False)
         assert data == None
 
         data = metrics.get(f"{caller.name}:some_metric")
@@ -1516,7 +1553,7 @@ class TestAtom():
         caller, caller_name = caller
         data = caller.metric_create("some_metric", retention=10000)
         assert data == True
-        data = caller.metric_add("some_metric", 42, execute=False)
+        data = caller.metric_add(("some_metric", 42), execute=False)
         assert data == None
         add_time = time.time()
 
@@ -1541,7 +1578,7 @@ class TestAtom():
         caller, caller_name = caller
         data = caller.metric_create("some_metric", retention=10000)
         assert data == True
-        data = caller.metric_add("some_metric", 42, execute=False, use_curr_time=True)
+        data = caller.metric_add(("some_metric", 42), execute=False, use_curr_time=True)
         assert data == None
         add_time = time.time()
 
@@ -1618,7 +1655,7 @@ class TestAtom():
 
         data = my_elem.metric_create("some_metric", retention=10000)
         assert data == False
-        data = my_elem.metric_add("some_metric", 42)
+        data = my_elem.metric_add(("some_metric", 42))
         assert data == None
         data = my_elem.metrics_flush()
         assert data == None

@@ -1756,7 +1756,7 @@ class Element:
 
         return True
 
-    def metric_add(self, key, value, timestamp='*', use_curr_time=False, execute=True):
+    def metric_add(self, *metrics, use_curr_time=False, execute=True):
         """
         Adds a metric at the given key with the given value. Timestamp
             can be set if desired, leaving at the default of '*' will result
@@ -1785,11 +1785,17 @@ class Element:
         we set execute=False.
 
         Args:
-            key (str): Key to use for the metric
-            value (int/float): Value to be adding to the time series
-            timetamp (int, optional): Timestamp to use for the value in the time
-                series. Leave at default to use the redis server's built-in
-                timestamp.
+            metrics: one or more (key, value, timestamp) tuples where the
+                data is of the format:
+                    key (str): Key to use for the metric
+                    value (int/float): Value to be adding to the time series
+                    timetamp (int, optional): Timestamp to use for the value in the time
+                        series. Leave at default to use the redis server's built-in
+                        timestamp.
+                NOTE: If use_curr_time is true then the timestamp field is
+                    ignored and the tuples can be two entries long. Else, if the
+                    values are still two entries long then we'll just use the
+                    '*' argument for the timestamp.
             use_curr_time (bool, optional): If TRUE, ignores timestamp argument
                 and sets the timestamp to the current wallclock time in
                 milliseconds. This is useful for async patterns where you don't
@@ -1808,12 +1814,24 @@ class Element:
         if not self._metrics_enabled:
             return None
 
-        # Replace the user-passed key with the metric ID
-        _key = self._make_metric_id(self.name, key)
-
         _pipe, prev_len = self._get_metrics_pipeline()
-        timestamp_val = timestamp if (not use_curr_time and execute) else int(round(time.time() * 1000))
-        _pipe.madd(((_key, timestamp_val, value),))
+
+        # Make the list of metrics for the single metrics addition call
+        madd_list = []
+        for metric in metrics:
+            if len(metric) == 2:
+                if use_curr_time or not execute:
+                    timestamp_val = int(round(time.time() * 1000))
+                else:
+                    timestamp_val = '*'
+            elif len(metric) == 3:
+                timestamp_val = metric[2]
+            else:
+                raise AtomError(f"Metric value {metric} not 2 or 3 entries long -- consult docs")
+
+            madd_list.append((self._make_metric_id(self.name, metric[0]), timestamp_val, metric[1]))
+
+        _pipe.madd(madd_list)
         data = self._release_metrics_pipeline(_pipe, prev_len, execute=execute)
 
         if data:
