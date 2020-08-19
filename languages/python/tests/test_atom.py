@@ -1330,6 +1330,27 @@ class TestAtom():
         data = metrics.info(f"{caller.name}:some_metric_avg")
         assert data.retention_msecs == 604800
 
+    def test_metrics_create_default_rules_single_agg(self, caller, metrics):
+        caller, caller_name = caller
+        label_dict = {"hello" : "world", "elementary" : "robotics"}
+        auto_added_labels = {"element" : f"{caller.name}"}
+        data = caller.metric_create("some_metric", use_default_rules=True, default_agg_list=['SUM'], labels=label_dict)
+        assert data != None
+
+        data = metrics.info(f"{caller.name}:some_metric")
+        assert data.rules == [[bytes(f'{caller.name}:some_metric:10m:SUM', 'utf-8'), 600000, b'SUM'], [bytes(f'{caller.name}:some_metric:01h:SUM', 'utf-8'), 3600000, b'SUM'], [bytes(f'{caller.name}:some_metric:24h:SUM', 'utf-8'), 86400000, b'SUM']]
+        assert data.labels == { **label_dict, **auto_added_labels }
+
+        data = metrics.info(f"{caller.name}:some_metric:10m:SUM")
+        assert data.retention_msecs == 259200000
+        assert data.labels == { **label_dict, **auto_added_labels }
+        data = metrics.info(f"{caller.name}:some_metric:01h:SUM")
+        assert data.retention_msecs == 2592000000
+        assert data.labels == { **label_dict, **auto_added_labels }
+        data = metrics.info(f"{caller.name}:some_metric:24h:SUM")
+        assert data.retention_msecs == 31536000000
+        assert data.labels == { **label_dict, **auto_added_labels }
+
     def test_metrics_create_already_created(self, caller, metrics):
         caller, caller_name = caller
         data = caller.metric_create("some_metric", retention=10000)

@@ -35,6 +35,18 @@ RESERVED_METRICS_LABELS = [
     METRICS_ELEMENT_LABEL
 ]
 
+# Metrics default retention -- 1 day on raw data
+METRICS_DEFAULT_RETENTION = 86400000
+# Metrics default aggregation rules
+METRICS_DEFAULT_AGG_RULES = [
+    # Keep data in 10m buckets for 3 days
+    ("10m", 600000,  259200000),
+    # Then keep data in 1h buckets for 30 days
+    ("01h", 3600000, 2592000000),
+    # Then keep data in 1d buckets for 365 days
+    ("24h", 86400000, 31536000000),
+]
+
 class ElementConnectionTimeoutError(redis.exceptions.TimeoutError):
     pass
 
@@ -1662,7 +1674,7 @@ class Element:
 
         return data[0]
 
-    def metric_create(self, key, retention=60000, labels=None, rules=None, update=False):
+    def metric_create(self, key, retention=60000, labels=None, rules=None, update=False, use_default_rules=False, default_agg_list=[]):
         """
         Create a metric at the given key with retention and labels.
 
@@ -1691,7 +1703,12 @@ class Element:
                 This should result in the key matching the spec provided without
                     ever causing a failed insert on the key as it will always
                     exist and the key is never deleted.
-
+            use_default_rules: If set the TRUE will use the default downsampling/retention
+                rules. This keeps raw metrics for 24hr at high fidelity, then
+                creates 3 day retention at 10m fidelity, 30 day retention at 1h
+                fidelity and 365 day retention at 1 day fidelity.
+            default_agg_list: If using the default retention strategy, this
+                is a list of the aggregation we want done at those intervals
 
         Return:
             boolean, true on success
@@ -1704,6 +1721,10 @@ class Element:
         _key = self._make_metric_id(self.name, key)
         # Add in the default labels
         _labels = self._metric_add_default_labels(labels)
+
+        # If using default rules, override the retention
+        if use_default_rules:
+            retention = METRICS_DEFAULT_RETENTION
 
         # Try to make the key. Need to know if the key already exists in order
         #   to figure out if this will fail
@@ -1743,13 +1764,24 @@ class Element:
             if not data:
                 return False
 
+        # If we want to use the default aggregation rules we just iterate
+        #   over the time buckets and apply the aggregation types requested
+        if use_default_rules:
+            _rules = {}
+            for agg in default_agg_list:
+                for rule in METRICS_DEFAULT_AGG_RULES:
+                    _rules[f"{key}:{rule[0]}:{agg}"] = (agg, rule[1], rule[2])
+        # Otherwise we'll use the raw rules the user gave us
+        else:
+            _rules = rules
+
         # If we have new rules to add, add them
-        if rules:
+        if _rules:
             _pipe, prev_len = self._get_metrics_pipeline()
-            for rule in rules.keys():
+            for rule in _rules.keys():
                 rule_key = self._make_metric_id(self.name, rule)
-                _pipe.create(rule_key, retention_msecs=rules[rule][2], labels=_labels)
-                _pipe.createrule(_key, rule_key, rules[rule][0], rules[rule][1])
+                _pipe.create(rule_key, retention_msecs=_rules[rule][2], labels=_labels)
+                _pipe.createrule(_key, rule_key, _rules[rule][0], _rules[rule][1])
             data = self._release_metrics_pipeline(_pipe, prev_len, execute=True)
             if not data:
                 return False
