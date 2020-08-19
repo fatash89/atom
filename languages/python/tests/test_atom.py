@@ -15,7 +15,7 @@ import redis
 
 from redistimeseries.client import Client as RedisTimeSeries
 
-from atom import Element
+from atom import Element, AtomError
 from atom.config import DEFAULT_REDIS_SOCKET, DEFAULT_REDIS_PORT
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_UNSUPPORTED
 from atom.config import ATOM_COMMAND_NO_RESPONSE, ATOM_CALLBACK_FAILED
@@ -1588,7 +1588,8 @@ class TestAtom():
 
         try:
             my_elem = Element('test_metrics_no_redis', metrics_host="127.0.0.1", metrics_port=6381, enforce_metrics=True)
-        except:
+        except AtomError as e:
+            print(e)
             enforced = True
 
         assert enforced == True
@@ -1607,7 +1608,8 @@ class TestAtom():
 
         try:
             my_elem = Element('test_metrics_no_redis', metrics_socket_path="/shared/nonexistent.sock", enforce_metrics=True)
-        except:
+        except AtomError as e:
+            print(e)
             enforced = True
 
         assert enforced == True

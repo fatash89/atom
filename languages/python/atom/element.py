@@ -32,6 +32,19 @@ RESERVED_COMMANDS = [
 class ElementConnectionTimeoutError(redis.exceptions.TimeoutError):
     pass
 
+class AtomError(Exception):
+    def __init__(self, *args):
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return f"Atom Error: {self.message}"
+        else:
+            return "An Atom Error Occurred"
+
 
 class Element:
     def __init__(self, name, host=None, port=DEFAULT_REDIS_PORT, metrics_host=None, metrics_port=DEFAULT_METRICS_PORT,
@@ -110,7 +123,7 @@ class Element:
             raise ElementConnectionTimeoutError()
 
         except redis.exceptions.RedisError:
-            raise Exception("Could not connect to nucleus!")
+            raise AtomError("Could not connect to nucleus!")
 
         # Note we connected to redis
         self._redis_connected = True
@@ -232,7 +245,7 @@ class Element:
                     #   was initialized OK
                     self._clean_up()
 
-                    raise Exception("Unable to connect to metrics server")
+                    raise AtomError("Unable to connect to metrics server")
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"
