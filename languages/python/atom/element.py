@@ -76,6 +76,11 @@ class Element:
         self._cleaned_up = False
         self.processes = []
 
+        #
+        # Set up Atom
+        #
+        self._redis_connected = False
+
         # Set up redis client for main redis
         if host is not None:
             self._host = host
@@ -94,28 +99,6 @@ class Element:
                 socket_connect_timeout=self._redis_connection_timeout
             )
 
-        # Set up redis client for metrics
-        if metrics_host is not None:
-            self._metrics_host = metrics_host
-            self._metrics_port = metrics_port
-            self._mclient = RedisTimeSeries(
-                host=self._metrics_host,
-                port=self._metrics_port,
-                socket_timeout=self._redis_data_timeout,
-                socket_connect_timeout=self._redis_connection_timeout
-            )
-        else:
-            self._metrics_socket_path = metrics_socket_path
-            self._mclient = RedisTimeSeries(
-                unix_socket_path=self._metrics_socket_path,
-                socket_timeout=self._redis_data_timeout,
-                socket_connect_timeout=self._redis_connection_timeout
-            )
-
-        #
-        # Set up Atom
-        #
-        self._redis_connected = False
         try:
             data = self._rclient.ping()
             if not data:
@@ -205,25 +188,46 @@ class Element:
         #
         # Set up metrics
         #
-        self._metrics_enabled = True
-        try:
-            data = self._mclient.ping()
-            if not data:
-                # Don't have redis, so need to only print to stdout
-                self.log(LogLevel.WARNING, f"Invalid ping response {data} from metrics server", redis=False)
+        self._metrics_enabled = False
 
-            # Create pipeline pool
-            for i in range(REDIS_PIPELINE_POOL_SIZE):
-                self._mpipeline_pool.put(self._mclient.pipeline())
+        # For now, only enable metrics if turned on in an environment flag
+        if os.getenv("ATOM_USE_METRICS", "FALSE") == "TRUE":
 
-            self.log(LogLevel.INFO, "Metrics initialized.")
-
-        except (redis.exceptions.TimeoutError, redis.exceptions.RedisError, redis.exceptions.ConnectionError) as e:
-            self.log(LogLevel.ERR, f"Unable to connect to metrics server, error {e}")
-            if enforce_metrics:
-                raise Exception("Unable to connect to metrics server")
+            # Set up redis client for metrics
+            if metrics_host is not None:
+                self._metrics_host = metrics_host
+                self._metrics_port = metrics_port
+                self._mclient = RedisTimeSeries(
+                    host=self._metrics_host,
+                    port=self._metrics_port,
+                    socket_timeout=self._redis_data_timeout,
+                    socket_connect_timeout=self._redis_connection_timeout
+                )
             else:
-                self._metrics_enabled = False
+                self._metrics_socket_path = metrics_socket_path
+                self._mclient = RedisTimeSeries(
+                    unix_socket_path=self._metrics_socket_path,
+                    socket_timeout=self._redis_data_timeout,
+                    socket_connect_timeout=self._redis_connection_timeout
+                )
+
+            try:
+                data = self._mclient.ping()
+                if not data:
+                    # Don't have redis, so need to only print to stdout
+                    self.log(LogLevel.WARNING, f"Invalid ping response {data} from metrics server", redis=False)
+
+                # Create pipeline pool
+                for i in range(REDIS_PIPELINE_POOL_SIZE):
+                    self._mpipeline_pool.put(self._mclient.pipeline())
+
+                self.log(LogLevel.INFO, "Metrics initialized.")
+                self._metrics_enabled = True
+
+            except (redis.exceptions.TimeoutError, redis.exceptions.RedisError, redis.exceptions.ConnectionError) as e:
+                self.log(LogLevel.ERR, f"Unable to connect to metrics server, error {e}")
+                if enforce_metrics:
+                    raise Exception("Unable to connect to metrics server")
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"

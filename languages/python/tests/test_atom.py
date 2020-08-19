@@ -140,7 +140,15 @@ class TestAtom():
             unix_socket_path="/shared/metrics.sock"
         )
         metrics.flushall()
+
+        # Need to turn on the metrics feature
+        os.environ["ATOM_USE_METRICS"] = "TRUE"
+
         yield metrics
+
+        # Need to turn off the metrics feature
+        os.environ["ATOM_USE_METRICS"] = "FALSE"
+
         del metrics
 
     def test_caller_responder_exist(self, caller, responder):
@@ -1572,6 +1580,29 @@ class TestAtom():
 
         data = my_elem.metric_create("some_metric", retention=10000)
         assert data == False
+
+        my_elem._clean_up()
+
+    def test_metrics_socket_nonexist(self, caller, metrics):
+        my_elem = Element('test_metrics_no_redis', metrics_socket_path="/shared/nonexistent.sock")
+        assert my_elem != None
+
+        data = my_elem.metric_create("some_metric", retention=10000)
+        assert data == False
+
+        my_elem._clean_up()
+
+    def test_metrics_turned_off(self, caller, metrics):
+        os.environ["ATOM_USE_METRICS"] = "FALSE"
+        my_elem = Element('test_metrics_turned_off')
+        assert my_elem != None
+
+        data = my_elem.metric_create("some_metric", retention=10000)
+        assert data == False
+        data = my_elem.metric_add("some_metric", 42)
+        assert data == None
+        data = my_elem.metrics_flush()
+        assert data == None
 
         my_elem._clean_up()
 
