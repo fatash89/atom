@@ -1257,7 +1257,7 @@ class TestAtom():
 
         assert int(round(diff, 2)) == 2
 
-    def test_metrics_create_basic(self, caller, metrics):
+    def test_metric_create_basic(self, caller, metrics):
         caller, caller_name = caller
         data = caller.metric_create("some_metric", retention=10000)
         assert data == True
@@ -1265,7 +1265,7 @@ class TestAtom():
         data = metrics.info("some_metric")
         assert data.retention_msecs == 10000
 
-    def test_metrics_create_label(self, caller, metrics):
+    def test_metric_create_label(self, caller, metrics):
         caller, caller_name = caller
         label_dict = {"single" : "label"}
         data = caller.metric_create("some_metric", labels=label_dict)
@@ -1274,7 +1274,7 @@ class TestAtom():
         data = metrics.info("some_metric")
         assert data.labels == label_dict
 
-    def test_metrics_create_labels(self, caller, metrics):
+    def test_metric_create_labels(self, caller, metrics):
         caller, caller_name = caller
         label_dict = {"label1" : "hello", "label2" : "world"}
         data = caller.metric_create("some_metric", labels=label_dict)
@@ -1283,7 +1283,7 @@ class TestAtom():
         data = metrics.info("some_metric")
         assert data.labels == label_dict
 
-    def test_metrics_create_rule(self, caller, metrics):
+    def test_metric_create_rule(self, caller, metrics):
         caller, caller_name = caller
         rule_dict = {"some_metric_sum" : ("sum", 10000, 200000)}
         data = caller.metric_create("some_metric", rules=rule_dict)
@@ -1298,7 +1298,7 @@ class TestAtom():
         data = metrics.info("some_metric_sum")
         assert data.retention_msecs == 200000
 
-    def test_metrics_create_rules(self, caller, metrics):
+    def test_metric_create_rules(self, caller, metrics):
         caller, caller_name = caller
         rule_dict = {"some_metric_sum" : ("sum", 10000, 200000), "some_metric_avg" : ("avg", 86400, 604800)}
 
@@ -1321,6 +1321,50 @@ class TestAtom():
 
         data = metrics.info("some_metric_avg")
         assert data.retention_msecs == 604800
+
+    def test_metric_create_already_created(self, caller, metrics):
+        caller, caller_name = caller
+        data = caller.metric_create("some_metric", retention=10000)
+        assert data == True
+        data = caller.metric_create("some_metric", retention=10000)
+        assert data == False
+
+    def test_metric_create_update(self, caller, metrics):
+        caller, caller_name = caller
+        rule_dict = {"some_metric_sum" : ("sum", 10000, 200000), "some_metric_avg" : ("avg", 86400, 604800)}
+        label_dict = {"label1" : "hello", "label2" : "world"}
+        data = caller.metric_create("some_metric", rules=rule_dict, labels=label_dict)
+        assert data == True
+
+        data = metrics.info("some_metric")
+        assert data.labels == label_dict
+        assert len(data.rules) == 2
+        sum_idx = 0 if data.rules[0][0] == b'some_metric_sum' else 1
+        avg_idx = 1 if sum_idx == 0 else 0
+        assert data.rules[sum_idx][0] == b'some_metric_sum'
+        assert data.rules[sum_idx][1] == 10000
+        assert data.rules[sum_idx][2] == b'SUM'
+        assert data.rules[avg_idx][0] == b'some_metric_avg'
+        assert data.rules[avg_idx][1] == 86400
+        assert data.rules[avg_idx][2] == b'AVG'
+
+        rule_dict = {"some_metric_min" : ("min", 6000, 1000), "some_metric_max" : ("max", 5000, 10000)}
+        label_dict = {"label1" : "elementary", "label2" : "robotics"}
+        data = caller.metric_create("some_metric", rules=rule_dict, labels=label_dict)
+        assert data == False
+        data = caller.metric_create("some_metric", rules=rule_dict, labels=label_dict, update=True)
+        data = metrics.info("some_metric")
+        assert data.labels == label_dict
+        assert len(data.rules) == 2
+        max_idx = 0 if data.rules[0][0] == b'some_metric_max' else 1
+        min_idx = 1 if max_idx == 0 else 0
+        assert data.rules[max_idx][0] == b'some_metric_max'
+        assert data.rules[max_idx][1] == 5000
+        assert data.rules[max_idx][2] == b'MAX'
+        assert data.rules[min_idx][0] == b'some_metric_min'
+        assert data.rules[min_idx][1] == 6000
+        assert data.rules[min_idx][2] == b'MIN'
+
 
     def test_metric_add(self, caller, metrics):
         caller, caller_name = caller
@@ -1512,14 +1556,6 @@ class TestAtom():
         #   flush
         assert (int(1000 * add_time) - data[0]) < 1000
         assert (int(1000 * flush_time) - data[0]) > 2000
-
-    def test_metric_create_already_created(self, caller, metrics):
-        caller, caller_name = caller
-        data = caller.metric_create("some_metric", retention=10000)
-        assert data == True
-        data = caller.metric_create("some_metric", retention=10000)
-        assert data == False
-
 
 def add_1(x):
     return Response(int(x)+1)
