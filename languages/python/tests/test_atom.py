@@ -1387,7 +1387,7 @@ class TestAtom():
         data = metrics.get(f"{caller.name}:some_metric")
         assert data[1] == 42
         # Make sure the auto-generated timestamp is within 1s of the unix time
-        assert ((time.time() * 1000) - data[0] < 1000)
+        assert ((time.time() * 1000) - data[0] <= 1000)
 
     def test_metrics_add_set_timestamp_int(self, caller, metrics):
         caller, caller_name = caller
@@ -1571,8 +1571,8 @@ class TestAtom():
 
         # Make sure the timestamp gets set at the flush and
         #   not the add
-        assert (int(1000 * add_time) - data[0]) < 1000
-        assert (int(1000 * flush_time) - data[0]) > 2000
+        assert (int(1000 * add_time) - data[0]) <= 1000
+        assert (int(1000 * flush_time) - data[0]) >= 2000
 
     def test_metrics_async_use_curr_time(self, caller, metrics):
         caller, caller_name = caller
@@ -1596,8 +1596,8 @@ class TestAtom():
 
         # Make sure the timestamp gets set at the add and not the
         #   flush
-        assert (int(1000 * add_time) - data[0]) < 1000
-        assert (int(1000 * flush_time) - data[0]) > 2000
+        assert (int(1000 * add_time) - data[0]) <= 1000
+        assert (int(1000 * flush_time) - data[0]) >= 2000
 
     def test_metrics_remote(self, caller, metrics):
         my_elem = Element('test_metrics_no_redis', metrics_host="127.0.0.1", metrics_port=6380)
