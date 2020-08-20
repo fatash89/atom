@@ -102,7 +102,6 @@ class Element:
         self._command_loop_shutdown = multiprocessing.Event()
         self._rpipeline_pool = Queue()
         self._mpipeline_pool = LifoQueue()
-        self._mpipeline_async_pool = LifoQueue()
         self._timed_out = False
         self._pid = os.getpid()
         self._cleaned_up = False
@@ -345,7 +344,7 @@ class Element:
         self._rpipeline_pool.put(pipeline)
         return None
 
-    def _get_metrics_pipeline(self, timeout=1):
+    def _get_metrics_pipeline(self):
         """
         Get a pipeline for use in metrics. We'll try to reuse
         a pipeline that needs flushing (i.e. called with execute=False)
@@ -364,47 +363,15 @@ class Element:
                 if it happened to be in your pipeline before your commands
                 were added.
         """
-        pipeline = None
-
-        # Try to get it from the async pool
         try:
-            pipeline = self._mpipeline_async_pool.get(block=False)
+            pipeline = self._mpipeline_pool.get(block=False)
         except QueueEmpty:
-            pass
+            self.log(LogLevel.ERR, "Failed to get metrics pipeline, something is very wrong!")
+            raise AtomError("Ran out of metrics pipelines!")
 
-        if pipeline is None:
-            try:
-                pipeline = self._mpipeline_pool.get(timeout=timeout)
-            except QueueEmpty:
-                self.log(LogLevel.ERR, "Failed to get metrics pipeline, something is very wrong!")
-                return None, 0
+        return pipeline
 
-        return pipeline, len(pipeline)
-
-    def _metrics_execute(self, pipeline, error_ok=None):
-        """
-        Execute a metrics pipeline, handling known issues
-
-        Args:
-            pipeline: pipeline to execute
-        """
-        data = None
-
-        try:
-            data = pipeline.execute()
-        #  KNOWN ISSUE WITH NO WORKAROUND: Adding two metrics values with the
-        #   same timestamp throws this error. We generally shouldn't hit this,
-        #   but if we do we shouldn't crash because of it -- lowing metrics
-        #   is not the end of the world here.
-        except redis.exceptions.ResponseError as e:
-            if error_ok and error_ok in str(e):
-                pass
-            else:
-                self.log(LogLevel.ERR, f"Failed to write metrics with exception {e}")
-
-        return data
-
-    def _release_metrics_pipeline(self, pipeline, prev_len, execute=True, error_ok=None):
+    def _write_metrics_pipeline(self, pipeline, error_ok=None):
         """
         Release (and perhaps execute) a pipeline that was used for a metrics
         call. If execute is TRUE we will execute the pipeline and return
@@ -420,15 +387,23 @@ class Element:
         """
         data = None
 
-        if execute:
-            data = self._metrics_execute(pipeline, error_ok=error_ok)
-            pipeline.reset()
-            self._mpipeline_pool.put(pipeline)
-        else:
-            self._mpipeline_async_pool.put(pipeline)
+        try:
+            data = pipeline.execute()
+        #  KNOWN ISSUE WITH NO WORKAROUND: Adding two metrics values with the
+        #   same timestamp throws this error. We generally shouldn't hit this,
+        #   but if we do we shouldn't crash because of it -- lowing metrics
+        #   is not the end of the world here.
+        except redis.exceptions.ResponseError as e:
+            if error_ok and error_ok in str(e):
+                pass
+            else:
+                self.log(LogLevel.ERR, f"Failed to write metrics with exception {e}")
+
+        pipeline.reset()
+        self._mpipeline_pool.put(pipeline)
 
         # Only return the data that we care about (if any)
-        return data[prev_len:] if data else None
+        return data
 
     def _update_response_id_if_older(self, new_id):
         """
@@ -1863,6 +1838,16 @@ class Element:
 
         return data[0]
 
+    def metric_get_pipeline(self):
+        """
+        Returns a metrics pipeline
+        """
+        if not self._metrics_enabled:
+            return False
+
+        return self._get_metrics_pipeline()
+
+
     def metric_create(self, key, retention=60000, labels=None, rules=None, update=False, use_default_rules=False, default_agg_list=[]):
         """
         Create a metric at the given key with retention and labels.
@@ -1917,9 +1902,9 @@ class Element:
 
         # Try to make the key. Need to know if the key already exists in order
         #   to figure out if this will fail
-        _pipe, prev_len = self._get_metrics_pipeline()
+        _pipe = self._get_metrics_pipeline()
         _pipe.create(_key, retention_msecs=retention, labels=_labels)
-        data = self._release_metrics_pipeline(_pipe, prev_len, execute=True, error_ok="TSDB: key already exists")
+        data = self._write_metrics_pipeline(_pipe, error_ok="TSDB: key already exists")
 
         # If we failed to create the key it already exists. If
         #   we want to update we'll go ahead and do so, otherwise
@@ -1932,13 +1917,13 @@ class Element:
         if update:
 
             # Need to get info about the key
-            _pipe, prev_len = self._get_metrics_pipeline()
+            _pipe = self._get_metrics_pipeline()
             _pipe.info(_key)
-            data = self._release_metrics_pipeline(_pipe, prev_len)
+            data = self._write_metrics_pipeline(_pipe)
             if not data:
                 return False
 
-            _pipe, prev_len = self._get_metrics_pipeline()
+            _pipe = self._get_metrics_pipeline()
 
             # If we have any rules, delete them
             if len(data[0].rules) > 0:
@@ -1949,7 +1934,7 @@ class Element:
             #   labels
             _pipe.alter(_key, retention_msecs=retention, labels=_labels)
 
-            data = self._release_metrics_pipeline(_pipe, prev_len, execute=True)
+            data = self._write_metrics_pipeline(_pipe)
             if not data:
                 return False
 
@@ -1966,18 +1951,18 @@ class Element:
 
         # If we have new rules to add, add them
         if _rules:
-            _pipe, prev_len = self._get_metrics_pipeline()
+            _pipe = self._get_metrics_pipeline()
             for rule in _rules.keys():
                 rule_key = self._make_metric_id(self.name, rule)
                 _pipe.create(rule_key, retention_msecs=_rules[rule][2], labels=_labels)
                 _pipe.createrule(_key, rule_key, _rules[rule][0], _rules[rule][1])
-            data = self._release_metrics_pipeline(_pipe, prev_len, execute=True)
+            data = self._write_metrics_pipeline(_pipe)
             if not data:
                 return False
 
         return True
 
-    def metric_add(self, *metrics, use_curr_time=False, execute=True):
+    def metric_add(self, *metrics, use_curr_time=False, pipeline=None):
         """
         Adds a metric at the given key with the given value. Timestamp
             can be set if desired, leaving at the default of '*' will result
@@ -2022,11 +2007,9 @@ class Element:
                 milliseconds. This is useful for async patterns where you don't
                 know how long it will take for the timestamp to get to the
                 redis server. NOTE: execute = TRUE triggers the same behavior.
-            execute (bool, optional): Leave TRUE (default) to send the metric to
-                the redis server in this function call. Leave FALSE to just add
-                the metric to the pipeline (buffering it in memory) until it gets
-                written out either by someone else or with a flush() call. See
-                note above.
+            pipeline (redis pipeline, optional): Leave NONE (default) to send the metric to
+                the redis server in this function call. Pass a pipeline to just have
+                the data added to the pipeline which you will need to flush later
 
         Return:
             list of integers representing the timestamps created. None on
@@ -2035,7 +2018,10 @@ class Element:
         if not self._metrics_enabled:
             return None
 
-        _pipe, prev_len = self._get_metrics_pipeline()
+        if not pipeline:
+            _pipe = self._get_metrics_pipeline()
+        else:
+            _pipe = pipeline
 
         # Make the list of metrics for the single metrics addition call
         madd_list = []
@@ -2053,20 +2039,23 @@ class Element:
             madd_list.append((self._make_metric_id(self.name, metric[0]), timestamp_val, metric[1]))
 
         _pipe.madd(madd_list)
-        data = self._release_metrics_pipeline(_pipe, prev_len, execute=execute)
 
-        if data:
-            for i, val in enumerate(data):
-                for j, timestamp in enumerate(val):
-                    if isinstance(timestamp, redis.exceptions.ResponseError):
-                        self.log(LogLevel.ERR, f"metrics add error: {timestamp}")
-                        val[j] = None
+        data = None
+        if not pipeline:
+            data = self._write_metrics_pipeline(_pipe)
+
+            if data:
+                for i, val in enumerate(data):
+                    for j, timestamp in enumerate(val):
+                        if isinstance(timestamp, redis.exceptions.ResponseError):
+                            self.log(LogLevel.ERR, f"metrics add error: {timestamp}")
+                            val[j] = None
 
         # Since we're using madd instead of add (in order to not auto-create)
         #   we need to extract the outer list here for simplicity.
         return data
 
-    def metrics_flush(self, error_ok=None):
+    def metrics_flush(self, pipeline, error_ok=None):
         """
         Attempt to execute all currently outstanding async pipelines, if any
 
@@ -2088,18 +2077,7 @@ class Element:
         if not self._metrics_enabled:
             return None
 
-        data = []
-        while True:
-            try:
-                pipeline = self._mpipeline_async_pool.get(block=False)
-            except QueueEmpty:
-                break
-
-            data.append(self._metrics_execute(pipeline, error_ok=error_ok))
-            pipeline.reset()
-            self._mpipeline_pool.put(pipeline)
-
-        return data
+        return self._write_metrics_pipeline(pipeline, error_ok=error_ok)
 
     def metric_timing_start(self, key):
         """
@@ -2111,7 +2089,7 @@ class Element:
         """
         self._metric_timing[key] = time.monotonic()
 
-    def metric_timing_end(self, key, execute=True):
+    def metric_timing_end(self, key, pipeline=None):
         """
         Simple helper function to finish a time that was being kept
         track of and write out the metric
@@ -2120,4 +2098,4 @@ class Element:
             raise AtomError(f"key {key} timer not started!")
 
         delta = time.monotonic() - self._metric_timing[key]
-        self.metric_add((key, delta), execute=execute)
+        self.metric_add((key, delta), pipeline=pipeline)
