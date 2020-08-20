@@ -117,6 +117,9 @@ class Element:
         self._metric_commands = defaultdict(lambda: defaultdict(lambda: False))
         self._metric_entry_read_n = defaultdict(lambda: defaultdict(lambda: False))
         self._metric_entry_read_since = defaultdict(lambda: defaultdict(lambda: False))
+        self._metric_reference_create = False
+        self._metric_reference_create_from_stream = defaultdict(lambda: defaultdict(lambda: False))
+        self._metric_reference_get = False
 
         # For now, only enable metrics if turned on in an environment flag
         if os.getenv("ATOM_USE_METRICS", "FALSE") == "TRUE":
@@ -1612,11 +1615,19 @@ class Element:
         """
         keys = []
 
+        if not self._metric_reference_create:
+            self.metric_create(f"atom:reference_create:data", labels={"severity": "info", "type": "atom_reference_create", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
+            self.metric_create(f"atom:reference_create:serialize", labels={"severity": "info", "type": "atom_reference_create", "detail" : "serialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
+            self.metric_create(f"atom:reference_create:n", labels={"severity": "info", "type": "atom_reference_create", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"])
+
+            self._metric_reference_create = True
+
         if serialize is not None:  # check for deprecated legacy mode
             serialization = "msgpack" if serialize else None
 
         _pipe = self._rpipeline_pool.get()
         px_val = timeout_ms if timeout_ms != 0 else None
+        self.metric_timing_start(f"atom:reference_create:serialize")
         for datum in data:
             # Get the key name for the reference to use in redis
             key = self._make_reference_id()
@@ -1627,8 +1638,13 @@ class Element:
             key = key + ":ser:" + (str(serialization) if serialization is not None else "none")
             _pipe.set(key, serialized_datum, px=px_val, nx=True)
             keys.append(key)
+        self.metric_timing_end(f"atom:reference_create:serialize", execute=False)
+        self.metric_timing_start(self.metric_timing_start(f"atom:reference_create:data"))
         response = _pipe.execute()
         _pipe = self._release_pipeline(_pipe)
+        self.metric_timing_end(f"atom:reference_create:serialize", execute=False)
+        self.metric_add((f"atom:reference_create:n", len(data)), execute=False)
+        self.metrics_flush()
 
         if not all(response):
             raise ValueError(f"Failed to create reference! response {response}")
@@ -1671,17 +1687,24 @@ class Element:
         if self._stream_reference_sha is None:
             raise ValueError("Lua script not loaded -- unable to call reference_create_from_stream")
 
+        if not self._metric_reference_create_from_stream[element][stream]:
+            self.metric_create(f"atom:reference_create_from_stream:data:{element}:{stream}", labels={"severity": "info", "type": "atom_reference_create_from_stream", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
+
+            self._metric_reference_create_from_stream[element][stream] = True
+
         # Make the new reference key
         key = self._make_reference_id()
 
         # Get the stream we'll be reading from
         stream_name = self._make_stream_id(element, stream)
 
+        self.metric_timing_start(f"atom:reference_create_from_stream:data:{element}:{stream}")
         # Call the script to make a reference
         _pipe = self._rpipeline_pool.get()
         _pipe.evalsha(self._stream_reference_sha, 0, stream_name, stream_id, key, timeout_ms)
         data = _pipe.execute()
         _pipe = self._release_pipeline(_pipe)
+        self.metric_timing_end(f"atom:reference_create_from_stream:data:{element}:{stream}")
 
         if (type(data) != list) or (len(data) != 1) or (type(data[0]) != list):
             raise ValueError("Failed to make reference!")
@@ -1712,16 +1735,28 @@ class Element:
             List of items corresponding to each reference key passed as an argument
         """
 
+        if not self._metric_reference_get:
+            self.metric_create(f"atom:reference_get:data", labels={"severity": "info", "type": "atom_reference_get", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
+            self.metric_create(f"atom:reference_get:deserialize", labels={"severity": "info", "type": "atom_reference_get", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
+            self.metric_create(f"atom:reference_get:n", labels={"severity": "info", "type": "atom_reference_get", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"])
+
+            self._metric_reference_get = True
+
+
         # Get the data
+        self.metric_timing_start(f"atom:reference_get:data")
         _pipe = self._rpipeline_pool.get()
         for key in keys:
             _pipe.get(key)
         data = _pipe.execute()
         _pipe = self._release_pipeline(_pipe)
+        self.metric_timing_end(f"atom:reference_get:data", execute=False)
 
         if type(data) is not list:
+            self.metrics_flush()
             raise ValueError(f"Invalid response from redis: {data}")
 
+        self.metric_timing_start(f"atom:reference_get:deserialize")
         deserialized_data = [ ]
         for key, ref in zip(keys, data):
             # look for serialization method in reference key first; if not present use user specified method
@@ -1744,6 +1779,8 @@ class Element:
 
             # Deserialize the data
             deserialized_data.append(ser.deserialize(ref, method=serialization) if ref is not None else None)
+        self.metric_timing_end(f"atom:reference_get:deserialize", execute=False)
+        self.metrics_flush()
 
         return deserialized_data
 
