@@ -382,7 +382,7 @@ class Element:
 
         return pipeline, len(pipeline)
 
-    def _metrics_execute(self, pipeline):
+    def _metrics_execute(self, pipeline, error_ok=None):
         """
         Execute a metrics pipeline, handling known issues
 
@@ -398,11 +398,14 @@ class Element:
         #   but if we do we shouldn't crash because of it -- lowing metrics
         #   is not the end of the world here.
         except redis.exceptions.ResponseError as e:
-            self.log(LogLevel.ERR, f"Failed to write metrics (likely due to 2x metrics with same timestamp) with exception {e}")
+            if error_ok and error_ok in str(e):
+                pass
+            else:
+                self.log(LogLevel.ERR, f"Failed to write metrics with exception {e}")
 
         return data
 
-    def _release_metrics_pipeline(self, pipeline, prev_len, execute=True):
+    def _release_metrics_pipeline(self, pipeline, prev_len, execute=True, error_ok=None):
         """
         Release (and perhaps execute) a pipeline that was used for a metrics
         call. If execute is TRUE we will execute the pipeline and return
@@ -419,7 +422,7 @@ class Element:
         data = None
 
         if execute:
-            data = self._metrics_execute(pipeline)
+            data = self._metrics_execute(pipeline, error_ok=error_ok)
             pipeline.reset()
             self._mpipeline_pool.put(pipeline)
         else:
@@ -763,13 +766,13 @@ class Element:
         self.timeouts[name] = timeout
 
         # Make the metric for the command
-        self.metric_create(f"atom:command:count:{name}", labels={"severity": "timing", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["SUM"])
+        self.metric_create(f"atom:command:count:{name}", labels={"severity": "timing", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
         # Make the metric for timing the command handler
-        self.metric_create(f"atom:command:runtime:{name}", labels={"severity": "info", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
+        self.metric_create(f"atom:command:runtime:{name}", labels={"severity": "info", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
         # Make the error counter for the command handler
-        self.metric_create(f"atom:command:failed:{name}", labels={"severity": "error", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["SUM"])
-        self.metric_create(f"atom:command:unhandled_error:{name}", labels={"severity": "error", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["SUM"])
-        self.metric_create(f"atom:command:error:{name}", labels={"severity": "error", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["SUM"])
+        self.metric_create(f"atom:command:failed:{name}", labels={"severity": "error", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+        self.metric_create(f"atom:command:unhandled_error:{name}", labels={"severity": "error", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+        self.metric_create(f"atom:command:error:{name}", labels={"severity": "error", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
 
 
     def healthcheck_set(self, handler):
@@ -921,23 +924,23 @@ class Element:
         #    self._increment_command_group_counter(_pipe)
 
         # Make timing metrics
-        self.metric_create(f"atom:command_loop:worker{worker_num}:block_time", labels={"severity": "timing", "detail" : "block_time", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
-        self.metric_create(f"atom:command_loop:worker{worker_num}:block_handler_time", labels={"severity": "timing", "detail" : "block_handler_time", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
-        self.metric_create(f"atom:command_loop:worker{worker_num}:handler_time", labels={"severity": "timing", "detail" : "handler_time", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
-        self.metric_create(f"atom:command_loop:worker{worker_num}:handler_block_time", labels={"severity": "timing", "detail" : "handler_block_time", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
+        self.metric_create(f"atom:command_loop:worker{worker_num}:block_time", labels={"severity": "timing", "detail" : "block_time", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+        self.metric_create(f"atom:command_loop:worker{worker_num}:block_handler_time", labels={"severity": "timing", "detail" : "block_handler_time", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+        self.metric_create(f"atom:command_loop:worker{worker_num}:handler_time", labels={"severity": "timing", "detail" : "handler_time", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+        self.metric_create(f"atom:command_loop:worker{worker_num}:handler_block_time", labels={"severity": "timing", "detail" : "handler_block_time", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
 
         # Info counters
-        self.metric_create(f"atom:command_loop:worker{worker_num}:n_commands", labels={"severity": "info", "detail" : "n_commands", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"])
+        self.metric_create(f"atom:command_loop:worker{worker_num}:n_commands", labels={"severity": "info", "detail" : "n_commands", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
 
         # Error counters
-        self.metric_create(f"atom:command_loop:worker{worker_num}:xreadgroup_error", labels={"severity": "error", "detail" : "xreadgroup_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"])
-        self.metric_create(f"atom:command_loop:worker{worker_num}:stream_match_error", labels={"severity": "error", "detail" : "stream_match_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"])
-        self.metric_create(f"atom:command_loop:worker{worker_num}:no_caller", labels={"severity": "error", "detail" : "no_caller", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"])
-        self.metric_create(f"atom:command_loop:worker{worker_num}:unsupported_command", labels={"severity": "error", "detail" : "unsupported_command", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"])
-        self.metric_create(f"atom:command_loop:worker{worker_num}:callback_unhandled_error", labels={"severity": "error", "detail" : "callback_unhandled_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"])
-        self.metric_create(f"atom:command_loop:worker{worker_num}:callback_handled_error", labels={"severity": "error", "detail" : "callback_handled_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"])
-        self.metric_create(f"atom:command_loop:worker{worker_num}:response_error", labels={"severity": "error", "detail" : "response_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"])
-        self.metric_create(f"atom:command_loop:worker{worker_num}:xack_error", labels={"severity": "error", "detail" : "xack_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"])
+        self.metric_create(f"atom:command_loop:worker{worker_num}:xreadgroup_error", labels={"severity": "error", "detail" : "xreadgroup_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+        self.metric_create(f"atom:command_loop:worker{worker_num}:stream_match_error", labels={"severity": "error", "detail" : "stream_match_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+        self.metric_create(f"atom:command_loop:worker{worker_num}:no_caller", labels={"severity": "error", "detail" : "no_caller", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+        self.metric_create(f"atom:command_loop:worker{worker_num}:unsupported_command", labels={"severity": "error", "detail" : "unsupported_command", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+        self.metric_create(f"atom:command_loop:worker{worker_num}:callback_unhandled_error", labels={"severity": "error", "detail" : "callback_unhandled_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+        self.metric_create(f"atom:command_loop:worker{worker_num}:callback_handled_error", labels={"severity": "error", "detail" : "callback_handled_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+        self.metric_create(f"atom:command_loop:worker{worker_num}:response_error", labels={"severity": "error", "detail" : "response_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+        self.metric_create(f"atom:command_loop:worker{worker_num}:xack_error", labels={"severity": "error", "detail" : "xack_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
 
         # get a group handle
         # note: if use_command_last_id is set then the group will receive
@@ -1211,10 +1214,10 @@ class Element:
         # If we haven't sent this command before, need to make the metrics
         #   for it
         if not self._metric_commands[element_name][cmd_name]:
-            self.metric_create(f"atom:command_send:serialize:{element_name}:{cmd_name}", labels={"severity": "info", "type": "atom_command_send", "detail" : "serialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
-            self.metric_create(f"atom:command_send:runtime:{element_name}:{cmd_name}", labels={"severity": "info", "type": "atom_command_send", "detail" : "runtime"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
-            self.metric_create(f"atom:command_send:deserialize:{element_name}:{cmd_name}", labels={"severity": "info", "type": "atom_command_send", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
-            self.metric_create(f"atom:command_send:error:{element_name}:{cmd_name}", labels={"severity": "error", "type": "atom_command_send"}, use_default_rules=True, default_agg_list=["SUM"])
+            self.metric_create(f"atom:command_send:serialize:{element_name}:{cmd_name}", labels={"severity": "info", "type": "atom_command_send", "detail" : "serialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metric_create(f"atom:command_send:runtime:{element_name}:{cmd_name}", labels={"severity": "info", "type": "atom_command_send", "detail" : "runtime"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metric_create(f"atom:command_send:deserialize:{element_name}:{cmd_name}", labels={"severity": "info", "type": "atom_command_send", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metric_create(f"atom:command_send:error:{element_name}:{cmd_name}", labels={"severity": "error", "type": "atom_command_send"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
 
             self._metric_commands[element_name][cmd_name] = True
 
@@ -1414,9 +1417,9 @@ class Element:
 
         # If we haven't read this entry with read_n before, create the metrics
         if not self._metric_entry_read_n[element_name][stream_name]:
-            self.metric_create(f"atom:entry_read_n:data:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_n", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
-            self.metric_create(f"atom:entry_read_n:deserialize:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_n", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
-            self.metric_create(f"atom:entry_read_n:n:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_n", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"])
+            self.metric_create(f"atom:entry_read_n:data:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_n", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metric_create(f"atom:entry_read_n:deserialize:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_n", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metric_create(f"atom:entry_read_n:n:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_n", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
 
             self._metric_entry_read_n[element_name][stream_name] = True
 
@@ -1472,9 +1475,9 @@ class Element:
 
         # If we haven't read this entry with read_since before, create the metrics
         if not self._metric_entry_read_since[element_name][stream_name]:
-            self.metric_create(f"atom:entry_read_since:data:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_since", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
-            self.metric_create(f"atom:entry_read_since:deserialize:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_since", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
-            self.metric_create(f"atom:entry_read_since:n:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_since", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"])
+            self.metric_create(f"atom:entry_read_since:data:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_since", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metric_create(f"atom:entry_read_since:deserialize:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_since", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metric_create(f"atom:entry_read_since:n:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_since", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
 
             self._metric_entry_read_since[element_name][stream_name] = True
 
@@ -1523,8 +1526,8 @@ class Element:
         """
         # If we haven't written this entry with entry_write before, make the metrics
         if stream_name not in self.streams:
-            self.metric_create(f"atom:entry_write:data:{stream_name}", labels={"severity": "info", "type": "atom_entry_write", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
-            self.metric_create(f"atom:entry_write:serialize:{stream_name}", labels={"severity": "info", "type": "atom_entry_write", "detail" : "serialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
+            self.metric_create(f"atom:entry_write:data:{stream_name}", labels={"severity": "info", "type": "atom_entry_write", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metric_create(f"atom:entry_write:serialize:{stream_name}", labels={"severity": "info", "type": "atom_entry_write", "detail" : "serialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
 
         self.streams.add(stream_name)
         field_data_map = format_redis_py(field_data_map)
@@ -1616,9 +1619,9 @@ class Element:
         keys = []
 
         if not self._metric_reference_create:
-            self.metric_create(f"atom:reference_create:data", labels={"severity": "info", "type": "atom_reference_create", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
-            self.metric_create(f"atom:reference_create:serialize", labels={"severity": "info", "type": "atom_reference_create", "detail" : "serialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
-            self.metric_create(f"atom:reference_create:n", labels={"severity": "info", "type": "atom_reference_create", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"])
+            self.metric_create(f"atom:reference_create:data", labels={"severity": "info", "type": "atom_reference_create", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metric_create(f"atom:reference_create:serialize", labels={"severity": "info", "type": "atom_reference_create", "detail" : "serialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metric_create(f"atom:reference_create:n", labels={"severity": "info", "type": "atom_reference_create", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
 
             self._metric_reference_create = True
 
@@ -1688,7 +1691,7 @@ class Element:
             raise ValueError("Lua script not loaded -- unable to call reference_create_from_stream")
 
         if not self._metric_reference_create_from_stream[element][stream]:
-            self.metric_create(f"atom:reference_create_from_stream:data:{element}:{stream}", labels={"severity": "info", "type": "atom_reference_create_from_stream", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
+            self.metric_create(f"atom:reference_create_from_stream:data:{element}:{stream}", labels={"severity": "info", "type": "atom_reference_create_from_stream", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
 
             self._metric_reference_create_from_stream[element][stream] = True
 
@@ -1736,9 +1739,9 @@ class Element:
         """
 
         if not self._metric_reference_get:
-            self.metric_create(f"atom:reference_get:data", labels={"severity": "info", "type": "atom_reference_get", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
-            self.metric_create(f"atom:reference_get:deserialize", labels={"severity": "info", "type": "atom_reference_get", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
-            self.metric_create(f"atom:reference_get:n", labels={"severity": "info", "type": "atom_reference_get", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"])
+            self.metric_create(f"atom:reference_get:data", labels={"severity": "info", "type": "atom_reference_get", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metric_create(f"atom:reference_get:deserialize", labels={"severity": "info", "type": "atom_reference_get", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metric_create(f"atom:reference_get:n", labels={"severity": "info", "type": "atom_reference_get", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
 
             self._metric_reference_get = True
 
@@ -1917,7 +1920,7 @@ class Element:
         #   to figure out if this will fail
         _pipe, prev_len = self._get_metrics_pipeline()
         _pipe.create(_key, retention_msecs=retention, labels=_labels)
-        data = self._release_metrics_pipeline(_pipe, prev_len, execute=True)
+        data = self._release_metrics_pipeline(_pipe, prev_len, execute=True, error_ok="TSDB: key already exists")
 
         # If we failed to create the key it already exists. If
         #   we want to update we'll go ahead and do so, otherwise
@@ -2064,7 +2067,7 @@ class Element:
         #   we need to extract the outer list here for simplicity.
         return data
 
-    def metrics_flush(self):
+    def metrics_flush(self, error_ok=None):
         """
         Attempt to execute all currently outstanding async pipelines, if any
 
@@ -2093,7 +2096,7 @@ class Element:
             except QueueEmpty:
                 break
 
-            data.append(self._metrics_execute(pipeline))
+            data.append(self._metrics_execute(pipeline, error_ok=error_ok))
             pipeline.reset()
             self._mpipeline_pool.put(pipeline)
 
