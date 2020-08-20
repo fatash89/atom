@@ -367,11 +367,10 @@ class Element:
         pipeline = None
 
         # Try to get it from the async pool
-        if not self._mpipeline_async_pool.empty():
-            try:
-                pipeline = self._mpipeline_async_pool.get(timeout=timeout)
-            except QueueEmpty:
-                pass
+        try:
+            pipeline = self._mpipeline_async_pool.get(block=False)
+        except QueueEmpty:
+            pass
 
         if pipeline is None:
             try:
@@ -2090,9 +2089,9 @@ class Element:
             return None
 
         data = []
-        while not self._mpipeline_async_pool.empty():
+        while True:
             try:
-                pipeline = self._mpipeline_async_pool.get()
+                pipeline = self._mpipeline_async_pool.get(block=False)
             except QueueEmpty:
                 break
 
