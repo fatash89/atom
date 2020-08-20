@@ -115,6 +115,8 @@ class Element:
         self._metrics_enabled = False
         self._metric_timing = {}
         self._metric_commands = defaultdict(lambda: defaultdict(lambda: False))
+        self._metric_entry_read_n = defaultdict(lambda: defaultdict(lambda: False))
+        self._metric_entry_read_since = defaultdict(lambda: defaultdict(lambda: False))
 
         # For now, only enable metrics if turned on in an environment flag
         if os.getenv("ATOM_USE_METRICS", "FALSE") == "TRUE":
@@ -1406,16 +1408,33 @@ class Element:
         Returns:
             List of dicts containing the data of the entries
         """
+
+        # If we haven't read this entry with read_n before, create the metrics
+        if not self._metric_entry_read_n[element_name][stream_name]:
+            self.metric_create(f"atom:entry_read_n:data:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_n", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
+            self.metric_create(f"atom:entry_read_n:deserialize:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_n", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
+            self.metric_create(f"atom:entry_read_n:n:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_n", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"])
+
+            self._metric_entry_read_n[element_name][stream_name] = True
+
+
         entries = []
         stream_id = self._make_stream_id(element_name, stream_name)
+
+        self.metric_timing_start(f"atom:entry_read_n:data:{element_name}:{stream_name}")
         uid_entries = self._rclient.xrevrange(stream_id, count=n)
+        self.metric_timing_end(f"atom:entry_read_n:data:{element_name}:{stream_name}", execute=False)
+        self.metric_timing_start(f"atom:entry_read_n:deserialize:{element_name}:{stream_name}")
         for uid, entry in uid_entries:
             entry = self._decode_entry(entry)
             serialization = self._get_serialization_method(entry, serialization, force_serialization, deserialize)
             entry = self._deserialize_entry(entry, method=serialization)
             entry["id"] = uid.decode()
             entries.append(entry)
+        self.metric_timing_end(f"atom:entry_read_n:deserialize:{element_name}:{stream_name}", execute=False)
 
+        self.metric_add((f"atom:entry_read_n:n:{element_name}:{stream_name}", len(entries)), execute=False)
+        self.metrics_flush()
         return entries
 
     def entry_read_since(self,
@@ -1447,21 +1466,38 @@ class Element:
             deserialize (bool, optional): Whether or not to deserialize the entries
                                           using msgpack; defaults to None.
         """
+
+        # If we haven't read this entry with read_since before, create the metrics
+        if not self._metric_entry_read_since[element_name][stream_name]:
+            self.metric_create(f"atom:entry_read_since:data:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_since", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
+            self.metric_create(f"atom:entry_read_since:deserialize:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_since", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
+            self.metric_create(f"atom:entry_read_since:n:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_since", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"])
+
+            self._metric_entry_read_since[element_name][stream_name] = True
+
+
         streams, entries = {}, []
         stream_id = self._make_stream_id(element_name, stream_name)
         streams[stream_id] = last_id
+        self.metric_timing_start(f"atom:entry_read_since:data:{element_name}:{stream_name}")
         stream_entries = self._rclient.xread(streams, count=n, block=block)
+        self.metric_timing_end(f"atom:entry_read_since:data:{element_name}:{stream_name}", execute=False)
         stream_names = [x[0].decode() for x in stream_entries]
         if not stream_entries or stream_id not in stream_names:
+            self.metrics_flush()
             return entries
-        for stream_name, msgs in stream_entries:
-            if stream_name.decode() == stream_id:
+        self.metric_timing_start(f"atom:entry_read_since:deserialize:{element_name}:{stream_name}")
+        for key, msgs in stream_entries:
+            if key.decode() == stream_id:
                 for uid, entry in msgs:
                     entry = self._decode_entry(entry)
                     serialization = self._get_serialization_method(entry, serialization, force_serialization, deserialize)
                     entry = self._deserialize_entry(entry, method=serialization)
                     entry["id"] = uid.decode()
                     entries.append(entry)
+        self.metric_timing_end(f"atom:entry_read_since:deserialize:{element_name}:{stream_name}", execute=False)
+        self.metric_add((f"atom:entry_read_since:n:{element_name}:{stream_name}", len(entries)), execute=False)
+        self.metrics_flush()
         return entries
 
     def entry_write(self, stream_name, field_data_map, maxlen=STREAM_LEN, serialization=None, serialize=None):
@@ -1482,12 +1518,18 @@ class Element:
 
         Return: ID of item added to stream
         """
+        # If we haven't written this entry with entry_write before, make the metrics
+        if stream_name not in self.streams:
+            self.metric_create(f"atom:entry_write:data:{stream_name}", labels={"severity": "info", "type": "atom_entry_write", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
+            self.metric_create(f"atom:entry_write:serialize:{stream_name}", labels={"severity": "info", "type": "atom_entry_write", "detail" : "serialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
+
         self.streams.add(stream_name)
         field_data_map = format_redis_py(field_data_map)
 
         if serialize is not None:  # check for deprecated legacy mode
             serialization = "msgpack" if serialize else None
 
+        self.metric_timing_start(f"atom:entry_write:serialize:{stream_name}")
         ser_field_data_map = {}
         for k, v in field_data_map.items():
             if k in ENTRY_RESERVED_KEYS:
@@ -1497,10 +1539,16 @@ class Element:
         ser_field_data_map["ser"] = str(serialization) if serialization is not None else "none"
         entry = Entry(ser_field_data_map)
 
+        self.metric_timing_end(f"atom:entry_write:serialize:{stream_name}", execute=False)
+        self.metric_timing_start(f"atom:entry_write:data:{stream_name}")
+
         _pipe = self._rpipeline_pool.get()
         _pipe.xadd(self._make_stream_id(self.name, stream_name), vars(entry), maxlen=maxlen)
         ret = _pipe.execute()
         _pipe = self._release_pipeline(_pipe)
+
+        self.metric_timing_end(f"atom:entry_write:data:{stream_name}", execute=False)
+        self.metrics_flush()
 
         if ((not isinstance(ret, list)) or (len(ret) != 1)
                 or (not isinstance(ret[0], bytes))):
