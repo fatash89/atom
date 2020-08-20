@@ -9,6 +9,7 @@ import os
 from os import uname
 from queue import Queue, LifoQueue
 from queue import Empty as QueueEmpty
+from collections import defaultdict
 
 import redis
 from redistimeseries.client import Client as RedisTimeSeries
@@ -113,6 +114,7 @@ class Element:
         #
         self._metrics_enabled = False
         self._metric_timing = {}
+        self._metric_commands = defaultdict(lambda: defaultdict(lambda: False))
 
         # For now, only enable metrics if turned on in an environment flag
         if os.getenv("ATOM_USE_METRICS", "FALSE") == "TRUE":
@@ -1201,12 +1203,25 @@ class Element:
         resp = None
         data = format_redis_py(data)
 
+        # If we haven't sent this command before, need to make the metrics
+        #   for it
+        if not self._metric_commands[element_name][cmd_name]:
+            self.metric_create(f"atom:command_send:serialize:{element_name}:{cmd_name}", labels={"severity": "info", "type": "atom_command_send", "detail" : "serialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
+            self.metric_create(f"atom:command_send:runtime:{element_name}:{cmd_name}", labels={"severity": "info", "type": "atom_command_send", "detail" : "runtime"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
+            self.metric_create(f"atom:command_send:deserialize:{element_name}:{cmd_name}", labels={"severity": "info", "type": "atom_command_send", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
+            self.metric_create(f"atom:command_send:error:{element_name}:{cmd_name}", labels={"severity": "error", "type": "atom_command_send"}, use_default_rules=True, default_agg_list=["SUM"])
+
+            self._metric_commands[element_name][cmd_name] = True
+
         # Send command to element's command stream
         if serialize is not None:  # check for deprecated legacy mode
             serialization = "msgpack" if serialize else None
 
+        self.metric_timing_start(f"atom:command_send:serialize:{element_name}:{cmd_name}")
         data = ser.serialize(data, method=serialization) if (data != "") else data
+        self.metric_timing_end(f"atom:command_send:serialize:{element_name}:{cmd_name}", execute=False)
 
+        self.metric_timing_start(f"atom:command_send:runtime:{element_name}:{cmd_name}")
         cmd = Cmd(self.name, cmd_name, data)
         _pipe = self._rpipeline_pool.get()
         _pipe.xadd(self._make_command_id(element_name), vars(cmd), maxlen=STREAM_LEN)
@@ -1228,6 +1243,7 @@ class Element:
                 if elapsed_time_ms >= ack_timeout:
                     err_str = f"Did not receive acknowledge from {element_name}."
                     self.log(LogLevel.ERR, err_str)
+                    self.metric_add((f"atom:command_send:error:{element_name}:{cmd_name}", 1))
                     return vars(Response(err_code=ATOM_COMMAND_NO_ACK, err_str=err_str))
                     break
                 else:
@@ -1252,6 +1268,7 @@ class Element:
         if timeout is None:
             err_str = f"Did not receive acknowledge from {element_name}."
             self.log(LogLevel.ERR, err_str)
+            self.metric_add((f"atom:command_send:error:{element_name}:{cmd_name}", 1))
             return vars(Response(err_code=ATOM_COMMAND_NO_ACK, err_str=err_str))
 
         # Receive response from element
@@ -1270,6 +1287,7 @@ class Element:
             if not responses:
                 err_str = f"Did not receive response from {element_name}."
                 self.log(LogLevel.ERR, err_str)
+                self.metric_add((f"atom:command_send:error:{element_name}:{cmd_name}", 1))
                 return vars(Response(err_code=ATOM_COMMAND_NO_RESPONSE, err_str=err_str))
 
             stream_name, msgs = responses[0]  # we only read from one stream
@@ -1280,6 +1298,10 @@ class Element:
                 if b"element" in response and response[b"element"].decode() == element_name \
                 and b"cmd_id" in response and response[b"cmd_id"].decode() == cmd_id \
                 and b"err_code" in response:
+
+                    self.metric_timing_end(f"atom:command_send:runtime:{element_name}:{cmd_name}", execute=False)
+                    self.metric_timing_start(f"atom:command_send:deserialize:{element_name}:{cmd_name}")
+
                     err_code = int(response[b"err_code"].decode())
                     err_str = response[b"err_str"].decode() if b"err_str" in response else ""
                     if err_code != ATOM_NO_ERROR:
@@ -1297,6 +1319,9 @@ class Element:
                                          (len(response_data) != 0) else response_data)
                     except TypeError:
                         self.log(LogLevel.WARNING, "Could not deserialize response.")
+                        self.metric_add((f"atom:command_send:error:{element_name}:{cmd_name}", 1))
+
+                    self.metric_timing_end(f"atom:command_send:deserialize:{element_name}:{cmd_name}", execute=False)
 
                     # Make the final response
                     resp = vars(Response(data=response_data, err_code=err_code, err_str=err_str))
@@ -1304,6 +1329,7 @@ class Element:
 
             self._update_response_id_if_older(local_last_id)
             if resp is not None:
+                self.metrics_flush()
                 return resp
 
             # If the response we received wasn't for this command, keep trying until timeout
@@ -1312,6 +1338,8 @@ class Element:
         # Proper response was not in responses
         err_str = f"Did not receive response from {element_name}."
         self.log(LogLevel.ERR, err_str)
+        self.metric_add((f"atom:command_send:error:{element_name}:{cmd_name}", 1), execute=False)
+        self.metrics_flush()
         return vars(Response(err_code=ATOM_COMMAND_NO_RESPONSE, err_str=err_str))
 
     def entry_read_loop(self, stream_handlers, n_loops=None, timeout=MAX_BLOCK, serialization=None, force_serialization=False, deserialize=None):
