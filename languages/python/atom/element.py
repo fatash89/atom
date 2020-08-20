@@ -106,11 +106,61 @@ class Element:
         self._pid = os.getpid()
         self._cleaned_up = False
         self.processes = []
+        self._redis_connected = False
+
+        #
+        # Set up metrics
+        #
+        self._metrics_enabled = False
+        self._metric_timing = {}
+
+        # For now, only enable metrics if turned on in an environment flag
+        if os.getenv("ATOM_USE_METRICS", "FALSE") == "TRUE":
+
+            # Set up redis client for metrics
+            if metrics_host is not None:
+                self._metrics_host = metrics_host
+                self._metrics_port = metrics_port
+                self._mclient = RedisTimeSeries(
+                    host=self._metrics_host,
+                    port=self._metrics_port,
+                    socket_timeout=self._redis_data_timeout,
+                    socket_connect_timeout=self._redis_connection_timeout
+                )
+            else:
+                self._metrics_socket_path = metrics_socket_path
+                self._mclient = RedisTimeSeries(
+                    unix_socket_path=self._metrics_socket_path,
+                    socket_timeout=self._redis_data_timeout,
+                    socket_connect_timeout=self._redis_connection_timeout
+                )
+
+            try:
+                data = self._mclient.ping()
+                if not data:
+                    # Don't have redis, so need to only print to stdout
+                    self.log(LogLevel.WARNING, f"Invalid ping response {data} from metrics server", redis=False)
+
+                # Create pipeline pool
+                for i in range(REDIS_PIPELINE_POOL_SIZE):
+                    self._mpipeline_pool.put(self._mclient.pipeline())
+
+                self.log(LogLevel.INFO, "Metrics initialized.", redis=False)
+                self._metrics_enabled = True
+
+            except (redis.exceptions.TimeoutError, redis.exceptions.RedisError, redis.exceptions.ConnectionError) as e:
+                self.log(LogLevel.ERR, f"Unable to connect to metrics server, error {e}", redis=False)
+                if enforce_metrics:
+
+                    # Clean up the redis part of the element since that
+                    #   was initialized OK
+                    self._clean_up()
+
+                    raise AtomError("Unable to connect to metrics server")
 
         #
         # Set up Atom
         #
-        self._redis_connected = False
 
         # Set up redis client for main redis
         if host is not None:
@@ -215,55 +265,6 @@ class Element:
                 self._stream_reference_sha = script_response[0]
 
         self.log(LogLevel.INFO, "Element initialized.")
-
-        #
-        # Set up metrics
-        #
-        self._metrics_enabled = False
-
-        # For now, only enable metrics if turned on in an environment flag
-        if os.getenv("ATOM_USE_METRICS", "FALSE") == "TRUE":
-
-            # Set up redis client for metrics
-            if metrics_host is not None:
-                self._metrics_host = metrics_host
-                self._metrics_port = metrics_port
-                self._mclient = RedisTimeSeries(
-                    host=self._metrics_host,
-                    port=self._metrics_port,
-                    socket_timeout=self._redis_data_timeout,
-                    socket_connect_timeout=self._redis_connection_timeout
-                )
-            else:
-                self._metrics_socket_path = metrics_socket_path
-                self._mclient = RedisTimeSeries(
-                    unix_socket_path=self._metrics_socket_path,
-                    socket_timeout=self._redis_data_timeout,
-                    socket_connect_timeout=self._redis_connection_timeout
-                )
-
-            try:
-                data = self._mclient.ping()
-                if not data:
-                    # Don't have redis, so need to only print to stdout
-                    self.log(LogLevel.WARNING, f"Invalid ping response {data} from metrics server", redis=False)
-
-                # Create pipeline pool
-                for i in range(REDIS_PIPELINE_POOL_SIZE):
-                    self._mpipeline_pool.put(self._mclient.pipeline())
-
-                self.log(LogLevel.INFO, "Metrics initialized.")
-                self._metrics_enabled = True
-
-            except (redis.exceptions.TimeoutError, redis.exceptions.RedisError, redis.exceptions.ConnectionError) as e:
-                self.log(LogLevel.ERR, f"Unable to connect to metrics server, error {e}")
-                if enforce_metrics:
-
-                    # Clean up the redis part of the element since that
-                    #   was initialized OK
-                    self._clean_up()
-
-                    raise AtomError("Unable to connect to metrics server")
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"
@@ -754,6 +755,16 @@ class Element:
 
         self.timeouts[name] = timeout
 
+        # Make the metric for the command
+        self.metric_create(f"atom:command:count:{name}", labels={"severity": "timing", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["SUM"])
+        # Make the metric for timing the command handler
+        self.metric_create(f"atom:command:runtime:{name}", labels={"severity": "info", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
+        # Make the error counter for the command handler
+        self.metric_create(f"atom:command:failed:{name}", labels={"severity": "error", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["SUM"])
+        self.metric_create(f"atom:command:unhandled_error:{name}", labels={"severity": "error", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["SUM"])
+        self.metric_create(f"atom:command:error:{name}", labels={"severity": "error", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["SUM"])
+
+
     def healthcheck_set(self, handler):
         """
         Sets a custom healthcheck callback
@@ -854,7 +865,7 @@ class Element:
 
         self.processes = []
         for i in range(n_procs):
-            p = Process(target=self._command_loop, args=(self._command_loop_shutdown,), kwargs={'read_block_ms' : read_block_ms})
+            p = Process(target=self._command_loop, args=(self._command_loop_shutdown, i,), kwargs={'read_block_ms' : read_block_ms})
             p.start()
             self.processes.append(p)
 
@@ -891,7 +902,7 @@ class Element:
             self._clean_up_streams()
         return result
 
-    def _command_loop(self, shutdown_event, read_block_ms=1000):
+    def _command_loop(self, shutdown_event, worker_num, read_block_ms=1000):
         if hasattr(self, '_host'):
             _rclient = redis.StrictRedis(host=self._host, port=self._port)
         else:
@@ -902,6 +913,24 @@ class Element:
         #if cur_pid != self._pid:
         #    self._increment_command_group_counter(_pipe)
 
+        # Make timing metrics
+        self.metric_create(f"atom:command_loop:worker{worker_num}:block_time", labels={"severity": "timing", "detail" : "block_time", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
+        self.metric_create(f"atom:command_loop:worker{worker_num}:block_handler_time", labels={"severity": "timing", "detail" : "block_handler_time", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
+        self.metric_create(f"atom:command_loop:worker{worker_num}:handler_time", labels={"severity": "timing", "detail" : "handler_time", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
+        self.metric_create(f"atom:command_loop:worker{worker_num}:handler_block_time", labels={"severity": "timing", "detail" : "handler_block_time", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"])
+
+        # Info counters
+        self.metric_create(f"atom:command_loop:worker{worker_num}:n_commands", labels={"severity": "info", "detail" : "n_commands", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"])
+
+        # Error counters
+        self.metric_create(f"atom:command_loop:worker{worker_num}:xreadgroup_error", labels={"severity": "error", "detail" : "xreadgroup_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"])
+        self.metric_create(f"atom:command_loop:worker{worker_num}:stream_match_error", labels={"severity": "error", "detail" : "stream_match_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"])
+        self.metric_create(f"atom:command_loop:worker{worker_num}:no_caller", labels={"severity": "error", "detail" : "no_caller", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"])
+        self.metric_create(f"atom:command_loop:worker{worker_num}:unsupported_command", labels={"severity": "error", "detail" : "unsupported_command", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"])
+        self.metric_create(f"atom:command_loop:worker{worker_num}:callback_unhandled_error", labels={"severity": "error", "detail" : "callback_unhandled_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"])
+        self.metric_create(f"atom:command_loop:worker{worker_num}:callback_handled_error", labels={"severity": "error", "detail" : "callback_handled_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"])
+        self.metric_create(f"atom:command_loop:worker{worker_num}:response_error", labels={"severity": "error", "detail" : "response_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"])
+        self.metric_create(f"atom:command_loop:worker{worker_num}:xack_error", labels={"severity": "error", "detail" : "xack_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"])
 
         # get a group handle
         # note: if use_command_last_id is set then the group will receive
@@ -932,6 +961,11 @@ class Element:
             # Get oldest new command from element's command stream
             # note: consumer group consumer id is implicitly announced
             try:
+
+                # Pre-block metrics
+                self.metric_timing_start(f"atom:command_loop:worker{worker_num}:block_time")
+
+                # Block, get a command
                 cmd_responses = _rclient.xreadgroup(
                     group_name,
                     consumer_uuid,
@@ -939,6 +973,10 @@ class Element:
                     block=read_block_ms,
                     count=1
                 )
+
+                # Post-block metrics
+                self.metric_timing_end(f"atom:command_loop:worker{worker_num}:block_time", execute=False)
+                self.metric_timing_start(f"atom:command_loop:worker{worker_num}:block_handler_time")
             except redis.exceptions.ResponseError:
                 self.log(
                     LogLevel.ERR,
@@ -951,12 +989,14 @@ class Element:
                     ),
                     _pipe=_pipe
                 )
+                self.metric_add((f"atom:command_loop:worker{worker_num}:xreadgroup_error", 1))
                 return
 
             if not cmd_responses:
                 continue
             cmd_stream_name, msgs = cmd_responses[0]
             if cmd_stream_name.decode() != stream_name:
+                self.metric_add((f"atom:command_loop:worker{worker_num}:stream_match_error", 1))
                 raise RuntimeError(
                     "Expected received stream name to match: %s %s" % (
                         cmd_stream_name,
@@ -982,6 +1022,7 @@ class Element:
 
             if not caller:
                 self.log(LogLevel.ERR, "No caller name present in command!", _pipe=_pipe)
+                self.metric_add((f"atom:command_loop:worker{worker_num}:no_caller", 1))
                 continue
 
             # Send acknowledge to caller
@@ -1001,16 +1042,24 @@ class Element:
                     err_code=ATOM_COMMAND_UNSUPPORTED,
                     err_str="Unsupported command."
                 )
+                self.metric_add((f"atom:command_loop:worker{worker_num}:unsupported_command", 1), execute=False)
             else:
+
+                # Pre-handler metrics
+                self.metric_timing_end(f"atom:command_loop:worker{worker_num}:block_handler_time", execute=False)
+                self.metric_timing_start(f"atom:command_loop:worker{worker_num}:handler_time")
+                self.metric_timing_start(f"atom:command:runtime:{cmd_name}")
+
+
                 if cmd_name not in RESERVED_COMMANDS:
                     if "deserialize" in self.handler_map[cmd_name]:  # check for deprecated legacy mode
                         serialization = "msgpack" if self.handler_map[cmd_name]["deserialize"] else None
                     else:
                         serialization = self.handler_map[cmd_name]["serialization"]
-
                     data = ser.deserialize(data, method=serialization)
                     try:
                         response = self.handler_map[cmd_name]["handler"](data)
+
                     except:
                         self.log(
                             LogLevel.ERR,
@@ -1025,20 +1074,36 @@ class Element:
                             err_str="encountered an internal exception "
                                     "during command execution: %s" % (cmd_name,)
                         )
+                        self.metric_add((f"atom:command_loop:worker{worker_num}:callback_unhandled_error", 1), execute=False)
+                        self.metric_add((f"atom:command:unhandled_error:{cmd_name}", 1), execute=False)
+
                 else:
                     # healthcheck/version requests/command_list commands don't
                     # care what data you are sending
                     response = self.handler_map[cmd_name]["handler"]()
 
+                # Post-handler-metrics
+                self.metric_timing_end(f"atom:command:runtime:{cmd_name}", execute=False)
+                self.metric_timing_end(f"atom:command_loop:worker{worker_num}:handler_time", execute=False)
+                self.metric_timing_start(f"atom:command_loop:worker{worker_num}:handler_block_time")
+
                 # Add ATOM_USER_ERRORS_BEGIN to err_code to map to element error range
                 if isinstance(response, Response):
                     if response.err_code != 0:
                         response.err_code += ATOM_USER_ERRORS_BEGIN
+                        self.metric_add((f"atom:command:error:{cmd_name}", 1), execute=False)
+
                 else:
                     response = Response(
                         err_code=ATOM_CALLBACK_FAILED,
                         err_str=f"Return type of {cmd_name} is not of type Response"
                     )
+                    self.metric_add((f"atom:command_loop:worker{worker_num}:callback_handled_error", 1), execute=False)
+                    self.metric_add((f"atom:command:failed:{cmd_name}", 1), execute=False)
+
+                # Note we called the command and got through it
+                self.metric_add((f"atom:command:count:{cmd_name}", 1), execute=False)
+
 
             # send response on appropriate stream
             kv = vars(response)
@@ -1053,7 +1118,7 @@ class Element:
                 # we will xack the response to bring it out of pending list.
                 # This command will be treated as being "handled" and will not
                 # be re-attempted
-                pass
+                self.metric_add((f"atom:command_loop:worker{worker_num}:response_error", 1), execute=False)
 
             # `XACK` the command we have just completed back to the consumer
             # group to remove the command from the consumer group pending
@@ -1065,6 +1130,7 @@ class Element:
                     cmd_id
                 )
                 _pipe.execute()
+                self.metric_add((f"atom:command_loop:worker{worker_num}:n_commands", 1), execute=False)
             except:
                 self.log(
                     LogLevel.ERR,
@@ -1077,6 +1143,14 @@ class Element:
                     ),
                     _pipe=_pipe
                 )
+                self.metric_add((f"atom:command_loop:worker{worker_num}:xack_error", 1), execute=False)
+
+            # Flush the metrics for this runthrough of the command loop
+            self.metrics_flush()
+
+            # we're essentially going into the block and if we wrap it up here we don't
+            #   need to handle edge cases where it hadn't been started before
+            self.metric_timing_end(f"atom:command_loop:worker{worker_num}:handler_block_time", execute=False)
 
     def _command_loop_join(self, join_timeout=10.0):
         """Waits for all threads from command loop to be finished"""
@@ -1911,3 +1985,24 @@ class Element:
             self._mpipeline_pool.put(pipeline)
 
         return data
+
+    def metric_timing_start(self, key):
+        """
+        Simple helper function to do the keeping-track-of-time for
+        timing-based metrics.
+
+        Args:
+            key (string): Key we want to start tracking timing for
+        """
+        self._metric_timing[key] = time.monotonic()
+
+    def metric_timing_end(self, key, execute=True):
+        """
+        Simple helper function to finish a time that was being kept
+        track of and write out the metric
+        """
+        if key not in self._metric_timing:
+            raise AtomError(f"key {key} timer not started!")
+
+        delta = time.monotonic() - self._metric_timing[key]
+        self.metric_add((key, delta), execute=execute)
