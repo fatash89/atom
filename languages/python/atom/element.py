@@ -347,7 +347,7 @@ class Element:
     def _get_metrics_pipeline(self):
         """
         Get a pipeline for use in metrics. We'll try to reuse
-        a pipeline that needs flushing (i.e. called with execute=False)
+        a pipeline that needs flushing (i.e. called with pipeline=pipeline)
         previously and then fall back on using a standard pipeline if not.
 
         Args:
@@ -740,13 +740,13 @@ class Element:
         self.timeouts[name] = timeout
 
         # Make the metric for the command
-        self.metric_create(f"atom:command:count:{name}", labels={"severity": "timing", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+        self.metrics_create(f"atom:command:count:{name}", labels={"severity": "timing", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
         # Make the metric for timing the command handler
-        self.metric_create(f"atom:command:runtime:{name}", labels={"severity": "info", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+        self.metrics_create(f"atom:command:runtime:{name}", labels={"severity": "info", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
         # Make the error counter for the command handler
-        self.metric_create(f"atom:command:failed:{name}", labels={"severity": "error", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
-        self.metric_create(f"atom:command:unhandled_error:{name}", labels={"severity": "error", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
-        self.metric_create(f"atom:command:error:{name}", labels={"severity": "error", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+        self.metrics_create(f"atom:command:failed:{name}", labels={"severity": "error", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+        self.metrics_create(f"atom:command:unhandled_error:{name}", labels={"severity": "error", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+        self.metrics_create(f"atom:command:error:{name}", labels={"severity": "error", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
 
 
     def healthcheck_set(self, handler):
@@ -898,23 +898,23 @@ class Element:
         #    self._increment_command_group_counter(_pipe)
 
         # Make timing metrics
-        self.metric_create(f"atom:command_loop:worker{worker_num}:block_time", labels={"severity": "timing", "detail" : "block_time", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-        self.metric_create(f"atom:command_loop:worker{worker_num}:block_handler_time", labels={"severity": "timing", "detail" : "block_handler_time", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-        self.metric_create(f"atom:command_loop:worker{worker_num}:handler_time", labels={"severity": "timing", "detail" : "handler_time", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-        self.metric_create(f"atom:command_loop:worker{worker_num}:handler_block_time", labels={"severity": "timing", "detail" : "handler_block_time", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+        self.metrics_create(f"atom:command_loop:worker{worker_num}:block_time", labels={"severity": "timing", "detail" : "block_time", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+        self.metrics_create(f"atom:command_loop:worker{worker_num}:block_handler_time", labels={"severity": "timing", "detail" : "block_handler_time", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+        self.metrics_create(f"atom:command_loop:worker{worker_num}:handler_time", labels={"severity": "timing", "detail" : "handler_time", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+        self.metrics_create(f"atom:command_loop:worker{worker_num}:handler_block_time", labels={"severity": "timing", "detail" : "handler_block_time", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
 
         # Info counters
-        self.metric_create(f"atom:command_loop:worker{worker_num}:n_commands", labels={"severity": "info", "detail" : "n_commands", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+        self.metrics_create(f"atom:command_loop:worker{worker_num}:n_commands", labels={"severity": "info", "detail" : "n_commands", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
 
         # Error counters
-        self.metric_create(f"atom:command_loop:worker{worker_num}:xreadgroup_error", labels={"severity": "error", "detail" : "xreadgroup_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
-        self.metric_create(f"atom:command_loop:worker{worker_num}:stream_match_error", labels={"severity": "error", "detail" : "stream_match_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
-        self.metric_create(f"atom:command_loop:worker{worker_num}:no_caller", labels={"severity": "error", "detail" : "no_caller", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
-        self.metric_create(f"atom:command_loop:worker{worker_num}:unsupported_command", labels={"severity": "error", "detail" : "unsupported_command", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
-        self.metric_create(f"atom:command_loop:worker{worker_num}:callback_unhandled_error", labels={"severity": "error", "detail" : "callback_unhandled_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
-        self.metric_create(f"atom:command_loop:worker{worker_num}:callback_handled_error", labels={"severity": "error", "detail" : "callback_handled_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
-        self.metric_create(f"atom:command_loop:worker{worker_num}:response_error", labels={"severity": "error", "detail" : "response_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
-        self.metric_create(f"atom:command_loop:worker{worker_num}:xack_error", labels={"severity": "error", "detail" : "xack_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+        self.metrics_create(f"atom:command_loop:worker{worker_num}:xreadgroup_error", labels={"severity": "error", "detail" : "xreadgroup_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+        self.metrics_create(f"atom:command_loop:worker{worker_num}:stream_match_error", labels={"severity": "error", "detail" : "stream_match_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+        self.metrics_create(f"atom:command_loop:worker{worker_num}:no_caller", labels={"severity": "error", "detail" : "no_caller", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+        self.metrics_create(f"atom:command_loop:worker{worker_num}:unsupported_command", labels={"severity": "error", "detail" : "unsupported_command", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+        self.metrics_create(f"atom:command_loop:worker{worker_num}:callback_unhandled_error", labels={"severity": "error", "detail" : "callback_unhandled_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+        self.metrics_create(f"atom:command_loop:worker{worker_num}:callback_handled_error", labels={"severity": "error", "detail" : "callback_handled_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+        self.metrics_create(f"atom:command_loop:worker{worker_num}:response_error", labels={"severity": "error", "detail" : "response_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+        self.metrics_create(f"atom:command_loop:worker{worker_num}:xack_error", labels={"severity": "error", "detail" : "xack_error", "type": "atom_command_loop", "worker" : f"{worker_num}"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
 
         # get a group handle
         # note: if use_command_last_id is set then the group will receive
@@ -942,12 +942,16 @@ class Element:
         # make a new uuid for the consumer name
         consumer_uuid = str(uuid.uuid4())
         while not shutdown_event.is_set():
+
+            # Get a metrics pipeline
+            pipeline = self._get_metrics_pipeline()
+
             # Get oldest new command from element's command stream
             # note: consumer group consumer id is implicitly announced
             try:
 
                 # Pre-block metrics
-                self.metric_timing_start(f"atom:command_loop:worker{worker_num}:block_time")
+                self.metrics_timing_start(f"atom:command_loop:worker{worker_num}:block_time")
 
                 # Block, get a command
                 cmd_responses = _rclient.xreadgroup(
@@ -959,8 +963,8 @@ class Element:
                 )
 
                 # Post-block metrics
-                self.metric_timing_end(f"atom:command_loop:worker{worker_num}:block_time", execute=False)
-                self.metric_timing_start(f"atom:command_loop:worker{worker_num}:block_handler_time")
+                self.metrics_timing_end(f"atom:command_loop:worker{worker_num}:block_time", pipeline=pipeline)
+                self.metrics_timing_start(f"atom:command_loop:worker{worker_num}:block_handler_time")
             except redis.exceptions.ResponseError:
                 self.log(
                     LogLevel.ERR,
@@ -973,14 +977,14 @@ class Element:
                     ),
                     _pipe=_pipe
                 )
-                self.metric_add((f"atom:command_loop:worker{worker_num}:xreadgroup_error", 1))
+                self.metrics_add((f"atom:command_loop:worker{worker_num}:xreadgroup_error", 1))
                 return
 
             if not cmd_responses:
                 continue
             cmd_stream_name, msgs = cmd_responses[0]
             if cmd_stream_name.decode() != stream_name:
-                self.metric_add((f"atom:command_loop:worker{worker_num}:stream_match_error", 1))
+                self.metrics_add((f"atom:command_loop:worker{worker_num}:stream_match_error", 1))
                 raise RuntimeError(
                     "Expected received stream name to match: %s %s" % (
                         cmd_stream_name,
@@ -1006,7 +1010,7 @@ class Element:
 
             if not caller:
                 self.log(LogLevel.ERR, "No caller name present in command!", _pipe=_pipe)
-                self.metric_add((f"atom:command_loop:worker{worker_num}:no_caller", 1))
+                self.metrics_add((f"atom:command_loop:worker{worker_num}:no_caller", 1))
                 continue
 
             # Send acknowledge to caller
@@ -1026,13 +1030,13 @@ class Element:
                     err_code=ATOM_COMMAND_UNSUPPORTED,
                     err_str="Unsupported command."
                 )
-                self.metric_add((f"atom:command_loop:worker{worker_num}:unsupported_command", 1), execute=False)
+                self.metrics_add((f"atom:command_loop:worker{worker_num}:unsupported_command", 1), pipeline=pipeline)
             else:
 
                 # Pre-handler metrics
-                self.metric_timing_end(f"atom:command_loop:worker{worker_num}:block_handler_time", execute=False)
-                self.metric_timing_start(f"atom:command_loop:worker{worker_num}:handler_time")
-                self.metric_timing_start(f"atom:command:runtime:{cmd_name}")
+                self.metrics_timing_end(f"atom:command_loop:worker{worker_num}:block_handler_time", pipeline=pipeline)
+                self.metrics_timing_start(f"atom:command_loop:worker{worker_num}:handler_time")
+                self.metrics_timing_start(f"atom:command:runtime:{cmd_name}")
 
 
                 if cmd_name not in RESERVED_COMMANDS:
@@ -1058,8 +1062,8 @@ class Element:
                             err_str="encountered an internal exception "
                                     "during command execution: %s" % (cmd_name,)
                         )
-                        self.metric_add((f"atom:command_loop:worker{worker_num}:callback_unhandled_error", 1), execute=False)
-                        self.metric_add((f"atom:command:unhandled_error:{cmd_name}", 1), execute=False)
+                        self.metrics_add((f"atom:command_loop:worker{worker_num}:callback_unhandled_error", 1), pipeline=pipeline)
+                        self.metrics_add((f"atom:command:unhandled_error:{cmd_name}", 1), pipeline=pipeline)
 
                 else:
                     # healthcheck/version requests/command_list commands don't
@@ -1067,26 +1071,26 @@ class Element:
                     response = self.handler_map[cmd_name]["handler"]()
 
                 # Post-handler-metrics
-                self.metric_timing_end(f"atom:command:runtime:{cmd_name}", execute=False)
-                self.metric_timing_end(f"atom:command_loop:worker{worker_num}:handler_time", execute=False)
-                self.metric_timing_start(f"atom:command_loop:worker{worker_num}:handler_block_time")
+                self.metrics_timing_end(f"atom:command:runtime:{cmd_name}", pipeline=pipeline)
+                self.metrics_timing_end(f"atom:command_loop:worker{worker_num}:handler_time", pipeline=pipeline)
+                self.metrics_timing_start(f"atom:command_loop:worker{worker_num}:handler_block_time")
 
                 # Add ATOM_USER_ERRORS_BEGIN to err_code to map to element error range
                 if isinstance(response, Response):
                     if response.err_code != 0:
                         response.err_code += ATOM_USER_ERRORS_BEGIN
-                        self.metric_add((f"atom:command:error:{cmd_name}", 1), execute=False)
+                        self.metrics_add((f"atom:command:error:{cmd_name}", 1), pipeline=pipeline)
 
                 else:
                     response = Response(
                         err_code=ATOM_CALLBACK_FAILED,
                         err_str=f"Return type of {cmd_name} is not of type Response"
                     )
-                    self.metric_add((f"atom:command_loop:worker{worker_num}:callback_handled_error", 1), execute=False)
-                    self.metric_add((f"atom:command:failed:{cmd_name}", 1), execute=False)
+                    self.metrics_add((f"atom:command_loop:worker{worker_num}:callback_handled_error", 1), pipeline=pipeline)
+                    self.metrics_add((f"atom:command:failed:{cmd_name}", 1), pipeline=pipeline)
 
                 # Note we called the command and got through it
-                self.metric_add((f"atom:command:count:{cmd_name}", 1), execute=False)
+                self.metrics_add((f"atom:command:count:{cmd_name}", 1), pipeline=pipeline)
 
 
             # send response on appropriate stream
@@ -1102,7 +1106,7 @@ class Element:
                 # we will xack the response to bring it out of pending list.
                 # This command will be treated as being "handled" and will not
                 # be re-attempted
-                self.metric_add((f"atom:command_loop:worker{worker_num}:response_error", 1), execute=False)
+                self.metrics_add((f"atom:command_loop:worker{worker_num}:response_error", 1), pipeline=pipeline)
 
             # `XACK` the command we have just completed back to the consumer
             # group to remove the command from the consumer group pending
@@ -1114,7 +1118,7 @@ class Element:
                     cmd_id
                 )
                 _pipe.execute()
-                self.metric_add((f"atom:command_loop:worker{worker_num}:n_commands", 1), execute=False)
+                self.metrics_add((f"atom:command_loop:worker{worker_num}:n_commands", 1), pipeline=pipeline)
             except:
                 self.log(
                     LogLevel.ERR,
@@ -1127,14 +1131,14 @@ class Element:
                     ),
                     _pipe=_pipe
                 )
-                self.metric_add((f"atom:command_loop:worker{worker_num}:xack_error", 1), execute=False)
-
-            # Flush the metrics for this runthrough of the command loop
-            self.metrics_flush()
+                self.metrics_add((f"atom:command_loop:worker{worker_num}:xack_error", 1), pipeline=pipeline)
 
             # we're essentially going into the block and if we wrap it up here we don't
             #   need to handle edge cases where it hadn't been started before
-            self.metric_timing_end(f"atom:command_loop:worker{worker_num}:handler_block_time", execute=False)
+            self.metrics_timing_end(f"atom:command_loop:worker{worker_num}:handler_block_time", pipeline=pipeline)
+
+            # Flush the metrics for this runthrough of the command loop
+            self.metrics_write_pipeline(pipeline)
 
     def _command_loop_join(self, join_timeout=10.0):
         """Waits for all threads from command loop to be finished"""
@@ -1185,13 +1189,16 @@ class Element:
         resp = None
         data = format_redis_py(data)
 
+        # Get a metrics pipeline
+        pipeline = self._get_metrics_pipeline()
+
         # If we haven't sent this command before, need to make the metrics
         #   for it
         if not self._metric_commands[element_name][cmd_name]:
-            self.metric_create(f"atom:command_send:serialize:{element_name}:{cmd_name}", labels={"severity": "info", "type": "atom_command_send", "detail" : "serialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-            self.metric_create(f"atom:command_send:runtime:{element_name}:{cmd_name}", labels={"severity": "info", "type": "atom_command_send", "detail" : "runtime"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-            self.metric_create(f"atom:command_send:deserialize:{element_name}:{cmd_name}", labels={"severity": "info", "type": "atom_command_send", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-            self.metric_create(f"atom:command_send:error:{element_name}:{cmd_name}", labels={"severity": "error", "type": "atom_command_send"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+            self.metrics_create(f"atom:command_send:serialize:{element_name}:{cmd_name}", labels={"severity": "info", "type": "atom_command_send", "detail" : "serialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:command_send:runtime:{element_name}:{cmd_name}", labels={"severity": "info", "type": "atom_command_send", "detail" : "runtime"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:command_send:deserialize:{element_name}:{cmd_name}", labels={"severity": "info", "type": "atom_command_send", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:command_send:error:{element_name}:{cmd_name}", labels={"severity": "error", "type": "atom_command_send"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
 
             self._metric_commands[element_name][cmd_name] = True
 
@@ -1199,11 +1206,11 @@ class Element:
         if serialize is not None:  # check for deprecated legacy mode
             serialization = "msgpack" if serialize else None
 
-        self.metric_timing_start(f"atom:command_send:serialize:{element_name}:{cmd_name}")
+        self.metrics_timing_start(f"atom:command_send:serialize:{element_name}:{cmd_name}")
         data = ser.serialize(data, method=serialization) if (data != "") else data
-        self.metric_timing_end(f"atom:command_send:serialize:{element_name}:{cmd_name}", execute=False)
+        self.metrics_timing_end(f"atom:command_send:serialize:{element_name}:{cmd_name}", pipeline=pipeline)
 
-        self.metric_timing_start(f"atom:command_send:runtime:{element_name}:{cmd_name}")
+        self.metrics_timing_start(f"atom:command_send:runtime:{element_name}:{cmd_name}")
         cmd = Cmd(self.name, cmd_name, data)
         _pipe = self._rpipeline_pool.get()
         _pipe.xadd(self._make_command_id(element_name), vars(cmd), maxlen=STREAM_LEN)
@@ -1225,7 +1232,7 @@ class Element:
                 if elapsed_time_ms >= ack_timeout:
                     err_str = f"Did not receive acknowledge from {element_name}."
                     self.log(LogLevel.ERR, err_str)
-                    self.metric_add((f"atom:command_send:error:{element_name}:{cmd_name}", 1))
+                    self.metrics_add((f"atom:command_send:error:{element_name}:{cmd_name}", 1))
                     return vars(Response(err_code=ATOM_COMMAND_NO_ACK, err_str=err_str))
                     break
                 else:
@@ -1250,7 +1257,7 @@ class Element:
         if timeout is None:
             err_str = f"Did not receive acknowledge from {element_name}."
             self.log(LogLevel.ERR, err_str)
-            self.metric_add((f"atom:command_send:error:{element_name}:{cmd_name}", 1))
+            self.metrics_add((f"atom:command_send:error:{element_name}:{cmd_name}", 1))
             return vars(Response(err_code=ATOM_COMMAND_NO_ACK, err_str=err_str))
 
         # Receive response from element
@@ -1269,7 +1276,7 @@ class Element:
             if not responses:
                 err_str = f"Did not receive response from {element_name}."
                 self.log(LogLevel.ERR, err_str)
-                self.metric_add((f"atom:command_send:error:{element_name}:{cmd_name}", 1))
+                self.metrics_add((f"atom:command_send:error:{element_name}:{cmd_name}", 1))
                 return vars(Response(err_code=ATOM_COMMAND_NO_RESPONSE, err_str=err_str))
 
             stream_name, msgs = responses[0]  # we only read from one stream
@@ -1281,8 +1288,8 @@ class Element:
                 and b"cmd_id" in response and response[b"cmd_id"].decode() == cmd_id \
                 and b"err_code" in response:
 
-                    self.metric_timing_end(f"atom:command_send:runtime:{element_name}:{cmd_name}", execute=False)
-                    self.metric_timing_start(f"atom:command_send:deserialize:{element_name}:{cmd_name}")
+                    self.metrics_timing_end(f"atom:command_send:runtime:{element_name}:{cmd_name}", pipeline=pipeline)
+                    self.metrics_timing_start(f"atom:command_send:deserialize:{element_name}:{cmd_name}")
 
                     err_code = int(response[b"err_code"].decode())
                     err_str = response[b"err_str"].decode() if b"err_str" in response else ""
@@ -1301,9 +1308,9 @@ class Element:
                                          (len(response_data) != 0) else response_data)
                     except TypeError:
                         self.log(LogLevel.WARNING, "Could not deserialize response.")
-                        self.metric_add((f"atom:command_send:error:{element_name}:{cmd_name}", 1))
+                        self.metrics_add((f"atom:command_send:error:{element_name}:{cmd_name}", 1))
 
-                    self.metric_timing_end(f"atom:command_send:deserialize:{element_name}:{cmd_name}", execute=False)
+                    self.metrics_timing_end(f"atom:command_send:deserialize:{element_name}:{cmd_name}", pipeline=pipeline)
 
                     # Make the final response
                     resp = vars(Response(data=response_data, err_code=err_code, err_str=err_str))
@@ -1311,7 +1318,7 @@ class Element:
 
             self._update_response_id_if_older(local_last_id)
             if resp is not None:
-                self.metrics_flush()
+                self.metrics_write_pipeline(pipeline)
                 return resp
 
             # If the response we received wasn't for this command, keep trying until timeout
@@ -1320,8 +1327,8 @@ class Element:
         # Proper response was not in responses
         err_str = f"Did not receive response from {element_name}."
         self.log(LogLevel.ERR, err_str)
-        self.metric_add((f"atom:command_send:error:{element_name}:{cmd_name}", 1), execute=False)
-        self.metrics_flush()
+        self.metrics_add((f"atom:command_send:error:{element_name}:{cmd_name}", 1), pipeline=pipeline)
+        self.metrics_write_pipeline(pipeline)
         return vars(Response(err_code=ATOM_COMMAND_NO_RESPONSE, err_str=err_str))
 
     def entry_read_loop(self, stream_handlers, n_loops=None, timeout=MAX_BLOCK, serialization=None, force_serialization=False, deserialize=None):
@@ -1389,11 +1396,14 @@ class Element:
             List of dicts containing the data of the entries
         """
 
+        # Get a metrics pipeline
+        pipeline = self._get_metrics_pipeline()
+
         # If we haven't read this entry with read_n before, create the metrics
         if not self._metric_entry_read_n[element_name][stream_name]:
-            self.metric_create(f"atom:entry_read_n:data:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_n", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-            self.metric_create(f"atom:entry_read_n:deserialize:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_n", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-            self.metric_create(f"atom:entry_read_n:n:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_n", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+            self.metrics_create(f"atom:entry_read_n:data:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_n", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:entry_read_n:deserialize:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_n", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:entry_read_n:n:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_n", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
 
             self._metric_entry_read_n[element_name][stream_name] = True
 
@@ -1401,20 +1411,20 @@ class Element:
         entries = []
         stream_id = self._make_stream_id(element_name, stream_name)
 
-        self.metric_timing_start(f"atom:entry_read_n:data:{element_name}:{stream_name}")
+        self.metrics_timing_start(f"atom:entry_read_n:data:{element_name}:{stream_name}")
         uid_entries = self._rclient.xrevrange(stream_id, count=n)
-        self.metric_timing_end(f"atom:entry_read_n:data:{element_name}:{stream_name}", execute=False)
-        self.metric_timing_start(f"atom:entry_read_n:deserialize:{element_name}:{stream_name}")
+        self.metrics_timing_end(f"atom:entry_read_n:data:{element_name}:{stream_name}", pipeline=pipeline)
+        self.metrics_timing_start(f"atom:entry_read_n:deserialize:{element_name}:{stream_name}")
         for uid, entry in uid_entries:
             entry = self._decode_entry(entry)
             serialization = self._get_serialization_method(entry, serialization, force_serialization, deserialize)
             entry = self._deserialize_entry(entry, method=serialization)
             entry["id"] = uid.decode()
             entries.append(entry)
-        self.metric_timing_end(f"atom:entry_read_n:deserialize:{element_name}:{stream_name}", execute=False)
+        self.metrics_timing_end(f"atom:entry_read_n:deserialize:{element_name}:{stream_name}", pipeline=pipeline)
 
-        self.metric_add((f"atom:entry_read_n:n:{element_name}:{stream_name}", len(entries)), execute=False)
-        self.metrics_flush()
+        self.metrics_add((f"atom:entry_read_n:n:{element_name}:{stream_name}", len(entries)), pipeline=pipeline)
+        self.metrics_write_pipeline(pipeline)
         return entries
 
     def entry_read_since(self,
@@ -1447,11 +1457,14 @@ class Element:
                                           using msgpack; defaults to None.
         """
 
+        # Get a metrics pipeline
+        pipeline = self._get_metrics_pipeline()
+
         # If we haven't read this entry with read_since before, create the metrics
         if not self._metric_entry_read_since[element_name][stream_name]:
-            self.metric_create(f"atom:entry_read_since:data:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_since", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-            self.metric_create(f"atom:entry_read_since:deserialize:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_since", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-            self.metric_create(f"atom:entry_read_since:n:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_since", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+            self.metrics_create(f"atom:entry_read_since:data:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_since", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:entry_read_since:deserialize:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_since", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:entry_read_since:n:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_since", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
 
             self._metric_entry_read_since[element_name][stream_name] = True
 
@@ -1459,14 +1472,14 @@ class Element:
         streams, entries = {}, []
         stream_id = self._make_stream_id(element_name, stream_name)
         streams[stream_id] = last_id
-        self.metric_timing_start(f"atom:entry_read_since:data:{element_name}:{stream_name}")
+        self.metrics_timing_start(f"atom:entry_read_since:data:{element_name}:{stream_name}")
         stream_entries = self._rclient.xread(streams, count=n, block=block)
-        self.metric_timing_end(f"atom:entry_read_since:data:{element_name}:{stream_name}", execute=False)
+        self.metrics_timing_end(f"atom:entry_read_since:data:{element_name}:{stream_name}", pipeline=pipeline)
         stream_names = [x[0].decode() for x in stream_entries]
         if not stream_entries or stream_id not in stream_names:
-            self.metrics_flush()
+            self.metrics_write_pipeline(pipeline)
             return entries
-        self.metric_timing_start(f"atom:entry_read_since:deserialize:{element_name}:{stream_name}")
+        self.metrics_timing_start(f"atom:entry_read_since:deserialize:{element_name}:{stream_name}")
         for key, msgs in stream_entries:
             if key.decode() == stream_id:
                 for uid, entry in msgs:
@@ -1475,9 +1488,9 @@ class Element:
                     entry = self._deserialize_entry(entry, method=serialization)
                     entry["id"] = uid.decode()
                     entries.append(entry)
-        self.metric_timing_end(f"atom:entry_read_since:deserialize:{element_name}:{stream_name}", execute=False)
-        self.metric_add((f"atom:entry_read_since:n:{element_name}:{stream_name}", len(entries)), execute=False)
-        self.metrics_flush()
+        self.metrics_timing_end(f"atom:entry_read_since:deserialize:{element_name}:{stream_name}", pipeline=pipeline)
+        self.metrics_add((f"atom:entry_read_since:n:{element_name}:{stream_name}", len(entries)), pipeline=pipeline)
+        self.metrics_write_pipeline(pipeline)
         return entries
 
     def entry_write(self, stream_name, field_data_map, maxlen=STREAM_LEN, serialization=None, serialize=None):
@@ -1498,10 +1511,14 @@ class Element:
 
         Return: ID of item added to stream
         """
+
+        # Get a metrics pipeline
+        pipeline = self._get_metrics_pipeline()
+
         # If we haven't written this entry with entry_write before, make the metrics
         if stream_name not in self.streams:
-            self.metric_create(f"atom:entry_write:data:{stream_name}", labels={"severity": "info", "type": "atom_entry_write", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-            self.metric_create(f"atom:entry_write:serialize:{stream_name}", labels={"severity": "info", "type": "atom_entry_write", "detail" : "serialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:entry_write:data:{stream_name}", labels={"severity": "info", "type": "atom_entry_write", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:entry_write:serialize:{stream_name}", labels={"severity": "info", "type": "atom_entry_write", "detail" : "serialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
 
         self.streams.add(stream_name)
         field_data_map = format_redis_py(field_data_map)
@@ -1509,7 +1526,7 @@ class Element:
         if serialize is not None:  # check for deprecated legacy mode
             serialization = "msgpack" if serialize else None
 
-        self.metric_timing_start(f"atom:entry_write:serialize:{stream_name}")
+        self.metrics_timing_start(f"atom:entry_write:serialize:{stream_name}")
         ser_field_data_map = {}
         for k, v in field_data_map.items():
             if k in ENTRY_RESERVED_KEYS:
@@ -1519,16 +1536,16 @@ class Element:
         ser_field_data_map["ser"] = str(serialization) if serialization is not None else "none"
         entry = Entry(ser_field_data_map)
 
-        self.metric_timing_end(f"atom:entry_write:serialize:{stream_name}", execute=False)
-        self.metric_timing_start(f"atom:entry_write:data:{stream_name}")
+        self.metrics_timing_end(f"atom:entry_write:serialize:{stream_name}", pipeline=pipeline)
+        self.metrics_timing_start(f"atom:entry_write:data:{stream_name}")
 
         _pipe = self._rpipeline_pool.get()
         _pipe.xadd(self._make_stream_id(self.name, stream_name), vars(entry), maxlen=maxlen)
         ret = _pipe.execute()
         _pipe = self._release_pipeline(_pipe)
 
-        self.metric_timing_end(f"atom:entry_write:data:{stream_name}", execute=False)
-        self.metrics_flush()
+        self.metrics_timing_end(f"atom:entry_write:data:{stream_name}", pipeline=pipeline)
+        self.metrics_write_pipeline(pipeline)
 
         if ((not isinstance(ret, list)) or (len(ret) != 1)
                 or (not isinstance(ret[0], bytes))):
@@ -1592,10 +1609,13 @@ class Element:
         """
         keys = []
 
+        # Get a metrics pipeline
+        pipeline = self._get_metrics_pipeline()
+
         if not self._metric_reference_create:
-            self.metric_create(f"atom:reference_create:data", labels={"severity": "info", "type": "atom_reference_create", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-            self.metric_create(f"atom:reference_create:serialize", labels={"severity": "info", "type": "atom_reference_create", "detail" : "serialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-            self.metric_create(f"atom:reference_create:n", labels={"severity": "info", "type": "atom_reference_create", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+            self.metrics_create(f"atom:reference_create:data", labels={"severity": "info", "type": "atom_reference_create", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:reference_create:serialize", labels={"severity": "info", "type": "atom_reference_create", "detail" : "serialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:reference_create:n", labels={"severity": "info", "type": "atom_reference_create", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
 
             self._metric_reference_create = True
 
@@ -1604,7 +1624,7 @@ class Element:
 
         _pipe = self._rpipeline_pool.get()
         px_val = timeout_ms if timeout_ms != 0 else None
-        self.metric_timing_start(f"atom:reference_create:serialize")
+        self.metrics_timing_start(f"atom:reference_create:serialize")
         for datum in data:
             # Get the key name for the reference to use in redis
             key = self._make_reference_id()
@@ -1615,13 +1635,13 @@ class Element:
             key = key + ":ser:" + (str(serialization) if serialization is not None else "none")
             _pipe.set(key, serialized_datum, px=px_val, nx=True)
             keys.append(key)
-        self.metric_timing_end(f"atom:reference_create:serialize", execute=False)
-        self.metric_timing_start(self.metric_timing_start(f"atom:reference_create:data"))
+        self.metrics_timing_end(f"atom:reference_create:serialize", pipeline=pipeline)
+        self.metrics_timing_start(self.metrics_timing_start(f"atom:reference_create:data"))
         response = _pipe.execute()
         _pipe = self._release_pipeline(_pipe)
-        self.metric_timing_end(f"atom:reference_create:serialize", execute=False)
-        self.metric_add((f"atom:reference_create:n", len(data)), execute=False)
-        self.metrics_flush()
+        self.metrics_timing_end(f"atom:reference_create:serialize", pipeline=pipeline)
+        self.metrics_add((f"atom:reference_create:n", len(data)), pipeline=pipeline)
+        self.metrics_write_pipeline(pipeline)
 
         if not all(response):
             raise ValueError(f"Failed to create reference! response {response}")
@@ -1661,11 +1681,14 @@ class Element:
             an error on failure.
         """
 
+        # Get a metrics pipeline
+        pipeline = self._get_metrics_pipeline()
+
         if self._stream_reference_sha is None:
             raise ValueError("Lua script not loaded -- unable to call reference_create_from_stream")
 
         if not self._metric_reference_create_from_stream[element][stream]:
-            self.metric_create(f"atom:reference_create_from_stream:data:{element}:{stream}", labels={"severity": "info", "type": "atom_reference_create_from_stream", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:reference_create_from_stream:data:{element}:{stream}", labels={"severity": "info", "type": "atom_reference_create_from_stream", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
 
             self._metric_reference_create_from_stream[element][stream] = True
 
@@ -1675,13 +1698,13 @@ class Element:
         # Get the stream we'll be reading from
         stream_name = self._make_stream_id(element, stream)
 
-        self.metric_timing_start(f"atom:reference_create_from_stream:data:{element}:{stream}")
+        self.metrics_timing_start(f"atom:reference_create_from_stream:data:{element}:{stream}")
         # Call the script to make a reference
         _pipe = self._rpipeline_pool.get()
         _pipe.evalsha(self._stream_reference_sha, 0, stream_name, stream_id, key, timeout_ms)
         data = _pipe.execute()
         _pipe = self._release_pipeline(_pipe)
-        self.metric_timing_end(f"atom:reference_create_from_stream:data:{element}:{stream}")
+        self.metrics_timing_end(f"atom:reference_create_from_stream:data:{element}:{stream}")
 
         if (type(data) != list) or (len(data) != 1) or (type(data[0]) != list):
             raise ValueError("Failed to make reference!")
@@ -1712,28 +1735,31 @@ class Element:
             List of items corresponding to each reference key passed as an argument
         """
 
+        # Get a metrics pipeline
+        pipeline = self._get_metrics_pipeline()
+
         if not self._metric_reference_get:
-            self.metric_create(f"atom:reference_get:data", labels={"severity": "info", "type": "atom_reference_get", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-            self.metric_create(f"atom:reference_get:deserialize", labels={"severity": "info", "type": "atom_reference_get", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-            self.metric_create(f"atom:reference_get:n", labels={"severity": "info", "type": "atom_reference_get", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+            self.metrics_create(f"atom:reference_get:data", labels={"severity": "info", "type": "atom_reference_get", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:reference_get:deserialize", labels={"severity": "info", "type": "atom_reference_get", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:reference_get:n", labels={"severity": "info", "type": "atom_reference_get", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
 
             self._metric_reference_get = True
 
 
         # Get the data
-        self.metric_timing_start(f"atom:reference_get:data")
+        self.metrics_timing_start(f"atom:reference_get:data")
         _pipe = self._rpipeline_pool.get()
         for key in keys:
             _pipe.get(key)
         data = _pipe.execute()
         _pipe = self._release_pipeline(_pipe)
-        self.metric_timing_end(f"atom:reference_get:data", execute=False)
+        self.metrics_timing_end(f"atom:reference_get:data", pipeline=pipeline)
 
         if type(data) is not list:
-            self.metrics_flush()
+            self.metrics_write_pipeline(pipeline)
             raise ValueError(f"Invalid response from redis: {data}")
 
-        self.metric_timing_start(f"atom:reference_get:deserialize")
+        self.metrics_timing_start(f"atom:reference_get:deserialize")
         deserialized_data = [ ]
         for key, ref in zip(keys, data):
             # look for serialization method in reference key first; if not present use user specified method
@@ -1756,8 +1782,8 @@ class Element:
 
             # Deserialize the data
             deserialized_data.append(ser.deserialize(ref, method=serialization) if ref is not None else None)
-        self.metric_timing_end(f"atom:reference_get:deserialize", execute=False)
-        self.metrics_flush()
+        self.metrics_timing_end(f"atom:reference_get:deserialize", pipeline=pipeline)
+        self.metrics_write_pipeline(pipeline)
 
         return deserialized_data
 
@@ -1838,19 +1864,22 @@ class Element:
 
         return data[0]
 
-    def metric_get_pipeline(self):
+    def metrics_get_pipeline(self):
         """
         Returns a metrics pipeline
         """
         if not self._metrics_enabled:
-            return False
+            return None
 
         return self._get_metrics_pipeline()
 
-
-    def metric_create(self, key, retention=60000, labels=None, rules=None, update=False, use_default_rules=False, default_agg_list=[]):
+    def metrics_create(self, key, retention=60000, labels=None, rules=None, update=False, use_default_rules=False, default_agg_list=[]):
         """
         Create a metric at the given key with retention and labels.
+
+        NOTE: not able to be done asynchronously -- there is too much internal
+        back and forth with the redis server. This call will always make
+        writes out to the metrics redis.
 
         Args:
             key (str): Key to use for the metric
@@ -1962,33 +1991,14 @@ class Element:
 
         return True
 
-    def metric_add(self, *metrics, use_curr_time=False, pipeline=None):
+    def metrics_add(self, *metrics, use_curr_time=False, pipeline=None):
         """
         Adds a metric at the given key with the given value. Timestamp
             can be set if desired, leaving at the default of '*' will result
             in using the redis-server's timestamp which is usually good enough.
 
-        NOTE: The metric MUST have been created with metric_create before calling
+        NOTE: The metric MUST have been created with metrics_create before calling
             metric_add. Otherwise, this will error out
-
-        NOTE: The execute argument is quite interesting! By default, we will
-        execute, which means we'll go ahead and transact the metric to the
-        redis server. This may not be something you want to do in the critical
-        path, however. So, we offer the option to add the command to the
-        pipeline but not execute it. This will then require an explicit call to
-        metrics_flush() which will iterate over all of the outstanding
-        pipelines and execute them, thereby flushing everyone's metrics. It's
-        recommended not to set execute=False unless you're in the critical
-        path of a timing-intense task and can't afford the network
-        transaction, but it's a nice feature to have to allow the metrics to
-        be buffered in-memory if that is a use case of yours. One thing that
-        will be affected by the execute=False will be the timestamp of your
-        packet if left as '*', i.e. the timestamp won't be recorded
-        until the metric hits the server so there will be some jitter/inaccuracy.
-        Due to this and due to the fact that two metrics hitting the server at the
-        same time will throw an error since they'll resolve to the same
-        timestamp we'll force the behvaior as if use_curr_time=True when
-        we set execute=False.
 
         Args:
             metrics: one or more (key, value, timestamp) tuples where the
@@ -2027,7 +2037,7 @@ class Element:
         madd_list = []
         for metric in metrics:
             if len(metric) == 2:
-                if use_curr_time or not execute:
+                if use_curr_time or pipeline != None:
                     timestamp_val = int(round(time.time() * 1000))
                 else:
                     timestamp_val = '*'
@@ -2055,19 +2065,9 @@ class Element:
         #   we need to extract the outer list here for simplicity.
         return data
 
-    def metrics_flush(self, pipeline, error_ok=None):
+    def metrics_write_pipeline(self, pipeline, error_ok=None):
         """
-        Attempt to execute all currently outstanding async pipelines, if any
-
-        NOTE: Not technically guaranteed to flush all stats. There's
-        a condition in the logic where as we're looping over the async
-        pool there is an async-style pipeline (or multiple) out in the
-        wild that will be returned to the pool when done. If this happens
-        then that particular pipeline will not be flushed. We shouldn't
-        be able to get into any terrible patterns here where such a pattern
-        always holds -- it's pretty unlikely to be the case (famous last
-        words). For now it's OK, we'll come back to it if it turns out to
-        be a problem.
+        Write out a pipeline
 
         return:
             list of lists. Each sublist in the return is the return of calling
@@ -2079,7 +2079,7 @@ class Element:
 
         return self._write_metrics_pipeline(pipeline, error_ok=error_ok)
 
-    def metric_timing_start(self, key):
+    def metrics_timing_start(self, key):
         """
         Simple helper function to do the keeping-track-of-time for
         timing-based metrics.
@@ -2089,7 +2089,7 @@ class Element:
         """
         self._metric_timing[key] = time.monotonic()
 
-    def metric_timing_end(self, key, pipeline=None):
+    def metrics_timing_end(self, key, pipeline=None):
         """
         Simple helper function to finish a time that was being kept
         track of and write out the metric
@@ -2098,4 +2098,4 @@ class Element:
             raise AtomError(f"key {key} timer not started!")
 
         delta = time.monotonic() - self._metric_timing[key]
-        self.metric_add((key, delta), pipeline=pipeline)
+        self.metrics_add((key, delta), pipeline=pipeline)
