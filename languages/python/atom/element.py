@@ -1196,18 +1196,18 @@ class Element:
         resp = None
         data = format_redis_py(data)
 
+        # If we haven't sent this command before, need to make the metrics
+        #   for it
+        if not self._metric_commands[element_name][cmd_name]:
+            self.metrics_create(f"atom:command_send:serialize:{element_name}:{cmd_name}", labels={"severity": "info", "type": "atom_command_send", "detail" : "serialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:command_send:runtime:{element_name}:{cmd_name}", labels={"severity": "info", "type": "atom_command_send", "detail" : "runtime"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:command_send:deserialize:{element_name}:{cmd_name}", labels={"severity": "info", "type": "atom_command_send", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:command_send:error:{element_name}:{cmd_name}", labels={"severity": "error", "type": "atom_command_send"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+
+            self._metric_commands[element_name][cmd_name] = True
+
         # Get a metrics pipeline
         with MetricsPipeline(self) as pipeline:
-
-            # If we haven't sent this command before, need to make the metrics
-            #   for it
-            if not self._metric_commands[element_name][cmd_name]:
-                self.metrics_create(f"atom:command_send:serialize:{element_name}:{cmd_name}", labels={"severity": "info", "type": "atom_command_send", "detail" : "serialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-                self.metrics_create(f"atom:command_send:runtime:{element_name}:{cmd_name}", labels={"severity": "info", "type": "atom_command_send", "detail" : "runtime"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-                self.metrics_create(f"atom:command_send:deserialize:{element_name}:{cmd_name}", labels={"severity": "info", "type": "atom_command_send", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-                self.metrics_create(f"atom:command_send:error:{element_name}:{cmd_name}", labels={"severity": "error", "type": "atom_command_send"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
-
-                self._metric_commands[element_name][cmd_name] = True
 
             # Send command to element's command stream
             if serialize is not None:  # check for deprecated legacy mode
@@ -1403,17 +1403,16 @@ class Element:
             List of dicts containing the data of the entries
         """
 
+        # If we haven't read this entry with read_n before, create the metrics
+        if not self._metric_entry_read_n[element_name][stream_name]:
+            self.metrics_create(f"atom:entry_read_n:data:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_n", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:entry_read_n:deserialize:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_n", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:entry_read_n:n:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_n", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+
+            self._metric_entry_read_n[element_name][stream_name] = True
+
         # Get a metrics pipeline
         with MetricsPipeline(self) as pipeline:
-
-            # If we haven't read this entry with read_n before, create the metrics
-            if not self._metric_entry_read_n[element_name][stream_name]:
-                self.metrics_create(f"atom:entry_read_n:data:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_n", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-                self.metrics_create(f"atom:entry_read_n:deserialize:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_n", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-                self.metrics_create(f"atom:entry_read_n:n:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_n", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
-
-                self._metric_entry_read_n[element_name][stream_name] = True
-
 
             entries = []
             stream_id = self._make_stream_id(element_name, stream_name)
@@ -1464,17 +1463,16 @@ class Element:
                                           using msgpack; defaults to None.
         """
 
+        # If we haven't read this entry with read_since before, create the metrics
+        if not self._metric_entry_read_since[element_name][stream_name]:
+            self.metrics_create(f"atom:entry_read_since:data:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_since", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:entry_read_since:deserialize:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_since", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:entry_read_since:n:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_since", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+
+            self._metric_entry_read_since[element_name][stream_name] = True
+
         # Get a metrics pipeline
         with MetricsPipeline(self) as pipeline:
-
-            # If we haven't read this entry with read_since before, create the metrics
-            if not self._metric_entry_read_since[element_name][stream_name]:
-                self.metrics_create(f"atom:entry_read_since:data:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_since", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-                self.metrics_create(f"atom:entry_read_since:deserialize:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_since", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-                self.metrics_create(f"atom:entry_read_since:n:{element_name}:{stream_name}", labels={"severity": "info", "type": "atom_entry_read_since", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
-
-                self._metric_entry_read_since[element_name][stream_name] = True
-
 
             streams, entries = {}, []
             stream_id = self._make_stream_id(element_name, stream_name)
@@ -1519,13 +1517,13 @@ class Element:
         Return: ID of item added to stream
         """
 
+        # If we haven't written this entry with entry_write before, make the metrics
+        if stream_name not in self.streams:
+            self.metrics_create(f"atom:entry_write:data:{stream_name}", labels={"severity": "info", "type": "atom_entry_write", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:entry_write:serialize:{stream_name}", labels={"severity": "info", "type": "atom_entry_write", "detail" : "serialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+
         # Get a metrics pipeline
         with MetricsPipeline(self) as pipeline:
-
-            # If we haven't written this entry with entry_write before, make the metrics
-            if stream_name not in self.streams:
-                self.metrics_create(f"atom:entry_write:data:{stream_name}", labels={"severity": "info", "type": "atom_entry_write", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-                self.metrics_create(f"atom:entry_write:serialize:{stream_name}", labels={"severity": "info", "type": "atom_entry_write", "detail" : "serialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
 
             self.streams.add(stream_name)
             field_data_map = format_redis_py(field_data_map)
@@ -1615,15 +1613,15 @@ class Element:
         """
         keys = []
 
+        if not self._metric_reference_create:
+            self.metrics_create(f"atom:reference_create:data", labels={"severity": "info", "type": "atom_reference_create", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:reference_create:serialize", labels={"severity": "info", "type": "atom_reference_create", "detail" : "serialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:reference_create:n", labels={"severity": "info", "type": "atom_reference_create", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+
+            self._metric_reference_create = True
+
         # Get a metrics pipeline
         with MetricsPipeline(self) as pipeline:
-
-            if not self._metric_reference_create:
-                self.metrics_create(f"atom:reference_create:data", labels={"severity": "info", "type": "atom_reference_create", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-                self.metrics_create(f"atom:reference_create:serialize", labels={"severity": "info", "type": "atom_reference_create", "detail" : "serialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-                self.metrics_create(f"atom:reference_create:n", labels={"severity": "info", "type": "atom_reference_create", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
-
-                self._metric_reference_create = True
 
             if serialize is not None:  # check for deprecated legacy mode
                 serialization = "msgpack" if serialize else None
@@ -1739,16 +1737,15 @@ class Element:
             List of items corresponding to each reference key passed as an argument
         """
 
+        if not self._metric_reference_get:
+            self.metrics_create(f"atom:reference_get:data", labels={"severity": "info", "type": "atom_reference_get", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:reference_get:deserialize", labels={"severity": "info", "type": "atom_reference_get", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:reference_get:n", labels={"severity": "info", "type": "atom_reference_get", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+
+            self._metric_reference_get = True
+
         # Get a metrics pipeline
         with MetricsPipeline(self) as pipeline:
-
-            if not self._metric_reference_get:
-                self.metrics_create(f"atom:reference_get:data", labels={"severity": "info", "type": "atom_reference_get", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-                self.metrics_create(f"atom:reference_get:deserialize", labels={"severity": "info", "type": "atom_reference_get", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-                self.metrics_create(f"atom:reference_get:n", labels={"severity": "info", "type": "atom_reference_get", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
-
-                self._metric_reference_get = True
-
 
             # Get the data
             self.metrics_timing_start(f"atom:reference_get:data")
@@ -1934,41 +1931,27 @@ class Element:
 
         # Try to make the key. Need to know if the key already exists in order
         #   to figure out if this will fail
-        _pipe = self._get_metrics_pipeline()
-        _pipe.create(_key, retention_msecs=retention, labels=_labels)
-        data = self._write_metrics_pipeline(_pipe, error_ok="TSDB: key already exists")
-
-        # If we failed to create the key it already exists. If
-        #   we want to update we'll go ahead and do so, otherwise
-        #   we will just fail out here.
-        if not data and not update:
-            return False
+        try:
+            self._mclient.create(_key, retention_msecs=retention, labels=_labels)
+        except redis.exceptions.ResponseError:
+            if not update:
+                return False
 
         # If we need to update the key, delete all existing rules
         #   and call ALTER to change retention and labels
         if update:
 
             # Need to get info about the key
-            _pipe = self._get_metrics_pipeline()
-            _pipe.info(_key)
-            data = self._write_metrics_pipeline(_pipe)
-            if not data:
-                return False
-
-            _pipe = self._get_metrics_pipeline()
+            data = self._mclient.info(_key)
 
             # If we have any rules, delete them
-            if len(data[0].rules) > 0:
-                for rule in data[0].rules:
-                    _pipe.deleterule(_key, rule[0])
+            if len(data.rules) > 0:
+                for rule in data.rules:
+                    self._mclient.deleterule(_key, rule[0])
 
             # Now we want to alter the rule to match our new retention and
             #   labels
-            _pipe.alter(_key, retention_msecs=retention, labels=_labels)
-
-            data = self._write_metrics_pipeline(_pipe)
-            if not data:
-                return False
+            self._mclient.alter(_key, retention_msecs=retention, labels=_labels)
 
         # If we want to use the default aggregation rules we just iterate
         #   over the time buckets and apply the aggregation types requested
@@ -1983,14 +1966,10 @@ class Element:
 
         # If we have new rules to add, add them
         if _rules:
-            _pipe = self._get_metrics_pipeline()
             for rule in _rules.keys():
                 rule_key = self._make_metric_id(self.name, rule)
-                _pipe.create(rule_key, retention_msecs=_rules[rule][2], labels=_labels)
-                _pipe.createrule(_key, rule_key, _rules[rule][0], _rules[rule][1])
-            data = self._write_metrics_pipeline(_pipe)
-            if not data:
-                return False
+                self._mclient.create(rule_key, retention_msecs=_rules[rule][2], labels=_labels)
+                self._mclient.createrule(_key, rule_key, _rules[rule][0], _rules[rule][1])
 
         return True
 
