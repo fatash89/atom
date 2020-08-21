@@ -1549,9 +1549,8 @@ class Element:
         keys = []
 
         if not self._metric_reference_create:
-            self.metrics_create(f"atom:reference_create:data", labels={"severity": "info", "type": "atom_reference_create", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:reference_create:data", labels={"severity": "info", "type": "atom_reference_create", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX", "COUNT"], update=True)
             self.metrics_create(f"atom:reference_create:serialize", labels={"severity": "info", "type": "atom_reference_create", "detail" : "serialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-            self.metrics_create(f"atom:reference_create:n", labels={"severity": "info", "type": "atom_reference_create", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
 
             self._metric_reference_create = True
 
@@ -1578,8 +1577,7 @@ class Element:
             self.metrics_timing_start(self.metrics_timing_start(f"atom:reference_create:data"))
             response = _pipe.execute()
             _pipe = self._release_pipeline(_pipe)
-            self.metrics_timing_end(f"atom:reference_create:serialize", pipeline=pipeline)
-            self.metrics_add((f"atom:reference_create:n", len(data)), pipeline=pipeline)
+            self.metrics_timing_end(f"atom:reference_create:data", pipeline=pipeline)
 
         if not all(response):
             raise ValueError(f"Failed to create reference! response {response}")
@@ -1623,7 +1621,7 @@ class Element:
             raise ValueError("Lua script not loaded -- unable to call reference_create_from_stream")
 
         if not self._metric_reference_create_from_stream[element][stream]:
-            self.metrics_create(f"atom:reference_create_from_stream:data:{element}:{stream}", labels={"severity": "info", "type": "atom_reference_create_from_stream", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:reference_create_from_stream:data:{element}:{stream}", labels={"severity": "info", "type": "atom_reference_create_from_stream", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX", "COUNT"], update=True)
 
             self._metric_reference_create_from_stream[element][stream] = True
 
@@ -1673,9 +1671,8 @@ class Element:
         """
 
         if not self._metric_reference_get:
-            self.metrics_create(f"atom:reference_get:data", labels={"severity": "info", "type": "atom_reference_get", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+            self.metrics_create(f"atom:reference_get:data", labels={"severity": "info", "type": "atom_reference_get", "detail" : "data"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX", "COUNT"], update=True)
             self.metrics_create(f"atom:reference_get:deserialize", labels={"severity": "info", "type": "atom_reference_get", "detail" : "deserialize"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
-            self.metrics_create(f"atom:reference_get:n", labels={"severity": "info", "type": "atom_reference_get", "detail" : "n"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
 
             self._metric_reference_get = True
 
