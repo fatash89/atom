@@ -1377,6 +1377,8 @@ class TestAtom():
         assert data.rules[avg_idx][1] == 86400
         assert data.rules[avg_idx][2] == b'AVG'
 
+        data = caller.metrics_create("some_metric", rules=rule_dict, labels=label_dict, update=True)
+        assert data == True
         rule_dict = {"some_metric_min" : ("min", 6000, 1000), "some_metric_max" : ("max", 5000, 10000)}
         label_dict = {"label1" : "elementary", "label2" : "robotics"}
         data = caller.metrics_create("some_metric", rules=rule_dict, labels=label_dict)

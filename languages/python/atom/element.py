@@ -1855,7 +1855,7 @@ class Element:
         # Only return the data that we care about (if any)
         return data
 
-    def metrics_create(self, key, retention=60000, labels=None, rules=None, update=False, use_default_rules=False, default_agg_list=[]):
+    def metrics_create(self, key, retention=60000, labels=None, rules={}, update=False, use_default_rules=False, default_agg_list=[]):
         """
         Create a metric at the given key with retention and labels.
 
@@ -1907,34 +1907,6 @@ class Element:
         # Add in the default labels
         _labels = self._metric_add_default_labels(labels)
 
-        # If using default rules, override the retention
-        if use_default_rules:
-            retention = METRICS_DEFAULT_RETENTION
-
-        # Try to make the key. Need to know if the key already exists in order
-        #   to figure out if this will fail
-        try:
-            self._mclient.create(_key, retention_msecs=retention, labels=_labels)
-        except redis.exceptions.ResponseError:
-            if not update:
-                return False
-
-        # If we need to update the key, delete all existing rules
-        #   and call ALTER to change retention and labels
-        if update:
-
-            # Need to get info about the key
-            data = self._mclient.info(_key)
-
-            # If we have any rules, delete them
-            if len(data.rules) > 0:
-                for rule in data.rules:
-                    self._mclient.deleterule(_key, rule[0])
-
-            # Now we want to alter the rule to match our new retention and
-            #   labels
-            self._mclient.alter(_key, retention_msecs=retention, labels=_labels)
-
         # If we want to use the default aggregation rules we just iterate
         #   over the time buckets and apply the aggregation types requested
         if use_default_rules:
@@ -1946,12 +1918,76 @@ class Element:
         else:
             _rules = rules
 
+        # If using default rules, override the retention
+        if use_default_rules:
+            retention = METRICS_DEFAULT_RETENTION
+
+        # Try to make the key. Need to know if the key already exists in order
+        #   to figure out if this will fail
+        key_exists = False
+        try:
+            data = self._mclient.create(_key, retention_msecs=retention, labels=_labels)
+        # Key already exists
+        except redis.exceptions.ResponseError:
+            key_exists = True
+
+        # If the key exists, do some updates
+        if key_exists:
+
+            # If we shouldn't be updating return out
+            if not update:
+                return False
+
+            # Update the retention milliseconds and labels
+            self._mclient.alter(_key, retention_msecs=retention, labels=_labels)
+
+            # Need to get info about the key
+            data = self._mclient.info(_key)
+
+            # If we have any rules, delete them
+            if len(data.rules) > 0:
+                for rule in data.rules:
+                    # if the rule is in our set of new rules, we want
+                    #   to remove it from our set of new rules since we can
+                    #   assume it's been set up properly
+                    rule_str = rule[0].decode('utf-8').replace(f"{self.name}:", "")
+                    if (
+                        (rule_str in _rules) and
+                        (rule[1] == _rules[rule_str][1]) and
+                        (rule[2].decode('utf-8').lower() == _rules[rule_str][0].lower())
+                    ):
+                        del _rules[rule_str]
+                    else:
+                        # Try to delete the rule since we don't need it anymore.
+                        #   if this fails we're likely in a race and someone else
+                        #   did it, NBD. No need to delete the stream itself. It'll
+                        #   age out with time.
+                        try:
+                            self._mclient.deleterule(_key, rule[0])
+                        except redis.exceptions.ResponseError:
+                            pass
+
+                    # If the rule key is at least correct, alter the retention
+                    #   and labels
+                    if rule_str in _rules:
+                        self._mclient.alter(rule[0].decode('utf-8'), retention_msecs=retention, labels=_labels)
+
         # If we have new rules to add, add them
-        if _rules:
-            for rule in _rules.keys():
-                rule_key = self._make_metric_id(self.name, rule)
+        for rule in _rules.keys():
+            rule_key = self._make_metric_id(self.name, rule)
+            # Try to make the aggregation stream. If this fails, we're in a race with
+            #   someone else and they beat us to it. NBD
+            try:
                 self._mclient.create(rule_key, retention_msecs=_rules[rule][2], labels=_labels)
+            except redis.exceptions.ResponseError:
+                pass
+
+            # Try to make the aggregation rule. If this fails, we're in a race with
+            #   someone else and they beat us to it. NBD
+            try:
                 self._mclient.createrule(_key, rule_key, _rules[rule][0], _rules[rule][1])
+            except redis.exceptions.ResponseError:
+                pass
 
         return True
 
