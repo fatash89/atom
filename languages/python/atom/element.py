@@ -352,69 +352,6 @@ class Element:
         self._rpipeline_pool.put(pipeline)
         return None
 
-    def _get_metrics_pipeline(self):
-        """
-        Get a pipeline for use in metrics. We'll try to reuse
-        a pipeline that needs flushing (i.e. called with pipeline=pipeline)
-        previously and then fall back on using a standard pipeline if not.
-
-        Args:
-            timeout (int, optional): Number of seconds to block on a get
-                from the pipeline pool. We should almost never see waits on
-                getting a pipeline but don't want to hang in the event it
-                does start happening
-
-        Return:
-            pipeline: the pipeline itself
-            len(pipeline): how much data is in the pipeline. This
-                will be needed to filter out other peoples' data
-                if it happened to be in your pipeline before your commands
-                were added.
-        """
-        try:
-            pipeline = self._mpipeline_pool.get(block=False)
-        except QueueEmpty:
-            self.log(LogLevel.ERR, "Failed to get metrics pipeline, something is very wrong!")
-            raise AtomError("Ran out of metrics pipelines!")
-
-        return pipeline
-
-    def _write_metrics_pipeline(self, pipeline, error_ok=None):
-        """
-        Release (and perhaps execute) a pipeline that was used for a metrics
-        call. If execute is TRUE we will execute the pipeline and return
-        it to the general pool. If execute is FALSE we will not execute the
-        pipeline and we will put it back into the async pool. Then, it will get
-        executed either when someone flushes or opportunistically by
-        the next person who releases a pipeline with execute=True.
-
-        Args:
-            pipeline: pipeline to release (return value 0 of _get_metrics_pipeline)
-            prev_len: previous length of the pipeline before we got it (return
-                value 1 of _get_metrics_pipeline)
-        """
-        data = None
-
-        try:
-            data = pipeline.execute()
-            pipeline.reset()
-            self._mpipeline_pool.put(pipeline)
-        #  KNOWN ISSUE WITH NO WORKAROUND: Adding two metrics values with the
-        #   same timestamp throws this error. We generally shouldn't hit this,
-        #   but if we do we shouldn't crash because of it -- lowing metrics
-        #   is not the end of the world here.
-        except redis.exceptions.ResponseError as e:
-            if error_ok and error_ok in str(e):
-                pass
-            else:
-                self.log(LogLevel.ERR, f"Failed to write metrics with exception {e}")
-
-            del pipeline
-            self._mpipeline_pool.put(self._mclient.pipeline())
-
-        # Only return the data that we care about (if any)
-        return data
-
     def _update_response_id_if_older(self, new_id):
         """
         Atomically update global response_last_id to new id, if timestamp on new id is more recent
@@ -1325,7 +1262,6 @@ class Element:
 
                 self._update_response_id_if_older(local_last_id)
                 if resp is not None:
-                    self.metrics_write_pipeline(pipeline)
                     return resp
 
                 # If the response we received wasn't for this command, keep trying until timeout
@@ -1482,7 +1418,6 @@ class Element:
             self.metrics_timing_end(f"atom:entry_read_since:data:{element_name}:{stream_name}", pipeline=pipeline)
             stream_names = [x[0].decode() for x in stream_entries]
             if not stream_entries or stream_id not in stream_names:
-                self.metrics_write_pipeline(pipeline)
                 return entries
             self.metrics_timing_start(f"atom:entry_read_since:deserialize:{element_name}:{stream_name}")
             for key, msgs in stream_entries:
@@ -1757,7 +1692,6 @@ class Element:
             self.metrics_timing_end(f"atom:reference_get:data", pipeline=pipeline)
 
             if type(data) is not list:
-                self.metrics_write_pipeline(pipeline)
                 raise ValueError(f"Invalid response from redis: {data}")
 
             self.metrics_timing_start(f"atom:reference_get:deserialize")
@@ -1866,12 +1800,60 @@ class Element:
 
     def metrics_get_pipeline(self):
         """
-        Returns a metrics pipeline
+        Get a pipeline for use in metrics.
+
+        Return:
+            pipeline: the pipeline itself
         """
         if not self._metrics_enabled:
             return None
 
-        return self._get_metrics_pipeline()
+        try:
+            pipeline = self._mpipeline_pool.get(block=False)
+        except QueueEmpty:
+            self.log(LogLevel.ERR, "Failed to get metrics pipeline, something is very wrong!")
+            raise AtomError("Ran out of metrics pipelines!")
+
+        return pipeline
+
+    def metrics_write_pipeline(self, pipeline, error_ok=None):
+        """
+        Release (and perhaps execute) a pipeline that was used for a metrics
+        call. If execute is TRUE we will execute the pipeline and return
+        it to the general pool. If execute is FALSE we will not execute the
+        pipeline and we will put it back into the async pool. Then, it will get
+        executed either when someone flushes or opportunistically by
+        the next person who releases a pipeline with execute=True.
+
+        Args:
+            pipeline: pipeline to release (return value 0 of metrics_get_pipeline)
+            prev_len: previous length of the pipeline before we got it (return
+                value 1 of metrics_get_pipeline)
+        """
+        if not self._metrics_enabled:
+            return None
+
+        data = None
+
+        try:
+            data = pipeline.execute()
+            pipeline.reset()
+            self._mpipeline_pool.put(pipeline)
+        #  KNOWN ISSUE WITH NO WORKAROUND: Adding two metrics values with the
+        #   same timestamp throws this error. We generally shouldn't hit this,
+        #   but if we do we shouldn't crash because of it -- lowing metrics
+        #   is not the end of the world here.
+        except redis.exceptions.ResponseError as e:
+            if error_ok and error_ok in str(e):
+                pass
+            else:
+                self.log(LogLevel.ERR, f"Failed to write metrics with exception {e}")
+
+            del pipeline
+            self._mpipeline_pool.put(self._mclient.pipeline())
+
+        # Only return the data that we care about (if any)
+        return data
 
     def metrics_create(self, key, retention=60000, labels=None, rules=None, update=False, use_default_rules=False, default_agg_list=[]):
         """
@@ -2011,7 +1993,7 @@ class Element:
             return None
 
         if not pipeline:
-            _pipe = self._get_metrics_pipeline()
+            _pipe = self.metrics_get_pipeline()
         else:
             _pipe = pipeline
 
@@ -2034,7 +2016,7 @@ class Element:
 
         data = None
         if not pipeline:
-            data = self._write_metrics_pipeline(_pipe)
+            data = self.metrics_write_pipeline(_pipe)
 
             if data:
                 for i, val in enumerate(data):
@@ -2046,20 +2028,6 @@ class Element:
         # Since we're using madd instead of add (in order to not auto-create)
         #   we need to extract the outer list here for simplicity.
         return data
-
-    def metrics_write_pipeline(self, pipeline, error_ok=None):
-        """
-        Write out a pipeline
-
-        return:
-            list of lists. Each sublist in the return is the return of calling
-            execute on any outstanding pipeline. Length of the list returned
-            is equal to the number of pipelines flushed.
-        """
-        if not self._metrics_enabled:
-            return None
-
-        return self._write_metrics_pipeline(pipeline, error_ok=error_ok)
 
     def metrics_timing_start(self, key):
         """
