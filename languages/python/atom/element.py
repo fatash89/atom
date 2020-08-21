@@ -2062,6 +2062,18 @@ class Element:
         #   we need to extract the outer list here for simplicity.
         return data
 
+    def _metrics_get_timing_key(self, key):
+        """
+        Get a key to be used in the timing lookup dict
+
+        Args:
+            key: User-supplied key
+
+        Returns:
+            db_key (string): String to use as lookup in the timing dict
+        """
+        return f"{threading.get_ident()}:{key}"
+
     def metrics_timing_start(self, key):
         """
         Simple helper function to do the keeping-track-of-time for
@@ -2070,15 +2082,16 @@ class Element:
         Args:
             key (string): Key we want to start tracking timing for
         """
-        self._metric_timing[key] = time.monotonic()
+        self._metric_timing[self._metrics_get_timing_key(key)] = time.monotonic()
 
     def metrics_timing_end(self, key, pipeline=None):
         """
         Simple helper function to finish a time that was being kept
         track of and write out the metric
         """
-        if key not in self._metric_timing:
-            raise AtomError(f"key {key} timer not started!")
+        db_key = self._metrics_get_timing_key(key)
+        if db_key not in self._metric_timing:
+            raise AtomError(f"key {db_key} timer not started!")
 
-        delta = time.monotonic() - self._metric_timing[key]
-        self.metrics_add((key, delta), pipeline=pipeline)
+        delta = time.monotonic() - self._metric_timing[db_key]
+        self.metrics_add((db_key, delta), pipeline=pipeline)
