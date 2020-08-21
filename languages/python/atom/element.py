@@ -397,6 +397,8 @@ class Element:
 
         try:
             data = pipeline.execute()
+            pipeline.reset()
+            self._mpipeline_pool.put(pipeline)
         #  KNOWN ISSUE WITH NO WORKAROUND: Adding two metrics values with the
         #   same timestamp throws this error. We generally shouldn't hit this,
         #   but if we do we shouldn't crash because of it -- lowing metrics
@@ -407,8 +409,8 @@ class Element:
             else:
                 self.log(LogLevel.ERR, f"Failed to write metrics with exception {e}")
 
-        pipeline.reset()
-        self._mpipeline_pool.put(pipeline)
+            del pipeline
+            self._mpipeline_pool.put(self._mclient.pipeline())
 
         # Only return the data that we care about (if any)
         return data
