@@ -2458,4 +2458,4 @@ class Element:
             raise AtomError(f"key {db_key} timer not started!")
 
         delta = time.monotonic() - self._active_timing_metrics[db_key]
-        self.metrics_add(db_key, delta, pipeline=pipeline)
+        self.metrics_add(key, delta, pipeline=pipeline)
