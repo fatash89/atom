@@ -234,6 +234,8 @@ class Element:
         # Init a default healthcheck, overridable
         # By default, if no healthcheck is set, we assume everything is ok and return error code 0
         self.healthcheck_set(lambda: Response())
+        # Need to make sure we have metrics on the healthcheck command
+        self._command_add_init_metrics(HEALTHCHECK_COMMAND)
 
         # Init a version check callback which reports our language/version
         current_major_version = ".".join(VERSION.split(".")[:-1])
@@ -690,7 +692,7 @@ class Element:
         )
         self._command_metrics[name]["unhandled"] = self.metrics_create(
             MetricsLevel.CRIT,
-            "atom:command", "unhandled_error", name,
+            "atom:command", "unhandled", name,
             agg_types=["SUM"]
         )
         self._command_metrics[name]["error"] = self.metrics_create(
@@ -937,9 +939,9 @@ class Element:
             "atom:command_loop", worker_num, "unsupported_command",
             labels={"worker" : f"{worker_num}"}, agg_types=["SUM"]
         )
-        self._command_loop_metrics[worker_num]["callback_unhandled_error"] = self.metrics_create(
+        self._command_loop_metrics[worker_num]["unhandled"] = self.metrics_create(
             MetricsLevel.CRIT,
-            "atom:command_loop", worker_num, "unhandled_error",
+            "atom:command_loop", worker_num, "unhandled",
             labels={"worker" : f"{worker_num}"}, agg_types=["SUM"]
         )
         self._command_loop_metrics[worker_num]["failed"] = self.metrics_create(
@@ -1118,8 +1120,8 @@ class Element:
                                 err_str="encountered an internal exception "
                                         "during command execution: %s" % (cmd_name,)
                             )
-                            self.metrics_add(self._command_loop_metrics[worker_num]["unhandled_error"], 1, pipeline=pipeline)
-                            self.metrics_add(self._command_metrics[cmd_name]["unhandled_error"], 1, pipeline=pipeline)
+                            self.metrics_add(self._command_loop_metrics[worker_num]["unhandled"], 1, pipeline=pipeline)
+                            self.metrics_add(self._command_metrics[cmd_name]["unhandled"], 1, pipeline=pipeline)
 
                     else:
                         # healthcheck/version requests/command_list commands don't
@@ -1135,7 +1137,7 @@ class Element:
                     if isinstance(response, Response):
                         if response.err_code != 0:
                             response.err_code += ATOM_USER_ERRORS_BEGIN
-                            self.metrics_add((f"atom:command:error:{cmd_name}", 1), pipeline=pipeline)
+                            self.metrics_add(self._command_metrics[cmd_name]["error"], 1, pipeline=pipeline)
 
                     else:
                         response = Response(
@@ -1204,39 +1206,39 @@ class Element:
         if block:
             self._command_loop_join(join_timeout=join_timeout)
 
-    def _command_send_init_metrics(self, element_name, command_name):
+    def _command_send_init_metrics(self, element_name, cmd_name):
         """
         Create all of the metrics for a command send call
 
         Args:
             element_name (str): Name of the element we're calling
-            command_name (str): Name of the command we're calling
+            cmd_name (str): Name of the command we're calling
         """
 
         # If we already have something non-None in there, return out
-        if self._command_send_metrics[element_name][command_name]:
+        if self._command_send_metrics[element_name][cmd_name]:
             return
 
         # Otherwise, we proceed and make the metrics and their dictionary
 
-        self._command_send_metrics[element_name][command_name] = {}
+        self._command_send_metrics[element_name][cmd_name] = {}
 
-        self._command_send_metrics[element_name][command_name]["serialize"] = self.metrics_create(
+        self._command_send_metrics[element_name][cmd_name]["serialize"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:command_send", "serialize", element_name, cmd_name,
             agg_types=["AVG", "MIN", "MAX"]
         )
-        self._command_send_metrics[element_name][command_name]["runtime"] = self.metrics_create(
+        self._command_send_metrics[element_name][cmd_name]["runtime"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:command_send", "runtime", element_name, cmd_name,
             agg_types=["AVG", "MIN", "MAX"]
         )
-        self._command_send_metrics[element_name][command_name]["deserialize"] = self.metrics_create(
+        self._command_send_metrics[element_name][cmd_name]["deserialize"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:command_send", "deserialize", element_name, cmd_name,
             agg_types=["AVG", "MIN", "MAX"]
         )
-        self._command_send_metrics[element_name][command_name]["error"] = self.metrics_create(
+        self._command_send_metrics[element_name][cmd_name]["error"] = self.metrics_create(
             MetricsLevel.ERROR,
             "atom:command_send", "error", element_name, cmd_name,
             agg_types=["SUM"]
@@ -1473,17 +1475,17 @@ class Element:
 
         self._entry_read_n_metrics[element_name][stream_name] = {}
 
-        self._entry_read_n_metrics[element_name][stream_name] = self.metrics_create(
+        self._entry_read_n_metrics[element_name][stream_name]["data"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:entry_read_n", "data", element_name, stream_name,
-            lagg_types=["AVG", "MIN", "MAX"]
+            agg_types=["AVG", "MIN", "MAX"]
         )
-        self._entry_read_n_metrics[element_name][stream_name] = self.metrics_create(
+        self._entry_read_n_metrics[element_name][stream_name]["deserialize"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:entry_read_n", "deserialize", element_name, stream_name,
             agg_types=["AVG", "MIN", "MAX"]
         )
-        self._entry_read_n_metrics[element_name][stream_name] = self.metrics_create(
+        self._entry_read_n_metrics[element_name][stream_name]["n"] = self.metrics_create(
             MetricsLevel.INFO,
             "atom:entry_read_n", "n", element_name, stream_name,
             agg_types=["SUM"]
@@ -1536,7 +1538,7 @@ class Element:
             self.metrics_timing_end(self._entry_read_n_metrics[element_name][stream_name]["deserialize"], pipeline=pipeline)
 
             # Note we read entries
-            self.metrics_add(self._entry_read_n_metrics[element_name][stream_name]["n"], len(uuid_entries), pipeline=pipeline)
+            self.metrics_add(self._entry_read_n_metrics[element_name][stream_name]["n"], len(uid_entries), pipeline=pipeline)
 
         return entries
 
@@ -1556,17 +1558,17 @@ class Element:
 
         self._entry_read_since_metrics[element_name][stream_name] = {}
 
-        self._entry_read_since_metrics[element_name][stream_name] = self.metrics_create(
+        self._entry_read_since_metrics[element_name][stream_name]["data"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:entry_read_since", "data", element_name, stream_name,
-            lagg_types=["AVG", "MIN", "MAX"]
+            agg_types=["AVG", "MIN", "MAX"]
         )
-        self._entry_read_since_metrics[element_name][stream_name] = self.metrics_create(
+        self._entry_read_since_metrics[element_name][stream_name]["deserialize"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:entry_read_since", "deserialize", element_name, stream_name,
             agg_types=["AVG", "MIN", "MAX"]
         )
-        self._entry_read_since_metrics[element_name][stream_name] = self.metrics_create(
+        self._entry_read_since_metrics[element_name][stream_name]["n"] = self.metrics_create(
             MetricsLevel.INFO,
             "atom:entry_read_n", "n", element_name, stream_name,
             agg_types=["SUM"]
@@ -1633,7 +1635,7 @@ class Element:
             self.metrics_timing_end(self._entry_read_since_metrics[element_name][stream_name]["data"], pipeline=pipeline)
 
             # Note we read the entries
-            self.metrics_timing_add(self._entry_read_since_metrics[element_name][stream_name]["n"], len(stream_entries), pipeline=pipeline)
+            self.metrics_add(self._entry_read_since_metrics[element_name][stream_name]["n"], len(stream_entries), pipeline=pipeline)
 
         return entries
 
@@ -1651,14 +1653,14 @@ class Element:
 
         self._entry_write_metrics[stream_name] = {}
 
-        self._entry_write_metrics[stream_name] = self.metrics_create(
+        self._entry_write_metrics[stream_name]["data"] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:entry_write", data, stream_name,
+            "atom:entry_write", "data", stream_name,
             agg_types=["AVG", "MIN", "MAX"]
         )
-        self._entry_write_metrics[stream_name] = self.metrics_create(
+        self._entry_write_metrics[stream_name]["serialize"] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:entry_write", serialize, stream_name,
+            "atom:entry_write", "serialize", stream_name,
             agg_types=["AVG", "MIN", "MAX"]
         )
 
@@ -2372,7 +2374,7 @@ class Element:
             timestamp = int(round(time.time() * 1000))
 
         # Add to the pipeline
-        _pipe.madd(((key, timestamp, value),))
+        _pipe.madd(((key, timestamp, val),))
 
         data = None
         if not pipeline:
@@ -2456,4 +2458,4 @@ class Element:
             raise AtomError(f"key {db_key} timer not started!")
 
         delta = time.monotonic() - self._active_timing_metrics[db_key]
-        self.metrics_add((db_key, delta), pipeline=pipeline)
+        self.metrics_add(db_key, delta, pipeline=pipeline)
