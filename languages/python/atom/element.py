@@ -19,7 +19,8 @@ from atom.config import LANG, VERSION, ACK_TIMEOUT, RESPONSE_TIMEOUT, STREAM_LEN
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESPONSE
 from atom.config import ATOM_COMMAND_UNSUPPORTED, ATOM_CALLBACK_FAILED, ATOM_USER_ERRORS_BEGIN, ATOM_INTERNAL_ERROR
 from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND, REDIS_PIPELINE_POOL_SIZE, COMMAND_LIST_COMMAND
-from atom.config import METRICS_ELEMENT_LABEL
+from atom.config import METRICS_TYPE_LABEL, METRICS_HOST_LABEL, METRICS_ATOM_VERSION_LABEL, METRICS_SUBTYPE_LABEL, METRICS_DEVICE_LABEL
+from atom.config import VERSION
 from atom.messages import Cmd, Response, StreamHandler, format_redis_py
 from atom.messages import Acknowledge, Entry, Log, LogLevel, ENTRY_RESERVED_KEYS
 import atom.serialization as ser
@@ -31,21 +32,16 @@ RESERVED_COMMANDS = [
     HEALTHCHECK_COMMAND
 ]
 
-# Reserved metrics labels
-RESERVED_METRICS_LABELS = [
-    METRICS_ELEMENT_LABEL
-]
-
 # Metrics default retention -- 1 day on raw data
 METRICS_DEFAULT_RETENTION = 86400000
 # Metrics default aggregation rules
 METRICS_DEFAULT_AGG_RULES = [
     # Keep data in 10m buckets for 3 days
-    ("10m", 600000,  259200000),
+    (600000,  259200000),
     # Then keep data in 1h buckets for 30 days
-    ("01h", 3600000, 2592000000),
+    (3600000, 2592000000),
     # Then keep data in 1d buckets for 365 days
-    ("24h", 86400000, 31536000000),
+    (86400000, 31536000000),
 ]
 
 class ElementConnectionTimeoutError(redis.exceptions.TimeoutError):
@@ -435,11 +431,15 @@ class Element:
             key_str += f":{subtype}"
         return key_str
 
-    def _metric_add_default_labels(self, labels):
+    def _metrics_add_default_labels(self, labels, m_type, *m_subtypes):
         """
-        Adds the default labels that come at an element-level. For now
-            only the element name but in the future should add in the
-            device ID and/or compute running on, etc.
+        Adds the default labels that come from atom. Default labels will
+        be things such as the element, perhaps host, type and all subtypes
+
+        Args:
+            labels: Original dictionary of labels
+            m_type: Type of the metric
+            m_subtypes: List of subtypes for the metric
 
         Raises:
             AtomError: if a reserved label key is used
@@ -448,12 +448,18 @@ class Element:
         # Make the default labels
         default_labels = {}
         default_labels[METRICS_ELEMENT_LABEL] = self.name
+        default_labels[METRICS_TYPE_LABEL] = m_type
+        default_labels[METRICS_HOST_LABEL] = os.uname()[-1]
+        default_labels[METRICS_ATOM_VERSION_LABEL] = VERSION
+        default_labels[METRICS_DEVICE_LABEL] = os.getenv("ATOM_DEVICE_ID", "")
+        for i, subtype in enumerate(m_subtypes):
+            default_labels[METRICS_SUBTYPE_LABEL + str(i)] = subtype
 
         # If we have pre-existing labels, make sure they don't have any
         #   reserved keys and then return the combined dictionaries
         if labels:
             for label in labels:
-                if label in RESERVED_METRICS_LABELS:
+                if label in default_labels:
                     raise AtomError(f"'{label}' is a reserved key in labels")
 
             return {**labels, **default_labels}
@@ -1855,7 +1861,7 @@ class Element:
         # Only return the data that we care about (if any)
         return data
 
-    def metrics_create_direct(self, key retention=60000, labels=None, rules={}, update=False):
+    def metrics_create_custom(self, key, retention=60000, labels=None, rules={}, update=True):
         """
         Create a metric at the given key with retention and labels. This is a
         direct interface to the redis time series API. It's generally not
@@ -1881,19 +1887,84 @@ class Element:
                     [1]: aggregation time bucket (int, milliseconds over which to perform aggregation)
                     [2]: aggregation retention, i.e. how long to keep this aggregated stat for
             update (boolean, optional): We will call TS.CREATE to attempt to
-                create the key. If this is FALSE (default) we'll return TRUE. If this
-                is set to TRUE, then if the key already exists we'll do the following:
-                    1. call TS.INFO on the key to ket its current labels and rules
-                    2. call TS.ALTER to set the new retention value and labels
-                    3. delete all existing rules
-                    4. Add in the new rules
-                This should result in the key matching the spec provided without
-                    ever causing a failed insert on the key as it will always
-                    exist and the key is never deleted.
+                create the key. If this is false and the key exists we'll
+                return out. Otherwise we'll update the key.
 
         Return:
             boolean, true on success
         """
+
+        if not self._metrics_enabled:
+            return False
+
+        # Try to make the key. Need to know if the key already exists in order
+        #   to figure out if this will fail
+        key_exists = False
+        try:
+            data = self._mclient.create(key, retention_msecs=retention, labels=labels)
+        # Key already exists
+        except redis.exceptions.ResponseError:
+            key_exists = True
+
+        # If the key exists, do some updates
+        if key_exists:
+
+            # If we shouldn't be updating return out
+            if not update:
+                return False
+
+            # Update the retention milliseconds and labels
+            self._mclient.alter(key, retention_msecs=retention, labels=labels)
+
+            # Need to get info about the key
+            data = self._mclient.info(key)
+
+            # If we have any rules, delete them
+            if len(data.rules) > 0:
+                for rule in data.rules:
+                    # if the rule is in our set of new rules, we want
+                    #   to remove it from our set of new rules since we can
+                    #   assume it's been set up properly
+                    rule_str = rule[0].decode('utf-8').replace(f"{self.name}:", "")
+                    if (
+                        (rule_str in rules) and
+                        (rule[1] == rules[rule_str][1]) and
+                        (rule[2].decode('utf-8').lower() == rules[rule_str][0].lower())
+                    ):
+                        del rules[rule_str]
+                    else:
+                        # Try to delete the rule since we don't need it anymore.
+                        #   if this fails we're likely in a race and someone else
+                        #   did it, NBD. No need to delete the stream itself. It'll
+                        #   age out with time.
+                        try:
+                            self._mclient.deleterule(key, rule[0])
+                        except redis.exceptions.ResponseError:
+                            pass
+
+                    # If the rule key is at least correct, alter the retention
+                    #   and labels
+                    if rule_str in rules:
+                        self._mclient.alter(rule[0].decode('utf-8'), retention_msecs=retention, labels=labels)
+
+        # If we have new rules to add, add them
+        for rule in rules.keys():
+            rulekey = self._make_metric_id(self.name, rule, m_type, *m_subtypes)
+            # Try to make the aggregation stream. If this fails, we're in a race with
+            #   someone else and they beat us to it. NBD
+            try:
+                self._mclient.create(rulekey, retention_msecs=rules[rule][2], labels=labels)
+            except redis.exceptions.ResponseError:
+                pass
+
+            # Try to make the aggregation rule. If this fails, we're in a race with
+            #   someone else and they beat us to it. NBD
+            try:
+                self._mclient.createrule(key, rule_key, rules[rule][0], rules[rule][1])
+            except redis.exceptions.ResponseError:
+                pass
+
+        return True
 
     def metrics_create(self, m_type, *m_subtypes, retention=60000, labels=None, agg_timing=METRICS_DEFAULT_AGGREGATION_TIMING, agg_types=[], update=True):
         """
@@ -1913,31 +1984,23 @@ class Element:
             retention (int, optional): How long to keep data for the metric,
                 in milliseconds. Default 60000ms == 1 minute. Be careful with
                 this, it will grow unbounded if set to 0.
-            labels (dictionary, optional): Optional labels to add to the
+            labels (dictionary, optional): Optional additional labels to add to the
                 data. Each key should be a string and each value should also
-                be a string.
-            rules (dictionary, optional): Optional dictionary of rules to apply
-                to the metric using TS.CREATERULE (https://oss.redislabs.com/redistimeseries/commands/#tscreaterule)
-                Each key in the dictionary should be a new time series key and
-                the value should be a tuple with the following items:
-                    [0]: aggregation type (str, one of: avg, sum, min, max, range, count, first, last, std.p, std.s, var.p, var.s)
-                    [1]: aggregation time bucket (int, milliseconds over which to perform aggregation)
-                    [2]: aggregation retention, i.e. how long to keep this aggregated stat for
+                be a string. All default atom labels will be added
+            agg_timing (list of tuples, optional): List of tuples where
+                each tuple has the following fields:
+                    [0]: Time bucket
+                    [1]: Retention
+            agg_types (list of strings, optional): List of strings. For each
+                aggregation type in this list, rules will be set up for each
+                of the timings in the timing lists.
             update (boolean, optional): We will call TS.CREATE to attempt to
-                create the key. If this is FALSE (default) we'll return TRUE. If this
-                is set to TRUE, then if the key already exists we'll do the following:
-                    1. call TS.INFO on the key to ket its current labels and rules
-                    2. call TS.ALTER to set the new retention value and labels
-                    3. delete all existing rules
-                    4. Add in the new rules
-                This should result in the key matching the spec provided without
-                    ever causing a failed insert on the key as it will always
-                    exist and the key is never deleted.
+                create the key. If this is false and the key exists we'll
+                return out. Otherwise we'll update the key.
 
         Return:
             boolean, true on success
         """
-
 
         if not self._metrics_enabled:
             return False
@@ -1945,91 +2008,17 @@ class Element:
         # Replace the user-passed key with the metric ID
         _key = self._make_metric_id(self.name, m_type, *m_subtypes)
         # Add in the default labels
-        _labels = self._metric_add_default_labels(labels)
+        _labels = self._metrics_add_default_labels(labels, m_type, *m_subtypes)
 
         # If we want to use the default aggregation rules we just iterate
         #   over the time buckets and apply the aggregation types requested
-        if use_default_rules:
-            _rules = {}
-            for agg in default_agg_list:
-                for rule in METRICS_DEFAULT_AGG_RULES:
-                    _rules[f"{key}:{rule[0]}:{agg}"] = (agg, rule[1], rule[2])
-        # Otherwise we'll use the raw rules the user gave us
-        else:
-            _rules = rules
+        _rules = {}
+        for agg in agg_types:
+            for timing in agg_timing:
+                _rule_key = self._make_metric_id(self.name, m_type, *m_subtypes, agg)
+                _rules[_rule_key] = (agg, timing[0], timing[1])
 
-        # If using default rules, override the retention
-        if use_default_rules:
-            retention = METRICS_DEFAULT_RETENTION
-
-        # Try to make the key. Need to know if the key already exists in order
-        #   to figure out if this will fail
-        key_exists = False
-        try:
-            data = self._mclient.create(_key, retention_msecs=retention, labels=_labels)
-        # Key already exists
-        except redis.exceptions.ResponseError:
-            key_exists = True
-
-        # If the key exists, do some updates
-        if key_exists:
-
-            # If we shouldn't be updating return out
-            if not update:
-                return False
-
-            # Update the retention milliseconds and labels
-            self._mclient.alter(_key, retention_msecs=retention, labels=_labels)
-
-            # Need to get info about the key
-            data = self._mclient.info(_key)
-
-            # If we have any rules, delete them
-            if len(data.rules) > 0:
-                for rule in data.rules:
-                    # if the rule is in our set of new rules, we want
-                    #   to remove it from our set of new rules since we can
-                    #   assume it's been set up properly
-                    rule_str = rule[0].decode('utf-8').replace(f"{self.name}:", "")
-                    if (
-                        (rule_str in _rules) and
-                        (rule[1] == _rules[rule_str][1]) and
-                        (rule[2].decode('utf-8').lower() == _rules[rule_str][0].lower())
-                    ):
-                        del _rules[rule_str]
-                    else:
-                        # Try to delete the rule since we don't need it anymore.
-                        #   if this fails we're likely in a race and someone else
-                        #   did it, NBD. No need to delete the stream itself. It'll
-                        #   age out with time.
-                        try:
-                            self._mclient.deleterule(_key, rule[0])
-                        except redis.exceptions.ResponseError:
-                            pass
-
-                    # If the rule key is at least correct, alter the retention
-                    #   and labels
-                    if rule_str in _rules:
-                        self._mclient.alter(rule[0].decode('utf-8'), retention_msecs=retention, labels=_labels)
-
-        # If we have new rules to add, add them
-        for rule in _rules.keys():
-            rule_key = self._make_metric_id(self.name, rule, m_type, *m_subtypes)
-            # Try to make the aggregation stream. If this fails, we're in a race with
-            #   someone else and they beat us to it. NBD
-            try:
-                self._mclient.create(rule_key, retention_msecs=_rules[rule][2], labels=_labels)
-            except redis.exceptions.ResponseError:
-                pass
-
-            # Try to make the aggregation rule. If this fails, we're in a race with
-            #   someone else and they beat us to it. NBD
-            try:
-                self._mclient.createrule(_key, rule_key, _rules[rule][0], _rules[rule][1])
-            except redis.exceptions.ResponseError:
-                pass
-
-        return True
+        return self.metrics_create_custom(_key, retention=retention, labels=_labels, rules=_rules, update=update)
 
     def metrics_add(self, value, m_type, *m_subtypes, timestamp='*', use_curr_time=False, pipeline=None):
         """

@@ -13,6 +13,12 @@ HEALTHCHECK_COMMAND = "healthcheck"
 VERSION_COMMAND = "version"
 COMMAND_LIST_COMMAND = "command_list"
 METRICS_ELEMENT_LABEL = "element"
+METRICS_TYPE_LABEL = "type"
+METRICS_HOST_LABEL = "container"
+METRICS_ATOM_VERSION_LABEL = "version"
+METRICS_SUBTYPE_LABEL = "subtype"
+METRICS_DEVICE_LABEL = "device"
+VERSION = "1.7.2"
 
 # Error codes
 ATOM_NO_ERROR = 0
