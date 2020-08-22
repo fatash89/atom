@@ -1,3 +1,5 @@
+import enum
+
 LANG = "Python"
 ACK_TIMEOUT = 1000
 RESPONSE_TIMEOUT = 1000
@@ -40,6 +42,8 @@ METRICS_HOST_LABEL = "container"
 METRICS_ATOM_VERSION_LABEL = "version"
 METRICS_SUBTYPE_LABEL = "subtype"
 METRICS_DEVICE_LABEL = "device"
+METRICS_LANGUAGE_LABEL = "language"
+METRICS_LEVEL_LABEL = "level"
 # Metrics default retention -- 1 day on raw data
 METRICS_DEFAULT_RETENTION = 86400000
 # Metrics default aggregation rules
@@ -51,3 +55,15 @@ METRICS_DEFAULT_AGG_RULES = [
     # Then keep data in 1d buckets for 365 days
     (86400000, 31536000000),
 ]
+
+# Metrics logging levels
+Class MetricsLevel(Enum):
+    EMERG = 0
+    ALERT = 1
+    CRIT = 2
+    ERROR = 3
+    WARN = 4
+    NOTICE = 5
+    INFO = 6
+    TIMING = 7
+    DEBUG = 8
