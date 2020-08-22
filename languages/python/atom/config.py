@@ -9,15 +9,6 @@ HEALTHCHECK_RETRY_INTERVAL = 5
 REDIS_PIPELINE_POOL_SIZE = 20
 DEFAULT_REDIS_SOCKET = "/shared/redis.sock"
 DEFAULT_METRICS_SOCKET = "/shared/metrics.sock"
-HEALTHCHECK_COMMAND = "healthcheck"
-VERSION_COMMAND = "version"
-COMMAND_LIST_COMMAND = "command_list"
-METRICS_ELEMENT_LABEL = "element"
-METRICS_TYPE_LABEL = "type"
-METRICS_HOST_LABEL = "container"
-METRICS_ATOM_VERSION_LABEL = "version"
-METRICS_SUBTYPE_LABEL = "subtype"
-METRICS_DEVICE_LABEL = "device"
 VERSION = "1.7.2"
 
 # Error codes
@@ -31,3 +22,32 @@ ATOM_COMMAND_UNSUPPORTED = 6
 ATOM_CALLBACK_FAILED = 7
 ATOM_LANGUAGE_ERRORS_BEGIN = 100
 ATOM_USER_ERRORS_BEGIN = 1000
+
+# Reserved Commands
+HEALTHCHECK_COMMAND = "healthcheck"
+VERSION_COMMAND = "version"
+COMMAND_LIST_COMMAND = "command_list"
+RESERVED_COMMANDS = [
+    COMMAND_LIST_COMMAND,
+    VERSION_COMMAND,
+    HEALTHCHECK_COMMAND
+]
+
+# Metrics
+METRICS_ELEMENT_LABEL = "element"
+METRICS_TYPE_LABEL = "type"
+METRICS_HOST_LABEL = "container"
+METRICS_ATOM_VERSION_LABEL = "version"
+METRICS_SUBTYPE_LABEL = "subtype"
+METRICS_DEVICE_LABEL = "device"
+# Metrics default retention -- 1 day on raw data
+METRICS_DEFAULT_RETENTION = 86400000
+# Metrics default aggregation rules
+METRICS_DEFAULT_AGG_RULES = [
+    # Keep data in 10m buckets for 3 days
+    (600000,  259200000),
+    # Then keep data in 1h buckets for 30 days
+    (3600000, 2592000000),
+    # Then keep data in 1d buckets for 365 days
+    (86400000, 31536000000),
+]

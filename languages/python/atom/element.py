@@ -18,31 +18,12 @@ from atom.config import DEFAULT_REDIS_PORT, DEFAULT_METRICS_PORT, DEFAULT_REDIS_
 from atom.config import LANG, VERSION, ACK_TIMEOUT, RESPONSE_TIMEOUT, STREAM_LEN, MAX_BLOCK
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESPONSE
 from atom.config import ATOM_COMMAND_UNSUPPORTED, ATOM_CALLBACK_FAILED, ATOM_USER_ERRORS_BEGIN, ATOM_INTERNAL_ERROR
-from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND, REDIS_PIPELINE_POOL_SIZE, COMMAND_LIST_COMMAND
-from atom.config import METRICS_TYPE_LABEL, METRICS_HOST_LABEL, METRICS_ATOM_VERSION_LABEL, METRICS_SUBTYPE_LABEL, METRICS_DEVICE_LABEL
+from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND, REDIS_PIPELINE_POOL_SIZE, COMMAND_LIST_COMMAND, RESERVED_COMMANDS
+from atom.config import METRICS_TYPE_LABEL, METRICS_HOST_LABEL, METRICS_ATOM_VERSION_LABEL, METRICS_SUBTYPE_LABEL, METRICS_DEVICE_LABEL, METRICS_DEFAULT_RETENTION, METRICS_DEFAULT_AGG_RULES
 from atom.config import VERSION
 from atom.messages import Cmd, Response, StreamHandler, format_redis_py
 from atom.messages import Acknowledge, Entry, Log, LogLevel, ENTRY_RESERVED_KEYS
 import atom.serialization as ser
-
-# Reserved commands
-RESERVED_COMMANDS = [
-    COMMAND_LIST_COMMAND,
-    VERSION_COMMAND,
-    HEALTHCHECK_COMMAND
-]
-
-# Metrics default retention -- 1 day on raw data
-METRICS_DEFAULT_RETENTION = 86400000
-# Metrics default aggregation rules
-METRICS_DEFAULT_AGG_RULES = [
-    # Keep data in 10m buckets for 3 days
-    (600000,  259200000),
-    # Then keep data in 1h buckets for 30 days
-    (3600000, 2592000000),
-    # Then keep data in 1d buckets for 365 days
-    (86400000, 31536000000),
-]
 
 class ElementConnectionTimeoutError(redis.exceptions.TimeoutError):
     pass
@@ -1861,7 +1842,7 @@ class Element:
         # Only return the data that we care about (if any)
         return data
 
-    def metrics_create_custom(self, key, retention=60000, labels=None, rules={}, update=True):
+    def metrics_create_custom(self, key, retention=METRICS_DEFAULT_RETENTION, labels=None, rules={}, update=True):
         """
         Create a metric at the given key with retention and labels. This is a
         direct interface to the redis time series API. It's generally not
@@ -1891,11 +1872,13 @@ class Element:
                 return out. Otherwise we'll update the key.
 
         Return:
-            boolean, true on success
+            key (str): The key used. Can then be passed to metrics timing
+                and/or metrics add custom without having to go through the whole
+                type/subtype rigamarole.
         """
 
         if not self._metrics_enabled:
-            return False
+            return None
 
         # Try to make the key. Need to know if the key already exists in order
         #   to figure out if this will fail
@@ -1911,7 +1894,7 @@ class Element:
 
             # If we shouldn't be updating return out
             if not update:
-                return False
+                return None
 
             # Update the retention milliseconds and labels
             self._mclient.alter(key, retention_msecs=retention, labels=labels)
@@ -1964,9 +1947,9 @@ class Element:
             except redis.exceptions.ResponseError:
                 pass
 
-        return True
+        return key
 
-    def metrics_create(self, m_type, *m_subtypes, retention=60000, labels=None, agg_timing=METRICS_DEFAULT_AGGREGATION_TIMING, agg_types=[], update=True):
+    def metrics_create(self, m_type, *m_subtypes, retention=METRICS_DEFAULT_RETENTION, labels=None, agg_timing=METRICS_DEFAULT_AGGREGATION_TIMING, agg_types=[], update=True):
         """
         Create a metric of the given type and subtypes. All labels you need
         will be auto-generated, though more can be passed. Aggregation will
@@ -2005,7 +1988,7 @@ class Element:
         if not self._metrics_enabled:
             return False
 
-        # Replace the user-passed key with the metric ID
+        # Get the key to use
         _key = self._make_metric_id(self.name, m_type, *m_subtypes)
         # Add in the default labels
         _labels = self._metrics_add_default_labels(labels, m_type, *m_subtypes)
@@ -2020,32 +2003,23 @@ class Element:
 
         return self.metrics_create_custom(_key, retention=retention, labels=_labels, rules=_rules, update=update)
 
-    def metrics_add(self, value, m_type, *m_subtypes, timestamp='*', use_curr_time=False, pipeline=None):
+    def metrics_add(self, key, val, timestamp='*', pipeline=None):
         """
         Adds a metric at the given key with the given value. Timestamp
             can be set if desired, leaving at the default of '*' will result
             in using the redis-server's timestamp which is usually good enough.
 
-        NOTE: The metric MUST have been created with metrics_create before calling
-            metric_add. Otherwise, this will error out
+        NOTE: The metric MUST have been created with metrics_create or
+            metrics_create_custom before calling.
 
         Args:
-            metrics: one or more (key, value, timestamp) tuples where the
-                data is of the format:
-                    key (str): Key to use for the metric
-                    value (int/float): Value to be adding to the time series
-                    timetamp (int, optional): Timestamp to use for the value in the time
-                        series. Leave at default to use the redis server's built-in
-                        timestamp.
-                NOTE: If use_curr_time is true then the timestamp field is
-                    ignored and the tuples can be two entries long. Else, if the
-                    values are still two entries long then we'll just use the
-                    '*' argument for the timestamp.
-            use_curr_time (bool, optional): If TRUE, ignores timestamp argument
-                and sets the timestamp to the current wallclock time in
-                milliseconds. This is useful for async patterns where you don't
-                know how long it will take for the timestamp to get to the
-                redis server. NOTE: execute = TRUE triggers the same behavior.
+            key (str): Key to use for the metric
+            val (int/float): Value to be adding to the time series
+            timestamp (None/str/int, optional): Timestamp to use for the value in the time
+                series. Leave at default to use the redis server's built-in
+                timestamp. Set to None to have this function take the current
+                system time and write it in. Else, pass an integer that will be
+                used as the timestamp.
             pipeline (redis pipeline, optional): Leave NONE (default) to send the metric to
                 the redis server in this function call. Pass a pipeline to just have
                 the data added to the pipeline which you will need to flush later
@@ -2063,11 +2037,11 @@ class Element:
             _pipe = pipeline
 
         # Update the timestamp
-        if use_curr_time or pipeline != None:
+        if timestamp == None or pipeline != None:
             timestamp = int(round(time.time() * 1000))
 
         # Add to the pipeline
-        _pipe.madd(((self._make_metric_id(self.name, m_type, *m_subtypes), timestamp, value),))
+        _pipe.madd(((key, timestamp, value),))
 
         data = None
         if not pipeline:
@@ -2083,6 +2057,41 @@ class Element:
         # Since we're using madd instead of add (in order to not auto-create)
         #   we need to extract the outer list here for simplicity.
         return data
+
+    def metrics_add_type(self, value, m_type, *m_subtypes, timestamp='*', pipeline=None):
+        """
+        Adds a metric at the given key with the given value. Timestamp
+            can be set if desired, leaving at the default of '*' will result
+            in using the redis-server's timestamp which is usually good enough.
+
+        NOTE: The metric MUST have been created with metrics_create before calling
+            metric_add. Otherwise, this will error out
+
+        Args:
+            m_type (str): Metric's identifying type
+            m_subtypes (str): Metric's identifying subtypes
+            val (int/float): Value to be adding to the time series
+            timestamp (None/str/int, optional): Timestamp to use for the value in the time
+                series. Leave at default to use the redis server's built-in
+                timestamp. Set to None to have this function take the current
+                system time and write it in. Else, pass an integer that will be
+                used as the timestamp.
+            pipeline (redis pipeline, optional): Leave NONE (default) to send the metric to
+                the redis server in this function call. Pass a pipeline to just have
+                the data added to the pipeline which you will need to flush later
+
+        Return:
+            list of integers representing the timestamps created. None on
+                failure.
+        """
+        if not self._metrics_enabled:
+            return None
+
+        # Get the key to use
+        _key = self._make_metric_id(self.name, m_type, *m_subtypes)
+
+        # Call the custom API with the key name
+        return metrics_add(key, value, timestamp=timestamp, pipeline=pipeline)
 
     def _metrics_get_timing_key(self, key):
         """
