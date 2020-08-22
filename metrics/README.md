@@ -31,11 +31,11 @@ Default atom metrics follow a labeling system by severity so that you can quickl
 
 | Label | Description |
 |-------|-------------|
-| `emergency` | Catastrophic failure |
+| `emerg` | Catastrophic failure |
 | `alert` | Action must be taken immediately |
-| `critical` | Hard errors |
+| `crit` | Hard errors |
 | `error` | General-purpose error |
-| `warning` | Not an error, but not good |
+| `warn` | Not an error, but not good |
 | `notice` | Not a routine log, but nothing to worry about |
 | `info` | Routine log |
 | `debug` | Useful for debug |

@@ -1,4 +1,4 @@
-import enum
+from enum import Enum
 
 LANG = "Python"
 ACK_TIMEOUT = 1000
@@ -47,7 +47,7 @@ METRICS_LEVEL_LABEL = "level"
 # Metrics default retention -- 1 day on raw data
 METRICS_DEFAULT_RETENTION = 86400000
 # Metrics default aggregation rules
-METRICS_DEFAULT_AGG_RULES = [
+METRICS_DEFAULT_AGG_TIMING = [
     # Keep data in 10m buckets for 3 days
     (600000,  259200000),
     # Then keep data in 1h buckets for 30 days
@@ -57,7 +57,7 @@ METRICS_DEFAULT_AGG_RULES = [
 ]
 
 # Metrics logging levels
-Class MetricsLevel(Enum):
+class MetricsLevel(Enum):
     EMERG = 0
     ALERT = 1
     CRIT = 2
