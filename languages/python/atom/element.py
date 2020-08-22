@@ -421,7 +421,7 @@ class Element:
         else:
             return f"stream:{element_name}:{stream_name}"
 
-    def _make_metric_id(self, element_name, key):
+    def _make_metric_id(self, element_name, m_type, *m_subtypes):
         """
         Creates the string representation of a metric ID created by an
         element
@@ -430,7 +430,10 @@ class Element:
             element_name (str): Name of the element to generate the metric ID for
             key: Original key passed by the caller
         """
-        return f"{element_name}:{key}"
+        key_str = f"{element_name}:{key}:{m_type}"
+        for subtype in m_subtypes:
+            key_str += f":{subtype}"
+        return key_str
 
     def _metric_add_default_labels(self, labels):
         """
@@ -687,13 +690,13 @@ class Element:
         self.timeouts[name] = timeout
 
         # Make the metric for the command
-        self.metrics_create(f"atom:command:count:{name}", labels={"severity": "timing", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+        self.metrics_create("atom:command", "count", name, use_default_rules=True, default_agg_list=["SUM"], update=True)
         # Make the metric for timing the command handler
-        self.metrics_create(f"atom:command:runtime:{name}", labels={"severity": "info", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
+        self.metrics_create("atom:command", "runtime", name, labels={"severity": "info", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["AVG", "MIN", "MAX"], update=True)
         # Make the error counter for the command handler
-        self.metrics_create(f"atom:command:failed:{name}", labels={"severity": "error", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
-        self.metrics_create(f"atom:command:unhandled_error:{name}", labels={"severity": "error", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
-        self.metrics_create(f"atom:command:error:{name}", labels={"severity": "error", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+        self.metrics_create("atom:command", "failed", name, labels={"severity": "error", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+        self.metrics_create("atom:command", "unhandled_error", name, labels={"severity": "error", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
+        self.metrics_create("atom:command", "error", name, labels={"severity": "error", "type": "atom_command_info"}, use_default_rules=True, default_agg_list=["SUM"], update=True)
 
 
     def healthcheck_set(self, handler):
@@ -1852,9 +1855,11 @@ class Element:
         # Only return the data that we care about (if any)
         return data
 
-    def metrics_create(self, key, retention=60000, labels=None, rules={}, update=False, use_default_rules=False, default_agg_list=[]):
+    def metrics_create_direct(self, key retention=60000, labels=None, rules={}, update=False):
         """
-        Create a metric at the given key with retention and labels.
+        Create a metric at the given key with retention and labels. This is a
+        direct interface to the redis time series API. It's generally not
+        recommended to use this and encouraged to stick with the atom system.
 
         NOTE: not able to be done asynchronously -- there is too much internal
         back and forth with the redis server. This call will always make
@@ -1885,22 +1890,60 @@ class Element:
                 This should result in the key matching the spec provided without
                     ever causing a failed insert on the key as it will always
                     exist and the key is never deleted.
-            use_default_rules: If set the TRUE will use the default downsampling/retention
-                rules. This keeps raw metrics for 24hr at high fidelity, then
-                creates 3 day retention at 10m fidelity, 30 day retention at 1h
-                fidelity and 365 day retention at 1 day fidelity.
-            default_agg_list: If using the default retention strategy, this
-                is a list of the aggregation we want done at those intervals
 
         Return:
             boolean, true on success
         """
 
+    def metrics_create(self, m_type, *m_subtypes, retention=60000, labels=None, agg_timing=METRICS_DEFAULT_AGGREGATION_TIMING, agg_types=[], update=True):
+        """
+        Create a metric of the given type and subtypes. All labels you need
+        will be auto-generated, though more can be passed. Aggregation will
+        be by default not performed, pass agg_types to add aggregation with
+        default timing of the types specified
+
+        NOTE: not able to be done asynchronously -- there is too much internal
+        back and forth with the redis server. This call will always make
+        writes out to the metrics redis.
+
+        Args:
+            m_type (str): Type of the metric to be used
+            m_subtypes (list of str): Subtypes for the metric to be used
+
+            retention (int, optional): How long to keep data for the metric,
+                in milliseconds. Default 60000ms == 1 minute. Be careful with
+                this, it will grow unbounded if set to 0.
+            labels (dictionary, optional): Optional labels to add to the
+                data. Each key should be a string and each value should also
+                be a string.
+            rules (dictionary, optional): Optional dictionary of rules to apply
+                to the metric using TS.CREATERULE (https://oss.redislabs.com/redistimeseries/commands/#tscreaterule)
+                Each key in the dictionary should be a new time series key and
+                the value should be a tuple with the following items:
+                    [0]: aggregation type (str, one of: avg, sum, min, max, range, count, first, last, std.p, std.s, var.p, var.s)
+                    [1]: aggregation time bucket (int, milliseconds over which to perform aggregation)
+                    [2]: aggregation retention, i.e. how long to keep this aggregated stat for
+            update (boolean, optional): We will call TS.CREATE to attempt to
+                create the key. If this is FALSE (default) we'll return TRUE. If this
+                is set to TRUE, then if the key already exists we'll do the following:
+                    1. call TS.INFO on the key to ket its current labels and rules
+                    2. call TS.ALTER to set the new retention value and labels
+                    3. delete all existing rules
+                    4. Add in the new rules
+                This should result in the key matching the spec provided without
+                    ever causing a failed insert on the key as it will always
+                    exist and the key is never deleted.
+
+        Return:
+            boolean, true on success
+        """
+
+
         if not self._metrics_enabled:
             return False
 
         # Replace the user-passed key with the metric ID
-        _key = self._make_metric_id(self.name, key)
+        _key = self._make_metric_id(self.name, m_type, *m_subtypes)
         # Add in the default labels
         _labels = self._metric_add_default_labels(labels)
 
@@ -1971,7 +2014,7 @@ class Element:
 
         # If we have new rules to add, add them
         for rule in _rules.keys():
-            rule_key = self._make_metric_id(self.name, rule)
+            rule_key = self._make_metric_id(self.name, rule, m_type, *m_subtypes)
             # Try to make the aggregation stream. If this fails, we're in a race with
             #   someone else and they beat us to it. NBD
             try:
@@ -1988,7 +2031,7 @@ class Element:
 
         return True
 
-    def metrics_add(self, *metrics, use_curr_time=False, pipeline=None):
+    def metrics_add(self, value, m_type, *m_subtypes, timestamp='*', use_curr_time=False, pipeline=None):
         """
         Adds a metric at the given key with the given value. Timestamp
             can be set if desired, leaving at the default of '*' will result
@@ -2030,22 +2073,12 @@ class Element:
         else:
             _pipe = pipeline
 
-        # Make the list of metrics for the single metrics addition call
-        madd_list = []
-        for metric in metrics:
-            if len(metric) == 2:
-                if use_curr_time or pipeline != None:
-                    timestamp_val = int(round(time.time() * 1000))
-                else:
-                    timestamp_val = '*'
-            elif len(metric) == 3:
-                timestamp_val = metric[2]
-            else:
-                raise AtomError(f"Metric value {metric} not 2 or 3 entries long -- consult docs")
+        # Update the timestamp
+        if use_curr_time or pipeline != None:
+            timestamp = int(round(time.time() * 1000))
 
-            madd_list.append((self._make_metric_id(self.name, metric[0]), timestamp_val, metric[1]))
-
-        _pipe.madd(madd_list)
+        # Add to the pipeline
+        _pipe.madd(((self._make_metric_id(self.name, m_type, *m_subtypes), timestamp, value),))
 
         data = None
         if not pipeline:
