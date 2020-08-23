@@ -22,7 +22,7 @@ from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND, REDIS_PIPELINE_POO
 from atom.config import (
     METRICS_TYPE_LABEL, METRICS_HOST_LABEL, METRICS_ATOM_VERSION_LABEL,
     METRICS_SUBTYPE_LABEL, METRICS_DEVICE_LABEL, METRICS_ELEMENT_LABEL,
-    METRICS_LANGUAGE_LABEL, METRICS_LEVEL_LABEL,
+    METRICS_LANGUAGE_LABEL, METRICS_LEVEL_LABEL, METRICS_AGGREGATION_LABEL,
     METRICS_DEFAULT_RETENTION, METRICS_DEFAULT_AGG_TIMING
 )
 from atom.config import MetricsLevel
@@ -1904,13 +1904,13 @@ class Element:
             # Get the stream we'll be reading from
             stream_name = self._make_stream_id(element, stream)
 
-            self.metrics_timing_start(self._reference_create_from_stream_metrics["data"])
+            self.metrics_timing_start(self._reference_create_from_stream_metrics[element][stream]["data"])
             # Call the script to make a reference
             _pipe = self._rpipeline_pool.get()
             _pipe.evalsha(self._stream_reference_sha, 0, stream_name, stream_id, key, timeout_ms)
             data = _pipe.execute()
             _pipe = self._release_pipeline(_pipe)
-            self.metrics_timing_end(self._reference_create_from_stream_metrics["data"], pipeline=pipeline)
+            self.metrics_timing_end(self._reference_create_from_stream_metrics[element][stream]["data"], pipeline=pipeline)
 
         if (type(data) != list) or (len(data) != 1) or (type(data[0]) != list):
             raise ValueError("Failed to make reference!")
@@ -2145,6 +2145,7 @@ class Element:
 
     def metrics_create_custom(
         self,
+        level,
         key,
         retention=METRICS_DEFAULT_RETENTION,
         labels=None,
@@ -2161,6 +2162,7 @@ class Element:
 
         Args:
             key (str): Key to use for the metric
+            level (MetricsLevel): Severity level of the metric
             retention (int, optional): How long to keep data for the metric,
                 in milliseconds. Default 60000ms == 1 minute. Be careful with
                 this, it will grow unbounded if set to 0.
@@ -2187,11 +2189,29 @@ class Element:
         if not self._metrics_enabled:
             return None
 
+        # If we shouldn't be logging at this level, then just return the key
+        #   since it's not added to self._metrics any calls to metrics_add() will
+        #   be no-ops.
+        if level.value > METRICS_LOG_LEVEL.value:
+            print(f"Ignoring metric {key} with level {level.name} due to active level being {METRICS_LOG_LEVEL.name}")
+            return key
+
+        # If we've already seen/created the metric once in this program/
+        #   thread just skip it. There is a slight race here which we can
+        #   handle -- just want to avoid unnecessary pass-throughs if possible
+        if key in self._metrics:
+            print(f"Already called metrics_create_custom on {key}, skipping")
+            return key
+
         # Try to make the key. Need to know if the key already exists in order
         #   to figure out if this will fail
         key_exists = False
         try:
-            data = self._mclient.create(key, retention_msecs=retention, labels=labels)
+            data = self._mclient.create(
+                key,
+                retention_msecs=retention,
+                labels={ METRICS_AGGREGATION_LABEL: "none", **labels}
+            )
         # Key already exists
         except redis.exceptions.ResponseError:
             key_exists = True
@@ -2242,7 +2262,11 @@ class Element:
             # Try to make the aggregation stream. If this fails, we're in a race with
             #   someone else and they beat us to it. NBD
             try:
-                self._mclient.create(rule, retention_msecs=rules[rule][2], labels=labels)
+                self._mclient.create(
+                    rule,
+                    retention_msecs=rules[rule][2],
+                    labels={ METRICS_AGGREGATION_LABEL: f"{rules[rule][1] // (1000 * 60)}m", **labels }
+                )
             except redis.exceptions.ResponseError:
                 pass
 
@@ -2314,13 +2338,6 @@ class Element:
         # Get the key to use
         _key = self._make_metric_id(self.name, m_type, *m_subtypes)
 
-        # If we shouldn't be logging at this level, then just return the key
-        #   since it's not added to self._metrics any calls to metrics_add() will
-        #   be no-ops.
-        if level.value > METRICS_LOG_LEVEL.value:
-            print(f"Ignoring metric {key} with level {level.name} due to active level being {METRICS_LOG_LEVEL.name}")
-            return _key
-
         # Add in the default labels
         _labels = self._metrics_add_default_labels(labels, level, m_type, *m_subtypes)
 
@@ -2332,7 +2349,7 @@ class Element:
                 _rule_key = self._make_metric_id(self.name, m_type, *m_subtypes, agg)
                 _rules[f"{_rule_key}:{timing[0]//(1000 * 60)}m"] = (agg, timing[0], timing[1])
 
-        return self.metrics_create_custom(_key, retention=retention, labels=_labels, rules=_rules)
+        return self.metrics_create_custom(level, _key, retention=retention, labels=_labels, rules=_rules)
 
     def metrics_add(self, key, val, timestamp='*', pipeline=None):
         """

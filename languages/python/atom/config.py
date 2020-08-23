@@ -11,6 +11,7 @@ HEALTHCHECK_RETRY_INTERVAL = 5
 REDIS_PIPELINE_POOL_SIZE = 20
 DEFAULT_REDIS_SOCKET = "/shared/redis.sock"
 DEFAULT_METRICS_SOCKET = "/shared/metrics.sock"
+VERSION = "1.7.2"
 
 # Error codes
 ATOM_NO_ERROR = 0
@@ -43,6 +44,7 @@ METRICS_SUBTYPE_LABEL = "subtype"
 METRICS_DEVICE_LABEL = "device"
 METRICS_LANGUAGE_LABEL = "language"
 METRICS_LEVEL_LABEL = "level"
+METRICS_AGGREGATION_LABEL = "agg"
 # Metrics default retention -- 1 day on raw data
 METRICS_DEFAULT_RETENTION = 86400000
 # Metrics default aggregation rules
