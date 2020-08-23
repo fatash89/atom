@@ -7,7 +7,7 @@
 import json
 import requests
 from jinja2 import FileSystemLoader, Environment, PackageLoader, select_autoescape
-from atom import METRICS_DEFAULT_AGG_TIMING
+from atom.config import METRICS_DEFAULT_AGG_TIMING
 
 GRAFANA_USER = "admin"
 GRAFANA_PASSWORD = "elementary"
@@ -27,21 +27,26 @@ env = Environment(
 template = env.get_template('default_element.json.j2')
 
 for element in ELEMENTS:
-    for timing in METRICS_DEFAULT_AGG_TIMING:
+    for timing in [(None, None),] + METRICS_DEFAULT_AGG_TIMING:
         if timing[0] is not None:
             bucket = timing[0]
             agg_label = f"{timing[0] // (1000 * 60)}m"
+            name = agg_label
         else:
             bucket = 1000
             agg_label = "none"
+            name = "live"
 
-        requests.post(
-            GRAFANA_URL + "/api/dadhboards/db",
+        data = requests.post(
+            GRAFANA_URL + "/api/dashboards/db",
             json=json.loads(
                 template.render(
-                    element='defect-detection',
+                    element=element,
                     bucket=bucket,
-                    agg_label=agg_label
+                    agg_label=agg_label,
+                    name=name
                 )
             )
         )
+        if not data.ok:
+            print(f"Failed to create dashboard: status: {data.status_code} response: {data.json()}")
