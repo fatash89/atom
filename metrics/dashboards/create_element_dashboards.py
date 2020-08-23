@@ -14,7 +14,7 @@ GRAFANA_PASSWORD = "elementary"
 GRAFANA_URL = f"http://{GRAFANA_USER}:{GRAFANA_PASSWORD}@localhost:3001"
 
 ELEMENTS = [
-    "spec-robot",
+    "spec_robot",
     "defect-detection"
 ]
 
