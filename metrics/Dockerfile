@@ -17,9 +17,7 @@ ENV PATH=/root/go/bin:${PATH}
 RUN go get -u github.com/grafana/grafana-plugin-sdk-go
 
 # Get the redis datasource
-RUN mkdir -p /tmp
-WORKDIR /tmp
-RUN git clone https://github.com/RedisTimeSeries/grafana-redis-datasource.git
+ADD grafana-redis-datasource /tmp/grafana-redis-datasource
 WORKDIR /tmp/grafana-redis-datasource
 
 # Install yarn and dependencies, build JS
