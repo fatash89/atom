@@ -31,6 +31,13 @@ RUN mv dist/ /var/lib/grafana/plugins/redis-datasource
 RUN sed -i "s/;allow_loading_unsigned_plugins =/allow_loading_unsigned_plugins = redis-datasource/g" /etc/grafana/grafana.ini
 
 # Install scripts we'll use to auto-create dashboards
-ADD dashboards /dashboards
-WORKDIR /dashboards
+ADD dashboards /metrics/dashboards
+WORKDIR /metrics/dashboards
 RUN pip3 install -r requirements.txt
+
+WORKDIR /metrics
+ADD launch.sh .
+
+# Specify bash as the entrypoint and the command as launch.sh
+ENTRYPOINT [ "/bin/bash" ]
+CMD [ "launch.sh" ]
