@@ -15,7 +15,7 @@ import redis
 
 from redistimeseries.client import Client as RedisTimeSeries
 
-from atom import Element, AtomError
+from atom import Element, AtomError, MetricsLevel
 from atom.config import DEFAULT_REDIS_SOCKET, DEFAULT_REDIS_PORT
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_UNSUPPORTED
 from atom.config import ATOM_COMMAND_NO_RESPONSE, ATOM_CALLBACK_FAILED
@@ -1267,8 +1267,8 @@ class TestAtom():
 
     def test_metrics_create_basic(self, caller, metrics):
         caller, caller_name = caller
-        data = caller.metrics_create("some_metric", retention=10000)
-        assert data == True
+        data = caller.metrics_create_custom(MetricsLevel.INFO, "some_metric", retention=10000)
+        assert data == "some_metric"
 
         data = metrics.info(f"{caller.name}:some_metric")
         assert data.retention_msecs == 10000
@@ -1276,8 +1276,8 @@ class TestAtom():
     def test_metrics_create_label(self, caller, metrics):
         caller, caller_name = caller
         label_dict = {"single" : "label"}
-        data = caller.metrics_create("some_metric", labels=label_dict)
-        assert data == True
+        data = caller.metrics_create_custom(MetricsLevel.INFO, "some_metric", labels=label_dict)
+        assert data == "some_metric"
 
         data = metrics.info(f"{caller.name}:some_metric")
         assert data.labels == {**label_dict, **{"element": caller.name}}
@@ -1285,8 +1285,8 @@ class TestAtom():
     def test_metrics_create_labels(self, caller, metrics):
         caller, caller_name = caller
         label_dict = {"label1" : "hello", "label2" : "world"}
-        data = caller.metrics_create("some_metric", labels=label_dict)
-        assert data == True
+        data = caller.metrics_create_custom(MetricsLevel.INFO, "some_metric", labels=label_dict)
+        assert data == "some_metric"
 
         data = metrics.info(f"{caller.name}:some_metric")
         assert data.labels == {**label_dict, **{"element": caller.name}}
@@ -1294,8 +1294,8 @@ class TestAtom():
     def test_metrics_create_rule(self, caller, metrics):
         caller, caller_name = caller
         rule_dict = {"some_metric_sum" : ("sum", 10000, 200000)}
-        data = caller.metrics_create("some_metric", rules=rule_dict)
-        assert data == True
+        data = caller.metrics_create_custom(MetricsLevel.INFO, "some_metric", rules=rule_dict)
+        assert data == "some_metric"
 
         data = metrics.info(f"{caller.name}:some_metric")
         assert len(data.rules) == 1
@@ -1310,8 +1310,8 @@ class TestAtom():
         caller, caller_name = caller
         rule_dict = {"some_metric_sum" : ("sum", 10000, 200000), "some_metric_avg" : ("avg", 86400, 604800)}
 
-        data = caller.metrics_create("some_metric", rules=rule_dict)
-        assert data == True
+        data = caller.metrics_create_custom(MetricsLevel.INFO, "some_metric", rules=rule_dict)
+        assert data == "some_metric"
 
         data = metrics.info(f"{caller.name}:some_metric")
         assert len(data.rules) == 2
@@ -1334,8 +1334,8 @@ class TestAtom():
         caller, caller_name = caller
         label_dict = {"hello" : "world", "elementary" : "robotics"}
         auto_added_labels = {"element" : f"{caller.name}"}
-        data = caller.metrics_create("some_metric", use_default_rules=True, default_agg_list=['SUM'], labels=label_dict)
-        assert data != None
+        data = caller.metrics_create_custom(MetricsLevel.INFO, "some_metric", use_default_rules=True, default_agg_list=['SUM'], labels=label_dict)
+        assert data !=f"{caller.name}:some_metric"
 
         data = metrics.info(f"{caller.name}:some_metric")
         assert data.rules == [[bytes(f'{caller.name}:some_metric:10m:SUM', 'utf-8'), 600000, b'SUM'], [bytes(f'{caller.name}:some_metric:01h:SUM', 'utf-8'), 3600000, b'SUM'], [bytes(f'{caller.name}:some_metric:24h:SUM', 'utf-8'), 86400000, b'SUM']]
@@ -1353,17 +1353,17 @@ class TestAtom():
 
     def test_metrics_create_already_created(self, caller, metrics):
         caller, caller_name = caller
-        data = caller.metrics_create("some_metric", retention=10000)
-        assert data == True
-        data = caller.metrics_create("some_metric", retention=10000)
-        assert data == False
+        data = caller.metrics_create_custom(MetricsLevel.INFO, "some_metric", retention=10000)
+        assert data == "some_metric"
+        data = caller.metrics_create_custom(MetricsLevel.INFO, "some_metric", retention=10000)
+        assert data == f"{caller.name}:some_metric"
 
     def test_metrics_create_update(self, caller, metrics):
         caller, caller_name = caller
         rule_dict = {"some_metric_sum" : ("sum", 10000, 200000), "some_metric_avg" : ("avg", 86400, 604800)}
         label_dict = {"label1" : "hello", "label2" : "world"}
-        data = caller.metrics_create("some_metric", rules=rule_dict, labels=label_dict)
-        assert data == True
+        data = caller.metrics_create_custom(MetricsLevel.INFO, "some_metric", rules=rule_dict, labels=label_dict)
+        assert data == "some_metric"
 
         data = metrics.info(f"{caller.name}:some_metric")
         assert data.labels == {**label_dict, **{"element": caller.name}}
@@ -1377,14 +1377,15 @@ class TestAtom():
         assert data.rules[avg_idx][1] == 86400
         assert data.rules[avg_idx][2] == b'AVG'
 
-        data = caller.metrics_create("some_metric", rules=rule_dict, labels=label_dict, update=True)
-        assert data == True
+        data = caller.metrics_create_custom(MetricsLevel.INFO, "some_metric", rules=rule_dict, labels=label_dict, update=True)
+        assert data == "some_metric"
         rule_dict = {"some_metric_min" : ("min", 6000, 1000), "some_metric_max" : ("max", 5000, 10000)}
         label_dict = {"label1" : "elementary", "label2" : "robotics"}
-        data = caller.metrics_create("some_metric", rules=rule_dict, labels=label_dict)
-        assert data == False
-        data = caller.metrics_create("some_metric", rules=rule_dict, labels=label_dict, update=True)
-        data = metrics.info(f"{caller.name}:some_metric")
+        data = caller.metrics_create_custom(MetricsLevel.INFO, "some_metric", rules=rule_dict, labels=label_dict)
+        assert data == f"{caller.name}:some_metric"
+        data = caller.metrics_create_custom(MetricsLevel.INFO, "some_metric", rules=rule_dict, labels=label_dict, update=True)
+        assert data == f"{caller.name}:some_metric"
+        data = metrics.info(f"{caller.name}:metric")
         assert data.labels == {**label_dict, **{"element": caller.name}}
         assert len(data.rules) == 2
         max_idx = 0 if data.rules[0][0] == bytes(f'{caller.name}:some_metric_max', 'utf-8') else 1
@@ -1399,8 +1400,8 @@ class TestAtom():
 
     def test_metrics_add(self, caller, metrics):
         caller, caller_name = caller
-        data = caller.metrics_create("some_metric", retention=10000)
-        assert data == True
+        data = caller.metrics_create_custom(MetricsLevel.INFO, "some_metric", retention=10000)
+        assert data == "some_metric"
 
         data = caller.metrics_add(("some_metric", 42))
         print(data)
@@ -1415,8 +1416,8 @@ class TestAtom():
     def test_metrics_add_set_timestamp_int(self, caller, metrics):
         caller, caller_name = caller
 
-        data = caller.metrics_create("some_metric", retention=10000)
-        assert data == True
+        data = caller.metrics_create_custom(MetricsLevel.INFO, "some_metric", retention=10000)
+        assert data == "some_metric"
 
         data = caller.metrics_add(("some_metric", 42, 1))
         assert len(data) == 1 and type(data[0]) == list and len(data[0]) == 1 and type(data[0][0]) == int
@@ -1429,8 +1430,8 @@ class TestAtom():
     def test_metrics_add_set_timestamp_time(self, caller, metrics):
         caller, caller_name = caller
         curr_time = int(time.time() * 1000)
-        data = caller.metrics_create("some_metric", retention=10000)
-        assert data == True
+        data = caller.metrics_create_custom(MetricsLevel.INFO, "some_metric", retention=10000)
+        assert data == "some_metric"
 
         data = caller.metrics_add(("some_metric", 42, curr_time))
         assert len(data) == 1 and type(data[0]) == list and len(data[0]) == 1 and type(data[0][0]) == int
@@ -1443,8 +1444,8 @@ class TestAtom():
     def test_metrics_add_multiple(self, caller, metrics):
         caller, caller_name = caller
         curr_time = int(time.time() * 1000)
-        data = caller.metrics_create("some_metric", retention=10000)
-        assert data == True
+        data = caller.metrics_create_custom(MetricsLevel.INFO, "some_metric", retention=10000)
+        assert data == "some_metric"
 
         data = caller.metrics_add(("some_metric", 42))
         assert len(data) == 1 and type(data[0]) == list and len(data[0]) == 1 and type(data[0][0]) == int
@@ -1461,8 +1462,8 @@ class TestAtom():
     def test_metrics_add_multiple_handle_same_timestamp(self, caller, metrics):
         caller, caller_name = caller
         curr_time = int(time.time() * 1000)
-        data = caller.metrics_create("some_metric", retention=10000)
-        assert data == True
+        data = caller.metrics_create_custom(MetricsLevel.INFO, "some_metric", retention=10000)
+        assert data == "some_metric"
         data = caller.metrics_add(("some_metric", 42, 1234))
         assert len(data) == 1 and type(data[0]) == list and len(data[0]) == 1 and type(data[0][0]) == int
 
@@ -1477,8 +1478,8 @@ class TestAtom():
 
     def test_metrics_async(self, caller, metrics):
         caller, caller_name = caller
-        data = caller.metrics_create("some_metric", retention=10000)
-        assert data == True
+        data = caller.metrics_create_custom(MetricsLevel.INFO, "some_metric", retention=10000)
+        assert data == "some_metric"
         pipeline = caller.metrics_get_pipeline()
         assert pipeline != None
         pipeline = caller.metrics_get_pipeline()
@@ -1496,10 +1497,10 @@ class TestAtom():
     def test_metrics_add_multiple_simultaneous(self, caller, metrics):
         caller, caller_name = caller
         curr_time = int(time.time() * 1000)
-        data = caller.metrics_create("some_metric", retention=10000)
-        assert data == True
-        data = caller.metrics_create("some_other_metric", retention=10000)
-        assert data == True
+        data = caller.metrics_create_custom(MetricsLevel.INFO, "some_metric", retention=10000)
+        assert data == "some_metric"
+        data = caller.metrics_create_custom(MetricsLevel.INFO, "some_other_metric", retention=10000)
+        assert data == "some_other_metric"
         data = caller.metrics_add(("some_metric", 42), ("some_other_metric", 2020))
         assert data != None
 
@@ -1512,10 +1513,10 @@ class TestAtom():
     def test_metrics_add_multiple_simultaneous_async(self, caller, metrics):
         caller, caller_name = caller
         curr_time = int(time.time() * 1000)
-        data = caller.metrics_create("some_metric", retention=10000)
-        assert data == True
-        data = caller.metrics_create("some_other_metric", retention=10000)
-        assert data == True
+        data = caller.metrics_create_custom(MetricsLevel.INFO, "some_metric", retention=10000)
+        assert data == "some_metric"
+        data = caller.metrics_create_custom(MetricsLevel.INFO, "some_other_metric", retention=10000)
+        assert data == "some_other_metric"
         pipeline = caller.metrics_get_pipeline()
         assert pipeline != None
         data = caller.metrics_add(("some_metric", 42), ("some_other_metric", 2020), pipeline=pipeline)
@@ -1534,8 +1535,8 @@ class TestAtom():
     def test_metrics_add_multiple_async(self, caller, metrics):
         caller, caller_name = caller
         curr_time = int(time.time() * 1000)
-        data = caller.metrics_create("some_metric", retention=10000)
-        assert data == True
+        data = caller.metrics_create_custom(MetricsLevel.INFO, "some_metric", retention=10000)
+        assert data == "some_metric"
         pipeline = caller.metrics_get_pipeline()
         assert pipeline != None
         pipeline = caller.metrics_get_pipeline()
@@ -1554,8 +1555,8 @@ class TestAtom():
     def test_metrics_add_multiple_async_handle_same_timestamp(self, caller, metrics):
         caller, caller_name = caller
         curr_time = int(time.time() * 1000)
-        data = caller.metrics_create("some_metric", retention=10000)
-        assert data == True
+        data = caller.metrics_create_custom(MetricsLevel.INFO, "some_metric", retention=10000)
+        assert data == "some_metric"
         pipeline = caller.metrics_get_pipeline()
         assert pipeline != None
         data = caller.metrics_add(("some_metric", 42), pipeline=pipeline)
@@ -1586,8 +1587,8 @@ class TestAtom():
 
     def test_metrics_async_timestamp_no_jitter(self, caller, metrics):
         caller, caller_name = caller
-        data = caller.metrics_create("some_metric", retention=10000)
-        assert data == True
+        data = caller.metrics_create_custom(MetricsLevel.INFO, "some_metric", retention=10000)
+        assert data == "some_metric"
         pipeline = caller.metrics_get_pipeline()
         assert pipeline != None
         data = caller.metrics_add(("some_metric", 42), pipeline=pipeline)
@@ -1613,8 +1614,8 @@ class TestAtom():
 
     def test_metrics_async_use_curr_time(self, caller, metrics):
         caller, caller_name = caller
-        data = caller.metrics_create("some_metric", retention=10000)
-        assert data == True
+        data = caller.metrics_create_custom(MetricsLevel.INFO, "some_metric", retention=10000)
+        assert data == "some_metric"
         pipeline = caller.metrics_get_pipeline()
         assert pipeline != None
         data = caller.metrics_add(("some_metric", 42), pipeline=pipeline, use_curr_time=True)
@@ -1642,8 +1643,8 @@ class TestAtom():
         my_elem = Element('test_metrics_no_redis', metrics_host="127.0.0.1", metrics_port=6380)
         assert my_elem != None
 
-        data = my_elem.metrics_create("some_metric", retention=10000)
-        assert data == True
+        data = my_elem.metrics_create_custom(MetricsLevel.INFO, "some_metric", retention=10000)
+        assert data == "some_metric"
 
         my_elem._clean_up()
 
@@ -1651,8 +1652,8 @@ class TestAtom():
         my_elem = Element('test_metrics_no_redis', metrics_host="127.0.0.1", metrics_port=6381)
         assert my_elem != None
 
-        data = my_elem.metrics_create("some_metric", retention=10000)
-        assert data == False
+        data = my_elem.metrics_create_custom(MetricsLevel.INFO, "some_metric", retention=10000)
+        assert data == None
 
         my_elem._clean_up()
 
@@ -1671,8 +1672,8 @@ class TestAtom():
         my_elem = Element('test_metrics_no_redis', metrics_socket_path="/shared/nonexistent.sock")
         assert my_elem != None
 
-        data = my_elem.metrics_create("some_metric", retention=10000)
-        assert data == False
+        data = my_elem.metrics_create_custom(MetricsLevel.INFO, "some_metric", retention=10000)
+        assert data == None
 
         my_elem._clean_up()
 
@@ -1694,8 +1695,8 @@ class TestAtom():
 
         pipeline = my_elem.metrics_get_pipeline()
         assert pipeline == None
-        data = my_elem.metrics_create("some_metric", retention=10000)
-        assert data == False
+        data = my_elem.metrics_create_custom(MetricsLevel.INFO, "some_metric", retention=10000)
+        assert data == None
         data = my_elem.metrics_add(("some_metric", 42))
         assert data == None
         data = my_elem.metrics_write_pipeline(pipeline)

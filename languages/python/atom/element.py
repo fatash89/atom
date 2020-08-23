@@ -2148,7 +2148,7 @@ class Element:
         level,
         key,
         retention=METRICS_DEFAULT_RETENTION,
-        labels=None,
+        labels={},
         rules={},
         update=True):
         """
@@ -2289,7 +2289,7 @@ class Element:
         m_type,
         *m_subtypes,
         retention=METRICS_DEFAULT_RETENTION,
-        labels=None,
+        labels={},
         agg_timing=METRICS_DEFAULT_AGG_TIMING,
         agg_types=[]):
         """
@@ -2333,7 +2333,7 @@ class Element:
         """
 
         if not self._metrics_enabled:
-            return False
+            return None
 
         # Get the key to use
         _key = self._make_metric_id(self.name, m_type, *m_subtypes)
