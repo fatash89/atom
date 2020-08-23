@@ -34,5 +34,3 @@ RUN sed -i "s/;allow_loading_unsigned_plugins =/allow_loading_unsigned_plugins =
 ADD dashboards /dashboards
 WORKDIR /dashboards
 RUN pip3 install -r requirements.txt
-
-CMD ["tail" , "-f", "/dev/null"]

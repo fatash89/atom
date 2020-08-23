@@ -6,16 +6,30 @@
 
 import json
 import requests
+import os
 from jinja2 import FileSystemLoader, Environment, PackageLoader, select_autoescape
-from atom.config import METRICS_DEFAULT_AGG_TIMING
 
 GRAFANA_USER = "admin"
 GRAFANA_PASSWORD = "elementary"
-GRAFANA_URL = f"http://{GRAFANA_USER}:{GRAFANA_PASSWORD}@localhost:3001"
+GRAFANA_URL = f"http://{GRAFANA_USER}:{GRAFANA_PASSWORD}@{os.getenv('GRAFANA_SERVER', 'localhost:3000')}"
 
 ELEMENTS = [
     "spec_robot",
     "defect-detection"
+]
+
+METRICS_DEFAULT_AGG_TIMING = [
+    # Keep data in 10m buckets for 3 days
+    (600000,  259200000),
+    # Then keep data in 1h buckets for 30 days
+    (3600000, 2592000000),
+    # Then keep data in 1d buckets for 365 days
+    (86400000, 31536000000),
+]
+
+DATASOURCES = [
+    ("redis-atom",      os.getenv("ATOM_SERVER", "localhost:6379")),
+    ("redis-metrics",   os.getenv("METRICS_SERVER", "localhost:6380"))
 ]
 
 # Get the template
@@ -26,6 +40,23 @@ env = Environment(
 )
 template = env.get_template('default_element.json.j2')
 
+# Create the datasources
+datasource_template = env.get_template('datasource.json.j2')
+for source in DATASOURCES:
+    data = requests.post(
+        GRAFANA_URL + "/api/datasources",
+        json=json.loads(
+            datasource_template.render(
+                name=source[0],
+                redis_ip=source[1],
+            )
+        )
+    )
+    if not data.ok:
+        print(f"Failed to create datasource: status: {data.status_code} response: {data.json()}")
+
+# Create the dashboards for the elements
+element_template = env.get_template('default_element.json.j2')
 for element in ELEMENTS:
     for timing in [(None, None),] + METRICS_DEFAULT_AGG_TIMING:
         if timing[0] is not None:
@@ -40,7 +71,7 @@ for element in ELEMENTS:
         data = requests.post(
             GRAFANA_URL + "/api/dashboards/db",
             json=json.loads(
-                template.render(
+                element_template.render(
                     element=element,
                     bucket=bucket,
                     agg_label=agg_label,
