@@ -16,7 +16,6 @@
     "editable": true,
     "gnetId": null,
     "graphTooltip": 0,
-    "id": 1,
     "links": [],
     "panels": [
       {
@@ -66,10 +65,10 @@
         "targets": [
           {
             "aggregation": "count",
-            "bucket": "1000",
+            "bucket": "{{ bucket }}",
             "command": "ts.mrange",
             "fill": true,
-            "filter": "element=spec_robot type=atom:command_send agg=none subtype0=runtime",
+            "filter": "element={{ element }} type=atom:command_send agg={{ agg_label }} subtype0=runtime",
             "legend": "subtype1",
             "query": "",
             "refId": "A",
@@ -165,10 +164,10 @@
         "targets": [
           {
             "aggregation": "avg",
-            "bucket": "1000",
+            "bucket": "{{ bucket }}",
             "command": "ts.mrange",
             "fill": true,
-            "filter": "element=spec_robot type=atom:command_send agg=none subtype0=runtime",
+            "filter": "element={{ element }} type=atom:command_send agg={{ agg_label }} subtype0=runtime",
             "legend": "subtype1",
             "query": "",
             "refId": "A",
@@ -264,10 +263,10 @@
         "targets": [
           {
             "aggregation": "count",
-            "bucket": "1000",
+            "bucket": "{{ bucket }}",
             "command": "ts.mrange",
             "fill": true,
-            "filter": "element=spec_robot type=atom:command agg=none subtype0=runtime",
+            "filter": "element={{ element }} type=atom:command agg={{ agg_label }} subtype0=runtime",
             "legend": "subtype1",
             "query": "",
             "refId": "A",
@@ -363,10 +362,10 @@
         "targets": [
           {
             "aggregation": "avg",
-            "bucket": "1000",
+            "bucket": "{{ bucket }}",
             "command": "ts.mrange",
             "fill": false,
-            "filter": "element=spec_robot type=atom:command agg=none level=TIMING",
+            "filter": "element={{ element }} type=atom:command agg={{ agg_label }} level=TIMING",
             "legend": "element",
             "query": "",
             "refId": "A",
@@ -462,10 +461,10 @@
         "targets": [
           {
             "aggregation": "count",
-            "bucket": "1000",
+            "bucket": "{{ bucket }}",
             "command": "ts.mrange",
             "fill": true,
-            "filter": "element=spec_robot type=atom:entry_write agg=none subtype0=data",
+            "filter": "element={{ element }} type=atom:entry_write agg={{ agg_label }} subtype0=data",
             "legend": "element",
             "query": "",
             "refId": "A",
@@ -561,10 +560,10 @@
         "targets": [
           {
             "aggregation": "avg",
-            "bucket": "1000",
+            "bucket": "{{ bucket }}",
             "command": "ts.mrange",
             "fill": true,
-            "filter": "element=spec_robot type=atom:entry_write agg=none level=TIMING",
+            "filter": "element={{ element }} type=atom:entry_write agg={{ agg_label }} level=TIMING",
             "legend": "subtype0",
             "query": "",
             "refId": "A",
@@ -660,10 +659,10 @@
         "targets": [
           {
             "aggregation": "count",
-            "bucket": "1000",
+            "bucket": "{{ bucket }}",
             "command": "ts.mrange",
             "fill": true,
-            "filter": "element=spec_robot type=(atom:entry_read_n,atom_entry_read_since) agg=none subtype0=data",
+            "filter": "element={{ element }} type=(atom:entry_read_n,atom_entry_read_since) agg={{ agg_label }} subtype0=data",
             "legend": "subtype1",
             "query": "",
             "refId": "A",
@@ -759,10 +758,10 @@
         "targets": [
           {
             "aggregation": "avg",
-            "bucket": "1000",
+            "bucket": "{{ bucket }}",
             "command": "ts.mrange",
             "fill": false,
-            "filter": "element=spec_robot type=(atom:entry_read_n,atom:entry_read_since) agg=none level=TIMING",
+            "filter": "element={{ element }} type=(atom:entry_read_n,atom:entry_read_since) agg={{ agg_label }} level=TIMING",
             "legend": "subtype0",
             "query": "",
             "refId": "A",
@@ -857,10 +856,10 @@
         "targets": [
           {
             "aggregation": "count",
-            "bucket": "1000",
+            "bucket": "{{ bucket }}",
             "command": "ts.mrange",
             "fill": true,
-            "filter": "element=spec_robot type=atom:reference_create subtype0=data agg=none",
+            "filter": "element={{ element }} type=atom:reference_create subtype0=data agg={{ agg_label }}",
             "legend": "element",
             "query": "",
             "refId": "A",
@@ -955,9 +954,9 @@
         "targets": [
           {
             "aggregation": "avg",
-            "bucket": "1000",
+            "bucket": "{{ bucket }}",
             "command": "ts.mrange",
-            "filter": "element=spec_robot type=atom:reference_create agg=none level=TIMING",
+            "filter": "element={{ element }} type=atom:reference_create agg={{ agg_label }} level=TIMING",
             "legend": "element",
             "query": "",
             "refId": "A",
@@ -1052,10 +1051,10 @@
         "targets": [
           {
             "aggregation": "count",
-            "bucket": "1000",
+            "bucket": "{{ bucket }}",
             "command": "ts.mrange",
             "fill": true,
-            "filter": "element=spec_robot type=atom:reference_get subtype0=data agg=none",
+            "filter": "element={{ element }} type=atom:reference_get subtype0=data agg={{ agg_label }}",
             "legend": "element",
             "query": "",
             "refId": "A",
@@ -1150,9 +1149,9 @@
         "targets": [
           {
             "aggregation": "avg",
-            "bucket": "1000",
+            "bucket": "{{ bucket }}",
             "command": "ts.mrange",
-            "filter": "element=spec_robot type=atom:reference_get agg=none level=TIMING",
+            "filter": "element={{ element }} type=atom:reference_get agg={{ agg_label }} level=TIMING",
             "legend": "element",
             "query": "",
             "refId": "A",
@@ -1215,30 +1214,7 @@
     },
     "timepicker": {},
     "timezone": "",
-    "title": "spec_robot",
-    "uid": "oax930NGk",
-    "version": 9
-  },
-  "meta": {
-    "canAdmin": true,
-    "canEdit": true,
-    "canSave": true,
-    "canStar": true,
-    "created": "2020-08-23T17:42:32Z",
-    "createdBy": "admin",
-    "expires": "0001-01-01T00:00:00Z",
-    "folderId": 0,
-    "folderTitle": "General",
-    "folderUrl": "",
-    "hasAcl": false,
-    "isFolder": false,
-    "provisioned": false,
-    "provisionedExternalId": "",
-    "slug": "spec_robot",
-    "type": "db",
-    "updated": "2020-08-23T19:22:28Z",
-    "updatedBy": "admin",
-    "url": "/d/oax930NGk/spec_robot",
+    "title": "{{ element }}",
     "version": 9
   }
 }
