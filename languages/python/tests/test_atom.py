@@ -1082,11 +1082,11 @@ class TestAtom():
         caller, caller_name = caller
 
         data = {"msgpack" : "data"}
-        ref_id = caller.reference_create(data, serialization="msgpack", timeout_ms=100)[0]
+        ref_id = caller.reference_create(data, serialization="msgpack", timeout_ms=500)[0]
         ref_data = caller.reference_get(ref_id)[0]
         assert ref_data == data
 
-        time.sleep(0.2)
+        time.sleep(0.5)
         expired_data = caller.reference_get(ref_id)[0]
         assert expired_data is None
 
@@ -1156,11 +1156,11 @@ class TestAtom():
         stream_name = "test_ref_multiple_keys"
         stream_data = {"key1": b"value 1!", "key2" : b"value 2!"}
         caller.entry_write(stream_name, stream_data)
-        key_dict = caller.reference_create_from_stream(caller.name, stream_name, timeout_ms=100)
+        key_dict = caller.reference_create_from_stream(caller.name, stream_name, timeout_ms=500)
         for key in key_dict:
             ref_data = caller.reference_get(key_dict[key])[0]
             assert ref_data == stream_data[key]
-        time.sleep(0.2)
+        time.sleep(0.5)
         for key in key_dict:
             assert caller.reference_get(key_dict[key])[0] is None
 
