@@ -945,20 +945,20 @@ workflows:
               only: /.*/
 
      # Build for ARM
-      - atom/build_buildx:
-          name: "build-metrics-<< matrix.platform >>"
-          matrix:
-            parameters:
-              platform: [ aarch64 ]
-          working_directory: metrics
-          image_name: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
-          image_tag: build-<< pipeline.number >>
-          cache_repo: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
-          cache_tag: cache
-          build_args: "--build-arg NODE_ARCH=arm64"
-          filters:
-            tags:
-              only: /.*/
+      # - atom/build_buildx:
+      #     name: "build-metrics-<< matrix.platform >>"
+      #     matrix:
+      #       parameters:
+      #         platform: [ aarch64 ]
+      #     working_directory: metrics
+      #     image_name: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
+      #     image_tag: build-<< pipeline.number >>
+      #     cache_repo: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
+      #     cache_tag: cache
+      #     build_args: "--build-arg NODE_ARCH=arm64"
+      #     filters:
+      #       tags:
+      #         only: /.*/
 
       # Deploy development
       - atom/deploy:
@@ -969,7 +969,7 @@ workflows:
           target_tag: development-<< pipeline.number >>
           matrix:
             parameters:
-              platform: [ amd64, aarch64 ]
+              platform: [ amd64 ]
           requires:
             - "build-metrics-<< matrix.platform >>"
           filters:
@@ -986,8 +986,7 @@ workflows:
           target_tag: latest-<< pipeline.number >>
           matrix:
             parameters:
-              platform: [ amd64, aarch64 ]
-              variant: [ cloud, edge ]
+              platform: [ amd64 ]
           requires:
             - "build-metrics-<< matrix.platform >>"
           filters:
@@ -1004,7 +1003,7 @@ workflows:
           target_tag: ""
           matrix:
             parameters:
-              platform: [ amd64, aarch64 ]
+              platform: [ amd64 ]
           requires:
             - "build-metrics-<< matrix.platform >>"
           filters:
@@ -1021,7 +1020,7 @@ workflows:
           target_tag: ${CIRCLE_TAG}
           matrix:
             parameters:
-              platform: [ amd64, aarch64 ]
+              platform: [ amd64 ]
           requires:
             - "build-metrics-<< matrix.platform >>"
           filters:
