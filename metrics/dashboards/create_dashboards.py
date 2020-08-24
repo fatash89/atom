@@ -14,13 +14,14 @@ GRAFANA_USER = "admin"
 GRAFANA_PASSWORD = "admin"
 GRAFANA_URL = f"http://{GRAFANA_USER}:{GRAFANA_PASSWORD}@{os.getenv('GRAFANA_URL', 'localhost:3000')}"
 
-METRICS_DEFAULT_AGG_TIMING = [
-    # Keep data in 10m buckets for 3 days
-    (600000,  259200000),
-    # Then keep data in 1h buckets for 30 days
-    (3600000, 2592000000),
-    # Then keep data in 1d buckets for 365 days
-    (86400000, 31536000000),
+# Info to make all of the dashboards
+METRICS_TIMING = [
+    # Data bucketed by 10m, default show last hour
+    (600000,  "1h"),
+    # Data bucketed by 1h, default show last 24 hours
+    (3600000, "24h"),
+    # Data bucketed by 24h, default show last 7 days
+    (86400000, "7d"),
 ]
 
 ATOM_SERVER_IP = os.getenv("ATOM_SERVER_IP", "localhost")
@@ -28,8 +29,8 @@ ATOM_SERVER_PORT = int(os.getenv("ATOM_SERVER_PORT", "6379"))
 METRICS_SERVER_IP = os.getenv("METRICS_SERVER_IP", "localhost")
 METRICS_SERVER_PORT = int(os.getenv("METRICS_SERVER_PORT", "6380"))
 DATASOURCES = [
-    ("redis-atom",      f"{ATOM_SERVER_IP}:{ATOM_SERVER_PORT}"),
-    ("redis-metrics",   f"{METRICS_SERVER_IP}:{METRICS_SERVER_PORT}")
+    ("Atom Nucleus", "redis-atom",      f"{ATOM_SERVER_IP}:{ATOM_SERVER_PORT}"),
+    ("Atom Metrics", "redis-metrics",   f"{METRICS_SERVER_IP}:{METRICS_SERVER_PORT}")
 ]
 
 # Get the template
@@ -48,13 +49,27 @@ for source in DATASOURCES:
         GRAFANA_URL + "/api/datasources",
         json=json.loads(
             datasource_template.render(
-                name=source[0],
-                redis_ip=source[1],
+                name=source[1],
+                redis_ip=source[2],
             )
         )
     )
     if not data.ok:
         print(f"Failed to create datasource: status: {data.status_code} response: {data.json()}")
+
+# Create the dashboards for the redises themselves
+print("Creating Redis Overview Dashboards...")
+overview_template = env.get_template('redis_overview.json.j2')
+for source in DATASOURCES:
+    data = requests.post(
+        GRAFANA_URL + "/api/dashboards/db",
+        json=json.loads(
+            overview_template.render(
+                name=source[0],
+                datasource=source[1]
+            )
+        )
+    )
 
 # Figure out how many elements we have that support metrics
 print("Searching for metrics elements...")
@@ -87,7 +102,9 @@ for element in metrics_elements:
                     element=element,
                     bucket=bucket,
                     agg_label=agg_label,
-                    name=name
+                    name=name,
+                    datasource="redis-metrics",
+                    start_time=start_time
                 )
             )
         )
