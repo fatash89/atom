@@ -35,6 +35,7 @@ ADD dashboards /metrics/dashboards
 WORKDIR /metrics/dashboards
 RUN pip3 install -r requirements.txt
 
+# Add in the launch script
 WORKDIR /metrics
 ADD launch.sh .
 

@@ -1,7 +1,18 @@
 #
-# create_element_dashboards.py
+# create_dashboards.py
 #   Uses jinja2 + json to read from a template file on disk
-#   and create a set of dashboards
+#   and create a set of dashboards for grafana. This is surprisingly
+#   the best/recommended way to configure this -- there are a few YAML
+#   options but they seem to be less fully featured.
+#
+# If wanting to add/change something in this, the recommended workflow is:
+#   1. Change it in the grafana UI
+#   2. Use the grafana HTTP API: https://grafana.com/docs/grafana/latest/http_api/
+#       to read out a JSON blob corresponding to what you did
+#   3. Save the JSON blob as a jinja2 template in the templates folder in
+#       this directory + jinja-fy it with variables you need
+#   4. Add a section to this script that reads in the template and writes
+#       out the settings.
 #
 
 import json
@@ -55,7 +66,7 @@ for source in DATASOURCES:
         )
     )
     if not data.ok:
-        print(f"Failed to create datasource: status: {data.status_code} response: {data.json()}")
+        print(f"Failed to create datasource {source}: status: {data.status_code} response: {data.json()}")
 
 # Create the dashboards for the redises themselves
 print("Creating Redis Overview Dashboards...")
@@ -70,6 +81,9 @@ for source in DATASOURCES:
             )
         )
     )
+    if not data.ok:
+        print(f"Failed to create overview dashboard for source {source}: status: {data.status_code} response: {data.json()}")
+
 
 # Figure out how many elements we have that support metrics
 print("Searching for metrics elements...")
@@ -85,15 +99,17 @@ for key in metrics_keys:
 print(f"Setting up dashboards for elements: {metrics_elements}")
 element_template = env.get_template('default_element.json.j2')
 for element in metrics_elements:
-    for timing in [(None, None),] + METRICS_DEFAULT_AGG_TIMING:
+    for timing in [(None, None),] + METRICS_TIMING:
         if timing[0] is not None:
             bucket = timing[0]
             agg_label = f"{timing[0] // (1000 * 60)}m"
             name = agg_label
+            start_time = timing[1]
         else:
             bucket = 1000
             agg_label = "none"
             name = "live"
+            start_time = "5m"
 
         data = requests.post(
             GRAFANA_URL + "/api/dashboards/db",
@@ -110,5 +126,27 @@ for element in metrics_elements:
         )
         if not data.ok:
             print(f"Failed to create dashboard: status: {data.status_code} response: {data.json()}")
+
+# Create the home dashboard
+print("Creating/Updating Home Dashboard...")
+home_template = env.get_template('home.json.j2')
+data = requests.post(
+    GRAFANA_URL + "/api/dashboards/db",
+    json=json.loads(
+        home_template.render()
+    )
+)
+if not data.ok:
+    print(f"Failed to create home dashboard: status: {data.status_code} response: {data.json()}")
+
+# Now we want to set the home dashboard as the default
+data = requests.put(
+    GRAFANA_URL + "/api/org/preferences",
+    json={
+        "homeDashboardId": data.json()["id"]
+    }
+)
+if not data.ok:
+    print(f"Failed to update home dashboard: status: {data.status_code} response: {data.json()}")
 
 print("Dashboard setup complete!")
