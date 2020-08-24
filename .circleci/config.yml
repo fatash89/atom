@@ -929,17 +929,33 @@ workflows:
   metrics-build:
     jobs:
 
-     # Build for intel and ARM
+     # Build for intel
       - atom/build_buildx:
           name: "build-metrics-<< matrix.platform >>"
           matrix:
             parameters:
-              platform: [ amd64, aarch64 ]
+              platform: [ amd64 ]
           working_directory: metrics
           image_name: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
           image_tag: build-<< pipeline.number >>
           cache_repo: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
           cache_tag: cache
+          filters:
+            tags:
+              only: /.*/
+
+     # Build for ARM
+      - atom/build_buildx:
+          name: "build-metrics-<< matrix.platform >>"
+          matrix:
+            parameters:
+              platform: [ aarch64 ]
+          working_directory: metrics
+          image_name: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
+          image_tag: build-<< pipeline.number >>
+          cache_repo: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
+          cache_tag: cache
+          build_args: "--build-arg NODE_ARCH=arm64"
           filters:
             tags:
               only: /.*/
