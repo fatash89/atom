@@ -2360,7 +2360,7 @@ class Element:
 
         return self.metrics_create_custom(level, _key, retention=retention, labels=_labels, rules=_rules)
 
-    def metrics_add(self, key, val, timestamp=None, pipeline=None):
+    def metrics_add(self, key, val, timestamp=None, pipeline=None, enforce_exists=True):
         """
         Adds a metric at the given key with the given value. Timestamp
             can be set if desired, leaving at the default of '*' will result
@@ -2380,6 +2380,11 @@ class Element:
             pipeline (redis pipeline, optional): Leave NONE (default) to send the metric to
                 the redis server in this function call. Pass a pipeline to just have
                 the data added to the pipeline which you will need to flush later
+            enforce_exists: If TRUE, enforce that the metric exists before
+                writing. RECOMMENDED TO ALWAYS LEAVE THIS TRUE. However, it's useful
+                some times if you truly don't know which metrics you'll be writing
+                to that you can just call ADD and it'll write it out and create
+                the key if it doesn't exist. Use with caution.
 
         Return:
             list of integers representing the timestamps created. None on
@@ -2400,7 +2405,10 @@ class Element:
             timestamp = int(round(time.time() * 1000))
 
         # Add to the pipeline
-        _pipe.madd(((key, timestamp, val),))
+        if enforce_exists:
+            _pipe.madd(((key, timestamp, val),))
+        else:
+            _pipe.add(key, timestamp, val)
 
         data = None
         if not pipeline:
