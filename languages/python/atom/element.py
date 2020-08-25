@@ -2360,7 +2360,7 @@ class Element:
 
         return self.metrics_create_custom(level, _key, retention=retention, labels=_labels, rules=_rules)
 
-    def metrics_add(self, key, val, timestamp=None, pipeline=None, enforce_exists=True):
+    def metrics_add(self, key, val, timestamp=None, pipeline=None, enforce_exists=True, retention=86400000, labels={}):
         """
         Adds a metric at the given key with the given value. Timestamp
             can be set if desired, leaving at the default of '*' will result
@@ -2408,7 +2408,7 @@ class Element:
         if enforce_exists:
             _pipe.madd(((key, timestamp, val),))
         else:
-            _pipe.add(key, timestamp, val)
+            _pipe.add(key, timestamp, val, retention_msecs=retention, labels=labels)
 
         data = None
         if not pipeline:
