@@ -149,7 +149,7 @@ def cpu_metrics_init(element):
         cpu_pct_metrics_keys[key] = element.metrics_create(
             MetricsLevel.INFO,
             CPU_PREFIX, CPU_PCT_PREFIX, key,
-            agg_types=["AVG"]
+            agg_types=["MIN", "MAX", "AVG"]
         )
 
     def cpu_metrics_create_cpu_stats(*keys):
