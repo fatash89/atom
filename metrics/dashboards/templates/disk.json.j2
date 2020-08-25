@@ -1,3 +1,23 @@
+requests.get(base_url + '/api/dashboards/uid/{}'.format(dashboard_uid))
+
+200 OK
+0.019749s, 7548B
+http://admin:elementary@localhost:3001/api/dashboards/uid/7xHUOEHMk
+
+Request Headers: {'Accept': '*/*', 'User-Agent': 'python-requests/2.18.3', 'Connection': 'keep-alive', 'Authorization': 'Basic YWRtaW46ZWxlbWVudGFyeQ==', 'Accept-Encoding': 'gzip, deflate'}
+
+[ctrl+r] replay request, [ctrl+alt+ ←/→] prev/next request, [ctrl+t] pin/unpin tab, [ctrl+s] save request, [ctrl+e] explore URL
+
+Cache-Control: no-cache
+Content-Type: application/json
+Date: Tue, 25 Aug 2020 20:30:10 GMT
+Expires: -1
+Pragma: no-cache
+Transfer-Encoding: chunked
+X-Content-Type-Options: nosniff
+X-Frame-Options: deny
+X-Xss-Protection: 1; mode=block
+
 {
   "dashboard": {
     "annotations": {
@@ -224,6 +244,7 @@
         "dashLength": 10,
         "dashes": false,
         "datasource": "{{ datasource }}",
+        "description": "",
         "fieldConfig": {
           "defaults": {
             "custom": {}
@@ -239,7 +260,7 @@
           "y": 0
         },
         "hiddenSeries": false,
-        "id": 9,
+        "id": 11,
         "legend": {
           "avg": false,
           "current": false,
@@ -267,19 +288,19 @@
             "aggregation": "avg",
             "bucket": "{{ bucket }}",
             "command": "ts.mrange",
-            "filter": "element=monitor type=disk subtype0=io subtype2=(read_bytes,write_bytes) agg={{ agg_label }}",
-            "legend": "subtype1",
+            "filter": "element=monitor type=process subtype1=fds ",
+            "legend": "subtype0",
             "query": "",
             "refId": "A",
             "type": "timeSeries",
-            "value": "subtype2"
+            "value": ""
           }
         ],
         "thresholds": [],
         "timeFrom": null,
         "timeRegions": [],
         "timeShift": null,
-        "title": "Disk Stats - Reads + Writes (Bytes)",
+        "title": "Per-Process File Descriptors",
         "tooltip": {
           "shared": true,
           "sort": 2,
@@ -367,19 +388,119 @@
             "aggregation": "avg",
             "bucket": "{{ bucket }}",
             "command": "ts.mrange",
-            "filter": "element=monitor type=disk subtype0=io subtype2=(read_time,write_time) agg={{ agg_label }}",
-            "legend": "subtype1",
+            "filter": "element=monitor type=process subtype1=read_bytes",
+            "legend": "subtype0",
             "query": "",
             "refId": "A",
             "type": "timeSeries",
-            "value": "subtype2"
+            "value": ""
           }
         ],
         "thresholds": [],
         "timeFrom": null,
         "timeRegions": [],
         "timeShift": null,
-        "title": "Disk Stats - Reads + Writes (Time)",
+        "title": "Per-Process Read Bytes",
+        "tooltip": {
+          "shared": true,
+          "sort": 2,
+          "value_type": "individual"
+        },
+        "type": "graph",
+        "xaxis": {
+          "buckets": null,
+          "mode": "time",
+          "name": null,
+          "show": true,
+          "values": []
+        },
+        "yaxes": [
+          {
+            "$$hashKey": "object:384",
+            "format": "short",
+            "label": null,
+            "logBase": 1,
+            "max": null,
+            "min": "1.0",
+            "show": true
+          },
+          {
+            "$$hashKey": "object:385",
+            "format": "short",
+            "label": null,
+            "logBase": 1,
+            "max": null,
+            "min": null,
+            "show": true
+          }
+        ],
+        "yaxis": {
+          "align": false,
+          "alignLevel": null
+        }
+      },
+      {
+        "aliasColors": {},
+        "bars": false,
+        "dashLength": 10,
+        "dashes": false,
+        "datasource": "{{ datasource }}",
+        "fieldConfig": {
+          "defaults": {
+            "custom": {}
+          },
+          "overrides": []
+        },
+        "fill": 1,
+        "fillGradient": 0,
+        "gridPos": {
+          "h": 13,
+          "w": 8,
+          "x": 8,
+          "y": 13
+        },
+        "hiddenSeries": false,
+        "id": 12,
+        "legend": {
+          "avg": false,
+          "current": false,
+          "max": false,
+          "min": false,
+          "show": false,
+          "total": false,
+          "values": false
+        },
+        "lines": true,
+        "linewidth": 1,
+        "maxDataPoints": 100,
+        "nullPointMode": "null",
+        "percentage": false,
+        "pluginVersion": "7.1.4",
+        "pointradius": 2,
+        "points": false,
+        "renderer": "flot",
+        "seriesOverrides": [],
+        "spaceLength": 10,
+        "stack": false,
+        "steppedLine": false,
+        "targets": [
+          {
+            "aggregation": "avg",
+            "bucket": "{{ bucket }}",
+            "command": "ts.mrange",
+            "filter": "element=monitor type=process subtype1=write_bytes",
+            "legend": "subtype0",
+            "query": "",
+            "refId": "A",
+            "type": "timeSeries",
+            "value": ""
+          }
+        ],
+        "thresholds": [],
+        "timeFrom": null,
+        "timeRegions": [],
+        "timeShift": null,
+        "title": "Per-Process Write Bytes",
         "tooltip": {
           "shared": true,
           "sort": 2,
@@ -446,6 +567,6 @@
     },
     "timezone": "",
     "title": "{{ name }}",
-    "version": 2
+    "version": 3
   }
 }
