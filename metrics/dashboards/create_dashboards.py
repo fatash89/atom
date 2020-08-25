@@ -45,7 +45,7 @@ DATASOURCES = [
 ]
 
 # List of system-level dashboards we want to make at boot
-SYS_DASHBOARDS = [ "cpu", "disk" ]
+SYS_DASHBOARDS = [ "cpu", "disk", "memory" ]
 
 # Get the template
 templateLoader = FileSystemLoader(searchpath="./templates")
