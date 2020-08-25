@@ -15,6 +15,11 @@ import psutil
 import time
 import os
 
+# Which /proc/ to read to get stats. Will default to the /proc/ but this
+#   will only give process-level stats for the container. Mount in the
+#   host procfs (BE SURE TO DO THIS READ-ONLY) and switch the location
+psutil.PROCFS_PATH = os.getenv('METRICS_MONITOR_PROCFS', '/proc')
+
 # How often to poll for monitoring
 METRICS_MONITOR_INTERVAL = int(os.getenv('METRICS_MONITOR_INTERVAL', '1'))
 
