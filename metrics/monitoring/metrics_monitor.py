@@ -119,7 +119,7 @@ def metrics_get_process_name(process):
 
     cmdline = process.cmdline()
     if cmdline:
-        for val in cmdline:
+        for val in cmdline[:2]:
             name += f":{val}"
     else:
         procname = process.name()
@@ -325,10 +325,10 @@ def disk_metrics_init(element):
                 agg_types=["MIN", "MAX", "AVG"]
             )
 
-    for disk in psutil.disk_partitions():
+    for disk in psutil.disk_partitions(all=True):
         disk_metrics_create_usage(
-            disk.mountpoint,
-            disk.device,
+            disk.mountpoint.replace(',', '/'),
+            disk.device if disk.device != '' else "default",
             "total", "used", "free", "percent"
         )
 
@@ -360,10 +360,10 @@ def disk_metrics_update(element, pipeline):
                 pipeline=pipeline
             )
 
-    for disk in psutil.disk_partitions():
+    for disk in psutil.disk_partitions(all=True):
         disk_usage = psutil.disk_usage(disk.mountpoint)
         disk_metrics_update_usage(
-            disk.mountpoint,
+            disk.mountpoint.replace(',', '/'),
             "total", "used", "free", "percent"
         )
 
