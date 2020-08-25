@@ -45,7 +45,7 @@ DATASOURCES = [
 ]
 
 # List of system-level dashboards we want to make at boot
-SYS_DASHBOARDS = [ "cpu" ]
+SYS_DASHBOARDS = [ "cpu", "disk" ]
 
 # Get the template
 templateLoader = FileSystemLoader(searchpath="./templates")
@@ -108,7 +108,7 @@ for sys_dash in SYS_DASHBOARDS:
             GRAFANA_URL + "/api/dashboards/db",
             json=json.loads(
                 template.render(
-                    name=f"System-1-{sys_dash}-{name}",
+                    name=f"System-{sys_dash}-{name}",
                     bucket=bucket,
                     agg_label=agg_label,
                     datasource="redis-metrics",
