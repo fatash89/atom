@@ -1280,7 +1280,7 @@ class TestAtom():
         assert data == "some_metric"
 
         data = metrics.info("some_metric")
-        assert data.labels == {**label_dict, **{"agg": "none"}}
+        assert data.labels == {**label_dict, **{"agg": "none", "agg_type" : "none"}}
 
     def test_metrics_create_labels(self, caller, metrics):
         caller, caller_name = caller
@@ -1289,7 +1289,7 @@ class TestAtom():
         assert data == "some_metric"
 
         data = metrics.info("some_metric")
-        assert data.labels == {**label_dict, **{"agg": "none"}}
+        assert data.labels == {**label_dict, **{"agg": "none", "agg_type" : "none"}}
 
     def test_metrics_create_rule(self, caller, metrics):
         caller, caller_name = caller
@@ -1345,7 +1345,7 @@ class TestAtom():
         assert data == "some_metric"
 
         data = metrics.info("some_metric")
-        assert data.labels == {**label_dict, **{"agg": "none"}}
+        assert data.labels == {**label_dict, **{"agg": "none", "agg_type" : "none"}}
         assert len(data.rules) == 2
         sum_idx = 0 if data.rules[0][0] == b'some_metric_sum' else 1
         avg_idx = 1 if sum_idx == 0 else 0
@@ -1365,7 +1365,7 @@ class TestAtom():
         data = caller.metrics_create_custom(MetricsLevel.INFO, "some_metric", rules=rule_dict, labels=label_dict, update=True)
         assert data == "some_metric"
         data = metrics.info("some_metric")
-        assert data.labels == {**label_dict, **{"agg": "none"}}
+        assert data.labels == {**label_dict, **{"agg": "none", "agg_type" : "none"}}
         assert len(data.rules) == 2
         max_idx = 0 if data.rules[0][0] == b'some_metric_max' else 1
         min_idx = 1 if max_idx == 0 else 0

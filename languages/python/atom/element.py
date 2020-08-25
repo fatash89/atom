@@ -23,7 +23,7 @@ from atom.config import (
     METRICS_TYPE_LABEL, METRICS_HOST_LABEL, METRICS_ATOM_VERSION_LABEL,
     METRICS_SUBTYPE_LABEL, METRICS_DEVICE_LABEL, METRICS_ELEMENT_LABEL,
     METRICS_LANGUAGE_LABEL, METRICS_LEVEL_LABEL, METRICS_AGGREGATION_LABEL,
-    METRICS_DEFAULT_RETENTION, METRICS_DEFAULT_AGG_TIMING
+    METRICS_DEFAULT_RETENTION, METRICS_DEFAULT_AGG_TIMING, METRICS_AGGREGATION_TYPE_LABEL
 )
 from atom.config import MetricsLevel
 from atom.config import VERSION
@@ -2204,7 +2204,11 @@ class Element:
             return key
 
         # Add in the aggregation to the labels we'll be setting
-        _labels = { METRICS_AGGREGATION_LABEL: "none", **labels}
+        _labels = {
+            METRICS_AGGREGATION_LABEL: "none",
+            METRICS_AGGREGATION_TYPE_LABEL: "none",
+            **labels
+        }
 
         # Try to make the key. Need to know if the key already exists in order
         #   to figure out if this will fail
@@ -2259,6 +2263,7 @@ class Element:
 
             _rule_labels = {
                 METRICS_AGGREGATION_LABEL: f"{rules[rule][1] // (1000 * 60)}m",
+                METRICS_AGGREGATION_TYPE_LABEL: rules[rule][0],
                 **labels
             }
             # If we found the rule earlier, make sure its stream matches our

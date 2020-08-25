@@ -51,13 +51,13 @@ services:
         target: /shared
         volume:
           nocopy: true
+      - ".:/atom"
     network_mode: host
     depends_on:
       - "nucleus"
     environment:
       - "ATOM_USE_METRICS=TRUE"
     command: tail -f /dev/null
-    privileged: true
 
 volumes:
   shared:

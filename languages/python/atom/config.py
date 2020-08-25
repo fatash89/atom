@@ -44,6 +44,7 @@ METRICS_DEVICE_LABEL = "device"
 METRICS_LANGUAGE_LABEL = "language"
 METRICS_LEVEL_LABEL = "level"
 METRICS_AGGREGATION_LABEL = "agg"
+METRICS_AGGREGATION_TYPE_LABEL = "agg_type"
 # Metrics default retention -- 1 day on raw data
 METRICS_DEFAULT_RETENTION = 86400000
 # Metrics default aggregation rules
