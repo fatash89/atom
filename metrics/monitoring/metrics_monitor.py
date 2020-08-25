@@ -102,8 +102,7 @@ def metrics_add_no_create(element, value, m_type, *m_subtypes, pipeline=None):
     #   the element to do this as we're not encouraged to use this API
     #   to mimic similar results to the encouraged metrics API
     key_str = element._make_metric_id(element.name, m_type, *m_subtypes)
-    labels = {}
-    element._metrics_add_default_labels(labels, MetricsLevel.INFO, m_type, *m_subtypes)
+    labels = element._metrics_add_default_labels({}, MetricsLevel.INFO, m_type, *m_subtypes)
 
     # Write out the metric
     element.metrics_add(key_str, value, labels=labels, enforce_exists=False, pipeline=pipeline)
@@ -114,13 +113,15 @@ def metrics_get_process_name(process):
     tricky -- there are a bunch of edge cases to consider in terms of delivering
     something useful
     """
+    def sanitize_process_name(name):
+        return name.replace(' ', '').replace('(', '').replace(')', '').replace(',', '')
 
     name = f"{process.pid}"
 
     cmdline = process.cmdline()
     if cmdline:
         for val in cmdline[:2]:
-            name += f":{val}"
+            name += f":{sanitize_process_name(val)}"
     else:
         procname = process.name()
         if procname:
