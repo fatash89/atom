@@ -241,7 +241,7 @@ def cpu_metrics_update(element, pipeline):
     #
     cpu_freq = psutil.cpu_freq(percpu=True)
     for i, freq in enumerate(cpu_freq):
-        element.metrics_add(cpu_freq_metrics_keys[str(i)], freq, pipeline=pipeline)
+        element.metrics_add(cpu_freq_metrics_keys[str(i)], freq.current, pipeline=pipeline)
 
 def memory_metrics_init(element):
     """

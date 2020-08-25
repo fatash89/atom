@@ -106,6 +106,7 @@ RUN apt-get update -y \
 # Copy contents of python virtualenv and activate
 COPY --from=atom-source /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
+ENV PYTHONUNBUFFERED=TRUE
 
 # Copy C builds
 COPY --from=atom-source /usr/local/lib /usr/local/lib

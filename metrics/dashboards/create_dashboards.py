@@ -21,8 +21,8 @@ import os
 import redis
 from jinja2 import FileSystemLoader, Environment, PackageLoader, select_autoescape
 
-GRAFANA_USER = "admin"
-GRAFANA_PASSWORD = "admin"
+GRAFANA_USER = os.getenv("GRAFANA_USER", "admin")
+GRAFANA_PASSWORD = os.getenv("GRAFANA_PASSWORD", "admin")
 GRAFANA_URL = f"http://{GRAFANA_USER}:{GRAFANA_PASSWORD}@{os.getenv('GRAFANA_URL', 'localhost:3000')}"
 
 # Info to make all of the dashboards
@@ -43,6 +43,9 @@ DATASOURCES = [
     ("Atom Nucleus", "redis-atom",      f"{ATOM_SERVER_IP}:{ATOM_SERVER_PORT}"),
     ("Atom Metrics", "redis-metrics",   f"{METRICS_SERVER_IP}:{METRICS_SERVER_PORT}")
 ]
+
+# List of system-level dashboards we want to make at boot
+SYS_DASHBOARDS = [ "cpu" ]
 
 # Get the template
 templateLoader = FileSystemLoader(searchpath="./templates")
@@ -83,6 +86,38 @@ for source in DATASOURCES:
     )
     if not data.ok:
         print(f"Failed to create overview dashboard for source {source}: status: {data.status_code} response: {data.json()}")
+
+# Create system overview dashboards
+print("Creating System Overview Dashboards...")
+for sys_dash in SYS_DASHBOARDS:
+    template = env.get_template(f'{sys_dash}.json.j2')
+
+    for timing in [(None, None),] + METRICS_TIMING:
+        if timing[0] is not None:
+            bucket = timing[0]
+            agg_label = f"{timing[0] // (1000 * 60)}m"
+            name = agg_label
+            start_time = timing[1]
+        else:
+            bucket = 1000
+            agg_label = "none"
+            name = "live"
+            start_time = "5m"
+
+        data = requests.post(
+            GRAFANA_URL + "/api/dashboards/db",
+            json=json.loads(
+                template.render(
+                    name=f"System-1-{sys_dash}-{name}",
+                    bucket=bucket,
+                    agg_label=agg_label,
+                    datasource="redis-metrics",
+                    start_time=start_time
+                )
+            )
+        )
+        if not data.ok:
+            print(f"Failed to create overview dashboard for source {source}: status: {data.status_code} response: {data.json()}")
 
 
 # Figure out how many elements we have that support metrics
