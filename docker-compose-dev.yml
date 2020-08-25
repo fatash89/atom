@@ -4,7 +4,6 @@ services:
 
   nucleus:
     container_name: nucleus
-    #image: elementaryrobotics/nucleus
     build:
       context: .
       dockerfile: Dockerfile
@@ -18,10 +17,15 @@ services:
         volume:
           nocopy: true
       - "./:/metrics"
+      - "/proc:/host_proc:ro"
+      - ".:/atom"
     ports:
       - "6379:6379"
       - "6380:6380"
       - "3001:3000"
+    environment:
+      - "METRICS_MONITOR_PROCFS=/host_proc"
+      - "ATOM_USE_METRICS=TRUE"
 
   metrics:
     container_name: metrics
@@ -44,13 +48,10 @@ services:
         target: /shared
         volume:
           nocopy: true
-      - ".:/atom"
-      - "/proc:/host_proc"
     network_mode: host
     depends_on:
       - "nucleus"
     environment:
-      - "METRICS_MONITOR_PROCFS=/host_proc"
       - "ATOM_USE_METRICS=TRUE"
     command: tail -f /dev/null
     privileged: true

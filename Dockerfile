@@ -123,6 +123,12 @@ WORKDIR /atom
 
 FROM atom as nucleus
 
+# Install requirements for monitoring
+RUN apt-get install -y python3-dev
+RUN pip3 install wheel
+ADD metrics/monitoring /usr/local/bin/monitoring
+RUN pip3 install -r /usr/local/bin/monitoring/requirements.txr
+
 # Add in redis-server
 COPY --from=atom-source /usr/local/bin/redis-server /usr/local/bin/redis-server
 # Add in redis-time-series
