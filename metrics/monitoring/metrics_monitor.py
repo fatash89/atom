@@ -759,7 +759,7 @@ def process_metrics_update(element, pipeline):
 if __name__ == '__main__':
 
     def initialize_timing_metric(metric):
-       timing_metrics[metric] = element.metrics_create(
+        timing_metrics[metric] = element.metrics_create(
             MetricsLevel.TIMING,
             TIMING_PREFIX, metric,
             agg_types=["AVG", "MIN", "MAX"]

@@ -18,7 +18,7 @@ services:
           nocopy: true
       - "./:/metrics"
       - "/proc:/host_proc:ro"
-      - ".:/atom"
+      - "./metrics/monitoring:/usr/local/bin/monitoring"
     ports:
       - "6379:6379"
       - "6380:6380"
@@ -26,6 +26,7 @@ services:
     environment:
       - "METRICS_MONITOR_PROCFS=/host_proc"
       - "ATOM_USE_METRICS=TRUE"
+    privileged: true
 
   metrics:
     container_name: metrics

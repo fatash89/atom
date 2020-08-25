@@ -71,6 +71,15 @@ RUN cp /atom/utilities/atom-cli/atom-cli.py /usr/local/bin/atom-cli \
 
 
 #
+# Requirements for metrics/monitoring
+#
+
+RUN apt-get -y install python3-dev
+RUN pip3 install wheel
+ADD metrics/monitoring /usr/local/bin/monitoring
+RUN pip3 install -r /usr/local/bin/monitoring/requirements.txt
+
+#
 # Finish up
 #
 
@@ -123,11 +132,8 @@ WORKDIR /atom
 
 FROM atom as nucleus
 
-# Install requirements for monitoring
-RUN apt-get install -y python3-dev
-RUN pip3 install wheel
-ADD metrics/monitoring /usr/local/bin/monitoring
-RUN pip3 install -r /usr/local/bin/monitoring/requirements.txr
+# Add in monitoring
+COPY --from=atom-source /usr/local/bin/monitoring /usr/local/bin/monitoring
 
 # Add in redis-server
 COPY --from=atom-source /usr/local/bin/redis-server /usr/local/bin/redis-server
