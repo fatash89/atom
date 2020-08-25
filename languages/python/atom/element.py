@@ -2392,7 +2392,7 @@ class Element:
         """
 
         # If metrics are off or if the key has been filtered due to log level
-        if not self._metrics_enabled or key not in self._metrics:
+        if not self._metrics_enabled or (key not in self._metrics and enforce_exists):
             return None
 
         if not pipeline:

@@ -16,7 +16,7 @@ import time
 import os
 
 # How often to poll for monitoring
-METRICS_MONITOR_INTERVAL = int(os.getenv('METRICS_MONITOR_INTERVAL', '10'))
+METRICS_MONITOR_INTERVAL = int(os.getenv('METRICS_MONITOR_INTERVAL', '1'))
 
 # How often to retain performance metrics monitoring
 METRICS_MONITOR_RETENTION = 86400000
@@ -29,6 +29,7 @@ METRICS_MONITOR_RETENTION = 86400000
 cpu_times_metrics_keys = {}
 cpu_pct_metrics_keys = {}
 cpu_stats_metrics_keys = {}
+cpu_freq_metrics_keys = {}
 
 # Memory dictionaries
 memory_virtual_metrics_keys = {}
@@ -40,7 +41,7 @@ disk_metrics_io_keys = defaultdict(lambda: {})
 
 # Network dictionaries
 network_metrics_io_keys = defaultdict(lambda : {})
-network_metrics_status_keys = {}
+network_metrics_status_keys = defaultdict(lambda: {})
 
 # Sensor dictionaries
 sensors_metrics_status_keys = defaultdict(lambda : {})
@@ -82,6 +83,9 @@ SENSOR_TEMP_PREFIX = "temp"
 PROCESS_PREFIX = "process"
 PROCESS_THREAD_PREFIX = "thread"
 
+# Timing strings
+TIMING_PREFIX = "timing"
+
 def metrics_add_no_create(element, value, m_type, *m_subtypes, pipeline=None):
     """
     Call add on a metric without having created it. This is useful
@@ -94,10 +98,10 @@ def metrics_add_no_create(element, value, m_type, *m_subtypes, pipeline=None):
     #   to mimic similar results to the encouraged metrics API
     key_str = element._make_metric_id(element.name, m_type, *m_subtypes)
     labels = {}
-    element._metrics_add_default_labels(labels, MetricsLevel.INFO, m_type, *m_subtypes, pipeline=pipeline)
+    element._metrics_add_default_labels(labels, MetricsLevel.INFO, m_type, *m_subtypes)
 
     # Write out the metric
-    element.metrics_add(key_str, value, labels=labels, enforce_exists=False)
+    element.metrics_add(key_str, value, labels=labels, enforce_exists=False, pipeline=pipeline)
 
 def metrics_get_process_name(process):
     """
@@ -106,15 +110,18 @@ def metrics_get_process_name(process):
     something useful
     """
 
+    name = f"{process.pid}"
+
     cmdline = process.cmdline()
     if cmdline:
-        name = cmdline[0]
-        for val in cmdline[1:]
+        for val in cmdline:
             name += f":{val}"
     else:
-        name = process.name()
+        procname = process.name()
+        if procname:
+            name += f":{procname}"
         if name is None:
-            name = "none"
+            name += ":none"
 
     return name
 
@@ -136,7 +143,7 @@ def cpu_metrics_init(element):
         cpu_pct_metrics_keys[key] = element.metrics_create(
             MetricsLevel.INFO,
             CPU_PREFIX, CPU_PCT_PREFIX, key,
-            agg_tpes=["AVG"]
+            agg_types=["AVG"]
         )
 
     def cpu_metrics_create_cpu_stats(*keys):
@@ -144,14 +151,14 @@ def cpu_metrics_init(element):
             cpu_stats_metrics_keys[key] = element.metrics_create(
                 MetricsLevel.INFO,
                 CPU_PREFIX, CPU_STATS_PREFIX, key,
-                agg_tpes=["SUM"]
+                agg_types=["SUM"]
             )
 
     def cpu_metrics_create_cpu_freq(key):
         cpu_freq_metrics_keys[key] = element.metrics_create(
             MetricsLevel.INFO,
             CPU_PREFIX, CPU_FREQ_PREFIX, key,
-            agg_tpes=["MIN", "MAX", "AVG"]
+            agg_types=["MIN", "MAX", "AVG"]
         )
 
     #
@@ -212,7 +219,7 @@ def cpu_metrics_update(element, pipeline):
     # CPU utilization metrics
     #
     cpu_percent = psutil.cpu_percent(percpu=True)
-    for i, pct in cpu_percent:
+    for i, pct in enumerate(cpu_percent):
         element.metrics_add(cpu_pct_metrics_keys[str(i)], pct, pipeline=pipeline)
 
     #
@@ -227,7 +234,7 @@ def cpu_metrics_update(element, pipeline):
     # CPU frequency metrics
     #
     cpu_freq = psutil.cpu_freq()
-    for i, freq in cpu_freq:
+    for i, freq in enumerate(cpu_freq):
         element.metrics_add(cpu_freq_metrics_keys[str(i)], freq, pipeline=pipeline)
 
 def memory_metrics_init(element):
@@ -248,7 +255,7 @@ def memory_metrics_init(element):
             memory_swap_metrics_keys[key] = element.metrics_create(
                 MetricsLevel.INFO,
                 MEMORY_PREFIX, MEMORY_SWAP_PREFIX, key,
-                agg_tpes=["MIN", "MAX", "AVG"]
+                agg_types=["MIN", "MAX", "AVG"]
             )
 
     memory_metrics_create_virtual(
@@ -336,7 +343,7 @@ def disk_metrics_update(element, pipeline):
         for key in keys:
             element.metrics_add(
                 disk_metrics_usage_keys[disk][key],
-                psutil.disk_usage(disk),
+                getattr(disk_usage, key),
                 pipeline=pipeline
             )
 
@@ -349,13 +356,14 @@ def disk_metrics_update(element, pipeline):
             )
 
     for disk in psutil.disk_partitions():
+        disk_usage = psutil.disk_usage(disk.mountpoint)
         disk_metrics_update_usage(
             disk.mountpoint,
             "total", "used", "free", "percent"
         )
 
     disk_io = psutil.disk_io_counters(perdisk=True)
-    for disk in disk_io
+    for disk in disk_io:
         disk_metrics_update_io(
             disk,
             "read_count", "write_count", "read_bytes",
@@ -387,12 +395,13 @@ def network_metrics_init(element):
     """
 
     def network_metrics_create_kind(kind, *keys):
-        key_str = str(key)
-        network_metrics_status_keys[kind][key_str] = element.metrics_create(
-            MetricsLevel.INFO,
-            NETWORK_PREFIX, NETWORK_KIND_PREFIX, kind, key_str,
-            agg_types=["AVG"]
-        )
+        for key in keys:
+            key_str = str(key)
+            network_metrics_status_keys[kind][key_str] = element.metrics_create(
+                MetricsLevel.INFO,
+                NETWORK_PREFIX, NETWORK_KIND_PREFIX, kind, key_str,
+                agg_types=["AVG"]
+            )
 
     # Initialize the NICs
     for nic in psutil.net_io_counters(pernic=True):
@@ -400,7 +409,7 @@ def network_metrics_init(element):
 
     # Now, we want to initialize all of the connection status metrics
     for kind in NETWORK_METRICS_KINDS:
-        network_metrics_create_conn(
+        network_metrics_create_kind(
             kind,
             psutil.CONN_ESTABLISHED,
             psutil.CONN_SYN_SENT,
@@ -467,7 +476,8 @@ def network_metrics_update(element, pipeline):
         for conn in data:
             status_counts[conn.status] += 1
             pid_counts[conn.pid] += 1
-            remote_counts[f"{conn.raddr.ip}:{conn.raddr.port}"] += 1
+            if conn.raddr:
+                remote_counts[f"{conn.raddr.ip}:{conn.raddr.port}"] += 1
 
         # Update the status counts
         network_metrics_update_kind(
@@ -489,13 +499,17 @@ def network_metrics_update(element, pipeline):
 
         # Log network connections by PID
         for pid in pid_counts:
-            process = Process(pid)
-            name = metrics_get_process_name(process)
+            if pid is not None:
+                process = psutil.Process(pid)
+                name = metrics_get_process_name(process)
+            else:
+                name = "__system__"
             metrics_add_no_create(
                 element,
                 pid_counts[pid],
                 NETWORK_PREFIX,
                 NETWORK_PROCESS_PREFIX,
+                kind,
                 name,
                 pipeline=pipeline
             )
@@ -507,6 +521,7 @@ def network_metrics_update(element, pipeline):
                 remote_counts[remote],
                 NETWORK_PREFIX,
                 NETWORK_REMOTE_PREFIX,
+                kind,
                 remote,
                 pipeline=pipeline
             )
@@ -526,7 +541,7 @@ def sensors_metrics_init(element):
 
     data = psutil.sensors_temperatures()
     for item in data:
-        sensors_metrics_create_item(item, [x.label for x in data[item]])
+        sensors_metrics_create_item(item, [x.label if x.label else 'default' for x in data[item]])
 
 def sensors_metrics_update(element, pipeline):
     """
@@ -534,17 +549,21 @@ def sensors_metrics_update(element, pipeline):
     """
 
     def sensors_metrics_update_item(item, sensor, val):
-        for key in keys:
-            element.metrics_add(
-                sensors_metrics_status_keys[item][sensor],
-                val,
-                pipeline=pipeline
-            )
+        element.metrics_add(
+            sensors_metrics_status_keys[item][sensor],
+            val,
+            pipeline=pipeline
+        )
 
     data = psutil.sensors_temperatures()
     for item in data:
-        for sensor in item:
-            sensors_metrics_update_item(item, sensor.label, sensor.current)
+
+        # Need to filter out duplicates -- apparently they're in there
+        seen = []
+        for sensor in data[item]:
+            if sensor not in seen:
+                sensors_metrics_update_item(item, sensor.label if sensor.label else 'default', sensor.current)
+                seen.append(sensor)
 
 def processes_metrics_init(element):
     """
@@ -567,10 +586,18 @@ def process_metrics_update(element, pipeline):
     Update metrics on a per-process basis
     """
 
+    # Globals we'll be using
+    global cpu_times_time_last
+    global cpu_times_system_last
+    global cpu_times_user_last
+    global cpu_times_iowait_last
+    global thread_times_user_last
+    global thread_times_system_last
+
     def process_metrics_update_item(item_dict, info):
         for proc in item_dict:
             metrics_add_no_create(
-                element, item_dict[value], PROCESS_PREFIX, proc, info, pipeline=pipeline
+                element, item_dict[proc], PROCESS_PREFIX, proc, info, pipeline=pipeline
             )
 
     def process_metrics_cpu_time_to_pct(curr, prev):
@@ -579,7 +606,7 @@ def process_metrics_update(element, pipeline):
         # Loop over current processes
         for proc in curr:
             # If we've seen this process before
-            if cpu_times_last[proc]:
+            if cpu_times_time_last and cpu_times_time_last[proc]:
                 # Calculate its metrics across the current runtime
                 timedelta = (cpu_times_time[proc] - cpu_times_time_last[proc]) / 100.0
                 output[proc] = (curr[proc] - prev[proc]) / timedelta
@@ -590,7 +617,7 @@ def process_metrics_update(element, pipeline):
         for proc in item_dict:
             for thread in item_dict[proc]:
                 metrics_add_no_create(
-                    element, item_dict[proc][thread], PROCESS_PREFIX, proc, THREAD_PREFIX, thread, info, pipeline=pipeline
+                    element, item_dict[proc][thread], PROCESS_PREFIX, proc, PROCESS_THREAD_PREFIX, thread, info, pipeline=pipeline
                 )
 
     def process_metrics_cpu_time_to_pct_threaded(curr, prev):
@@ -599,7 +626,7 @@ def process_metrics_update(element, pipeline):
         # Loop over processes
         for proc in curr:
             # If we've seen this process before
-            if cpu_times_last[proc]:
+            if cpu_times_time_last and cpu_times_time_last[proc]:
                 # Make the new output dictionary
                 output[proc] = {}
                 # Loop over the process's threads
@@ -616,7 +643,8 @@ def process_metrics_update(element, pipeline):
     write_count = {}
     read_bytes = {}
     write_bytes = {}
-    ctx_switches = {}
+    ctx_switches_voluntary = {}
+    ctx_switches_involuntary = {}
     fds = {}
     cpu_times_time = {}
     cpu_times_system = {}
@@ -643,7 +671,9 @@ def process_metrics_update(element, pipeline):
             write_bytes[name] = io.write_bytes
 
             # Context switches
-            ctx_switches[name] = proc.num_ctx_switches()
+            switches = proc.num_ctx_switches()
+            ctx_switches_voluntary[name] = switches.voluntary
+            ctx_switches_involuntary[name] = switches.involuntary
 
             # File descriptors
             fds[name] = proc.num_fds()
@@ -670,7 +700,8 @@ def process_metrics_update(element, pipeline):
     process_metrics_update_item(write_count, "write_count")
     process_metrics_update_item(read_bytes, "read_bytes")
     process_metrics_update_item(write_bytes, "write_bytes")
-    process_metrics_update_item(ctx_switches, "ctx_switches")
+    process_metrics_update_item(ctx_switches_voluntary, "ctx_switches_voluntary")
+    process_metrics_update_item(ctx_switches_involuntary, "ctx_switches_involuntary")
     process_metrics_update_item(fds, "fds")
     process_metrics_update_item(
         process_metrics_cpu_time_to_pct(
@@ -721,20 +752,42 @@ def process_metrics_update(element, pipeline):
 # Mainloop
 if __name__ == '__main__':
 
+    def initialize_timing_metric(metric):
+       timing_metrics[metric] = element.metrics_create(
+            MetricsLevel.TIMING,
+            TIMING_PREFIX, metric,
+            agg_types=["AVG", "MIN", "MAX"]
+        )
+
     # Make the element
     element = None
-    while not element:
+    while True:
         element = Element('monitor')
+        if element is not None:
+            break
+
         print("Failed to create element! Waiting 10s")
         time.sleep(10)
 
+    # Initialize all of the timing metrics
+    timing_metrics = {}
+    initialize_timing_metric("cpu")
+    initialize_timing_metric("memory")
+    initialize_timing_metric("disk")
+    initialize_timing_metric("network")
+    initialize_timing_metric("sensors")
+    initialize_timing_metric("processes")
+    initialize_timing_metric("redis")
+
     # Call all of the init functions
+    print("Initializing...")
     cpu_metrics_init(element)
     memory_metrics_init(element)
     disk_metrics_init(element)
     network_metrics_init(element)
     sensors_metrics_init(element)
     processes_metrics_init(element)
+    print("Initialized!")
 
     # Loop forever
     while True:
@@ -747,12 +800,30 @@ if __name__ == '__main__':
             continue
 
         # Add in the stats
+        print("Starting update...")
+        element.metrics_timing_start(timing_metrics["cpu"])
         cpu_metrics_update(element, pipeline)
+        element.metrics_timing_end(timing_metrics["cpu"], pipeline=pipeline)
+        element.metrics_timing_start(timing_metrics["memory"])
         memory_metrics_update(element, pipeline)
+        element.metrics_timing_end(timing_metrics["memory"], pipeline=pipeline)
+        element.metrics_timing_start(timing_metrics["disk"])
         disk_metrics_update(element, pipeline)
+        element.metrics_timing_end(timing_metrics["disk"], pipeline=pipeline)
+        element.metrics_timing_start(timing_metrics["network"])
         network_metrics_update(element, pipeline)
+        element.metrics_timing_end(timing_metrics["network"], pipeline=pipeline)
+        element.metrics_timing_start(timing_metrics["sensors"])
         sensors_metrics_update(element, pipeline)
+        element.metrics_timing_end(timing_metrics["sensors"], pipeline=pipeline)
+        element.metrics_timing_start(timing_metrics["processes"])
         process_metrics_update(element, pipeline)
+        element.metrics_timing_end(timing_metrics["processes"], pipeline=pipeline)
+        print("Finished update!")
 
         # Execute the pipeline
+        print("Writing metrics...")
+        element.metrics_timing_start(timing_metrics["redis"])
         element.metrics_write_pipeline(pipeline)
+        element.metrics_timing_end(timing_metrics["redis"])
+        print("Metrics written!")
