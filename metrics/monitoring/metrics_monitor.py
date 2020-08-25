@@ -611,7 +611,7 @@ def process_metrics_update(element, pipeline):
         # Loop over current processes
         for proc in curr:
             # If we've seen this process before
-            if cpu_times_time_last and cpu_times_time_last[proc]:
+            if cpu_times_time_last and proc in cpu_times_time_last:
                 # Calculate its metrics across the current runtime
                 timedelta = (cpu_times_time[proc] - cpu_times_time_last[proc]) / 100.0
                 output[proc] = (curr[proc] - prev[proc]) / timedelta
@@ -631,7 +631,7 @@ def process_metrics_update(element, pipeline):
         # Loop over processes
         for proc in curr:
             # If we've seen this process before
-            if cpu_times_time_last and cpu_times_time_last[proc]:
+            if cpu_times_time_last and proc in cpu_times_time_last:
                 # Make the new output dictionary
                 output[proc] = {}
                 # Loop over the process's threads
