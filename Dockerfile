@@ -499,3 +499,28 @@ COPY ./languages/c/ /atom/languages/c
 COPY ./languages/cpp/ /atom/languages/cpp
 COPY ./languages/python/tests /atom/languages/python/tests
 COPY ./languages/python/atom /atom/languages/python/atom
+
+################################################################################
+#
+# cpp-docs image for atom release. Based off test, adds in doxygen dependencies
+#
+################################################################################
+
+FROM test as cpp-docs
+
+ADD ./languages/cpp/third-party/doxygen /atom/languages/cpp/third-party/doxygen
+
+# Build Doxygen
+RUN cd /atom/languages/cpp/third-party/doxygen \
+        && mkdir -p build \
+        && cd build \
+        && apt-get update \
+        && apt-get install -y flex \
+        && apt-get install -y bison \
+        && cmake -G "Unix Makefiles" .. \
+        && make \
+        && make install
+
+# Build the docs
+RUN cd /atom/languages/cpp \
+    && doxygen doxygen.config
