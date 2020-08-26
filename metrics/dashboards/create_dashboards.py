@@ -23,7 +23,7 @@ from jinja2 import FileSystemLoader, Environment, PackageLoader, select_autoesca
 
 GRAFANA_USER = os.getenv("GRAFANA_USER", "admin")
 GRAFANA_PASSWORD = os.getenv("GRAFANA_PASSWORD", "admin")
-GRAFANA_URL = f"http://{GRAFANA_USER}:{GRAFANA_PASSWORD}@{os.getenv('GRAFANA_URL', 'localhost:3000')}"
+GRAFANA_URL = f"http://{GRAFANA_USER}:{GRAFANA_PASSWORD}@{os.getenv('GRAFANA_URL', 'localhost:3001')}"
 
 # Info to make all of the dashboards
 METRICS_TIMING = [
@@ -168,7 +168,9 @@ home_template = env.get_template('home.json.j2')
 data = requests.post(
     GRAFANA_URL + "/api/dashboards/db",
     json=json.loads(
-        home_template.render()
+        home_template.render(
+            datasource="redis-metrics"
+        )
     )
 )
 if not data.ok:
