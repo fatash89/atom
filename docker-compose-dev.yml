@@ -17,11 +17,11 @@ services:
         volume:
           nocopy: true
       - "./:/metrics"
-      - "/proc:/host_proc:ro"
+      - "/:/host:ro"
       - "./metrics/monitoring:/usr/local/bin/monitoring"
     network_mode: host
     environment:
-      - "METRICS_MONITOR_PROCFS=/host_proc"
+      - "METRICS_MONITOR_PROCFS=/host/proc"
       - "ATOM_USE_METRICS=TRUE"
     privileged: true
 
