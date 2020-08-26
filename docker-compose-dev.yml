@@ -16,8 +16,11 @@ services:
         target: /shared
         volume:
           nocopy: true
-      - "./:/metrics"
-      - "/:/host:ro"
+      # Link in the database
+      - "./metrics/metrics.rdb:/metrics/metrics.rdb"
+      # Need to see /proc for psutil
+      - "/proc:/host/proc:ro"
+      # Link in the monitoring folder s.t. we can develop
       - "./metrics/monitoring:/usr/local/bin/monitoring"
     network_mode: host
     environment:
@@ -31,6 +34,7 @@ services:
       context: metrics
       dockerfile: Dockerfile
     volumes:
+      # Link in the dashboards s.t. we can develop
       - "./metrics/dashboards:/metrics/dashboards"
     network_mode: "service:nucleus"
 
