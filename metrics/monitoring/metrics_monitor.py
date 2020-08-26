@@ -431,18 +431,25 @@ def network_metrics_init(element):
             psutil.CONN_NONE,
         )
 
+#
+# We want to log deltas on the network data, not the sum
+#
+network_data_last = None
+
 def network_metrics_update(element, pipeline):
     """
     Update network metrics
     """
+    global network_data_last
 
     def network_metrics_update_io(nic, *keys):
-        for key in keys:
-            element.metrics_add(
-                network_metrics_io_keys[nic][key],
-                getattr(data[nic], key),
-                pipeline=pipeline
-            )
+        if network_data_last is not None and nic in network_data_last:
+            for key in keys:
+                element.metrics_add(
+                    network_metrics_io_keys[nic][key],
+                    getattr(data[nic], key) - getattr(network_data_last[nic], key),
+                    pipeline=pipeline
+                )
 
     def network_metrics_update_kind(kind, counts, *keys):
         for key in keys:
@@ -468,6 +475,9 @@ def network_metrics_update(element, pipeline):
             "bytes_sent", "bytes_recv", "packets_sent", "packets_recv",
                 "errin", "errout", "dropin", "dropout"
         )
+
+    # Update the network data
+    network_data_last = data
 
     # Loop over the network kinds
     for kind in NETWORK_METRICS_KINDS:

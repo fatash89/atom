@@ -64,7 +64,7 @@
         "steppedLine": false,
         "targets": [
           {
-            "aggregation": "avg",
+            "aggregation": "sum",
             "bucket": "{{ bucket }}",
             "command": "ts.mrange",
             "filter": "element=monitor type=net subtype0=io subtype2=(bytes_sent,bytes_recv) agg={{ agg_label }}",
