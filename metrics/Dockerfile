@@ -29,8 +29,8 @@ RUN npm install yarn -g && yarn install && yarn build
 RUN mage -v
 RUN mv dist/ /var/lib/grafana/plugins/redis-datasource
 
-# Note that we should allow loading unsigned plugins
-RUN sed -i "s/;allow_loading_unsigned_plugins =/allow_loading_unsigned_plugins = redis-datasource/g" /etc/grafana/grafana.ini
+# Add in our grafana config file
+ADD grafana.ini /etc/grafana/grafana.ini
 
 # Install scripts we'll use to auto-create dashboards
 ADD dashboards /metrics/dashboards

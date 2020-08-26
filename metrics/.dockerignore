@@ -5,3 +5,4 @@
 !/grafana-redis-datasource/**
 !/dashboards/**
 !/launch.sh
+!/grafana.ini

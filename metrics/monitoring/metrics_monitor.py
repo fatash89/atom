@@ -479,7 +479,6 @@ def network_metrics_update(element, pipeline):
         status_counts = defaultdict(int)
         pid_counts = defaultdict(int)
         remote_counts = defaultdict(int)
-        print(conn)
         for conn in data:
             status_counts[conn.status] += 1
             pid_counts[conn.pid] += 1
