@@ -67,7 +67,7 @@
             "aggregation": "avg",
             "bucket": "{{ bucket }}",
             "command": "ts.mrange",
-            "filter": "element=monitor type=net subtype0=io subtype2=(bytes_sent,bytes_recv) agg={{ agg_type }}",
+            "filter": "element=monitor type=net subtype0=io subtype2=(bytes_sent,bytes_recv) agg={{ agg_label }}",
             "legend": "subtype1",
             "query": "",
             "refId": "A",
