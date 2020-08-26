@@ -19,10 +19,7 @@ services:
       - "./:/metrics"
       - "/proc:/host_proc:ro"
       - "./metrics/monitoring:/usr/local/bin/monitoring"
-    ports:
-      - "6379:6379"
-      - "6380:6380"
-      - "3001:3000"
+    network_mode: host
     environment:
       - "METRICS_MONITOR_PROCFS=/host_proc"
       - "ATOM_USE_METRICS=TRUE"
