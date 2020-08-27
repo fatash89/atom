@@ -19,6 +19,7 @@ import json
 import requests
 import os
 import redis
+import time
 from jinja2 import FileSystemLoader, Environment, PackageLoader, select_autoescape
 
 GRAFANA_USER = os.getenv("GRAFANA_USER", "admin")
@@ -47,13 +48,24 @@ DATASOURCES = [
 # List of system-level dashboards we want to make at boot
 SYS_DASHBOARDS = [ "cpu", "disk", "memory", "network" ]
 
+# Wait for grafana to come up
+print("Waiting for Grafana to come up...")
+while True:
+    try:
+        data = requests.get(GRAFANA_URL + '/api/health')
+        if data.ok:
+            break
+    except:
+        print("Grafana server returned error, waiting")
+        time.sleep(1)
+print("Grafana up!")
+
 # Get the template
 templateLoader = FileSystemLoader(searchpath="./templates")
 env = Environment(
     loader=templateLoader,
     autoescape=select_autoescape(['html', 'xml'])
 )
-template = env.get_template('default_element.json.j2')
 
 # Create the datasources
 print("Creating datasources...")

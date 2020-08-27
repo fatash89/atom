@@ -126,6 +126,7 @@ COPY --from=atom-source /usr/local/bin/atom-cli /usr/local/bin/atom-cli
 
 # Copy redis-cli
 COPY --from=atom-source /usr/local/bin/redis-cli /usr/local/bin/redis-cli
+ENV REDIS_CLI_BIN /usr/local/bin/redis-cli
 
 # Add .circleci for docs build
 ADD ./.circleci /atom/.circleci

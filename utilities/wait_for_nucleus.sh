@@ -6,7 +6,6 @@
 #   variables set.
 #
 
-REDIS_CLI_BIN="/usr/local/bin/redis-cli"
 REDIS_CLI_CMD="ping"
 REDIS_CLI_EXPECTED_RESPONSE="PONG"
 TIME_WAIT=1

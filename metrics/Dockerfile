@@ -5,8 +5,17 @@ FROM grafana/grafana
 # (but is fine for local setups)
 USER root
 
+# Configuration environment variables
+ENV ATOM_NUCLEUS_HOST ""
+ENV ATOM_METRICS_HOST ""
+ENV ATOM_NUCLEUS_PORT "6379"
+ENV ATOM_METRICS_PORT "6380"
+ENV ATOM_NUCLEUS_SOCKET "/shared/redis.sock"
+ENV ATOM_METRICS_SOCKET "/shared/metrics.sock"
+ENV REDIS_CLI_BIN /usr/bin/redis-cli
+
 # Install our rewuirements
-RUN apk update && apk add git go npm python3 py-pip
+RUN apk update && apk add git go npm python3 py-pip redis
 
 # Install Mage
 RUN mkdir -p /root/go/bin && git clone https://github.com/magefile/mage && cd mage && go run bootstrap.go
@@ -41,6 +50,9 @@ RUN pip3 install -r requirements.txt
 WORKDIR /metrics
 ADD launch.sh .
 
+# Add in the script that lets us wait for the nucleus
+COPY --from=atom_nucleus:latest /usr/local/bin/wait_for_nucleus.sh /usr/local/bin/wait_for_nucleus.sh
+
 # Specify bash as the entrypoint and the command as launch.sh
 ENTRYPOINT [ "/bin/bash" ]
-CMD [ "launch.sh" ]
+CMD [ "/usr/local/bin/wait_for_nucleus.sh", "/bin/bash", "launch.sh" ]

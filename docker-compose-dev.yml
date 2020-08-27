@@ -38,6 +38,11 @@ services:
       context: metrics
       dockerfile: Dockerfile
     volumes:
+      - type: volume
+        source: shared
+        target: /shared
+        volume:
+          nocopy: true
       # Link in the dashboards s.t. we can develop
       - "./metrics/dashboards:/metrics/dashboards"
     network_mode: "service:nucleus"
