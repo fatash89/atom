@@ -34,6 +34,15 @@ import atom.serialization as ser
 # Need to get the metrics level
 METRICS_LOG_LEVEL = MetricsLevel[os.getenv("ATOM_METRICS_LEVEL", "TIMING")]
 
+# Need to figure out how we're connecting to the Nucleus
+#   Default to local sockets at the default address
+ATOM_NUCLEUS_HOST = os.getenv("ATOM_NUCLEUS_HOST", None)
+ATOM_METRICS_HOST = os.getenv("ATOM_METRICS_HOST", None)
+ATOM_NUCLEUS_PORT = int(os.getenv("ATOM_NUCLEUS_PORT", str(DEFAULT_REDIS_PORT)))
+ATOM_METRICS_PORT = int(os.getenv("ATOM_METRICS_PORT", str(DEFAULT_METRICS_PORT)))
+ATOM_NUCLEUS_SOCKET = os.getenv("ATOM_NUCLEUS_SOCKET", DEFAULT_REDIS_SOCKET)
+ATOM_METRICS_SOCKET = os.getenv("ATOM_METRICS_SOCKET", DEFAULT_METRICS_SOCKET)
+
 class ElementConnectionTimeoutError(redis.exceptions.TimeoutError):
     pass
 
@@ -60,8 +69,8 @@ class MetricsPipeline():
         self.element.metrics_write_pipeline(self.pipeline)
 
 class Element:
-    def __init__(self, name, host=None, port=DEFAULT_REDIS_PORT, metrics_host=None, metrics_port=DEFAULT_METRICS_PORT,
-                 socket_path=DEFAULT_REDIS_SOCKET, metrics_socket_path=DEFAULT_METRICS_SOCKET, conn_timeout_ms=30000, data_timeout_ms=5000, enforce_metrics=False):
+    def __init__(self, name, host=ATOM_NUCLEUS_HOST, port=ATOM_NUCLEUS_PORT, metrics_host=ATOM_METRICS_HOST, metrics_port=ATOM_METRICS_PORT,
+                 socket_path=ATOM_NUCLEUS_SOCKET, metrics_socket_path=ATOM_METRICS_SOCKET, conn_timeout_ms=30000, data_timeout_ms=5000, enforce_metrics=False):
         """
         Args:
             name (str): The name of the element to register with Atom.
