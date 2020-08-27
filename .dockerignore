@@ -8,4 +8,4 @@
 !/utilities/**
 !/.circleci/**
 !/config/**
-!/metrics/monitoring/**
+!/metrics/**

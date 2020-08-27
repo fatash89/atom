@@ -35,8 +35,8 @@ services:
   metrics:
     container_name: metrics
     build:
-      context: metrics
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: metrics/Dockerfile
     volumes:
       - type: volume
         source: shared

@@ -935,7 +935,7 @@ workflows:
           matrix:
             parameters:
               platform: [ amd64 ]
-          working_directory: metrics
+          file: metrics/Dockerfile
           image_name: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
           image_tag: build-<< pipeline.number >>
           cache_repo: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>

@@ -56,7 +56,7 @@ while True:
         if data.ok:
             break
     except:
-        print("Grafana server returned error, waiting")
+        print("Grafana server not yet up, waiting")
         time.sleep(1)
 print("Grafana up!")
 

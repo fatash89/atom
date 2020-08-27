@@ -26,7 +26,7 @@ ENV PATH=/root/go/bin:${PATH}
 RUN go get -u github.com/grafana/grafana-plugin-sdk-go
 
 # Get the redis datasource
-ADD grafana-redis-datasource /tmp/grafana-redis-datasource
+ADD metrics/grafana-redis-datasource /tmp/grafana-redis-datasource
 WORKDIR /tmp/grafana-redis-datasource
 
 # Install yarn and dependencies, build JS
@@ -39,19 +39,19 @@ RUN mage -v
 RUN mv dist/ /var/lib/grafana/plugins/redis-datasource
 
 # Add in our grafana config file
-ADD grafana.ini /etc/grafana/grafana.ini
+ADD metrics/grafana.ini /etc/grafana/grafana.ini
 
 # Install scripts we'll use to auto-create dashboards
-ADD dashboards /metrics/dashboards
+ADD metrics/dashboards /metrics/dashboards
 WORKDIR /metrics/dashboards
 RUN pip3 install -r requirements.txt
 
 # Add in the launch script
 WORKDIR /metrics
-ADD launch.sh .
+ADD metrics/launch.sh .
 
 # Add in the script that lets us wait for the nucleus
-COPY --from=atom_nucleus:latest /usr/local/bin/wait_for_nucleus.sh /usr/local/bin/wait_for_nucleus.sh
+ADD utilities/wait_for_nucleus.sh /usr/local/bin/wait_for_nucleus.sh
 
 # Specify bash as the entrypoint and the command as launch.sh
 ENTRYPOINT [ "/bin/bash" ]
