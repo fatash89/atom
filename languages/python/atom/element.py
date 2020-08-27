@@ -1140,7 +1140,6 @@ class Element:
                     # Post-handler-metrics
                     self.metrics_timing_end(self._command_metrics[cmd_name]["runtime"], pipeline=pipeline)
                     self.metrics_timing_end(self._command_loop_metrics[worker_num]["handler_time"], pipeline=pipeline)
-                    self.metrics_timing_start(self._command_loop_metrics[worker_num]["handler_block_time"])
 
                     # Add ATOM_USER_ERRORS_BEGIN to err_code to map to element error range
                     if isinstance(response, Response):
@@ -1158,6 +1157,9 @@ class Element:
 
                     # Note we called the command and got through it
                     self.metrics_add(self._command_metrics[cmd_name]["count"], 1, pipeline=pipeline)
+
+                # Need to start the handler <> block time
+                self.metrics_timing_start(self._command_loop_metrics[worker_num]["handler_block_time"])
 
                 # send response on appropriate stream
                 kv = vars(response)
@@ -2496,14 +2498,23 @@ class Element:
         """
         self._active_timing_metrics[self._metrics_get_timing_key(key)] = time.monotonic()
 
-    def metrics_timing_end(self, key, pipeline=None):
+    def metrics_timing_end(self, key, pipeline=None, strict=False):
         """
         Simple helper function to finish a time that was being kept
         track of and write out the metric
+
+        Args:
+            key: (string): Key we want to stop metrics timing on
+            pipeline (optional, Redis Pipeline): Pipeline to add the metric to
+            strict (optional, bool): If set to TRUE, will raise an AtomError
+                on the key not existing, else will just log a warning
         """
         db_key = self._metrics_get_timing_key(key)
         if db_key not in self._active_timing_metrics:
-            raise AtomError(f"key {db_key} timer not started!")
+            if strict:
+                raise AtomError(f"key {db_key} timer not started!")
+            else:
+                self.log(LogLevel.WARNING, f"Timing key {key} does not exist -- skipping")
 
         delta = time.monotonic() - self._active_timing_metrics[db_key]
         self.metrics_add(key, delta, pipeline=pipeline)
