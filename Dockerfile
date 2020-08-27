@@ -95,6 +95,14 @@ WORKDIR /atom
 
 FROM $PRODUCTION_IMAGE as atom
 
+# Configuration environment variables
+ENV ATOM_NUCLEUS_HOST ""
+ENV ATOM_METRICS_HOST ""
+ENV ATOM_NUCLEUS_PORT "6379"
+ENV ATOM_METRICS_PORT "6380"
+ENV ATOM_NUCLEUS_SOCKET "/shared/redis.sock"
+ENV ATOM_METRICS_SOCKET "/shared/metrics.sock"
+
 # Install python
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends apt-utils \
@@ -125,6 +133,12 @@ ADD ./.circleci /atom/.circleci
 # Change working directory back to atom location
 WORKDIR /atom
 
+# Add in the wait_for_nucleus.sh script
+ADD utilities/wait_for_nucleus.sh /usr/local/bin/wait_for_nucleus.sh
+
+# Run the wait_for_nucleus script by default
+CMD [ "/usr/local/bin/wait_for_nucleus.sh", "echo 'No startup command -- exiting!'" ]
+
 ################################################################################
 #
 # Nucleus image. Copies out only binary of redis-server
@@ -132,6 +146,9 @@ WORKDIR /atom
 ################################################################################
 
 FROM atom as nucleus
+
+# Set some environment variables
+ENV NUCLEUS_METRICS_MONITOR TRUE
 
 # Add in monitoring
 COPY --from=atom-source /usr/local/bin/monitoring /usr/local/bin/monitoring
@@ -147,7 +164,10 @@ ADD ./config/nucleus/supervisor /etc/supervisor
 ADD ./config/nucleus/redis /etc/redis
 RUN mkdir /metrics
 
-CMD [ "/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf" ]
+# Add in launch script
+ADD config/nucleus/launch.sh launch.sh
+
+CMD [ "/bin/bash", "launch.sh" ]
 
 ################################################################################
 #

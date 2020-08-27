@@ -131,7 +131,7 @@ class Element:
         if os.getenv("ATOM_USE_METRICS", "FALSE") == "TRUE":
 
             # Set up redis client for metrics
-            if metrics_host is not None:
+            if metrics_host is not None and metrics_host != "":
                 self._metrics_host = metrics_host
                 self._metrics_port = metrics_port
                 self._mclient = RedisTimeSeries(
@@ -176,7 +176,7 @@ class Element:
         #
 
         # Set up redis client for main redis
-        if host is not None:
+        if host is not None and host != "":
             self._host = host
             self._port = port
             self._rclient = redis.StrictRedis(

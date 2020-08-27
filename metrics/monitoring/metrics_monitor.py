@@ -768,10 +768,6 @@ def process_metrics_update(element, pipeline):
 # Mainloop
 if __name__ == '__main__':
 
-    # Sleep for a bit to let the redis processes launch
-    # TODO: make this more robust!
-    time.sleep(10)
-
     def initialize_timing_metric(metric):
         timing_metrics[metric] = element.metrics_create(
             MetricsLevel.TIMING,

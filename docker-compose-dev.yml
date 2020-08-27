@@ -22,6 +22,10 @@ services:
       - "/proc:/host/proc:ro"
       # Link in the monitoring folder s.t. we can develop
       - "./metrics/monitoring:/usr/local/bin/monitoring"
+      # Launch script for debug
+      - "./config/nucleus/launch.sh:/atom/launch.sh"
+      # Wait for nucleus script, for debug
+      - "./utilities/wait_for_nucleus.sh:/usr/local/bin/wait_for_nucleus.sh"
     network_mode: host
     environment:
       - "METRICS_MONITOR_PROCFS=/host/proc"
