@@ -141,13 +141,7 @@ class TestAtom():
         )
         metrics.flushall()
 
-        # Need to turn on the metrics feature
-        os.environ["ATOM_USE_METRICS"] = "TRUE"
-
         yield metrics
-
-        # Need to turn off the metrics feature
-        os.environ["ATOM_USE_METRICS"] = "FALSE"
 
         del metrics
 
