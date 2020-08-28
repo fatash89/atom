@@ -52,6 +52,9 @@ RUN cd /atom/languages/cpp \
 
 # Build and install the python library
 # Add and install requirements first to use DLC
+ADD third-party/redistimeseries-py /atom/third-party/redistimeseries-py
+RUN cd /atom/third-party/redistimeseries-py && python3 setup.py install
+
 ADD ./languages/python/requirements.txt /atom/languages/python/requirements.txt
 RUN pip3 install --no-cache-dir -r /atom/languages/python/requirements.txt
 ADD ./lua-scripts /atom/lua-scripts
