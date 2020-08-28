@@ -33,10 +33,12 @@ else
 fi
 
 # If we're connecting remotely to the nucleus
-if [[ ! -z ${ATOM_METRICS_HOST} ]]; then
-    wait_for_redis "metrics" "-h ${ATOM_METRICS_HOST} -p ${ATOM_METRICS_PORT}"
-else
-    wait_for_redis "metrics" "-s ${ATOM_METRICS_SOCKET}"
+if [[ ${ATOM_USE_METRICS} == "TRUE" ]]; then
+    if [[ ! -z ${ATOM_METRICS_HOST} ]]; then
+        wait_for_redis "metrics" "-h ${ATOM_METRICS_HOST} -p ${ATOM_METRICS_PORT}"
+    else
+        wait_for_redis "metrics" "-s ${ATOM_METRICS_SOCKET}"
+    fi
 fi
 
 # If we've been passed any args, we should run that

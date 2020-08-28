@@ -45,7 +45,11 @@ services:
           nocopy: true
       # Link in the dashboards s.t. we can develop
       - "./metrics/dashboards:/metrics/dashboards"
+      # Wait for nucleus script, for debug
+      - "./utilities/wait_for_nucleus.sh:/usr/local/bin/wait_for_nucleus.sh"
     network_mode: "service:nucleus"
+    environment:
+      - "ATOM_USE_METRICS=TRUE"
 
   atom:
     container_name: atom
