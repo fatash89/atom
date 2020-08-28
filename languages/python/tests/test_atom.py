@@ -1552,7 +1552,7 @@ class TestAtom():
 
         # There's a super-slim chance this makes it through if the
         #   calls are on a millisecond boundary
-        assert len(data) == 1
+        assert len(data) == 1 or (len(data) == 2)
 
         # Make sure the first piece is there
         assert data[0][1] == 42
