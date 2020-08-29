@@ -4,12 +4,6 @@
 #   into redis time series datapoints.
 
 from atom import Element, MetricsLevel
-from atom.config import (
-    METRICS_ELEMENT_LABEL, METRICS_TYPE_LABEL, METRICS_HOST_LABEL,
-    METRICS_DEVICE_LABEL, METRICS_LANGUAGE_LABEL, METRICS_ATOM_VERSION_LABEL,
-    METRICS_LEVEL_LABEL, METRICS_SUBTYPE_LABEL
-)
-from atom.config import LANG, VERSION
 from collections import defaultdict
 import psutil
 import time
@@ -90,22 +84,6 @@ PROCESS_THREAD_PREFIX = "thread"
 
 # Timing strings
 TIMING_PREFIX = "timing"
-
-def metrics_add_no_create(element, value, m_type, *m_subtypes, pipeline=None):
-    """
-    Call add on a metric without having created it. This is useful
-    for transient-type metrics which you can't initialize beforehand. One
-    downside of this, though, is that we can't do effective aggregation
-    """
-
-    # Make the key and labels. We have to use internal functions within
-    #   the element to do this as we're not encouraged to use this API
-    #   to mimic similar results to the encouraged metrics API
-    key_str = element._make_metric_id(element.name, m_type, *m_subtypes)
-    labels = element._metrics_add_default_labels({}, MetricsLevel.INFO, m_type, *m_subtypes)
-
-    # Write out the metric
-    element.metrics_add(key_str, value, labels=labels, enforce_exists=False, pipeline=pipeline)
 
 def metrics_get_process_name(process):
     """
@@ -520,8 +498,7 @@ def network_metrics_update(element, pipeline):
                 name = metrics_get_process_name(process)
             else:
                 name = "__system__"
-            metrics_add_no_create(
-                element,
+            element.metrics_add_type(
                 pid_counts[pid],
                 NETWORK_PREFIX,
                 NETWORK_PROCESS_PREFIX,
@@ -532,8 +509,7 @@ def network_metrics_update(element, pipeline):
 
         # Log network connections by remote
         for remote in remote_counts:
-            metrics_add_no_create(
-                element,
+            element.metrics_add_type(
                 remote_counts[remote],
                 NETWORK_PREFIX,
                 NETWORK_REMOTE_PREFIX,
@@ -612,8 +588,8 @@ def process_metrics_update(element, pipeline):
 
     def process_metrics_update_item(item_dict, info):
         for proc in item_dict:
-            metrics_add_no_create(
-                element, item_dict[proc], PROCESS_PREFIX, proc, info, pipeline=pipeline
+            element.metrics_add_type(
+                item_dict[proc], PROCESS_PREFIX, proc, info, pipeline=pipeline
             )
 
     def process_metrics_cpu_time_to_pct(curr, prev):
@@ -632,8 +608,8 @@ def process_metrics_update(element, pipeline):
     def process_metrics_update_item_threaded(item_dict, info):
         for proc in item_dict:
             for thread in item_dict[proc]:
-                metrics_add_no_create(
-                    element, item_dict[proc][thread], PROCESS_PREFIX, proc, PROCESS_THREAD_PREFIX, thread, info, pipeline=pipeline
+                element.metrics_add_type(
+                    item_dict[proc][thread], PROCESS_PREFIX, proc, PROCESS_THREAD_PREFIX, thread, info, pipeline=pipeline
                 )
 
     def process_metrics_cpu_time_to_pct_threaded(curr, prev):
