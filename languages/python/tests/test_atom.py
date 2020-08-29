@@ -1438,15 +1438,15 @@ class TestAtom():
         data = caller.metrics_create_custom(MetricsLevel.INFO, "some_metric", retention=10000)
         assert data == "some_metric"
         data = caller.metrics_add("some_metric", 42, timestamp=1234)
-        assert len(data) == 1 and type(data[0]) == list and len(data[0]) == 1 and type(data[0][0]) == int
+        assert len(data) == 1 and type(data[0]) == list and data[0][0] == 1234
 
         data = caller.metrics_add("some_metric", 2020, timestamp=1234)
-        assert len(data) == 1 and type(data[0]) == list and data[0][0] == None
+        assert len(data) == 1 and type(data[0]) == list and data[0][0] == 1234
 
-        # make a metric and have the timestamp auto-created
+        # Behavior should be update
         data = metrics.range("some_metric", 0, -1)
         assert len(data) == 1
-        assert data[0][1] == 42
+        assert data[0][1] == 2020
         assert data[0][0] == 1234
 
     def test_metrics_async(self, caller, metrics):
@@ -1554,8 +1554,12 @@ class TestAtom():
         #   calls are on a millisecond boundary
         assert len(data) == 1 or (len(data) == 2)
 
-        # Make sure the first piece is there
-        assert data[0][1] == 42
+        # If there's only one piece of data, behavior should be overwrite
+        if (len(data) == 1):
+            assert data[0][1] == 2020
+        else:
+            assert data[0][1] == 42
+            assert data[1][1] == 2020
 
     def test_metrics_async_timestamp_no_jitter(self, caller, metrics):
         caller, caller_name = caller
