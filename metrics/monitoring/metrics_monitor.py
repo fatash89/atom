@@ -574,6 +574,7 @@ def network_metrics_update(element, pipeline):
             else:
                 name = "__system__"
             element.metrics_add_type(
+                MetricsLevel.INFO,
                 pid_counts[pid],
                 NETWORK_PREFIX,
                 NETWORK_PROCESS_PREFIX,
@@ -585,6 +586,7 @@ def network_metrics_update(element, pipeline):
         # Log network connections by remote
         for remote in remote_counts:
             element.metrics_add_type(
+                MetricsLevel.INFO,
                 remote_counts[remote],
                 NETWORK_PREFIX,
                 NETWORK_REMOTE_PREFIX,
@@ -674,7 +676,7 @@ def process_metrics_update(element, pipeline):
     def process_metrics_update_item(item_dict, info):
         for proc in item_dict:
             element.metrics_add_type(
-                item_dict[proc], PROCESS_PREFIX, proc, info, pipeline=pipeline
+                MetricsLevel.INFO, item_dict[proc], PROCESS_PREFIX, proc, info, pipeline=pipeline
             )
 
     def process_metrics_cpu_time_to_pct(curr, prev):
@@ -694,6 +696,7 @@ def process_metrics_update(element, pipeline):
         for proc in item_dict:
             for thread in item_dict[proc]:
                 element.metrics_add_type(
+                    MetricsLevel.INFO,
                     item_dict[proc][thread],
                     PROCESS_PREFIX,
                     proc,
