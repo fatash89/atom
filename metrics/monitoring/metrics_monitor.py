@@ -12,10 +12,10 @@ import os
 # Which /proc/ to read to get stats. Will default to the /proc/ but this
 #   will only give process-level stats for the container. Mount in the
 #   host procfs (BE SURE TO DO THIS READ-ONLY) and switch the location
-psutil.PROCFS_PATH = os.getenv('METRICS_MONITOR_PROCFS', '/proc')
+psutil.PROCFS_PATH = os.getenv("METRICS_MONITOR_PROCFS", "/proc")
 
 # How often to poll for monitoring -- every 10s by default
-METRICS_MONITOR_INTERVAL = int(os.getenv('METRICS_MONITOR_INTERVAL', '10'))
+METRICS_MONITOR_INTERVAL = int(os.getenv("METRICS_MONITOR_INTERVAL", "10"))
 
 # How often to retain performance metrics monitoring
 METRICS_MONITOR_RETENTION = 86400000
@@ -39,11 +39,11 @@ disk_metrics_usage_keys = defaultdict(lambda: {})
 disk_metrics_io_keys = defaultdict(lambda: {})
 
 # Network dictionaries
-network_metrics_io_keys = defaultdict(lambda : {})
+network_metrics_io_keys = defaultdict(lambda: {})
 network_metrics_status_keys = defaultdict(lambda: {})
 
 # Sensor dictionaries
-sensors_metrics_status_keys = defaultdict(lambda : {})
+sensors_metrics_status_keys = defaultdict(lambda: {})
 
 #
 # Label/Key Strings
@@ -70,7 +70,11 @@ DISK_IO_PREFIX = "io"
 NETWORK_PREFIX = "net"
 NETWORK_IO_PREFIX = "io"
 NETWORK_KIND_PREFIX = "kind"
-NETWORK_METRICS_KINDS = ("tcp", "udp", "unix",)
+NETWORK_METRICS_KINDS = (
+    "tcp",
+    "udp",
+    "unix",
+)
 NETWORK_PROCESS_PREFIX = "process"
 NETWORK_REMOTE_PREFIX = "remote"
 
@@ -85,14 +89,16 @@ PROCESS_THREAD_PREFIX = "thread"
 # Timing strings
 TIMING_PREFIX = "timing"
 
+
 def metrics_get_process_name(process):
     """
     Gets the name for a passed psutil Process object. This is surprisingly
     tricky -- there are a bunch of edge cases to consider in terms of delivering
     something useful
     """
+
     def sanitize_process_name(name):
-        return name.replace(' ', '').replace('(', '').replace(')', '').replace(',', '')
+        return name.replace(" ", "").replace("(", "").replace(")", "").replace(",", "")
 
     name = f"{process.pid}"
 
@@ -118,39 +124,47 @@ def cpu_metrics_init(element):
     def cpu_metrics_create_cpu_times(*keys):
         for key in keys:
             cpu_times_metrics_keys[key] = element.metrics_create(
-                MetricsLevel.INFO,
-                CPU_PREFIX, CPU_TIMES_PREFIX, key,
-                agg_types=["SUM"]
+                MetricsLevel.INFO, CPU_PREFIX, CPU_TIMES_PREFIX, key, agg_types=["SUM"]
             )
 
     def cpu_metrics_create_cpu_pct(key):
         cpu_pct_metrics_keys[key] = element.metrics_create(
             MetricsLevel.INFO,
-            CPU_PREFIX, CPU_PCT_PREFIX, key,
-            agg_types=["MIN", "MAX", "AVG"]
+            CPU_PREFIX,
+            CPU_PCT_PREFIX,
+            key,
+            agg_types=["MIN", "MAX", "AVG"],
         )
 
     def cpu_metrics_create_cpu_stats(*keys):
         for key in keys:
             cpu_stats_metrics_keys[key] = element.metrics_create(
-                MetricsLevel.INFO,
-                CPU_PREFIX, CPU_STATS_PREFIX, key,
-                agg_types=["SUM"]
+                MetricsLevel.INFO, CPU_PREFIX, CPU_STATS_PREFIX, key, agg_types=["SUM"]
             )
 
     def cpu_metrics_create_cpu_freq(key):
         cpu_freq_metrics_keys[key] = element.metrics_create(
             MetricsLevel.INFO,
-            CPU_PREFIX, CPU_FREQ_PREFIX, key,
-            agg_types=["MIN", "MAX", "AVG"]
+            CPU_PREFIX,
+            CPU_FREQ_PREFIX,
+            key,
+            agg_types=["MIN", "MAX", "AVG"],
         )
 
     #
     # Metrics from psutil.cpu_times()
     #
     cpu_metrics_create_cpu_times(
-        "user", "nice", "system", "idle", "iowait", "irq",
-        "softirq", "steal", "guest", "guest_nice"
+        "user",
+        "nice",
+        "system",
+        "idle",
+        "iowait",
+        "irq",
+        "softirq",
+        "steal",
+        "guest",
+        "guest_nice",
     )
 
     #
@@ -164,9 +178,7 @@ def cpu_metrics_init(element):
     #
     # Metrics from psutil.cpu_stats
     #
-    cpu_metrics_create_cpu_stats(
-        "ctx_switches", "interrupts", "soft_interrupts"
-    )
+    cpu_metrics_create_cpu_stats("ctx_switches", "interrupts", "soft_interrupts")
 
 
 def cpu_metrics_update(element, pipeline):
@@ -177,17 +189,13 @@ def cpu_metrics_update(element, pipeline):
     def cpu_metrics_update_cpu_times(*keys):
         for key in keys:
             element.metrics_add(
-                cpu_times_metrics_keys[key],
-                getattr(cpu_times, key),
-                pipeline=pipeline
+                cpu_times_metrics_keys[key], getattr(cpu_times, key), pipeline=pipeline
             )
 
     def cpu_metrics_update_cpu_stats(*keys):
         for key in keys:
             element.metrics_add(
-                cpu_stats_metrics_keys[key],
-                getattr(cpu_stats, key),
-                pipeline=pipeline
+                cpu_stats_metrics_keys[key], getattr(cpu_stats, key), pipeline=pipeline
             )
 
     #
@@ -195,8 +203,16 @@ def cpu_metrics_update(element, pipeline):
     #
     cpu_times = psutil.cpu_times()
     cpu_metrics_update_cpu_times(
-        "user", "nice", "system", "idle", "iowait", "irq",
-        "softirq", "steal", "guest", "guest_nice"
+        "user",
+        "nice",
+        "system",
+        "idle",
+        "iowait",
+        "irq",
+        "softirq",
+        "steal",
+        "guest",
+        "guest_nice",
     )
 
     #
@@ -210,16 +226,17 @@ def cpu_metrics_update(element, pipeline):
     # CPU stats metrics
     #
     cpu_stats = psutil.cpu_stats()
-    cpu_metrics_update_cpu_stats(
-        "ctx_switches", "interrupts", "soft_interrupts"
-    )
+    cpu_metrics_update_cpu_stats("ctx_switches", "interrupts", "soft_interrupts")
 
     #
     # CPU frequency metrics
     #
     cpu_freq = psutil.cpu_freq(percpu=True)
     for i, freq in enumerate(cpu_freq):
-        element.metrics_add(cpu_freq_metrics_keys[str(i)], freq.current, pipeline=pipeline)
+        element.metrics_add(
+            cpu_freq_metrics_keys[str(i)], freq.current, pipeline=pipeline
+        )
+
 
 def memory_metrics_init(element):
     """
@@ -230,26 +247,38 @@ def memory_metrics_init(element):
         for key in keys:
             memory_virtual_metrics_keys[key] = element.metrics_create(
                 MetricsLevel.INFO,
-                MEMORY_PREFIX, MEMORY_VIRTUAL_PREFIX, key,
-                agg_types=["MIN", "MAX", "AVG"]
+                MEMORY_PREFIX,
+                MEMORY_VIRTUAL_PREFIX,
+                key,
+                agg_types=["MIN", "MAX", "AVG"],
             )
 
     def memory_metrics_create_swap(*keys):
         for key in keys:
             memory_swap_metrics_keys[key] = element.metrics_create(
                 MetricsLevel.INFO,
-                MEMORY_PREFIX, MEMORY_SWAP_PREFIX, key,
-                agg_types=["MIN", "MAX", "AVG"]
+                MEMORY_PREFIX,
+                MEMORY_SWAP_PREFIX,
+                key,
+                agg_types=["MIN", "MAX", "AVG"],
             )
 
     memory_metrics_create_virtual(
-        "total", "available", "percent", "used", "free", "active",
-        "inactive", "buffers", "cached", "shared", "slab"
+        "total",
+        "available",
+        "percent",
+        "used",
+        "free",
+        "active",
+        "inactive",
+        "buffers",
+        "cached",
+        "shared",
+        "slab",
     )
 
-    memory_metrics_create_swap(
-        "total", "used", "free", "percent", "sin", "sout"
-    )
+    memory_metrics_create_swap("total", "used", "free", "percent", "sin", "sout")
+
 
 def memory_metrics_update(element, pipeline):
     """
@@ -261,7 +290,7 @@ def memory_metrics_update(element, pipeline):
             element.metrics_add(
                 memory_virtual_metrics_keys[key],
                 getattr(virt_memory, key),
-                pipeline=pipeline
+                pipeline=pipeline,
             )
 
     def memory_metrics_update_swap(*keys):
@@ -269,19 +298,27 @@ def memory_metrics_update(element, pipeline):
             element.metrics_add(
                 memory_swap_metrics_keys[key],
                 getattr(swap_memory, key),
-                pipeline=pipeline
+                pipeline=pipeline,
             )
 
     virt_memory = psutil.virtual_memory()
     memory_metrics_update_virtual(
-        "total", "available", "percent", "used", "free", "active",
-        "inactive", "buffers", "cached", "shared", "slab"
+        "total",
+        "available",
+        "percent",
+        "used",
+        "free",
+        "active",
+        "inactive",
+        "buffers",
+        "cached",
+        "shared",
+        "slab",
     )
 
     swap_memory = psutil.swap_memory()
-    memory_metrics_update_swap(
-        "total", "used", "free", "percent", "sin", "sout"
-    )
+    memory_metrics_update_swap("total", "used", "free", "percent", "sin", "sout")
+
 
 def disk_metrics_init(element):
     """
@@ -292,31 +329,46 @@ def disk_metrics_init(element):
         for key in keys:
             disk_metrics_usage_keys[disk][key] = element.metrics_create(
                 MetricsLevel.INFO,
-                DISK_PREFIX, DISK_USAGE_PREFIX, disk, key, device,
-                agg_types=["MIN", "MAX", "AVG"]
+                DISK_PREFIX,
+                DISK_USAGE_PREFIX,
+                disk,
+                key,
+                device,
+                agg_types=["MIN", "MAX", "AVG"],
             )
 
     def disk_metrics_create_io(device, *keys):
         for key in keys:
             disk_metrics_io_keys[device][key] = element.metrics_create(
                 MetricsLevel.INFO,
-                DISK_PREFIX, DISK_IO_PREFIX, device, key,
-                agg_types=["MIN", "MAX", "AVG"]
+                DISK_PREFIX,
+                DISK_IO_PREFIX,
+                device,
+                key,
+                agg_types=["MIN", "MAX", "AVG"],
             )
 
     for disk in psutil.disk_partitions(all=True):
         disk_metrics_create_usage(
-            disk.mountpoint.replace(',', '/'),
-            disk.device if disk.device != '' else "default",
-            "total", "used", "free", "percent"
+            disk.mountpoint.replace(",", "/"),
+            disk.device if disk.device != "" else "default",
+            "total",
+            "used",
+            "free",
+            "percent",
         )
 
     for device in psutil.disk_io_counters(perdisk=True):
         disk_metrics_create_io(
             device,
-            "read_count", "write_count", "read_bytes",
-                "write_bytes", "read_time", "write_time"
+            "read_count",
+            "write_count",
+            "read_bytes",
+            "write_bytes",
+            "read_time",
+            "write_time",
         )
+
 
 def disk_metrics_update(element, pipeline):
     """
@@ -328,7 +380,7 @@ def disk_metrics_update(element, pipeline):
             element.metrics_add(
                 disk_metrics_usage_keys[disk][key],
                 getattr(disk_usage, key),
-                pipeline=pipeline
+                pipeline=pipeline,
             )
 
     def disk_metrics_update_io(device, *keys):
@@ -336,23 +388,27 @@ def disk_metrics_update(element, pipeline):
             element.metrics_add(
                 disk_metrics_io_keys[device][key],
                 getattr(disk_io[device], key),
-                pipeline=pipeline
+                pipeline=pipeline,
             )
 
     for disk in psutil.disk_partitions(all=True):
         disk_usage = psutil.disk_usage(disk.mountpoint)
         disk_metrics_update_usage(
-            disk.mountpoint.replace(',', '/'),
-            "total", "used", "free", "percent"
+            disk.mountpoint.replace(",", "/"), "total", "used", "free", "percent"
         )
 
     disk_io = psutil.disk_io_counters(perdisk=True)
     for disk in disk_io:
         disk_metrics_update_io(
             disk,
-            "read_count", "write_count", "read_bytes",
-                "write_bytes", "read_time", "write_time"
+            "read_count",
+            "write_count",
+            "read_bytes",
+            "write_bytes",
+            "read_time",
+            "write_time",
         )
+
 
 def network_metrics_init_nic(element, nic):
     """
@@ -363,15 +419,25 @@ def network_metrics_init_nic(element, nic):
         for key in keys:
             network_metrics_io_keys[nic][key] = element.metrics_create(
                 MetricsLevel.INFO,
-                NETWORK_PREFIX, NETWORK_IO_PREFIX, nic, key,
-                agg_types=["SUM"]
+                NETWORK_PREFIX,
+                NETWORK_IO_PREFIX,
+                nic,
+                key,
+                agg_types=["SUM"],
             )
 
     network_metrics_create_io(
         nic,
-        "bytes_sent", "bytes_recv", "packets_sent", "packets_recv",
-            "errin", "errout", "dropin", "dropout"
+        "bytes_sent",
+        "bytes_recv",
+        "packets_sent",
+        "packets_recv",
+        "errin",
+        "errout",
+        "dropin",
+        "dropout",
     )
+
 
 def network_metrics_init(element):
     """
@@ -383,8 +449,11 @@ def network_metrics_init(element):
             key_str = str(key)
             network_metrics_status_keys[kind][key_str] = element.metrics_create(
                 MetricsLevel.INFO,
-                NETWORK_PREFIX, NETWORK_KIND_PREFIX, kind, key_str,
-                agg_types=["AVG"]
+                NETWORK_PREFIX,
+                NETWORK_KIND_PREFIX,
+                kind,
+                key_str,
+                agg_types=["AVG"],
             )
 
     # Initialize the NICs
@@ -409,10 +478,12 @@ def network_metrics_init(element):
             psutil.CONN_NONE,
         )
 
+
 #
 # We want to log deltas on the network data, not the sum
 #
 network_data_last = None
+
 
 def network_metrics_update(element, pipeline):
     """
@@ -426,15 +497,13 @@ def network_metrics_update(element, pipeline):
                 element.metrics_add(
                     network_metrics_io_keys[nic][key],
                     getattr(data[nic], key) - getattr(network_data_last[nic], key),
-                    pipeline=pipeline
+                    pipeline=pipeline,
                 )
 
     def network_metrics_update_kind(kind, counts, *keys):
         for key in keys:
             element.metrics_add(
-                network_metrics_status_keys[kind][key],
-                counts[key],
-                pipeline=pipeline
+                network_metrics_status_keys[kind][key], counts[key], pipeline=pipeline
             )
 
     # Get the data
@@ -450,8 +519,14 @@ def network_metrics_update(element, pipeline):
 
         network_metrics_update_io(
             nic,
-            "bytes_sent", "bytes_recv", "packets_sent", "packets_recv",
-                "errin", "errout", "dropin", "dropout"
+            "bytes_sent",
+            "bytes_recv",
+            "packets_sent",
+            "packets_recv",
+            "errin",
+            "errout",
+            "dropin",
+            "dropout",
         )
 
     # Update the network data
@@ -504,7 +579,7 @@ def network_metrics_update(element, pipeline):
                 NETWORK_PROCESS_PREFIX,
                 kind,
                 name,
-                pipeline=pipeline
+                pipeline=pipeline,
             )
 
         # Log network connections by remote
@@ -515,8 +590,9 @@ def network_metrics_update(element, pipeline):
                 NETWORK_REMOTE_PREFIX,
                 kind,
                 remote,
-                pipeline=pipeline
+                pipeline=pipeline,
             )
+
 
 def sensors_metrics_init(element):
     """
@@ -527,13 +603,19 @@ def sensors_metrics_init(element):
         for sensor in sensors:
             sensors_metrics_status_keys[item][sensor] = element.metrics_create(
                 MetricsLevel.INFO,
-                SENSOR_PREFIX, SENSOR_TEMP_PREFIX, item, sensor,
-                agg_types=["MIN", "MAX", "AVG"]
+                SENSOR_PREFIX,
+                SENSOR_TEMP_PREFIX,
+                item,
+                sensor,
+                agg_types=["MIN", "MAX", "AVG"],
             )
 
     data = psutil.sensors_temperatures()
     for item in data:
-        sensors_metrics_create_item(item, [x.label if x.label else 'default' for x in data[item]])
+        sensors_metrics_create_item(
+            item, [x.label if x.label else "default" for x in data[item]]
+        )
+
 
 def sensors_metrics_update(element, pipeline):
     """
@@ -542,9 +624,7 @@ def sensors_metrics_update(element, pipeline):
 
     def sensors_metrics_update_item(item, sensor, val):
         element.metrics_add(
-            sensors_metrics_status_keys[item][sensor],
-            val,
-            pipeline=pipeline
+            sensors_metrics_status_keys[item][sensor], val, pipeline=pipeline
         )
 
     data = psutil.sensors_temperatures()
@@ -554,14 +634,18 @@ def sensors_metrics_update(element, pipeline):
         seen = []
         for sensor in data[item]:
             if sensor not in seen:
-                sensors_metrics_update_item(item, sensor.label if sensor.label else 'default', sensor.current)
+                sensors_metrics_update_item(
+                    item, sensor.label if sensor.label else "default", sensor.current
+                )
                 seen.append(sensor)
+
 
 def processes_metrics_init(element):
     """
     Initialization for per-process metrics -- noting to do for now
     """
     pass
+
 
 #
 # Static/global variables needed for call-to-call process monitoring
@@ -572,6 +656,7 @@ cpu_times_user_last = None
 cpu_times_iowait_last = None
 thread_times_user_last = None
 thread_times_system_last = None
+
 
 def process_metrics_update(element, pipeline):
     """
@@ -609,7 +694,13 @@ def process_metrics_update(element, pipeline):
         for proc in item_dict:
             for thread in item_dict[proc]:
                 element.metrics_add_type(
-                    item_dict[proc][thread], PROCESS_PREFIX, proc, PROCESS_THREAD_PREFIX, thread, info, pipeline=pipeline
+                    item_dict[proc][thread],
+                    PROCESS_PREFIX,
+                    proc,
+                    PROCESS_THREAD_PREFIX,
+                    thread,
+                    info,
+                    pipeline=pipeline,
                 )
 
     def process_metrics_cpu_time_to_pct_threaded(curr, prev):
@@ -625,8 +716,12 @@ def process_metrics_update(element, pipeline):
                 for thread in curr[proc]:
                     # If we've seen this thread before
                     if thread in prev[proc]:
-                        timedelta = (cpu_times_time[proc] - cpu_times_time_last[proc]) / 100.0
-                        output[proc][thread] = (curr[proc][thread] - prev[proc][thread]) / timedelta
+                        timedelta = (
+                            cpu_times_time[proc] - cpu_times_time_last[proc]
+                        ) / 100.0
+                        output[proc][thread] = (
+                            curr[proc][thread] - prev[proc][thread]
+                        ) / timedelta
 
         return output
 
@@ -696,39 +791,27 @@ def process_metrics_update(element, pipeline):
     process_metrics_update_item(ctx_switches_involuntary, "ctx_switches_involuntary")
     process_metrics_update_item(fds, "fds")
     process_metrics_update_item(
-        process_metrics_cpu_time_to_pct(
-            cpu_times_system,
-            cpu_times_system_last
-        ),
-        "cpu_system"
+        process_metrics_cpu_time_to_pct(cpu_times_system, cpu_times_system_last),
+        "cpu_system",
     )
     process_metrics_update_item(
-        process_metrics_cpu_time_to_pct(
-            cpu_times_user,
-            cpu_times_user_last
-        ),
-        "cpu_user"
+        process_metrics_cpu_time_to_pct(cpu_times_user, cpu_times_user_last), "cpu_user"
     )
     process_metrics_update_item(
-        process_metrics_cpu_time_to_pct(
-            cpu_times_iowait,
-            cpu_times_iowait_last
-        ),
-        "cpu_iowait"
+        process_metrics_cpu_time_to_pct(cpu_times_iowait, cpu_times_iowait_last),
+        "cpu_iowait",
     )
     process_metrics_update_item_threaded(
         process_metrics_cpu_time_to_pct_threaded(
-            thread_times_user,
-            thread_times_user_last
+            thread_times_user, thread_times_user_last
         ),
-        "thread_user"
+        "thread_user",
     )
     process_metrics_update_item_threaded(
         process_metrics_cpu_time_to_pct_threaded(
-            thread_times_system,
-            thread_times_system_last
+            thread_times_system, thread_times_system_last
         ),
-        "thread_system"
+        "thread_system",
     )
     process_metrics_update_item(mem_rss, "mem_rss")
     process_metrics_update_item(mem_vms, "mem_vms")
@@ -741,20 +824,19 @@ def process_metrics_update(element, pipeline):
     thread_times_user_last = thread_times_user
     thread_times_system_last = thread_times_system
 
+
 # Mainloop
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     def initialize_timing_metric(metric):
         timing_metrics[metric] = element.metrics_create(
-            MetricsLevel.TIMING,
-            TIMING_PREFIX, metric,
-            agg_types=["AVG", "MIN", "MAX"]
+            MetricsLevel.TIMING, TIMING_PREFIX, metric, agg_types=["AVG", "MIN", "MAX"]
         )
 
     # Make the element
     element = None
     while True:
-        element = Element('monitor')
+        element = Element("monitor")
         if element is not None:
             break
 
