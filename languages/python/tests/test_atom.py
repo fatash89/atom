@@ -139,7 +139,7 @@ class TestAtom():
         metrics = RedisTimeSeries(
             unix_socket_path="/shared/metrics.sock"
         )
-        metrics.flushall()
+        metrics.redis.flushall()
 
         yield metrics
 

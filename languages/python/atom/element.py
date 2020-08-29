@@ -149,7 +149,7 @@ class Element:
                 )
 
             try:
-                data = self._mclient.ping()
+                data = self._mclient.redis.ping()
                 if not data:
                     # Don't have redis, so need to only print to stdout
                     self.log(LogLevel.WARNING, f"Invalid ping response {data} from metrics server", redis=False)
