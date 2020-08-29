@@ -2490,7 +2490,7 @@ class Element:
             _labels = {}
 
         # Call the custom API with the key name
-        return metrics_add(
+        return self.metrics_add(
             _key,
             value,
             timestamp=timestamp,
