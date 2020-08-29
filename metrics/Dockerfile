@@ -44,7 +44,7 @@ ADD metrics/grafana.ini /etc/grafana/grafana.ini
 # Install scripts we'll use to auto-create dashboards
 ADD metrics/dashboards /metrics/dashboards
 WORKDIR /metrics/dashboards
-RUN pip3 install -r requirements.txt
+RUN mkdir user && pip3 install -r requirements.txt
 
 # Add in the launch script
 WORKDIR /metrics
