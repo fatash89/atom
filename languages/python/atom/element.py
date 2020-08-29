@@ -115,6 +115,7 @@ class Element:
         # Set up metrics
         #
         self._metrics = set()
+        self._metrics_add_type_keys = set()
         self._metrics_enabled = False
         self._active_timing_metrics = {}
         self._command_metrics = defaultdict(lambda: {})
@@ -2401,6 +2402,10 @@ class Element:
                 some times if you truly don't know which metrics you'll be writing
                 to that you can just call ADD and it'll write it out and create
                 the key if it doesn't exist. Use with caution.
+            retention (int, optional): Retention for the metric, if it doesn't already exist.
+                Only used if enforce_exists=False.
+            labels(dict, optional): Label of key, value pairs to be used as filters
+                for the metric. Only used if enforce_exists=False
 
         Return:
             list of integers representing the timestamps created. None on
@@ -2441,16 +2446,14 @@ class Element:
         #   we need to extract the outer list here for simplicity.
         return data
 
-    def metrics_add_type(self, value, m_type, *m_subtypes, timestamp='*', pipeline=None):
+    def metrics_add_type(self, level, value, m_type, *m_subtypes, timestamp=None, pipeline=None, retention=86400000, labels={}):
         """
         Adds a metric at the given key with the given value. Timestamp
             can be set if desired, leaving at the default of '*' will result
             in using the redis-server's timestamp which is usually good enough.
 
-        NOTE: The metric MUST have been created with metrics_create before calling
-            metric_add. Otherwise, this will error out
-
         Args:
+            level (MetricsLevel): Severity level of the metric
             m_type (str): Metric's identifying type
             m_subtypes (str): Metric's identifying subtypes
             val (int/float): Value to be adding to the time series
@@ -2462,6 +2465,10 @@ class Element:
             pipeline (redis pipeline, optional): Leave NONE (default) to send the metric to
                 the redis server in this function call. Pass a pipeline to just have
                 the data added to the pipeline which you will need to flush later
+            retention (int, optional): Retention for the metric, if it doesn't already exist.
+                Only used if enforce_exists=False.
+            labels (dict, optional): Label of key, value pairs to be used as filters
+                for the metric. Only used if enforce_exists=False
 
         Return:
             list of integers representing the timestamps created. None on
@@ -2473,8 +2480,25 @@ class Element:
         # Get the key to use
         _key = self._make_metric_id(self.name, m_type, *m_subtypes)
 
+        # Get the labels to use. Only need to go through the process of generating/
+        #   sending labels the first time we see a new key. They're ignored
+        #   each time after anyway
+        if _key not in self._metrics_add_type_keys:
+            _labels = self._metrics_add_default_labels(labels, level, m_type, *m_subtypes)
+            self._metrics_add_type_keys = _key
+        else:
+            _labels = {}
+
         # Call the custom API with the key name
-        return metrics_add(key, value, timestamp=timestamp, pipeline=pipeline)
+        return metrics_add(
+            _key,
+            value,
+            timestamp=timestamp,
+            pipeline=pipeline,
+            retention=retention,
+            labels=_labels,
+            enforce_exists=False # This API is designed for not having called metrics_create
+        )
 
     def _metrics_get_timing_key(self, key):
         """
