@@ -7,7 +7,7 @@
 #
 # If wanting to add/change something in this, the recommended workflow is:
 #   1. Change it in the grafana UI
-#   2. Use the grafana HTTP API: https://grafana.com/docs/grafana/latest/http_api/
+#   2. Use grafana HTTP API: https://grafana.com/docs/grafana/latest/http_api/
 #       to read out a JSON blob corresponding to what you did
 #   3. Save the JSON blob as a jinja2 template in the templates folder in
 #       this directory + jinja-fy it with variables you need
