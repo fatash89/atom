@@ -203,8 +203,10 @@ if not data.ok:
 
 # Finally, we want to create all of the user-specified dashboards
 user_templateLoader = FileSystemLoader(searchpath="./user")
-user_env = Environment(loader=user_templateLoader, autoescape=select_autoescape(["html", "xml"]))
-user_dashboards = [ x for x in os.listdir("./user") if x.endswith('.json.j2') ]
+user_env = Environment(
+    loader=user_templateLoader, autoescape=select_autoescape(["html", "xml"])
+)
+user_dashboards = [x for x in os.listdir("./user") if x.endswith(".json.j2")]
 if len(user_dashboards) > 0:
     print(f"Found user-specified dashboards {user_dashboards}...")
 
@@ -213,11 +215,7 @@ if len(user_dashboards) > 0:
         user_template = user_env.get_template(dashboard)
         data = requests.post(
             GRAFANA_URL + "/api/dashboards/db",
-            json=json.loads(
-                user_template.render(
-                    datasource="redis-metrics"
-                )
-            ),
+            json=json.loads(user_template.render(datasource="redis-metrics")),
         )
         print(f"Loaded user-specified dashboard {dashboard}")
 else:

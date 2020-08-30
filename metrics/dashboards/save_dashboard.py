@@ -10,6 +10,7 @@ import os
 import requests
 import json
 
+
 def save_dashboard(dashboard, filename, directory, url, user, password):
     """
     Query grafana for a dashboard, remove the unnecessary JSON, abstract
@@ -27,60 +28,83 @@ def save_dashboard(dashboard, filename, directory, url, user, password):
     """
 
     # Get the data
-    data = requests.get(f'http://{user}:{password}@{url}/api/dashboards/uid/{dashboard}')
+    data = requests.get(
+        f"http://{user}:{password}@{url}/api/dashboards/uid/{dashboard}"
+    )
     if not data.ok:
-        print(f"Failed to get dashboard: status: {data.status_code}, response: {data.json()}")
+        print(
+            f"Failed to get dashboard: status: {data.status_code}, response: {data.json()}"
+        )
         return
 
     # Now we need to parse the data
     json_data = data.json()
 
     # Strip out the instance-specific fields
-    del json_data['dashboard']['id']
-    del json_data['dashboard']['uid']
-    del json_data['meta']
+    del json_data["dashboard"]["id"]
+    del json_data["dashboard"]["uid"]
+    del json_data["meta"]
 
     # Abstract out the datasource
-    for panel in json_data['dashboard']['panels']:
-        if panel['datasource'] is not None:
-            panel['datasource'] = '{{ datasource }}'
+    for panel in json_data["dashboard"]["panels"]:
+        if panel["datasource"] is not None:
+            panel["datasource"] = "{{ datasource }}"
 
     # Now, we want to open the output file
-    output_path = os.path.join(directory, f'{filename}.json.j2')
-    with open(output_path, 'w') as f:
+    output_path = os.path.join(directory, f"{filename}.json.j2")
+    with open(output_path, "w") as f:
         f.write(json.dumps(json_data))
 
     # Note we saved the dashboard
-    print(f'Saved dashboard uid {dashboard} to file {output_path}')
+    print(f"Saved dashboard uid {dashboard} to file {output_path}")
 
 
 # Mainloop
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     #
     # Make the argument parser
     #
 
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('--user', '-u', type=str,
-                        default=os.getenv("GRAFANA_USER", "admin"),
-                        help='User to log into grafana with')
-    parser.add_argument('--password', '-p', type=str,
-                        default=os.getenv("GRAFANA_PASSWORD", "admin"),
-                        help='Password to log into grafana with')
-    parser.add_argument('--serverurl', '-s', type=str,
-                        default=os.getenv('GRAFANA_URL', 'localhost:3001'),
-                        help='Grafana server URL')
-    parser.add_argument('--dashboard', '-d', type=str,
-                        required=True,
-                        help='ID of the dashboard to save')
-    parser.add_argument('--name', '-n', type=str,
-                        required=True,
-                        help='Name of the file under which to save the dashboard')
-    parser.add_argument('--folder', '-f', type=str,
-                        default='/metrics/dashboards/user',
-                        help='Folder in which to save the dashboard')
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument(
+        "--user",
+        "-u",
+        type=str,
+        default=os.getenv("GRAFANA_USER", "admin"),
+        help="User to log into grafana with",
+    )
+    parser.add_argument(
+        "--password",
+        "-p",
+        type=str,
+        default=os.getenv("GRAFANA_PASSWORD", "admin"),
+        help="Password to log into grafana with",
+    )
+    parser.add_argument(
+        "--serverurl",
+        "-s",
+        type=str,
+        default=os.getenv("GRAFANA_URL", "localhost:3001"),
+        help="Grafana server URL",
+    )
+    parser.add_argument(
+        "--dashboard", "-d", type=str, required=True, help="ID of the dashboard to save"
+    )
+    parser.add_argument(
+        "--name",
+        "-n",
+        type=str,
+        required=True,
+        help="Name of the file under which to save the dashboard",
+    )
+    parser.add_argument(
+        "--folder",
+        "-f",
+        type=str,
+        default="/metrics/dashboards/user",
+        help="Folder in which to save the dashboard",
+    )
 
     #
     # Parse the arguments
@@ -92,10 +116,5 @@ if __name__ == '__main__':
     # And save the dashboard
     #
     save_dashboard(
-        args.dashboard,
-        args.name,
-        args.folder,
-        args.serverurl,
-        args.user,
-        args.password
+        args.dashboard, args.name, args.folder, args.serverurl, args.user, args.password
     )
