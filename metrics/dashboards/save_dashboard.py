@@ -53,7 +53,7 @@ def save_dashboard(dashboard, filename, directory, url, user, password):
     # Now, we want to open the output file
     output_path = os.path.join(directory, f"{filename}.json.j2")
     with open(output_path, "w") as f:
-        f.write(json.dumps(json_data))
+        f.write(json.dumps(json_data, indent=4, sort_keys=True))
 
     # Note we saved the dashboard
     print(f"Saved dashboard uid {dashboard} to file {output_path}")
