@@ -88,6 +88,9 @@ class TestAtom():
         Sets up the caller before each test function is run.
         Tears down the caller after each test is run.
         """
+        # Want to be at the highest log level for testing
+        os.environ["ATOM_LOG_LEVEL"] = "DEBUG"
+
         caller_name = "test_caller_%s" % (pytest.caller_incrementor,)
         caller = self._element_create(caller_name)
         yield caller, caller_name

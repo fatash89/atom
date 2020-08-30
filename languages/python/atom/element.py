@@ -31,9 +31,6 @@ from atom.messages import Cmd, Response, StreamHandler, format_redis_py
 from atom.messages import Acknowledge, Entry, Log, LogLevel, ENTRY_RESERVED_KEYS
 import atom.serialization as ser
 
-# Need to get the metrics level
-METRICS_LOG_LEVEL = MetricsLevel[os.getenv("ATOM_METRICS_LEVEL", "TIMING")]
-
 # Need to figure out how we're connecting to the Nucleus
 #   Default to local sockets at the default address
 ATOM_NUCLEUS_HOST = os.getenv("ATOM_NUCLEUS_HOST", None)
@@ -127,6 +124,12 @@ class Element:
         self._reference_create_metrics = None
         self._reference_create_from_stream_metrics = defaultdict(lambda: defaultdict(lambda: None))
         self._reference_get_metrics = None
+
+        #
+        # Set up logging levels
+        #
+        self._log_level = LogLevel[os.getenv("ATOM_LOG_LEVEL", "INFO")]
+        self._metrics_level = MetricsLevel[os.getenv("ATOM_METRICS_LEVEL", "TIMING")]
 
         # For now, only enable metrics if turned on in an environment flag
         if os.getenv("ATOM_USE_METRICS", "FALSE") == "TRUE":
@@ -1747,21 +1750,24 @@ class Element:
             redis (bool, optional): Default true, whether to log to
                 redis or not
         """
-        log = Log(self.name, self.host, level, msg)
 
-        if redis:
-            _release_pipe = False
+        # Only log it if it's an appropriate level
+        if level.value <= self._log_level.value:
+            log = Log(self.name, self.host, level, msg)
 
-            if _pipe is None:
-                _release_pipe = True
-                _pipe = self._rpipeline_pool.get()
-            _pipe.xadd("log", vars(log), maxlen=STREAM_LEN)
-            _pipe.execute()
-            if _release_pipe:
-                _pipe = self._release_pipeline(_pipe)
+            if redis:
+                _release_pipe = False
 
-        if stdout:
-            print(msg)
+                if _pipe is None:
+                    _release_pipe = True
+                    _pipe = self._rpipeline_pool.get()
+                _pipe.xadd("log", vars(log), maxlen=STREAM_LEN)
+                _pipe.execute()
+                if _release_pipe:
+                    _pipe = self._release_pipeline(_pipe)
+
+            if stdout:
+                print(msg)
 
     def _reference_create_init_metrics(self):
         """
@@ -2204,8 +2210,8 @@ class Element:
         # If we shouldn't be logging at this level, then just return the key
         #   since it's not added to self._metrics any calls to metrics_add() will
         #   be no-ops.
-        if level.value > METRICS_LOG_LEVEL.value:
-            print(f"Ignoring metric {key} with level {level.name} due to active level being {METRICS_LOG_LEVEL.name}")
+        if level.value > self._metrics_level.value:
+            print(f"Ignoring metric {key} with level {level.name} due to active level being {self._metrics_level.name}")
             return key
 
         # If we've already seen/created the metric once in this program/
