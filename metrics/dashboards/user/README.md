@@ -25,11 +25,20 @@ Add a section similar to the below to the `volumes` section of your metrics/graf
     - "<host_path>:/metrics/dashboards/user"
 ```
 
-## Using `save_dashboards.py`
+## Using `save_dashboard.py`
 
-The utility is fairly simple at the moment, and can get a good amount of its defaults from the environment variables already set for the `create_dashboards.py` script. Arguments are below
+Dashboards can be saved in a fairly straightforward fashion:
 
-Current usage statement:
+```
+docker exec -w /metrics/dashboards <metrics_contaner_name> python3 save_dashboard.py -d <dashboard_uid> -n <output_name>
+```
+
+The UID of the dashboard can be pulled directly from the URL you see in your browser when editing the dashboard (the `dashboard_uid` field in the example below):
+```
+http://localhost:3001/d/<dashboard_uid>/<dashboard_name>?orgId=<user_org>
+```
+
+The utility is fairly simple at the moment, and can get a good amount of its defaults from the environment variables already set for the `create_dashboards.py` script. Arguments are below:
 
 ```
 usage: save_dashboard.py [-h] [--user USER] [--password PASSWORD] [--serverurl SERVERURL]
@@ -48,3 +57,14 @@ optional arguments:
   --folder FOLDER, -f FOLDER
                         Folder in which to save the dashboard
 ```
+
+Defaults are:
+
+| Argument | Default |
+|----------|---------|
+| `--user` | `GRAFANA_USER` env var |
+| `--password` | `GRAFANA_PASSWORD` env var |
+| `--serverurl` | `GRAFANA_URL` env var |
+| `--dashboard` | None, required |
+| `--name` | None, required |
+| `--folder` | `/metrics/dashboards/user` |
