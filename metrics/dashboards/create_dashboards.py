@@ -203,8 +203,8 @@ if not data.ok:
 
 # Finally, we want to create all of the user-specified dashboards
 user_templateLoader = FileSystemLoader(searchpath="./user")
-user_env = Environment(loader=templateLoader, autoescape=select_autoescape(["html", "xml"]))
-user_dashboards = [ x for x in os.listdir("./user") if x.endswith('.j2') ]
+user_env = Environment(loader=user_templateLoader, autoescape=select_autoescape(["html", "xml"]))
+user_dashboards = [ x for x in os.listdir("./user") if x.endswith('.json.j2') ]
 if len(user_dashboards) > 0:
     print(f"Found user-specified dashboards {user_dashboards}...")
 
