@@ -871,36 +871,24 @@ if __name__ == "__main__":
         # Sleep until the next time we should be monitoring
         time.sleep(METRICS_MONITOR_INTERVAL)
 
-        pipeline = element.metrics_get_pipeline()
-        if pipeline is None:
-            print("Failed to get pipeline!")
-            continue
-
         # Add in the stats
         print("Starting update...")
         element.metrics_timing_start(timing_metrics["cpu"])
         cpu_metrics_update(element, pipeline)
-        element.metrics_timing_end(timing_metrics["cpu"], pipeline=pipeline)
+        element.metrics_timing_end(timing_metrics["cpu"])
         element.metrics_timing_start(timing_metrics["memory"])
         memory_metrics_update(element, pipeline)
-        element.metrics_timing_end(timing_metrics["memory"], pipeline=pipeline)
+        element.metrics_timing_end(timing_metrics["memory"])
         element.metrics_timing_start(timing_metrics["disk"])
         disk_metrics_update(element, pipeline)
-        element.metrics_timing_end(timing_metrics["disk"], pipeline=pipeline)
+        element.metrics_timing_end(timing_metrics["disk"])
         element.metrics_timing_start(timing_metrics["network"])
         network_metrics_update(element, pipeline)
-        element.metrics_timing_end(timing_metrics["network"], pipeline=pipeline)
+        element.metrics_timing_end(timing_metrics["network"])
         element.metrics_timing_start(timing_metrics["sensors"])
         sensors_metrics_update(element, pipeline)
-        element.metrics_timing_end(timing_metrics["sensors"], pipeline=pipeline)
+        element.metrics_timing_end(timing_metrics["sensors"])
         element.metrics_timing_start(timing_metrics["processes"])
         process_metrics_update(element, pipeline)
-        element.metrics_timing_end(timing_metrics["processes"], pipeline=pipeline)
+        element.metrics_timing_end(timing_metrics["processes"])
         print("Finished update!")
-
-        # Execute the pipeline
-        print("Writing metrics...")
-        element.metrics_timing_start(timing_metrics["redis"])
-        element.metrics_write_pipeline(pipeline)
-        element.metrics_timing_end(timing_metrics["redis"])
-        print("Metrics written!")
