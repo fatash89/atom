@@ -857,14 +857,14 @@ if __name__ == "__main__":
     initialize_timing_metric("redis")
 
     # Call all of the init functions
-    print("Initializing...")
     cpu_metrics_init(element)
     memory_metrics_init(element)
     disk_metrics_init(element)
     network_metrics_init(element)
     sensors_metrics_init(element)
     processes_metrics_init(element)
-    print("Initialized!")
+
+    print("Monitor ready and beginning!")
 
     # Loop forever
     while True:
@@ -872,7 +872,6 @@ if __name__ == "__main__":
         time.sleep(METRICS_MONITOR_INTERVAL)
 
         # Add in the stats
-        print("Starting update...")
         element.metrics_timing_start(timing_metrics["cpu"])
         cpu_metrics_update(element, None)
         element.metrics_timing_end(timing_metrics["cpu"])
@@ -890,5 +889,3 @@ if __name__ == "__main__":
         element.metrics_timing_end(timing_metrics["sensors"])
         element.metrics_timing_start(timing_metrics["processes"])
         process_metrics_update(element, None)
-        element.metrics_timing_end(timing_metrics["processes"])
-        print("Finished update!")
