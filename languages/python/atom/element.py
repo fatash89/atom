@@ -1737,7 +1737,7 @@ class Element:
 
         return ret[0].decode()
 
-    def log(self, level, msg, stdout=True, _pipe=None, redis=True):
+    def log(self, level, msg, stdout=True, _pipe=None, redis=False):
         """
         Writes a message to log stream with loglevel.
 
