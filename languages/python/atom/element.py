@@ -2441,13 +2441,6 @@ class Element:
         if not pipeline:
             data = self.metrics_write_pipeline(_pipe)
 
-            if data:
-                for i, val in enumerate(data):
-                    for j, timestamp in enumerate(val):
-                        if isinstance(timestamp, redis.exceptions.ResponseError):
-                            self.log(LogLevel.ERR, f"metrics add error: {timestamp}")
-                            val[j] = None
-
         # Since we're using madd instead of add (in order to not auto-create)
         #   we need to extract the outer list here for simplicity.
         return data
