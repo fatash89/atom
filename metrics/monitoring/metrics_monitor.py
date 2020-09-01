@@ -15,7 +15,7 @@ import os
 psutil.PROCFS_PATH = os.getenv("METRICS_MONITOR_PROCFS", "/proc")
 
 # How often to poll for monitoring -- every 10s by default
-METRICS_MONITOR_INTERVAL = int(os.getenv("METRICS_MONITOR_INTERVAL", "10"))
+METRICS_MONITOR_INTERVAL = int(os.getenv("METRICS_MONITOR_INTERVAL", "30"))
 
 # How often to retain performance metrics monitoring
 METRICS_MONITOR_RETENTION = 86400000
@@ -874,21 +874,21 @@ if __name__ == "__main__":
         # Add in the stats
         print("Starting update...")
         element.metrics_timing_start(timing_metrics["cpu"])
-        cpu_metrics_update(element, pipeline)
+        cpu_metrics_update(element, None)
         element.metrics_timing_end(timing_metrics["cpu"])
         element.metrics_timing_start(timing_metrics["memory"])
-        memory_metrics_update(element, pipeline)
+        memory_metrics_update(element, None)
         element.metrics_timing_end(timing_metrics["memory"])
         element.metrics_timing_start(timing_metrics["disk"])
-        disk_metrics_update(element, pipeline)
+        disk_metrics_update(element, None)
         element.metrics_timing_end(timing_metrics["disk"])
         element.metrics_timing_start(timing_metrics["network"])
-        network_metrics_update(element, pipeline)
+        network_metrics_update(element, None)
         element.metrics_timing_end(timing_metrics["network"])
         element.metrics_timing_start(timing_metrics["sensors"])
-        sensors_metrics_update(element, pipeline)
+        sensors_metrics_update(element, None)
         element.metrics_timing_end(timing_metrics["sensors"])
         element.metrics_timing_start(timing_metrics["processes"])
-        process_metrics_update(element, pipeline)
+        process_metrics_update(element, None)
         element.metrics_timing_end(timing_metrics["processes"])
         print("Finished update!")
