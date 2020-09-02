@@ -11,6 +11,7 @@ services:
         target: /shared
         volume:
           nocopy: true
+      - log:/var/log/atom
     environment:
       - "NUCLEUS_METRICS_MONITOR=FALSE"
       - "ATOM_USE_METRICS=TRUE"
@@ -25,6 +26,7 @@ services:
         target: /shared
         volume:
           nocopy: true
+      - log:/var/log/atom
     depends_on:
       - "nucleus"
     environment:
@@ -35,5 +37,9 @@ services:
 volumes:
   shared:
     driver_opts:
+      type: tmpfs
+      device: tmpfs
+  log: 
+    driver_opts: 
       type: tmpfs
       device: tmpfs

@@ -1,5 +1,6 @@
 import copy
 import logging
+import logging.handlers
 from multiprocessing import Process
 import multiprocessing
 from traceback import format_exc
@@ -41,8 +42,11 @@ ATOM_METRICS_PORT = int(os.getenv("ATOM_METRICS_PORT", str(DEFAULT_METRICS_PORT)
 ATOM_NUCLEUS_SOCKET = os.getenv("ATOM_NUCLEUS_SOCKET", DEFAULT_REDIS_SOCKET)
 ATOM_METRICS_SOCKET = os.getenv("ATOM_METRICS_SOCKET", DEFAULT_METRICS_SOCKET)
 
-# Get logger
+# Get the log directory
+ATOM_LOG_DIR = os.getenv("ATOM_LOG_DIR", "")
+# Initialize the logger
 logger = logging.getLogger(__name__)
+
 
 class ElementConnectionTimeoutError(redis.exceptions.TimeoutError):
     pass
@@ -139,14 +143,13 @@ class Element:
         #
         # Set up logger
         # 
-        sh = logging.StreamHandler()
-        sh.setLevel(self._log_level.value)
+        rfh = logging.handlers.RotatingFileHandler(f'{ATOM_LOG_DIR}{self.name}.log', maxBytes=2000)
+        rfh.setLevel(self._log_level.value)
         extra = {'element_name': self.name}
-        formatter = logging.Formatter("%(asctime)s %(element_name)s [%(levelname)s] : %(message)s")
-        sh.setFormatter(formatter)
-        logger.addHandler(sh)
+        formatter = logging.Formatter("%(asctime)s %(element_name)s : %(message)s")
+        rfh.setFormatter(formatter)
+        logger.addHandler(rfh)
         self.logger = logging.LoggerAdapter(logger, extra)
-
 
         # For now, only enable metrics if turned on in an environment flag
         if os.getenv("ATOM_USE_METRICS", "FALSE") == "TRUE":
@@ -300,7 +303,7 @@ class Element:
             if (not isinstance(script_response, list)) or \
                 (len(script_response) != 1) or \
                 (not isinstance(script_response[0], str)):
-                self.loger.error("Failed to load lua script stream_reference.lua")
+                self.logger.error("Failed to load lua script stream_reference.lua")
             else:
                 self._stream_reference_sha = script_response[0]
 
@@ -1047,12 +1050,8 @@ class Element:
                         " command on the object running command_loop." % (
                             stream_name,
                             shutdown_event.is_set()
-<<<<<<< HEAD
                         )
                     )
-=======
-                        ))
->>>>>>> Implement StreamHandler logger with formatter
                     self.metrics_add(self._command_loop_metrics[worker_num]["xreadgroup_error"], 1, pipeline=pipeline)
                     return
 
