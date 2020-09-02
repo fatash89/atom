@@ -1,4 +1,5 @@
 import copy
+import logging
 from multiprocessing import Process
 import multiprocessing
 from traceback import format_exc
@@ -39,6 +40,9 @@ ATOM_NUCLEUS_PORT = int(os.getenv("ATOM_NUCLEUS_PORT", str(DEFAULT_REDIS_PORT)))
 ATOM_METRICS_PORT = int(os.getenv("ATOM_METRICS_PORT", str(DEFAULT_METRICS_PORT)))
 ATOM_NUCLEUS_SOCKET = os.getenv("ATOM_NUCLEUS_SOCKET", DEFAULT_REDIS_SOCKET)
 ATOM_METRICS_SOCKET = os.getenv("ATOM_METRICS_SOCKET", DEFAULT_METRICS_SOCKET)
+
+# Get logger
+logger = logging.getLogger(__name__)
 
 class ElementConnectionTimeoutError(redis.exceptions.TimeoutError):
     pass
@@ -132,6 +136,18 @@ class Element:
         self._metrics_level = MetricsLevel[os.getenv("ATOM_METRICS_LEVEL", "TIMING")]
         self._metrics_use_aggregation = os.getenv("ATOM_METRICS_USE_AGGREGATION", "FALSE") == "TRUE"
 
+        #
+        # Set up logger
+        # 
+        sh = logging.StreamHandler()
+        sh.setLevel(self._log_level.value)
+        extra = {'element_name': self.name}
+        formatter = logging.Formatter("%(asctime)s %(element_name)s [%(levelname)s] : %(message)s")
+        sh.setFormatter(formatter)
+        logger.addHandler(sh)
+        self.logger = logging.LoggerAdapter(logger, extra)
+
+
         # For now, only enable metrics if turned on in an environment flag
         if os.getenv("ATOM_USE_METRICS", "FALSE") == "TRUE":
 
@@ -159,17 +175,17 @@ class Element:
                 data = self._mclient.redis.ping()
                 if not data:
                     # Don't have redis, so need to only print to stdout
-                    self.log(LogLevel.WARNING, f"Invalid ping response {data} from metrics server", redis=False)
+                    self.logger.warning(f"Invalid ping response {data} from metrics server")
 
                 # Create pipeline pool
                 for i in range(REDIS_PIPELINE_POOL_SIZE):
                     self._mpipeline_pool.put(self._mclient.pipeline())
 
-                self.log(LogLevel.INFO, "Metrics initialized.", redis=False)
+                self.logger.info("Metrics initialized.")
                 self._metrics_enabled = True
 
             except (redis.exceptions.TimeoutError, redis.exceptions.RedisError, redis.exceptions.ConnectionError) as e:
-                self.log(LogLevel.ERR, f"Unable to connect to metrics server, error {e}", redis=False)
+                self.logger.error(f"Unable to connect to metrics server, error {e}")
                 if enforce_metrics:
 
                     # Clean up the redis part of the element since that
@@ -206,7 +222,7 @@ class Element:
             data = self._rclient.ping()
             if not data:
                 # Don't have redis, so need to only print to stdout
-                self.log(LogLevel.WARNING, f"Invalid ping response {data} from redis server!", redis=False)
+                self.logger.warning(f"Invalid ping response {data} from redis server!")
 
         except redis.exceptions.TimeoutError:
             self._timed_out = True
@@ -284,11 +300,11 @@ class Element:
             if (not isinstance(script_response, list)) or \
                 (len(script_response) != 1) or \
                 (not isinstance(script_response[0], str)):
-                self.log(LogLevel.ERR, "Failed to load lua script stream_reference.lua")
+                self.loger.error("Failed to load lua script stream_reference.lua")
             else:
                 self._stream_reference_sha = script_response[0]
 
-        self.log(LogLevel.INFO, "Element initialized.")
+        self.logger.info("Element initialized.")
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"
@@ -790,7 +806,7 @@ class Element:
                 if not self._check_element_version(element_name, supported_language_set={LANG}, supported_min_version=0.2):
                     # In strict mode, if element is not reachable or doesn't support healthchecks, assume unhealthy
                     if strict:
-                        self.log(LogLevel.WARNING, f"Failed healthcheck on {element_name}, retrying...")
+                        self.logger.warning(f"Failed healthcheck on {element_name}, retrying...")
                         all_healthy = False
                         break
                     else:
@@ -798,7 +814,7 @@ class Element:
 
                 response = self.command_send(element_name, HEALTHCHECK_COMMAND, "")
                 if response["err_code"] != ATOM_NO_ERROR:
-                    self.log(LogLevel.WARNING, f"Failed healthcheck on {element_name}, retrying...")
+                    self.logger.warning(f"Failed healthcheck on {element_name}, retrying...")
                     all_healthy = False
                     break
             if all_healthy:
@@ -848,9 +864,7 @@ class Element:
         #       https://stackoverflow.com/questions/39890363/what-happens-when-a-thread-forks
         thread_count = threading.active_count()
         if thread_count > 1:
-            self.log(
-                LogLevel.WARNING,
-                f"[element:{self.name}] Active thread count is currently {thread_count}.  Child command_loop "
+            self.logger.warning(f"[element:{self.name}] Active thread count is currently {thread_count}.  Child command_loop "
                 "processes will only copy one active thread's state and therefore may not "
                 "work properly."
             )
@@ -868,29 +882,17 @@ class Element:
         """Incremeents reference counter for element stream collection"""
         _pipe.incr(self._make_consumer_group_counter(self.name))
         result = _pipe.execute()[-1]
-        self.log(
-            LogLevel.DEBUG,
-            f'inrementing element {self.name} {result}',
-            stdout=False
-        )
+        self.logger.debug(f'inrementing element {self.name} {result}')
         return result
 
     def _decrement_command_group_counter(self, _pipe):
         """Decrements reference counter for element stream collection"""
         _pipe.decr(self._make_consumer_group_counter(self.name))
         result = _pipe.execute()[-1]
-        self.log(
-            LogLevel.DEBUG,
-            f'decrementing element {self.name} {result}',
-            stdout=False
-        )
+        self.logger.debug(f'decrementing element {self.name} {result}')
         if not result:
             #TODO: consider logging
-            self.log(
-                LogLevel.DEBUG,
-                f'cleaning up stream {self.name}',
-                stdout=False
-            )
+            self.logger.debug(f'cleaning up stream {self.name}')
             self._clean_up_streams()
         return result
 
@@ -1039,16 +1041,18 @@ class Element:
                     self.metrics_timing_end(self._command_loop_metrics[worker_num]["block_time"], pipeline=pipeline)
                     self.metrics_timing_start(self._command_loop_metrics[worker_num]["block_handler_time"])
                 except redis.exceptions.ResponseError:
-                    self.log(
-                        LogLevel.ERR,
-                        f"Recieved redis ResponseError.  Possible attempted "
+                    self.logger.error(f"Recieved redis ResponseError.  Possible attempted "
                         "XREADGROUP on closed stream %s (is shutdown: %s).  "
                         "Please ensure you have performed the command_loop_shutdown"
                         " command on the object running command_loop." % (
                             stream_name,
                             shutdown_event.is_set()
+<<<<<<< HEAD
                         )
                     )
+=======
+                        ))
+>>>>>>> Implement StreamHandler logger with formatter
                     self.metrics_add(self._command_loop_metrics[worker_num]["xreadgroup_error"], 1, pipeline=pipeline)
                     return
 
@@ -1081,7 +1085,7 @@ class Element:
                     continue
 
                 if not caller:
-                    self.log(LogLevel.ERR, "No caller name present in command!")
+                    self.logger.error("No caller name present in command!")
                     self.metrics_add((f"atom:command_loop:worker{worker_num}:no_caller", 1))
                     continue
 
@@ -1096,7 +1100,7 @@ class Element:
 
                 # Send response to caller
                 if cmd_name not in self.handler_map.keys():
-                    self.log(LogLevel.ERR, "Received unsupported command: %s" % (cmd_name,))
+                    self.logger.error("Received unsupported command: %s" % (cmd_name,))
                     response = Response(
                         err_code=ATOM_COMMAND_UNSUPPORTED,
                         err_str="Unsupported command."
@@ -1119,9 +1123,7 @@ class Element:
                             response = self.handler_map[cmd_name]["handler"](data)
 
                         except:
-                            self.log(
-                                LogLevel.ERR,
-                                "encountered error with command: %s\n%s" % (
+                            self.logger.error("encountered error with command: %s\n%s" % (
                                     cmd_name,
                                     format_exc()
                                 )
@@ -1188,9 +1190,7 @@ class Element:
                     )
                     self.metrics_add(self._command_loop_metrics[worker_num]["n_commands"], 1, pipeline=pipeline)
                 except:
-                    self.log(
-                        LogLevel.ERR,
-                        "encountered error during xack (stream name:%s, group name: "
+                    self.logger.error("encountered error during xack (stream name:%s, group name: "
                         "%s, cmd_id: %s)\n%s" % (
                             stream_name,
                             group_name,
@@ -1327,7 +1327,7 @@ class Element:
                     elapsed_time_ms = (time.time() - start_read) * 1000
                     if elapsed_time_ms >= ack_timeout:
                         err_str = f"Did not receive acknowledge from {element_name}."
-                        self.log(LogLevel.ERR, err_str)
+                        self.logger.error(err_str)
                         self.metrics_add(self._command_send_metrics[element_name][cmd_name]["error"], 1, pipeline=pipeline)
                         return vars(Response(err_code=ATOM_COMMAND_NO_ACK, err_str=err_str))
                         break
@@ -1352,7 +1352,7 @@ class Element:
 
             if timeout is None:
                 err_str = f"Did not receive acknowledge from {element_name}."
-                self.log(LogLevel.ERR, err_str)
+                self.logger.error(err_str)
                 self.metrics_add(self._command_send_metrics[element_name][cmd_name]["error"], 1, pipeline=pipeline)
                 return vars(Response(err_code=ATOM_COMMAND_NO_ACK, err_str=err_str))
 
@@ -1371,7 +1371,7 @@ class Element:
                 )
                 if not responses:
                     err_str = f"Did not receive response from {element_name}."
-                    self.log(LogLevel.ERR, err_str)
+                    self.logger.error(err_str)
                     self.metrics_add(self._command_send_metrics[element_name][cmd_name]["error"], 1, pipeline=pipeline)
                     return vars(Response(err_code=ATOM_COMMAND_NO_RESPONSE, err_str=err_str))
 
@@ -1390,7 +1390,7 @@ class Element:
                         err_code = int(response[b"err_code"].decode())
                         err_str = response[b"err_str"].decode() if b"err_str" in response else ""
                         if err_code != ATOM_NO_ERROR:
-                            self.log(LogLevel.ERR, err_str)
+                            self.logger.error(err_str)
 
                         response_data = response.get(b"data", "")
                         # check response for serialization method; if not present, use user specified method
@@ -1403,7 +1403,7 @@ class Element:
                             response_data = (ser.deserialize(response_data, method=serialization) if
                                              (len(response_data) != 0) else response_data)
                         except TypeError:
-                            self.log(LogLevel.WARNING, "Could not deserialize response.")
+                            self.logger.warning("Could not deserialize response.")
                             self.metrics_add((f"atom:command_send:error:{element_name}:{cmd_name}", 1))
 
                         self.metrics_timing_end(self._command_send_metrics[element_name][cmd_name]["deserialize"], pipeline=pipeline)
@@ -1421,7 +1421,7 @@ class Element:
 
             # Proper response was not in responses
             err_str = f"Did not receive response from {element_name}."
-            self.log(LogLevel.ERR, err_str)
+            self.logger.error(err_str)
             self.metrics_add(self._command_send_metrics[element_name][cmd_name]["error"], 1, pipeline=pipeline)
 
         return vars(Response(err_code=ATOM_COMMAND_NO_RESPONSE, err_str=err_str))
@@ -1731,38 +1731,6 @@ class Element:
             raise ValueError("Failed to write data to stream")
 
         return ret[0].decode()
-
-    def log(self, level, msg, stdout=True, _pipe=None, redis=False):
-        """
-        Writes a message to log stream with loglevel.
-
-        Args:
-            level (messages.LogLevel): Unix syslog severity of message.
-            message (str): The message to write for the log.
-            stdout (bool, optional): Whether to write to stdout or only write to log stream.
-            _pipe (pipeline, optional): Pipeline to use for the log message to
-                be sent to redis
-            redis (bool, optional): Default true, whether to log to
-                redis or not
-        """
-
-        # Only log it if it's an appropriate level
-        if level.value <= self._log_level.value:
-            log = Log(self.name, self.host, level, msg)
-
-            if redis:
-                _release_pipe = False
-
-                if _pipe is None:
-                    _release_pipe = True
-                    _pipe = self._rpipeline_pool.get()
-                _pipe.xadd("log", vars(log), maxlen=STREAM_LEN)
-                _pipe.execute()
-                if _release_pipe:
-                    _pipe = self._release_pipeline(_pipe)
-
-            if stdout:
-                print(msg)
 
     def _reference_create_init_metrics(self):
         """
@@ -2112,7 +2080,7 @@ class Element:
         try:
             pipeline = self._mpipeline_pool.get(block=False)
         except QueueEmpty:
-            self.log(LogLevel.ERR, "Failed to get metrics pipeline, something is very wrong!")
+            self.logger.error("Failed to get metrics pipeline, something is very wrong!")
             raise AtomError("Ran out of metrics pipelines!")
 
         return pipeline
@@ -2148,7 +2116,7 @@ class Element:
             if error_ok and error_ok in str(e):
                 pass
             else:
-                self.log(LogLevel.ERR, f"Failed to write metrics with exception {e}")
+                self.logger.error(f"Failed to write metrics with exception {e}")
 
             del pipeline
             self._mpipeline_pool.put(self._mclient.pipeline())
@@ -2534,7 +2502,7 @@ class Element:
             if strict:
                 raise AtomError(f"key {db_key} timer not started!")
             else:
-                self.log(LogLevel.WARNING, f"Timing key {key} does not exist -- skipping")
+                self.logger.warning(f"Timing key {key} does not exist -- skipping")
 
         delta = time.monotonic() - self._active_timing_metrics[db_key]
         self.metrics_add(key, delta, pipeline=pipeline)
