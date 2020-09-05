@@ -985,11 +985,6 @@ class Element:
             _rclient = redis.StrictRedis(host=self._host, port=self._port, client_name=client_name)
         else:
             _rclient = redis.StrictRedis(unix_socket_path=self._socket_path, client_name=client_name)
-        _pipe = _rclient.pipeline()
-
-        #cur_pid = os.getpid()
-        #if cur_pid != self._pid:
-        #    self._increment_command_group_counter(_pipe)
 
         # get a group handle
         # note: if use_command_last_id is set then the group will receive
@@ -1052,8 +1047,7 @@ class Element:
                         " command on the object running command_loop." % (
                             stream_name,
                             shutdown_event.is_set()
-                        ),
-                        _pipe=_pipe
+                        )
                     )
                     self.metrics_add(self._command_loop_metrics[worker_num]["xreadgroup_error"], 1, pipeline=pipeline)
                     return
@@ -1087,7 +1081,7 @@ class Element:
                     continue
 
                 if not caller:
-                    self.log(LogLevel.ERR, "No caller name present in command!", _pipe=_pipe)
+                    self.log(LogLevel.ERR, "No caller name present in command!")
                     self.metrics_add((f"atom:command_loop:worker{worker_num}:no_caller", 1))
                     continue
 
@@ -1098,12 +1092,11 @@ class Element:
                     timeout = self.timeouts[cmd_name]
                 acknowledge = Acknowledge(self.name, cmd_id, timeout)
 
-                _pipe.xadd(self._make_response_id(caller), vars(acknowledge), maxlen=STREAM_LEN)
-                _pipe.execute()
+                _rclient.xadd(self._make_response_id(caller), vars(acknowledge), maxlen=STREAM_LEN)
 
                 # Send response to caller
                 if cmd_name not in self.handler_map.keys():
-                    self.log(LogLevel.ERR, "Received unsupported command: %s" % (cmd_name,), _pipe=_pipe)
+                    self.log(LogLevel.ERR, "Received unsupported command: %s" % (cmd_name,))
                     response = Response(
                         err_code=ATOM_COMMAND_UNSUPPORTED,
                         err_str="Unsupported command."
@@ -1131,8 +1124,7 @@ class Element:
                                 "encountered error with command: %s\n%s" % (
                                     cmd_name,
                                     format_exc()
-                                ),
-                                _pipe=_pipe
+                                )
                             )
                             response = Response(
                                 err_code=ATOM_INTERNAL_ERROR,
@@ -1177,8 +1169,7 @@ class Element:
                 kv["element"] = self.name
                 kv["cmd"] = cmd_name
                 try:
-                    _pipe.xadd(self._make_response_id(caller), kv, maxlen=STREAM_LEN)
-                    _pipe.execute()
+                    _rclient.xadd(self._make_response_id(caller), kv, maxlen=STREAM_LEN)
                 except:
                     # If we fail to xadd the response, go ahead and continue
                     # we will xack the response to bring it out of pending list.
@@ -1190,12 +1181,11 @@ class Element:
                 # group to remove the command from the consumer group pending
                 # entry list (PEL).
                 try:
-                    _pipe.xack(
+                    _rclient.xack(
                         stream_name,
                         group_name,
                         cmd_id
                     )
-                    _pipe.execute()
                     self.metrics_add(self._command_loop_metrics[worker_num]["n_commands"], 1, pipeline=pipeline)
                 except:
                     self.log(
@@ -1206,8 +1196,7 @@ class Element:
                             group_name,
                             cmd_id,
                             format_exc()
-                        ),
-                        _pipe=_pipe
+                        )
                     )
                     self.metrics_add(self._command_loop_metrics[worker_num]["xack_error"], 1, pipeline=pipeline)
 
