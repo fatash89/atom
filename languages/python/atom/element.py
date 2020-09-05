@@ -143,14 +143,16 @@ class Element:
                     host=self._metrics_host,
                     port=self._metrics_port,
                     socket_timeout=self._redis_data_timeout,
-                    socket_connect_timeout=self._redis_connection_timeout
+                    socket_connect_timeout=self._redis_connection_timeout,
+                    client_name=self.name
                 )
             else:
                 self._metrics_socket_path = metrics_socket_path
                 self._mclient = RedisTimeSeries(
                     unix_socket_path=self._metrics_socket_path,
                     socket_timeout=self._redis_data_timeout,
-                    socket_connect_timeout=self._redis_connection_timeout
+                    socket_connect_timeout=self._redis_connection_timeout,
+                    client_name=self.name
                 )
 
             try:
@@ -188,14 +190,16 @@ class Element:
                 host=self._host,
                 port=self._port,
                 socket_timeout=self._redis_data_timeout,
-                socket_connect_timeout=self._redis_connection_timeout
+                socket_connect_timeout=self._redis_connection_timeout,
+                client_name=self.name
             )
         else:
             self._socket_path = socket_path
             self._rclient = redis.StrictRedis(
                 unix_socket_path=socket_path,
                 socket_timeout=self._redis_data_timeout,
-                socket_connect_timeout=self._redis_connection_timeout
+                socket_connect_timeout=self._redis_connection_timeout,
+                client_name=self.name
             )
 
         try:
@@ -976,10 +980,11 @@ class Element:
 
 
     def _command_loop(self, shutdown_event, worker_num, read_block_ms=1000):
+        client_name=f"{self.name}-command-loop-{worker_num}"
         if hasattr(self, '_host'):
-            _rclient = redis.StrictRedis(host=self._host, port=self._port)
+            _rclient = redis.StrictRedis(host=self._host, port=self._port, client_name=client_name)
         else:
-            _rclient = redis.StrictRedis(unix_socket_path=self._socket_path)
+            _rclient = redis.StrictRedis(unix_socket_path=self._socket_path, client_name=client_name)
         _pipe = _rclient.pipeline()
 
         #cur_pid = os.getpid()
