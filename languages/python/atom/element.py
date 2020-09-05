@@ -806,7 +806,7 @@ class Element:
 
             time.sleep(retry_interval)
 
-    def command_loop(self, n_procs=1, block=True, read_block_ms=1000, join_timeout=10.0):
+    def command_loop(self, n_procs=1, block=True, read_block_ms=1000, join_timeout=None):
         """Main command execution event loop
 
         For each worker process, performs the following event loop:
