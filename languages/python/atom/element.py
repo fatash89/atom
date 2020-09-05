@@ -130,6 +130,7 @@ class Element:
         #
         self._log_level = LogLevel[os.getenv("ATOM_LOG_LEVEL", "INFO")]
         self._metrics_level = MetricsLevel[os.getenv("ATOM_METRICS_LEVEL", "TIMING")]
+        self._metrics_use_aggregation = os.getenv("ATOM_METRICS_USE_AGGREGATION", "FALSE") == "TRUE"
 
         # For now, only enable metrics if turned on in an environment flag
         if os.getenv("ATOM_USE_METRICS", "FALSE") == "TRUE":
@@ -2376,10 +2377,12 @@ class Element:
         # If we want to use the default aggregation rules we just iterate
         #   over the time buckets and apply the aggregation types requested
         _rules = {}
-        for agg in agg_types:
-            for timing in agg_timing:
-                _rule_key = self._make_metric_id(self.name, m_type, *m_subtypes, agg)
-                _rules[f"{_rule_key}:{timing[0]//(1000 * 60)}m"] = (agg, timing[0], timing[1])
+
+        if self._metrics_use_aggregation:
+            for agg in agg_types:
+                for timing in agg_timing:
+                    _rule_key = self._make_metric_id(self.name, m_type, *m_subtypes, agg)
+                    _rules[f"{_rule_key}:{timing[0]//(1000 * 60)}m"] = (agg, timing[0], timing[1])
 
         return self.metrics_create_custom(level, _key, retention=retention, labels=_labels, rules=_rules)
 

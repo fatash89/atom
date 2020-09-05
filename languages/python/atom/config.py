@@ -45,16 +45,14 @@ METRICS_LANGUAGE_LABEL = "language"
 METRICS_LEVEL_LABEL = "level"
 METRICS_AGGREGATION_LABEL = "agg"
 METRICS_AGGREGATION_TYPE_LABEL = "agg_type"
-# Metrics default retention -- 1 day on raw data
-METRICS_DEFAULT_RETENTION = 86400000
+# Metrics default retention -- 1 hour of raw data
+METRICS_DEFAULT_RETENTION = 3600000
 # Metrics default aggregation rules
 METRICS_DEFAULT_AGG_TIMING = [
     # Keep data in 10m buckets for 3 days
     (600000,  259200000),
     # Then keep data in 1h buckets for 30 days
-    (3600000, 2592000000),
-    # Then keep data in 1d buckets for 365 days
-    (86400000, 31536000000),
+    (3600000, 2592000000)
 ]
 
 # Metrics logging levels
