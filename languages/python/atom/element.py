@@ -16,7 +16,7 @@ from collections import defaultdict
 import redis
 from redistimeseries.client import Client as RedisTimeSeries
 
-from atom.config import DEFAULT_REDIS_PORT, DEFAULT_METRICS_PORT, DEFAULT_REDIS_SOCKET, DEFAULT_METRICS_SOCKET, HEALTHCHECK_RETRY_INTERVAL
+from atom.config import DEFAULT_REDIS_PORT, DEFAULT_METRICS_PORT, DEFAULT_REDIS_SOCKET, DEFAULT_METRICS_SOCKET, HEALTHCHECK_RETRY_INTERVAL, DEFAULT_LOG_FILE_SIZE
 from atom.config import LANG, VERSION, ACK_TIMEOUT, RESPONSE_TIMEOUT, STREAM_LEN, MAX_BLOCK
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESPONSE
 from atom.config import ATOM_COMMAND_UNSUPPORTED, ATOM_CALLBACK_FAILED, ATOM_USER_ERRORS_BEGIN, ATOM_INTERNAL_ERROR
@@ -42,8 +42,9 @@ ATOM_METRICS_PORT = int(os.getenv("ATOM_METRICS_PORT", str(DEFAULT_METRICS_PORT)
 ATOM_NUCLEUS_SOCKET = os.getenv("ATOM_NUCLEUS_SOCKET", DEFAULT_REDIS_SOCKET)
 ATOM_METRICS_SOCKET = os.getenv("ATOM_METRICS_SOCKET", DEFAULT_METRICS_SOCKET)
 
-# Get the log directory
+# Get the log directory and log file size
 ATOM_LOG_DIR = os.getenv("ATOM_LOG_DIR", "")
+ATOM_LOG_FILE_SIZE = os.getenv("ATOM_LOG_FILE_SIZE", DEFAULT_LOG_FILE_SIZE)
 # Initialize the logger
 logger = logging.getLogger(__name__)
 
@@ -142,13 +143,26 @@ class Element:
         #
         # Set up logger
         # 
-        rfh = logging.handlers.RotatingFileHandler(f'{ATOM_LOG_DIR}{self.name}.log', maxBytes=2000)
-        extra = {'element_name': self.name}
-        formatter = logging.Formatter("%(asctime)s %(element_name)s [%(levelname)s]: %(message)s")
-        rfh.setFormatter(formatter)
-        logger.addHandler(rfh)
-        self.logger = logging.LoggerAdapter(logger, extra)
-        self.logger.setLevel(os.getenv("ATOM_LOG_LEVEL", "INFO"))
+        if not isinstance(ATOM_LOG_FILE_SIZE, int): 
+            ATOM_LOG_FILE_SIZE = DEFAULT_LOG_FILE_SIZE
+        try: 
+            rfh = logging.handlers.RotatingFileHandler(f'{ATOM_LOG_DIR}{self.name}.log', maxBytes=ATOM_LOG_FILE_SIZE)
+            extra = {'element_name': self.name}
+            formatter = logging.Formatter("%(asctime)s %(element_name)s [%(levelname)s]: %(message)s")
+            rfh.setFormatter(formatter)
+            logger.addHandler(rfh)
+            self.logger = logging.LoggerAdapter(logger, extra)
+        except Exception as e: 
+            raise AtomError(f"Could not initialize logger: {e}")
+
+        #
+        # Set up log level
+        # 
+        loglevel = os.getenv("ATOM_LOG_LEVEL", "INFO")
+        numeric_level = getattr(logging, loglevel.upper(), None)
+        if not isinstance(numeric_level, int):
+            loglevel = "INFO"
+        self.logger.setLevel(loglevel)
 
         # For now, only enable metrics if turned on in an environment flag
         if os.getenv("ATOM_USE_METRICS", "FALSE") == "TRUE":
@@ -1729,6 +1743,24 @@ class Element:
             raise ValueError("Failed to write data to stream")
 
         return ret[0].decode()
+
+    def log(self, level, msg, stdout=True, _pipe=None, redis=False):
+        """
+        Forwards calls to self.logger
+        Args:
+            level (messages.LogLevel): Unix syslog severity of message.
+            message (str): The message to write for the log.
+            stdout (bool, optional): Whether to write to stdout or only write to log stream.
+            _pipe (pipeline, optional): Pipeline to use for the log message to
+                be sent to redis
+            redis (bool, optional): Default true, whether to log to
+                redis or not
+        """
+
+        numeric_level = getattr(logging, level.upper(), None)
+        if not isinstance(numeric_level, int):
+            numeric_level = 20
+        self.logger.log(numeric_level, msg)
 
     def _reference_create_init_metrics(self):
         """
