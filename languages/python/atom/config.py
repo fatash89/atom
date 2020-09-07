@@ -69,3 +69,4 @@ class MetricsLevel(Enum):
 
 # Logging
 DEFAULT_LOG_FILE_SIZE = 2000
+DEFAULT_LOG_LEVEL = "INFO"

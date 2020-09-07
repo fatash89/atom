@@ -16,7 +16,7 @@ from collections import defaultdict
 import redis
 from redistimeseries.client import Client as RedisTimeSeries
 
-from atom.config import DEFAULT_REDIS_PORT, DEFAULT_METRICS_PORT, DEFAULT_REDIS_SOCKET, DEFAULT_METRICS_SOCKET, HEALTHCHECK_RETRY_INTERVAL, DEFAULT_LOG_FILE_SIZE
+from atom.config import DEFAULT_REDIS_PORT, DEFAULT_METRICS_PORT, DEFAULT_REDIS_SOCKET, DEFAULT_METRICS_SOCKET, HEALTHCHECK_RETRY_INTERVAL, DEFAULT_LOG_FILE_SIZE, DEFAULT_LOG_LEVEL
 from atom.config import LANG, VERSION, ACK_TIMEOUT, RESPONSE_TIMEOUT, STREAM_LEN, MAX_BLOCK
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESPONSE
 from atom.config import ATOM_COMMAND_UNSUPPORTED, ATOM_CALLBACK_FAILED, ATOM_USER_ERRORS_BEGIN, ATOM_INTERNAL_ERROR
@@ -44,7 +44,7 @@ ATOM_METRICS_SOCKET = os.getenv("ATOM_METRICS_SOCKET", DEFAULT_METRICS_SOCKET)
 
 # Get the log directory and log file size
 ATOM_LOG_DIR = os.getenv("ATOM_LOG_DIR", "")
-ATOM_LOG_FILE_SIZE = os.getenv("ATOM_LOG_FILE_SIZE", DEFAULT_LOG_FILE_SIZE)
+ATOM_LOG_FILE_SIZE = int(os.getenv("ATOM_LOG_FILE_SIZE", DEFAULT_LOG_FILE_SIZE))
 # Initialize the logger
 logger = logging.getLogger(__name__)
 
@@ -143,8 +143,6 @@ class Element:
         #
         # Set up logger
         # 
-        if not isinstance(ATOM_LOG_FILE_SIZE, int): 
-            ATOM_LOG_FILE_SIZE = DEFAULT_LOG_FILE_SIZE
         try: 
             rfh = logging.handlers.RotatingFileHandler(f'{ATOM_LOG_DIR}{self.name}.log', maxBytes=ATOM_LOG_FILE_SIZE)
             extra = {'element_name': self.name}
@@ -158,10 +156,10 @@ class Element:
         #
         # Set up log level
         # 
-        loglevel = os.getenv("ATOM_LOG_LEVEL", "INFO")
+        loglevel = os.getenv("ATOM_LOG_LEVEL", DEFAULT_LOG_LEVEL)
         numeric_level = getattr(logging, loglevel.upper(), None)
         if not isinstance(numeric_level, int):
-            loglevel = "INFO"
+            loglevel = DEFAULT_LOG_LEVEL
         self.logger.setLevel(loglevel)
 
         # For now, only enable metrics if turned on in an environment flag
@@ -1759,7 +1757,7 @@ class Element:
 
         numeric_level = getattr(logging, level.upper(), None)
         if not isinstance(numeric_level, int):
-            numeric_level = 20
+            numeric_level = getattr(logging, DEFAULT_LOG_LEVEL)
         self.logger.log(numeric_level, msg)
 
     def _reference_create_init_metrics(self):
