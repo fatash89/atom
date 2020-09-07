@@ -83,3 +83,4 @@ volumes:
   log: 
     driver_opts: 
       type: tmpfs
+      device: tmpfs

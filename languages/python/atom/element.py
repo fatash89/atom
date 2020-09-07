@@ -134,9 +134,8 @@ class Element:
         self._reference_get_metrics = None
 
         #
-        # Set up logging levels
+        # Set up metrics logging levels
         #
-        self._log_level = LogLevel[os.getenv("ATOM_LOG_LEVEL", "INFO")]
         self._metrics_level = MetricsLevel[os.getenv("ATOM_METRICS_LEVEL", "TIMING")]
         self._metrics_use_aggregation = os.getenv("ATOM_METRICS_USE_AGGREGATION", "FALSE") == "TRUE"
 
@@ -144,12 +143,12 @@ class Element:
         # Set up logger
         # 
         rfh = logging.handlers.RotatingFileHandler(f'{ATOM_LOG_DIR}{self.name}.log', maxBytes=2000)
-        rfh.setLevel(self._log_level.value)
         extra = {'element_name': self.name}
-        formatter = logging.Formatter("%(asctime)s %(element_name)s : %(message)s")
+        formatter = logging.Formatter("%(asctime)s %(element_name)s [%(levelname)s]: %(message)s")
         rfh.setFormatter(formatter)
         logger.addHandler(rfh)
         self.logger = logging.LoggerAdapter(logger, extra)
+        self.logger.setLevel(os.getenv("ATOM_LOG_LEVEL", "INFO"))
 
         # For now, only enable metrics if turned on in an environment flag
         if os.getenv("ATOM_USE_METRICS", "FALSE") == "TRUE":
