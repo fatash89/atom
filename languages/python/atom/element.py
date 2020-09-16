@@ -146,7 +146,7 @@ class Element:
         try: 
             rfh = logging.handlers.RotatingFileHandler(f'{ATOM_LOG_DIR}{self.name}.log', maxBytes=ATOM_LOG_FILE_SIZE)
             extra = {'element_name': self.name}
-            formatter = logging.Formatter("%(asctime)s %(element_name)s [%(levelname)s]: %(message)s")
+            formatter = logging.Formatter("%(asctime)s element:%(element_name)s [%(levelname)s] %(message)s")
             rfh.setFormatter(formatter)
             logger.addHandler(rfh)
             self.logger = logging.LoggerAdapter(logger, extra)
