@@ -2163,7 +2163,8 @@ class Element:
         retention=METRICS_DEFAULT_RETENTION,
         labels=None,
         rules=None,
-        update=True):
+        update=True,
+        duplicate_policy='last'):
         """
         Create a metric at the given key with retention and labels. This is a
         direct interface to the redis time series API. It's generally not
@@ -2192,6 +2193,15 @@ class Element:
             update (boolean, optional): We will call TS.CREATE to attempt to
                 create the key. If this is false and the key exists we'll
                 return out. Otherwise we'll update the key.
+            duplicate_policy (string, optional): How to handle when there's
+                already a sample in the series at the same millisecond. The
+                default behavior here, `last`, will overwrite and not throw
+                an error. Choices are:
+                  - 'block': an error will occur for any out of order sample
+                  - 'first': ignore the new value
+                  - 'last': override with latest value
+                  - 'min': only override if the value is lower than the existing value
+                  - 'max': only override if the value is higher than the existing value
 
         Return:
             key (str): The key used. Can then be passed to metrics timing
@@ -2237,7 +2247,8 @@ class Element:
             data = self._mclient.create(
                 key,
                 retention_msecs=retention,
-                labels=_labels
+                labels=_labels,
+                duplicate_policy=duplicate_policy
             )
         # Key already exists
         except redis.exceptions.ResponseError:
@@ -2255,7 +2266,8 @@ class Element:
             self._mclient.alter(
                 key,
                 retention_msecs=retention,
-                labels=_labels
+                labels=_labels,
+                duplicate_policy=duplicate_policy
             )
 
             # Need to get info about the key
@@ -2293,13 +2305,15 @@ class Element:
                     rule,
                     retention_msecs=rules[rule][2],
                     labels=_rule_labels,
+                    duplicate_policy=duplicate_policy
                 )
             else:
                 try:
                     self._mclient.create(
                         rule,
                         retention_msecs=rules[rule][2],
-                        labels=_rule_labels
+                        labels=_rule_labels,
+                        duplicate_policy=duplicate_policy
                     )
                 except redis.exceptions.ResponseError:
                     pass
@@ -2325,7 +2339,8 @@ class Element:
         retention=METRICS_DEFAULT_RETENTION,
         labels=None,
         agg_timing=METRICS_DEFAULT_AGG_TIMING,
-        agg_types=None):
+        agg_types=None,
+        duplicate_policy='last'):
         """
         Create a metric of the given type and subtypes. All labels you need
         will be auto-generated, though more can be passed. Aggregation will
@@ -2361,6 +2376,15 @@ class Element:
             update (boolean, optional): We will call TS.CREATE to attempt to
                 create the key. If this is false and the key exists we'll
                 return out. Otherwise we'll update the key.
+            duplicate_policy (string, optional): How to handle when there's
+                already a sample in the series at the same millisecond. The
+                default behavior here, `last`, will overwrite and not throw
+                an error. Choices are:
+                  - 'block': an error will occur for any out of order sample
+                  - 'first': ignore the new value
+                  - 'last': override with latest value
+                  - 'min': only override if the value is lower than the existing value
+                  - 'max': only override if the value is higher than the existing value
 
         Return:
             boolean, true on success
@@ -2392,7 +2416,7 @@ class Element:
                     _rule_key = self._make_metric_id(self.name, m_type, *m_subtypes, agg)
                     _rules[f"{_rule_key}:{timing[0]//(1000 * 60)}m"] = (agg, timing[0], timing[1])
 
-        return self.metrics_create_custom(level, _key, retention=retention, labels=_labels, rules=_rules)
+        return self.metrics_create_custom(level, _key, retention=retention, labels=_labels, rules=_rules, duplicate_policy=duplicate_policy)
 
     def metrics_add(self, key, val, timestamp=None, pipeline=None, enforce_exists=True, retention=86400000, labels=None):
         """
