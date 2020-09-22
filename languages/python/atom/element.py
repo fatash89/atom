@@ -2161,8 +2161,8 @@ class Element:
         level,
         key,
         retention=METRICS_DEFAULT_RETENTION,
-        labels={},
-        rules={},
+        labels=None,
+        rules=None,
         update=True):
         """
         Create a metric at the given key with retention and labels. This is a
@@ -2201,6 +2201,13 @@ class Element:
 
         if not self._metrics_enabled:
             return None
+
+        # If we don't have labels, make the default empty
+        if labels is None:
+            labels = {}
+        # If we don't have rules, make the default empty
+        if rules is None:
+            rules = {}
 
         # If we shouldn't be logging at this level, then just return the key
         #   since it's not added to self._metrics any calls to metrics_add() will
@@ -2316,9 +2323,9 @@ class Element:
         m_type,
         *m_subtypes,
         retention=METRICS_DEFAULT_RETENTION,
-        labels={},
+        labels=None,
         agg_timing=METRICS_DEFAULT_AGG_TIMING,
-        agg_types=[]):
+        agg_types=None):
         """
         Create a metric of the given type and subtypes. All labels you need
         will be auto-generated, though more can be passed. Aggregation will
@@ -2362,6 +2369,13 @@ class Element:
         if not self._metrics_enabled:
             return None
 
+        # If we don't have labels, make the default empty
+        if labels is None:
+            labels = {}
+        # If we don't have agg types, make the default empty
+        if agg_types is None:
+            agg_types = []
+
         # Get the key to use
         _key = self._make_metric_id(self.name, m_type, *m_subtypes)
 
@@ -2380,7 +2394,7 @@ class Element:
 
         return self.metrics_create_custom(level, _key, retention=retention, labels=_labels, rules=_rules)
 
-    def metrics_add(self, key, val, timestamp=None, pipeline=None, enforce_exists=True, retention=86400000, labels={}):
+    def metrics_add(self, key, val, timestamp=None, pipeline=None, enforce_exists=True, retention=86400000, labels=None):
         """
         Adds a metric at the given key with the given value. Timestamp
             can be set if desired, leaving at the default of '*' will result
@@ -2419,6 +2433,10 @@ class Element:
         if not self._metrics_enabled or (key not in self._metrics and enforce_exists):
             return None
 
+        # If we don't have labels, make the default empty
+        if labels is None:
+            labels = {}
+
         if not pipeline:
             _pipe = self.metrics_get_pipeline()
         else:
@@ -2442,7 +2460,7 @@ class Element:
         #   we need to extract the outer list here for simplicity.
         return data
 
-    def metrics_add_type(self, level, value, m_type, *m_subtypes, timestamp=None, pipeline=None, retention=86400000, labels={}):
+    def metrics_add_type(self, level, value, m_type, *m_subtypes, timestamp=None, pipeline=None, retention=86400000, labels=None):
         """
         Adds a metric at the given key with the given value. Timestamp
             can be set if desired, leaving at the default of '*' will result
@@ -2472,6 +2490,10 @@ class Element:
         """
         if not self._metrics_enabled:
             return None
+
+        # If we don't have labels, make the default empty
+        if labels is None:
+            labels = {}
 
         # Get the key to use
         _key = self._make_metric_id(self.name, m_type, *m_subtypes)
