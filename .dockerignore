@@ -7,6 +7,5 @@
 !/third-party/**
 !/utilities/**
 !/.circleci/**
-
-!/launch_nucleus.sh
-!/redis.conf
+!/config/**
+!/metrics/**

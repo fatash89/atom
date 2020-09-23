@@ -15,6 +15,9 @@ parameters:
   nucleus_repo_name:
     type: string
     default: ${DOCKERHUB_NUCLEUS_REPO}
+  metrics_repo_name:
+    type: string
+    default: ${DOCKERHUB_METRICS_REPO}
   cache_repo:
     type: string
     default: ${DOCKERHUB_ORG}/${DOCKERHUB_CACHE_REPO}
@@ -914,6 +917,112 @@ workflows:
             << : *atom_matrix
           requires:
             - *atom_matrix_build_job_name
+          filters:
+            branches:
+              ignore:
+                - /.*/
+            tags:
+              only: /.*/
+  #
+  # Build and deploy the metrics/grafana container
+  #
+  metrics-build:
+    jobs:
+
+     # Build for intel
+      - atom/build_buildx:
+          name: "build-metrics-<< matrix.platform >>"
+          matrix:
+            parameters:
+              platform: [ amd64 ]
+          file: metrics/Dockerfile
+          image_name: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
+          image_tag: build-<< pipeline.number >>
+          cache_repo: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
+          cache_tag: cache
+          filters:
+            tags:
+              only: /.*/
+
+     # Build for ARM
+      # - atom/build_buildx:
+      #     name: "build-metrics-<< matrix.platform >>"
+      #     matrix:
+      #       parameters:
+      #         platform: [ aarch64 ]
+      #     working_directory: metrics
+      #     image_name: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
+      #     image_tag: build-<< pipeline.number >>
+      #     cache_repo: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
+      #     cache_tag: cache
+      #     build_args: "--build-arg NODE_ARCH=arm64"
+      #     filters:
+      #       tags:
+      #         only: /.*/
+
+      # Deploy development
+      - atom/deploy:
+          name: "deploy-metrics-development-<< matrix.platform >>"
+          source_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
+          source_tag: build-<< pipeline.number >>
+          target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
+          target_tag: development-<< pipeline.number >>
+          matrix:
+            parameters:
+              platform: [ amd64 ]
+          requires:
+            - "build-metrics-<< matrix.platform >>"
+          filters:
+            branches:
+              ignore:
+                - latest
+
+      # Deploy latest
+      - atom/deploy:
+          name: "deploy-metrics-latest-<< matrix.platform >>"
+          source_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
+          source_tag: build-<< pipeline.number >>
+          target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
+          target_tag: latest-<< pipeline.number >>
+          matrix:
+            parameters:
+              platform: [ amd64 ]
+          requires:
+            - "build-metrics-<< matrix.platform >>"
+          filters:
+            branches:
+              only:
+                - latest
+
+      # Deploy release
+      - atom/deploy_release:
+          name: "deploy-metrics-release-<< matrix.platform >>"
+          source_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
+          source_tag: build-<< pipeline.number >>
+          target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
+          target_tag: ""
+          matrix:
+            parameters:
+              platform: [ amd64 ]
+          requires:
+            - "build-metrics-<< matrix.platform >>"
+          filters:
+            branches:
+              only:
+                - latest
+
+      # Deploy tag
+      - atom/deploy:
+          name: "deploy-metrics-tag-<< matrix.platform >>"
+          source_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
+          source_tag: build-<< pipeline.number >>
+          target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
+          target_tag: ${CIRCLE_TAG}
+          matrix:
+            parameters:
+              platform: [ amd64 ]
+          requires:
+            - "build-metrics-<< matrix.platform >>"
           filters:
             branches:
               ignore:

@@ -11,23 +11,25 @@ services:
         target: /shared
         volume:
           nocopy: true
+    environment:
+      - "NUCLEUS_METRICS_MONITOR=FALSE"
+      - "ATOM_USE_METRICS=TRUE"
 
   atom:
     container_name: test_atom
     image: $ATOM_IMAGE
+    network_mode: "service:nucleus"
     volumes:
       - type: volume
         source: shared
         target: /shared
         volume:
           nocopy: true
-    # - ".:/atom"
     depends_on:
       - "nucleus"
-    ports:
-      - "6080:6080"
     environment:
       - "GRAPHICS=1"
+      - "ATOM_USE_METRICS=TRUE"
     command: tail -f /dev/null
 
 volumes:

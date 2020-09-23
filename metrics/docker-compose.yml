@@ -1,0 +1,13 @@
+version: "2.3"
+
+services:
+
+  grafana:
+    container_name: grafana
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - "./:/metrics"
+    ports:
+      - "3001:3000"

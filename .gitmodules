@@ -34,3 +34,12 @@
 [submodule "languages/python/third-party/Pillow"]
 	path = languages/python/third-party/Pillow
 	url = git@github.com:python-pillow/Pillow.git
+[submodule "third-party/RedisTimeSeries"]
+	path = third-party/RedisTimeSeries
+	url = https://github.com/RedisTimeSeries/RedisTimeSeries
+[submodule "metrics/grafana-redis-datasource"]
+	path = metrics/grafana-redis-datasource
+	url = https://github.com/RedisTimeSeries/grafana-redis-datasource
+[submodule "third-party/redistimeseries-py"]
+	path = third-party/redistimeseries-py
+	url = https://github.com/RedisTimeSeries/redistimeseries-py
