@@ -67,6 +67,6 @@ class MetricsLevel(Enum):
     TIMING = 7
     DEBUG = 8
 
-# Logging
+# Logging constants
 LOG_DEFAULT_FILE_SIZE = 2000
 LOG_DEFAULT_LEVEL = "INFO"
