@@ -142,6 +142,9 @@ WORKDIR /atom
 # Add in the wait_for_nucleus.sh script
 ADD utilities/wait_for_nucleus.sh /usr/local/bin/wait_for_nucleus.sh
 
+# Make the log directory so that it exists in the Docker container
+RUN mkdir -p ${ATOM_LOG_DIR}
+
 # Run the wait_for_nucleus script by default
 CMD [ "/usr/local/bin/wait_for_nucleus.sh", "echo 'No startup command -- exiting!'" ]
 
