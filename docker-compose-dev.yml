@@ -16,6 +16,7 @@ services:
         target: /shared
         volume:
           nocopy: true
+      - log:/var/log/atom
       # Link in the database
       #- "./metrics/data:/metrics"
       # Need to see /proc for psutil
@@ -66,6 +67,7 @@ services:
         volume:
           nocopy: true
       - ".:/atom"
+      - log:/var/log/atom
     network_mode: host
     depends_on:
       - "nucleus"
@@ -76,5 +78,9 @@ services:
 volumes:
   shared:
     driver_opts:
+      type: tmpfs
+      device: tmpfs
+  log: 
+    driver_opts: 
       type: tmpfs
       device: tmpfs

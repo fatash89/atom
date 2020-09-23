@@ -105,6 +105,8 @@ ENV ATOM_NUCLEUS_PORT "6379"
 ENV ATOM_METRICS_PORT "6380"
 ENV ATOM_NUCLEUS_SOCKET "/shared/redis.sock"
 ENV ATOM_METRICS_SOCKET "/shared/metrics.sock"
+ENV ATOM_LOG_DIR "/var/log/atom/"
+ENV ATOM_LOG_FILE_SIZE 2000
 
 # Install python
 RUN apt-get update -y \
@@ -139,6 +141,9 @@ WORKDIR /atom
 
 # Add in the wait_for_nucleus.sh script
 ADD utilities/wait_for_nucleus.sh /usr/local/bin/wait_for_nucleus.sh
+
+# Make the log directory so that it exists in the Docker container
+RUN mkdir -p ${ATOM_LOG_DIR}
 
 # Run the wait_for_nucleus script by default
 CMD [ "/usr/local/bin/wait_for_nucleus.sh", "echo 'No startup command -- exiting!'" ]
