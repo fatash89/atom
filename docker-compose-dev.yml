@@ -17,7 +17,7 @@ services:
         volume:
           nocopy: true
       # Link in the database
-      - "./metrics/data:/metrics"
+      #- "./metrics/data:/metrics"
       # Need to see /proc for psutil
       - "/proc:/host/proc:ro"
       # Link in the monitoring folder s.t. we can develop
