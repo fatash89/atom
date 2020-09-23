@@ -704,7 +704,7 @@ class Element:
 
         # Make the error counter for the command handler
         self._command_metrics[name]["failed"] = self.metrics_create(
-            MetricsLevel.ERROR,
+            MetricsLevel.ERR,
             "atom:command", "failed", name,
             agg_types=["SUM"]
         )
@@ -714,7 +714,7 @@ class Element:
             agg_types=["SUM"]
         )
         self._command_metrics[name]["error"] = self.metrics_create(
-            MetricsLevel.ERROR,
+            MetricsLevel.ERR,
             "atom:command", "error", name,
             agg_types=["SUM"]
         )
@@ -938,22 +938,22 @@ class Element:
 
         # Error counters
         self._command_loop_metrics[worker_num]["xreadgroup_error"] = self.metrics_create(
-            MetricsLevel.ERROR,
+            MetricsLevel.ERR,
             "atom:command_loop", worker_num, "xreadgroup_error",
             labels={"worker" : f"{worker_num}"}, agg_types=["SUM"]
         )
         self._command_loop_metrics[worker_num]["stream_match_error"] = self.metrics_create(
-            MetricsLevel.ERROR,
+            MetricsLevel.ERR,
             "atom:command_loop", worker_num, "stream_match_error",
             labels={"worker" : f"{worker_num}"}, agg_types=["SUM"]
         )
         self._command_loop_metrics[worker_num]["no_caller"] = self.metrics_create(
-            MetricsLevel.ERROR,
+            MetricsLevel.ERR,
             "atom:command_loop", worker_num, "no_caller",
             labels={"worker" : f"{worker_num}"}, agg_types=["SUM"]
         )
         self._command_loop_metrics[worker_num]["unsupported_command"] = self.metrics_create(
-            MetricsLevel.ERROR,
+            MetricsLevel.ERR,
             "atom:command_loop", worker_num, "unsupported_command",
             labels={"worker" : f"{worker_num}"}, agg_types=["SUM"]
         )
@@ -963,17 +963,17 @@ class Element:
             labels={"worker" : f"{worker_num}"}, agg_types=["SUM"]
         )
         self._command_loop_metrics[worker_num]["failed"] = self.metrics_create(
-            MetricsLevel.ERROR,
+            MetricsLevel.ERR,
             "atom:command_loop", worker_num, "failed",
             labels={"worker" : f"{worker_num}"}, agg_types=["SUM"]
         )
         self._command_loop_metrics[worker_num]["response_error"] = self.metrics_create(
-            MetricsLevel.ERROR,
+            MetricsLevel.ERR,
             "atom:command_loop", worker_num, "response_error",
             labels={"worker" : f"{worker_num}"}, agg_types=["SUM"]
         )
         self._command_loop_metrics[worker_num]["xack_error"] = self.metrics_create(
-            MetricsLevel.ERROR,
+            MetricsLevel.ERR,
             "atom:command_loop", worker_num, "xack_error",
             labels={"worker" : f"{worker_num}"}, agg_types=["SUM"]
         )
@@ -1249,7 +1249,7 @@ class Element:
             agg_types=["AVG", "MIN", "MAX"]
         )
         self._command_send_metrics[element_name][cmd_name]["error"] = self.metrics_create(
-            MetricsLevel.ERROR,
+            MetricsLevel.ERR,
             "atom:command_send", "error", element_name, cmd_name,
             agg_types=["SUM"]
         )
