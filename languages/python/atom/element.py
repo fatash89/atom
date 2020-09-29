@@ -1756,7 +1756,7 @@ class Element:
                 redis or not
         """
 
-        numeric_level = getattr(logging, level.upper(), None)
+        numeric_level = getattr(logging, level.name.upper(), None)
         if not isinstance(numeric_level, int):
             numeric_level = getattr(logging, LOG_DEFAULT_LEVEL)
         self.logger.log(numeric_level, msg)
