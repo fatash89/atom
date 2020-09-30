@@ -24,14 +24,16 @@ class RawContract(LazyContract):
                 "Raw contracts must store a single data value"
             )
 
-        # If single unkeyed value passed in, automatically map it to the data field
+        # If single unkeyed value passed in, automatically map it to the data
+        #   field
         if len(args) == 1:
             kwargs["data"] = args[0]
             args = []
 
         super(RawContract, self).__init__(*args, **kwargs)
 
-        # Validate that data property was created, is marked required, and is the only property on the contract
+        # Validate that data property was created, is marked required, and is
+        #   the only property on the contract
         if (
             "data" not in self._properties
             or not self._properties["data"].required

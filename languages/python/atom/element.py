@@ -62,9 +62,8 @@ from atom.config import (
     METRICS_AGGREGATION_TYPE_LABEL,
 )
 from atom.config import MetricsLevel
-from atom.config import VERSION
 from atom.messages import Cmd, Response, StreamHandler, format_redis_py
-from atom.messages import Acknowledge, Entry, Log, LogLevel, ENTRY_RESERVED_KEYS
+from atom.messages import Acknowledge, Entry, ENTRY_RESERVED_KEYS
 import atom.serialization as ser
 
 # Need to figure out how we're connecting to the Nucleus
@@ -130,16 +129,16 @@ class Element:
         """
         Args:
             name (str): The name of the element to register with Atom.
-            host (str, optional): The ip address of the Redis server to connect to.
+            host (str, optional): The ip address of the Redis server
             port (int, optional): The port of the Redis server to connect to.
             socket_path (str, optional): Path to Redis Unix socket.
-            metrics_host (str, optional): The ip address of the metrics Redis server to connect to.
-            metrics_port (int, optional): The port of the metrics Redis server to connect to.
-            metrics_socket_path (str, optional): Path to metrics Redis Unix socket.
-            enforce_metrics (bool, optional): While metrics is a relatively new feature
-                this will allow an element to connect to a nucleus without metrics
-                and fail with a log but not throw an error. This enables us to be backwards
-                compatible with older setups.
+            metrics_host (str, optional): The ip address of the metrics Redis
+            metrics_port (int, optional): The port of the metrics Redis server
+            metrics_socket_path (str, optional): Path to metrics Redis socket.
+            enforce_metrics (bool, optional): While metrics is a relatively new
+                feature this will allow an element to connect to a nucleus
+                without metrics and fail with a log but not throw an error.
+                This enables us to be backwards compatible with older setups.
             conn_timeout_ms (int, optional): The number of milliseconds to wait
                                              before timing out when establishing
                                              a Redis connection
@@ -328,7 +327,8 @@ class Element:
             {"language": LANG, "version": VERSION},
             maxlen=STREAM_LEN,
         )
-        # Keep track of response_last_id to know last time the client's response stream was read from
+        # Keep track of response_last_id to know last time the client's
+        #   response stream was read from
         self.response_last_id = _pipe.execute()[-1].decode()
         self.response_last_id_lock = threading.Lock()
 
@@ -337,12 +337,14 @@ class Element:
             {"language": LANG, "version": VERSION},
             maxlen=STREAM_LEN,
         )
-        # Keep track of command_last_id to know last time the element's command stream was read from
+        # Keep track of command_last_id to know last time the element's command
+        #   stream was read from
         self.command_last_id = _pipe.execute()[-1].decode()
         _pipe = self._release_pipeline(_pipe)
 
         # Init a default healthcheck, overridable
-        # By default, if no healthcheck is set, we assume everything is ok and return error code 0
+        # By default, if no healthcheck is set, we assume everything is ok and
+        #   return error code 0
         self.healthcheck_set(lambda: Response())
         # Need to make sure we have metrics on the healthcheck command
         self._command_add_init_metrics(HEALTHCHECK_COMMAND)
@@ -450,7 +452,8 @@ class Element:
 
     def _release_pipeline(self, pipeline, metrics=False):
         """
-        Resets the specified pipeline and returns it to the pool of available pipelines.
+        Resets the specified pipeline and returns it to the pool of available
+            pipelines.
 
         Args:
             pipeline (Redis Pipeline): The pipeline to release
@@ -461,7 +464,8 @@ class Element:
 
     def _update_response_id_if_older(self, new_id):
         """
-        Atomically update global response_last_id to new id, if timestamp on new id is more recent
+        Atomically update global response_last_id to new id, if timestamp on new
+            id is more recent
 
         Args:
             new_id (str): New response id we want to set
@@ -523,7 +527,8 @@ class Element:
 
         Args:
             element_name (str): Name of the element to generate the id for.
-            stream_name (str): Name of element_name's stream to generate the id for.
+            stream_name (str): Name of element_name's stream to generate the id
+                for.
         """
         if element_name is None:
             return stream_name
@@ -536,7 +541,8 @@ class Element:
         element
 
         Args:
-            element_name (str): Name of the element to generate the metric ID for
+            element_name (str): Name of the element to generate the metric ID
+                for
             key: Original key passed by the caller
         """
         key_str = f"{element_name}:{m_type}"
@@ -634,7 +640,7 @@ class Element:
             if type(v) is bytes:
                 try:
                     entry[k] = ser.deserialize(v, method=method)
-                except:
+                except Exception:
                     pass
         return entry
 
@@ -642,12 +648,15 @@ class Element:
         self, element_name, supported_language_set=None, supported_min_version=None
     ):
         """
-        Convenient helper function to query an element about whether it meets min language and version requirements for some feature
+        Convenient helper function to query an element about whether it meets
+            min language and version requirements for some feature
 
         Args:
             element_name (str): Name of the element to query
-            supported_language_set (set, optional): Optional set of supported languages target element must be a part of to pass
-            supported_min_version (float, optional): Optional min version target element must meet to pass
+            supported_language_set (set, optional): Optional set of supported
+                languages target element must be a part of to pass
+            supported_min_version (float, optional): Optional min version
+                target element must meet to pass
         """
         # Check if element is reachable and supports the version command
         response = self.get_element_version(element_name)
@@ -729,10 +738,12 @@ class Element:
 
     def get_all_streams(self, element_name="*"):
         """
-        Gets the names of all the streams of the specified element (all by default).
+        Gets the names of all the streams of the specified element
+            (all by default).
 
         Args:
-            element_name (str): Name of the element of which to get the streams from.
+            element_name (str): Name of the element of which to get the streams
+                from.
 
         Returns:
             List of Stream ids belonging to element_name
@@ -759,10 +770,12 @@ class Element:
 
     def get_all_commands(self, element_name=None, ignore_caller=True):
         """
-        Gets the names of the commands of the specified element (all elements by default).
+        Gets the names of the commands of the specified element
+            (all elements by default).
 
         Args:
-            element_name (str): Name of the element of which to get the commands.
+            element_name (str): Name of the element of which to get the
+                commands.
             ignore_caller (bool): Do not send commands to the caller.
 
         Returns:
@@ -842,13 +855,14 @@ class Element:
         Args:
             name (str): Name of the command.
             handler (callable): Function to call given the command name.
-            timeout (int, optional): Time for the caller to wait for the command to finish.
+            timeout (int, optional): Time for the caller to wait for the command
+                to finish.
             serialization (str, optional): The method of serialization to use;
-                                           defaults to None.
+                defaults to None.
 
             Deprecated:
-            deserialize (bool, optional): Whether or not to deserialize the data using
-                                          msgpack before passing it to the handler.
+            deserialize (bool, optional): Whether or not to deserialize the data
+                using msgpack before passing it to the handler.
         """
         if not callable(handler):
             raise TypeError("Passed in handler is not a function!")
@@ -879,8 +893,9 @@ class Element:
         Sets a custom healthcheck callback
 
         Args:
-            handler (callable): Function to call when evaluating whether this element is healthy or not.
-                                Should return a Response with err_code ATOM_NO_ERROR if healthy.
+            handler (callable): Function to call when evaluating whether this
+                element is healthy or not. Should return a Response with
+                err_code ATOM_NO_ERROR if healthy.
         """
         if not callable(handler):
             raise TypeError("Passed in handler is not a function!")
@@ -895,14 +910,17 @@ class Element:
         self, element_list, retry_interval=HEALTHCHECK_RETRY_INTERVAL, strict=False
     ):
         """
-        Blocking call will wait until all elements in the element respond that they are healthy.
+        Blocking call will wait until all elements in the element respond that
+            they are healthy.
 
         Args:
             element_list ([str]): List of element names to run healthchecks on
-                                  Should return a Response with err_code ATOM_NO_ERROR if healthy.
-            retry_interval (float, optional) Time in seconds to wait before retrying after a failed attempt.
-            strict (bool, optional) In strict mode, all elements must be reachable and support healthchecks to pass.
-                                    If false, elements that don't have healthchecks will be assumed healthy.
+                Should return a Response with err_code ATOM_NO_ERROR if healthy.
+            retry_interval (float, optional) Time in seconds to wait before
+                retrying after a failed attempt.
+            strict (bool, optional) In strict mode, all elements must be
+                reachable and support healthchecks to pass. If false, elements
+                that don't have healthchecks will be assumed healthy.
         """
 
         while True:
@@ -914,7 +932,8 @@ class Element:
                     supported_language_set={LANG},
                     supported_min_version=0.2,
                 ):
-                    # In strict mode, if element is not reachable or doesn't support healthchecks, assume unhealthy
+                    # In strict mode, if element is not reachable or doesn't
+                    #   support healthchecks, assume unhealthy
                     if strict:
                         self.logger.warning(
                             f"Failed healthcheck on {element_name}, retrying..."
@@ -949,35 +968,33 @@ class Element:
 
         Args:
             n_procs (integer): Number of worker processes.  Each worker process
-                               will pull work from the Element's shared command
-                               consumer group (defaults to 1).
+                will pull work from the Element's shared command consumer group
+                (defaults to 1).
             block (bool, optional): Wait for the response before returning
-                                    from the function.
-                                       block.
+                from the function
             read_block_ms (integer, optional): Number of milliseconds to block
-                                               for during a stream read insde of
-                                               a command loop.
-            join_timeout (integer, optional): If block=True, how long to wait while
-                                              joining threads at the end of the
-                                              command loop before raising an
-                                              exception
+                for during a stream read insde of a command loop.
+            join_timeout (integer, optional): If block=True, how long to wait
+                while joining threads at the end of the command loop before
+                raising an exception
         """
-        # update self._pid in case e.g. we were constructed in a parent thread but
-        # `command_loop` was explicitly called as a sub-process
+        # update self._pid in case e.g. we were constructed in a parent thread
+        #   but `command_loop` was explicitly called as a sub-process
         self._pid = os.getpid()
         n_procs = int(n_procs)
         if n_procs <= 0:
             raise ValueError("n_procs must be a positive integer")
 
-        # note: This warning is emitted in situations where the calling process has more
-        #       than one active thread.  When the command_loop children processes are
-        #       forked they will only copy the thread state of the active thread which
-        #       invoked the fork.  Other active thread state will *not* be copied to
-        #       these descendent processes.  This may cause some problems with proper
-        #       execution of the Element's command_loop if the command depends on this
-        #       thread state being available on the descendent processes.
-        #       Please see the following Stack Overflow link for more context:
-        #       https://stackoverflow.com/questions/39890363/what-happens-when-a-thread-forks
+        # note: This warning is emitted in situations where the calling process
+        #   has more than one active thread.  When the command_loop children
+        #   processes are forked they will only copy the thread state of the
+        #   active thread which invoked the fork.  Other active thread state
+        #   will *not* be copied to these descendent processes.  This may cause
+        #   some problems with proper execution of the Element's command_loop
+        #   if the command depends on this thread state being available on the
+        #   descendent processes. Please see the following Stack Overflow link
+        #   for more context:
+        #       https://stackoverflow.com/questions/39890363/what-happens-when-a-thread-forks # noqa W505
         thread_count = threading.active_count()
         if thread_count > 1:
             self.logger.warning(
@@ -1166,9 +1183,9 @@ class Element:
 
         # get a group handle
         # note: if use_command_last_id is set then the group will receive
-        #       messages newer than the most recent command id observed by the
-        #       Element class.  However, by default it will than accept
-        #       messages newer than the creation of the consumer group.
+        #   messages newer than the most recent command id observed by the
+        #   Element class.  However, by default it will than accept
+        #   messages newer than the creation of the consumer group.
         #
         stream_name = self._make_command_id(self.name)
         group_name = self._make_consumer_group_id(self.name)
@@ -1178,11 +1195,12 @@ class Element:
                 stream_name, group_name, group_last_cmd_id, mkstream=True
             )
         except redis.exceptions.ResponseError:
-            # If we encounter a `ResponseError` we assume it's because of a `BUSYGROUP`
-            # signal, implying the consumer group already exists for this command.
+            # If we encounter a `ResponseError` we assume it's because of a
+            #   `BUSYGROUP` signal, implying the consumer group already exists
+            #   for this command.
             #
-            # Thus, we go on our merry way as we can successfully proceed pulling from the
-            # already created group :)
+            # Thus, we go on our merry way as we can successfully proceed
+            #   pulling from the already created group :)
             pass
         # make a new uuid for the consumer name
         consumer_uuid = str(uuid.uuid4())
@@ -1254,8 +1272,8 @@ class Element:
                 msg = msgs[0]  # we only read one
                 cmd_id, cmd = msg
 
-                # Set the command_last_id to this command's id to keep track of our
-                # last read
+                # Set the command_last_id to this command's id to keep track of
+                #   our last read
                 self.command_last_id = cmd_id.decode()
 
                 try:
@@ -1325,7 +1343,7 @@ class Element:
                         try:
                             response = self.handler_map[cmd_name]["handler"](data)
 
-                        except:
+                        except Exception:
                             self.logger.error(
                                 "encountered error with command: %s\n%s"
                                 % (cmd_name, format_exc())
@@ -1347,8 +1365,8 @@ class Element:
                             )
 
                     else:
-                        # healthcheck/version requests/command_list commands don't
-                        # care what data you are sending
+                        # healthcheck/version requests/command_list commands
+                        #   don't care what data you are sending
                         response = self.handler_map[cmd_name]["handler"]()
 
                     # Post-handler-metrics
@@ -1360,7 +1378,8 @@ class Element:
                         pipeline=pipeline,
                     )
 
-                    # Add ATOM_USER_ERRORS_BEGIN to err_code to map to element error range
+                    # Add ATOM_USER_ERRORS_BEGIN to err_code to map to element
+                    #   error range
                     if isinstance(response, Response):
                         if response.err_code != 0:
                             response.err_code += ATOM_USER_ERRORS_BEGIN
@@ -1403,11 +1422,11 @@ class Element:
                 kv["cmd"] = cmd_name
                 try:
                     _rclient.xadd(self._make_response_id(caller), kv, maxlen=STREAM_LEN)
-                except:
+                except Exception:
                     # If we fail to xadd the response, go ahead and continue
                     # we will xack the response to bring it out of pending list.
-                    # This command will be treated as being "handled" and will not
-                    # be re-attempted
+                    # This command will be treated as being "handled" and will
+                    # not be re-attempted
                     self.metrics_add(
                         self._command_loop_metrics[worker_num]["response_error"],
                         1,
@@ -1424,7 +1443,7 @@ class Element:
                         1,
                         pipeline=pipeline,
                     )
-                except:
+                except Exception:
                     self.logger.error(
                         "encountered error during xack (stream name:%s, group name: "
                         "%s, cmd_id: %s)\n%s"
@@ -1436,8 +1455,9 @@ class Element:
                         pipeline=pipeline,
                     )
 
-                # we're essentially going into the block and if we wrap it up here we don't
-                #   need to handle edge cases where it hadn't been started before
+                # we're essentially going into the block and if we wrap it up
+                # here we don't need to handle edge cases where it hadn't
+                # been started before
                 self.metrics_timing_end(
                     self._command_loop_metrics[worker_num]["handler_block_time"],
                     pipeline=pipeline,
@@ -1525,28 +1545,31 @@ class Element:
     ):
         """
         Sends command to element and waits for acknowledge.
-        When acknowledge is received, waits for timeout from acknowledge or until response is received.
+        When acknowledge is received, waits for timeout from acknowledge or
+            until response is received.
 
         Args:
             element_name (str): Name of the element to send the command to.
             cmd_name (str): Name of the command to execute of element_name.
             data: Entry to be passed to the function specified by cmd_name.
-            block (bool): Wait for the response before returning from the function.
-            ack_timeout (int, optional): Time in milliseconds to wait for ack before
-                                         timing out, overrides default value.
+            block (bool): Wait for the response before returning from the
+                function.
+            ack_timeout (int, optional): Time in milliseconds to wait for ack
+                before timing out, overrides default value.
             serialization (str, optional): Method of serialization to use;
-                                           defaults to None.
+                defaults to None.
 
             Deprecated:
-            serialize (bool, optional): Whether or not to serialize the data with msgpack
-                                        before sending it to the command; defaults to None.
-            deserialize (bool, optional): Whether or not to deserialize the data with
-                                          msgpack in the response; defaults to None.
+            serialize (bool, optional): Whether or not to serialize the data
+                with msgpack before sending it to the command; defaults to None.
+            deserialize (bool, optional): Whether or not to deserialize the data
+                with msgpack in the response; defaults to None.
 
         Returns:
             A dictionary of the response from the command.
         """
-        # cache the last response id at the time we are issuing this command, since this can get overwritten
+        # cache the last response id at the time we are issuing this command,
+        #   since this can get overwritten
         local_last_id = self.response_last_id
         timeout = None
         resp = None
@@ -1583,8 +1606,9 @@ class Element:
             _pipe = self._release_pipeline(_pipe)
 
             # Receive acknowledge from element
-            # You have no guarantee that the response from the xread is for your specific thread,
-            # so keep trying until we either receive our ack, or timeout is exceeded
+            # You have no guarantee that the response from the xread is for your
+            #   specific thread, so keep trying until we either receive our ack,
+            #   or timeout is exceeded
             start_read = time.time()
             elapsed_time_ms = (time.time() - start_read) * 1000
             while True:
@@ -1625,7 +1649,8 @@ class Element:
 
                     self._update_response_id_if_older(local_last_id)
 
-                # If the response we received wasn't for this command, keep trying until ack timeout
+                # If the response we received wasn't for this command, keep
+                #   trying until ack timeout
                 if timeout is not None:
                     break
 
@@ -1640,8 +1665,9 @@ class Element:
                 return vars(Response(err_code=ATOM_COMMAND_NO_ACK, err_str=err_str))
 
             # Receive response from element
-            # You have no guarantee that the response from the xread is for your specific thread,
-            # so keep trying until we either receive our response, or timeout is exceeded
+            # You have no guarantee that the response from the xread is for your
+            #   specific thread, so keep trying until we either receive our
+            #   response, or timeout is exceeded
             start_read = time.time()
             while True:
                 elapsed_time_ms = (time.time() - start_read) * 1000
@@ -1699,7 +1725,8 @@ class Element:
                             self.logger.error(err_str)
 
                         response_data = response.get(b"data", "")
-                        # check response for serialization method; if not present, use user specified method
+                        # check response for serialization method; if not
+                        #   present, use user specified method
                         if b"ser" in response:
                             serialization = response[b"ser"].decode()
                         elif (
@@ -1741,7 +1768,8 @@ class Element:
                 if resp is not None:
                     return resp
 
-                # If the response we received wasn't for this command, keep trying until timeout
+                # If the response we received wasn't for this command, keep
+                #   trying until timeout
                 continue
 
             # Proper response was not in responses
@@ -1769,16 +1797,18 @@ class Element:
 
         Args:
             stream_handlers (list of messages.StreamHandler):
-            n_loops (int): Number of times to send the stream entry to the handlers.
-            timeout (int): How long to block on the stream. If surpassed, the function returns.
-            serialization (str, optional): If deserializing, the method of serialization
-                                           to use; defaults to None.
+            n_loops (int): Number of times to send the stream entry to the
+                handlers.
+            timeout (int): How long to block on the stream. If surpassed, the
+                unction returns.
+            serialization (str, optional): If deserializing, the method of
+                serialization to use; defaults to None.
             force_serialization (bool): Boolean to ignore "ser" key if found
                 in favor of the user-passed serialization. Defaults to false.
 
             Deprecated:
-            deserialize (bool, optional): Whether or not to deserialize the entries
-                                          using msgpack; defaults to None.
+            deserialize (bool, optional): Whether or not to deserialize the
+                entries using msgpack; defaults to None.
         """
         if n_loops is None:
             # Create an infinite loop
@@ -1879,8 +1909,8 @@ class Element:
                 in favor of the user-passed serialization. Defaults to false.
 
             Deprecated:
-            deserialize (bool, optional): Whether or not to deserialize the entries\
-                                          using msgpack; defaults to None.
+            deserialize (bool, optional): Whether or not to deserialize the
+                entries using msgpack; defaults to None.
 
         Returns:
             List of dicts containing the data of the entries
@@ -1994,19 +2024,21 @@ class Element:
         Args:
             element_name (str): Name of the element to get the entry from.
             stream_name (str): Name of the stream to get the entry from.
-            last_id (str, optional): Time from which to start get entries from. If '0', get all entries.
-                If '$' (default), get only new entries after the function call (blocking).
+            last_id (str, optional): Time from which to start get entries from.
+                If '0', get all entries.
+                If '$' (default), get only new entries after the function call
+                    (blocking).
             n (int, optional): Number of entries to get. If None, get all.
-            block (int, optional): Time (ms) to block on the read. If 0, block forever.
-                If None, don't block.
+            block (int, optional): Time (ms) to block on the read. If 0, block
+                forever. If None, don't block.
             serialization (str, optional): Method of deserialization to use;
-                                           defaults to None.
+                defaults to None.
             force_serialization (bool): Boolean to ignore "ser" key if found
                 in favor of the user-passed serialization. Defaults to false.
 
             Deprecated:
-            deserialize (bool, optional): Whether or not to deserialize the entries
-                                          using msgpack; defaults to None.
+            deserialize (bool, optional): Whether or not to deserialize the
+                entries using msgpack; defaults to None.
         """
 
         # Initialize metrics
@@ -2103,14 +2135,16 @@ class Element:
 
         Args:
             stream_name (str): The stream to add the data to.
-            field_data_map (dict): Dict which creates the Entry. See messages.Entry for more usage.
-            maxlen (int, optional): The maximum number of data to keep in the stream.
+            field_data_map (dict): Dict which creates the Entry. See messages.
+                Entry for more usage.
+            maxlen (int, optional): The maximum number of data to keep in the
+                stream.
             serialization (str, optional): Method of serialization to use;
-                                           defaults to None.
+                defaults to None.
 
             Deprecated:
-            serialize (bool, optional): Whether or not to serialize the entry using
-                                        msgpack; defaults to None.
+            serialize (bool, optional): Whether or not to serialize the entry
+                using msgpack; defaults to None.
 
         Return: ID of item added to stream
         """
@@ -2175,7 +2209,8 @@ class Element:
         Args:
             level (messages.LogLevel): Unix syslog severity of message.
             message (str): The message to write for the log.
-            stdout (bool, optional): Whether to write to stdout or only write to log stream.
+            stdout (bool, optional): Whether to write to stdout or only write to
+                log stream.
             _pipe (pipeline, optional): Pipeline to use for the log message to
                 be sent to redis
             redis (bool, optional): Default true, whether to log to
@@ -2215,24 +2250,25 @@ class Element:
         self, *data, serialization=None, serialize=None, timeout_ms=10000
     ):
         """
-        Creates one or more expiring references (similar to a pointer) in the atom system.
-        This will typically be used when we've gotten a piece of data from a
-        stream and we want it to persist past the length of time it would live
-        in the stream s.t. we can pass it to other commands/elements. The
-        references will simply be cached values in redis and will expire after
-        the timeout_ms amount of time.
+        Creates one or more expiring references (similar to a pointer) in the
+        atom system. This will typically be used when we've gotten a piece of
+        data from a stream and we want it to persist past the length of time
+        it would live in the stream s.t. we can pass it to other commands /
+        elements. The references will simply be cached values in redis and
+        will expire after the timeout_ms amount of time.
 
         Args:
-            data (binary or object): one or more data items to be included in the reference
-            timeout_ms (int, optional): How long the reference should persist in atom
-                        unless otherwise extended/deleted. Set to 0 to have the
-                        reference never time out (generally a terrible idea)
+            data (binary or object): one or more data items to be included in
+                the reference
+            timeout_ms (int, optional): How long the reference should persist
+                in atom unless otherwise extended/deleted. Set to 0 to have the
+                reference never time out (generally a terrible idea)
             serialization (str, optional): Method of serialization to use;
-                                           defaults to None.
+                defaults to None.
 
             Deprecated:
-            serialize (bool, optional): whether or not to serialize the data using
-                                        msgpack before creating the reference
+            serialize (bool, optional): whether or not to serialize the data
+                using msgpack before creating the reference
 
         Return:
             List of references corresponding to the arguments passed
@@ -2324,9 +2360,10 @@ class Element:
         make a reference from that piece of data.
 
         Since streams have multiple key:value pairs, one reference per key
-        in the stream will be created, and the return type is a dictionary mapping
-        stream keys to references.  The references are named so that the stream key
-        is also included in the name of the corresponding reference.
+        in the stream will be created, and the return type is a dictionary
+        mapping stream keys to references.  The references are named so that
+        the stream key is also included in the name of the corresponding
+        reference.
 
         Args:
 
@@ -2415,20 +2452,23 @@ class Element:
         self, *keys, serialization=None, force_serialization=False, deserialize=None
     ):
         """
-        Gets one or more reference from the atom system. Reads the key(s) from redis
-        and returns the data, performing a serialize/deserialize operation on each
-        key as commanded by the user
+        Gets one or more reference from the atom system. Reads the key(s) from
+        redis and returns the data, performing a serialize/deserialize operation
+        on each key as commanded by the user
 
         Args:
             keys (str): One or more keys of references to get from Atom
-            serialization (str, optional): If deserializing, the method of serialization to use; defaults to msgpack.
+            serialization (str, optional): If deserializing, the method of
+                serialization to use; defaults to msgpack.
             force_serialization (bool): Boolean to ignore "ser" key if found
                 in favor of the user-passed serialization. Defaults to false.
 
             Deprecated:
-            deserialize (bool, optional): Whether or not to deserialize reference; defaults to False.
+            deserialize (bool, optional): Whether or not to deserialize
+                reference; defaults to False.
         Return:
-            List of items corresponding to each reference key passed as an argument
+            List of items corresponding to each reference key passed as an
+                argument
         """
 
         # Initialize metrics
@@ -2455,13 +2495,15 @@ class Element:
             self.metrics_timing_start(self._reference_get_metrics["deserialize"])
             deserialized_data = []
             for key, ref in zip(keys, data):
-                # look for serialization method in reference key first; if not present use user specified method
+                # look for serialization method in reference key first; if not
+                #   present use user specified method
                 key_split = (
                     key.split(":") if type(key) == str else key.decode().split(":")
                 )
 
                 # Need to reformat the data into a dictionary with a "ser"
-                #   key like it comes in on entries to use the shared logic function
+                #   key like it comes in on entries to use the shared logic
+                #   function
                 get_serialization_data = {}
                 if "ser" in key_split:
                     get_serialization_data["ser"] = key_split[
@@ -2596,7 +2638,8 @@ class Element:
         the next person who releases a pipeline with execute=True.
 
         Args:
-            pipeline: pipeline to release (return value 0 of metrics_get_pipeline)
+            pipeline: pipeline to release (return value 0 of
+                metrics_get_pipeline)
             prev_len: previous length of the pipeline before we got it (return
                 value 1 of metrics_get_pipeline)
         """
@@ -2654,12 +2697,16 @@ class Element:
                 data. Each key should be a string and each value should also
                 be a string.
             rules (dictionary, optional): Optional dictionary of rules to apply
-                to the metric using TS.CREATERULE (https://oss.redislabs.com/redistimeseries/commands/#tscreaterule)
+                to the metric using TS.CREATERULE
+                (https://oss.redislabs.com/redistimeseries/commands/#tscreaterule) # noqa 501
                 Each key in the dictionary should be a new time series key and
                 the value should be a tuple with the following items:
-                    [0]: aggregation type (str, one of: avg, sum, min, max, range, count, first, last, std.p, std.s, var.p, var.s)
-                    [1]: aggregation time bucket (int, milliseconds over which to perform aggregation)
-                    [2]: aggregation retention, i.e. how long to keep this aggregated stat for
+                    [0]: aggregation type (str, one of: avg, sum, min, max,
+                        range, count, first, last, std.p, std.s, var.p, var.s)
+                    [1]: aggregation time bucket (int, milliseconds over which
+                        to perform aggregation)
+                    [2]: aggregation retention, i.e. how long to keep this
+                        aggregated stat for
             update (boolean, optional): We will call TS.CREATE to attempt to
                 create the key. If this is false and the key exists we'll
                 return out. Otherwise we'll update the key.
@@ -2670,8 +2717,10 @@ class Element:
                   - 'block': an error will occur for any out of order sample
                   - 'first': ignore the new value
                   - 'last': override with latest value
-                  - 'min': only override if the value is lower than the existing value
-                  - 'max': only override if the value is higher than the existing value
+                  - 'min': only override if the value is lower than the
+                        existing value
+                  - 'max': only override if the value is higher than the
+                        existing value
 
         Return:
             key (str): The key used. Can then be passed to metrics timing
@@ -2690,8 +2739,8 @@ class Element:
             rules = {}
 
         # If we shouldn't be logging at this level, then just return the key
-        #   since it's not added to self._metrics any calls to metrics_add() will
-        #   be no-ops.
+        #   since it's not added to self._metrics any calls to metrics_add()
+        #   will be no-ops.
         if level.value > self._metrics_level.value:
             print(
                 f"Ignoring metric {key} with level {level.name} due to active level being {self._metrics_level.name}"
@@ -2790,14 +2839,15 @@ class Element:
                 except redis.exceptions.ResponseError:
                     pass
 
-            # Try to make the aggregation rule. If this fails, we're in a race with
-            #   someone else and they beat us to it. NBD
+            # Try to make the aggregation rule. If this fails, we're in a race
+            #   with someone else and they beat us to it. NBD
             try:
                 self._mclient.createrule(key, rule, rules[rule][0], rules[rule][1])
             except redis.exceptions.ResponseError:
                 pass
 
-        # Note we're logging this metric. Will be used for metric level filtering
+        # Note we're logging this metric. Will be used for metric level
+        #   filtering
         if key not in self._metrics:
             self._metrics.add(key)
 
@@ -2836,8 +2886,8 @@ class Element:
             retention (int, optional): How long to keep data for the metric,
                 in milliseconds. Default 60000ms == 1 minute. Be careful with
                 this, it will grow unbounded if set to 0.
-            labels (dictionary, optional): Optional additional labels to add to the
-                data. Each key should be a string and each value should also
+            labels (dictionary, optional): Optional additional labels to add to
+                the data. Each key should be a string and each value should also
                 be a string. All default atom labels will be added
             agg_timing (list of tuples, optional): List of tuples where
                 each tuple has the following fields:
@@ -2856,8 +2906,10 @@ class Element:
                   - 'block': an error will occur for any out of order sample
                   - 'first': ignore the new value
                   - 'last': override with latest value
-                  - 'min': only override if the value is lower than the existing value
-                  - 'max': only override if the value is higher than the existing value
+                  - 'min': only override if the value is lower than the
+                        existing value
+                  - 'max': only override if the value is higher than the
+                        existing value
 
         Return:
             boolean, true on success
@@ -2925,23 +2977,24 @@ class Element:
         Args:
             key (str): Key to use for the metric
             val (int/float): Value to be adding to the time series
-            timestamp (None/str/int, optional): Timestamp to use for the value in the time
-                series. Leave at default to use the redis server's built-in
-                timestamp. Set to None to have this function take the current
-                system time and write it in. Else, pass an integer that will be
-                used as the timestamp.
-            pipeline (redis pipeline, optional): Leave NONE (default) to send the metric to
-                the redis server in this function call. Pass a pipeline to just have
-                the data added to the pipeline which you will need to flush later
+            timestamp (None/str/int, optional): Timestamp to use for the value
+                in the time series. Leave at default to use the redis server's
+                built-in timestamp. Set to None to have this function take the
+                current system time and write it in. Else, pass an integer that
+                will be used as the timestamp.
+            pipeline (redis pipeline, optional): Leave NONE (default) to send
+                the metric to the redis server in this function call. Pass a
+                pipeline to just have the data added to the pipeline which you
+                will need to flush later
             enforce_exists: If TRUE, enforce that the metric exists before
-                writing. RECOMMENDED TO ALWAYS LEAVE THIS TRUE. However, it's useful
-                some times if you truly don't know which metrics you'll be writing
-                to that you can just call ADD and it'll write it out and create
-                the key if it doesn't exist. Use with caution.
-            retention (int, optional): Retention for the metric, if it doesn't already exist.
-                Only used if enforce_exists=False.
-            labels(dict, optional): Label of key, value pairs to be used as filters
-                for the metric. Only used if enforce_exists=False
+                writing. RECOMMENDED TO ALWAYS LEAVE THIS TRUE. However, it's
+                useful some times if you truly don't know which metrics you'll
+                be writing to that you can just call ADD and it'll write it out
+                and create the key if it doesn't exist. Use with caution.
+            retention (int, optional): Retention for the metric, if it doesn't
+                already exist. Only used if enforce_exists=False.
+            labels(dict, optional): Label of key, value pairs to be used as
+                filters for the metric. Only used if enforce_exists=False
 
         Return:
             list of integers representing the timestamps created. None on
@@ -2962,7 +3015,7 @@ class Element:
             _pipe = pipeline
 
         # Update the timestamp
-        if timestamp == None or pipeline != None:
+        if timestamp is None or pipeline is not None:
             timestamp = int(round(time.time() * 1000))
 
         # Add to the pipeline
@@ -3000,18 +3053,19 @@ class Element:
             m_type (str): Metric's identifying type
             m_subtypes (str): Metric's identifying subtypes
             val (int/float): Value to be adding to the time series
-            timestamp (None/str/int, optional): Timestamp to use for the value in the time
-                series. Leave at default to use the redis server's built-in
-                timestamp. Set to None to have this function take the current
-                system time and write it in. Else, pass an integer that will be
-                used as the timestamp.
-            pipeline (redis pipeline, optional): Leave NONE (default) to send the metric to
-                the redis server in this function call. Pass a pipeline to just have
-                the data added to the pipeline which you will need to flush later
-            retention (int, optional): Retention for the metric, if it doesn't already exist.
-                Only used if enforce_exists=False.
-            labels (dict, optional): Label of key, value pairs to be used as filters
-                for the metric. Only used if enforce_exists=False
+            timestamp (None/str/int, optional): Timestamp to use for the value
+                in the time series. Leave at default to use the redis server's
+                built-in timestamp. Set to None to have this function take the
+                current system time and write it in. Else, pass an integer that
+                will be used as the timestamp.
+            pipeline (redis pipeline, optional): Leave NONE (default) to send
+                the metric to the redis server in this function call. Pass a
+                pipeline to just have the data added to the pipeline which you
+                will need to flush later
+            retention (int, optional): Retention for the metric, if it doesn't
+                already exist. Only used if enforce_exists=False.
+            labels (dict, optional): Label of key, value pairs to be used as
+                filters for the metric. Only used if enforce_exists=False
 
         Return:
             list of integers representing the timestamps created. None on
@@ -3027,9 +3081,9 @@ class Element:
         # Get the key to use
         _key = self._make_metric_id(self.name, m_type, *m_subtypes)
 
-        # Get the labels to use. Only need to go through the process of generating/
-        #   sending labels the first time we see a new key. They're ignored
-        #   each time after anyway
+        # Get the labels to use. Only need to go through the process of
+        #   generating/sending labels the first time we see a new key. They're
+        #   ignored each time after anyway
         if _key not in self._metrics_add_type_keys:
             _labels = self._metrics_add_default_labels(
                 labels, level, m_type, *m_subtypes
@@ -3046,7 +3100,7 @@ class Element:
             pipeline=pipeline,
             retention=retention,
             labels=_labels,
-            enforce_exists=False,  # This API is designed for not having called metrics_create
+            enforce_exists=False,  # Not having called metrics_create
         )
 
     def _metrics_get_timing_key(self, key):

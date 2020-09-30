@@ -25,10 +25,12 @@ class AtomBot:
         Args:
             steps: Number of steps to move.
         """
-        # Note that we are responsible for converting the data type from the sent command
+        # Note that we are responsible for converting the data type from the
+        #   sent command
         steps = int(steps)
         if steps < 0 or steps > self.max_pos:
-            # If we encounter an error, we can send an error code and error string in the response of the command
+            # If we encounter an error, we can send an error code and error
+            #   string in the response of the command
             return Response(
                 err_code=1, err_str=f"Steps must be between 0 and {self.max_pos}"
             )
@@ -50,10 +52,12 @@ class AtomBot:
         Args:
             steps: Number of steps to move.
         """
-        # Note that we are responsible for converting the data type from the sent command
+        # Note that we are responsible for converting the data type from the
+        #   sent command
         steps = int(steps)
         if steps < 0 or steps > self.max_pos:
-            # If we encounter an error, we can send an error code and error string in the response of the command
+            # If we encounter an error, we can send an error code and error
+            #   string in the response of the command
             return Response(
                 err_code=1, err_str=f"Steps must be between 0 and {self.max_pos}"
             )
@@ -72,7 +76,8 @@ class AtomBot:
         """
         Command for transforming AtomBot!
         """
-        # Notice that we must have a single parameter to a command, even if we aren't using it.
+        # Notice that we must have a single parameter to a command, even if
+        #   we aren't using it.
 
         # Update bot ascii representation
         try:
@@ -108,8 +113,10 @@ class AtomBot:
             self.bot_lock.release()
 
     def is_healthy(self):
-        # This is an example health-check, which can be used to tell other elements that depend on you
-        # whether you are ready to receive commands or not. Any non-zero error code means you are unhealthy.
+        # This is an example health-check, which can be used to tell other
+        #   elements that depend on you
+        # whether you are ready to receive commands or not. Any non-zero error
+        #   code means you are unhealthy.
         return Response(err_code=0, err_str="Everything is good")
 
 
@@ -122,27 +129,35 @@ if __name__ == "__main__":
     atombot = AtomBot()
 
     # We add a healthcheck to our atombot element.
-    # This is optional. If you don't do this, atombot is assumed healthy as soon as its command_loop executes
+    # This is optional. If you don't do this, atombot is assumed healthy as
+    #   soon as its command_loop executes
     element.healthcheck_set(atombot.is_healthy)
 
-    # This registers the relevant AtomBot methods as a command in the atom system
-    # We set the timeout so the caller will know how long to wait for the command to execute
+    # This registers the relevant AtomBot methods as a command in the atom
+    #   system
+    # We set the timeout so the caller will know how long to wait for the
+    #   command to execute
     element.command_add("move_left", atombot.move_left, timeout=50, deserialize=True)
     element.command_add("move_right", atombot.move_right, timeout=50, deserialize=True)
     # Transform takes no inputs, so there's nothing to deserialize
     element.command_add("transform", atombot.transform, timeout=50)
 
-    # We create a thread and run the command loop which will constantly check for incoming commands from atom
-    # We use a thread so we don't hang on the command_loop function because we will be performing other tasks
+    # We create a thread and run the command loop which will constantly check
+    #   for incoming commands from atom
+    # We use a thread so we don't hang on the command_loop function because
+    #   we will be performing other tasks
     thread = Thread(target=element.command_loop, daemon=True)
     thread.start()
 
-    # This will block until every element in the list reports it is healthy. Useful if you depend on other elements.
+    # This will block until every element in the list reports it is healthy.
+    #   Useful if you depend on other elements.
     element.wait_for_elements_healthy(["atombot"])
 
-    # Create an infinite loop that publishes the position of atombot to a stream as well as a visual of its position
+    # Create an infinite loop that publishes the position of atombot to a
+    #   stream as well as a visual of its position
     while True:
-        # We write our position data and the visual of atombot's position to their respective streams
+        # We write our position data and the visual of atombot's position to
+        #   their respective streams
         # The maxlen parameter will determine how many entries atom stores
         # This data is serialized using msgpack
         element.entry_write(
@@ -151,7 +166,7 @@ if __name__ == "__main__":
         element.entry_write(
             "pos_map", {"data": atombot.get_pos_map()}, maxlen=10, serialize=True
         )
-        # We can also choose to write binary data directly without serializing it
+        # We can also choose to write binary data directly without serializing
         element.entry_write("pos_binary", {"data": atombot.get_pos()}, maxlen=10)
 
         # Sleep so that we aren't consuming all of our CPU resources

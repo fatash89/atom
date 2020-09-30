@@ -5,17 +5,14 @@ import copy
 from multiprocessing import Process, Queue
 from threading import Thread
 
-from atom import Element
-from atom.element import ElementConnectionTimeoutError
-
 import numpy as np
 import pytest
-import os
 import redis
 
 from redistimeseries.client import Client as RedisTimeSeries
 
 from atom import Element, AtomError, MetricsLevel
+from atom.element import ElementConnectionTimeoutError
 from atom.config import DEFAULT_REDIS_SOCKET, DEFAULT_REDIS_PORT
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_UNSUPPORTED
 from atom.config import ATOM_COMMAND_NO_RESPONSE, ATOM_CALLBACK_FAILED
@@ -27,9 +24,9 @@ from atom.config import (
     VERSION,
     COMMAND_LIST_COMMAND,
 )
-from atom.messages import Response, StreamHandler, LogLevel
+from atom.messages import Response, StreamHandler
 from atom.contracts import RawContract, EmptyContract, BinaryProperty
-from msgpack import packb, unpackb
+from msgpack import unpackb
 
 pytest.caller_incrementor = 0
 pytest.responder_incrementor = 0
@@ -175,7 +172,8 @@ class TestAtom:
 
     def test_caller_responder_exist(self, caller, responder):
         """
-        Ensures that the caller and responder were created with the proper names.
+        Ensures that the caller and responder were created with the proper
+            names.
         """
         caller, caller_name = caller
         responder, responder_name = responder
@@ -196,7 +194,8 @@ class TestAtom:
 
     def test_command_in_redis(self, caller, responder):
         """
-        Tests caller sending command and verifies that command was sent properly in Redis.
+        Tests caller sending command and verifies that command was sent properly
+            in Redis.
         """
         caller, caller_name = caller
         responder, responder_name = responder
@@ -238,8 +237,9 @@ class TestAtom:
 
     def test_add_entry_and_get_n_most_recent_legacy_serialize(self, caller, responder):
         """
-        Adds 10 entries to the responder's stream with legacy serialization and makes sure
-        that the proper values are returned from get_n_most_recent.
+        Adds 10 entries to the responder's stream with legacy serialization
+            and makes sure that the proper values are returned from
+            get_n_most_recent.
         """
         caller, caller_name = caller
         responder, responder_name = responder
@@ -258,9 +258,11 @@ class TestAtom:
 
     def test_add_entry_and_get_n_most_recent_arrow_serialized(self, caller, responder):
         """
-        Adds 10 entries to the responder's stream with Apache Arrow serialization and makes sure
-        that the proper values are returned from get_n_most_recent without specifying deserialization
-        method in method call, instead relying on serialization key embedded within entry.
+        Adds 10 entries to the responder's stream with Apache Arrow
+            serialization and makes sure that the proper values are returned
+            from get_n_most_recent without specifying deserialization
+            method in method call, instead relying on serialization key embedded
+            within entry.
         """
         caller, caller_name = caller
         responder, responder_name = responder
@@ -281,9 +283,11 @@ class TestAtom:
         self, caller, responder
     ):
         """
-        Adds 10 entries to the responder's stream with Apache Arrow serialization and makes sure
-        that the proper values are returned from get_n_most_recent without specifying deserialization
-        method in method call, instead relying on serialization key embedded within entry.
+        Adds 10 entries to the responder's stream with Apache Arrow
+            serialization and makes sure  the proper values are returned from
+            get_n_most_recent without specifying deserialization method in
+            method call, instead relying on serialization key embedded within
+            entry.
         """
         caller, caller_name = caller
         responder, responder_name = responder
@@ -302,8 +306,8 @@ class TestAtom:
 
     def test_add_entry_arrow_serialize_custom_type(self, caller, responder):
         """
-        Attempts to add an arrow-serialized entry of a custom (not Python built-in) type.
-        Ensures that TypeError is raised.
+        Attempts to add an arrow-serialized entry of a custom
+            (not Python built-in) type. Ensures that TypeError is raised.
         """
         caller, caller_name = caller
         responder, responder_name = responder
@@ -342,7 +346,8 @@ class TestAtom:
 
     def test_clean_up_stream(self, responder):
         """
-        Ensures that a stream can be removed from Redis and removed from responder's streams set.
+        Ensures that a stream can be removed from Redis and removed from
+            responder's streams set.
         """
         responder, responder_name = responder
 
@@ -396,7 +401,7 @@ class TestAtom:
 
         # this should be a non-blocking call
         responder.command_loop(n_procs=1, block=False)
-        response = caller.command_send(responder_name, "fail", 42)
+        caller.command_send(responder_name, "fail", 42)
         responder.command_loop_shutdown()
         del responder
 
@@ -512,7 +517,8 @@ class TestAtom:
 
     def test_command_response_mixed_serialization(self, caller, responder):
         """
-        Ensures that command and response are serialized correctly based on serialization specified.
+        Ensures that command and response are serialized correctly based on
+            serialization specified.
         """
         caller, caller_name = caller
         responder, responder_name = responder
@@ -535,9 +541,10 @@ class TestAtom:
 
     def test_listen_on_streams(self, caller, responder):
         """
-        Creates two responders publishing entries on their respective streams with
-        a caller listening on those streams and publishing data to a new stream.
-        This test ensures that the new stream contains all the data from the responders.
+        Creates two responders publishing entries on their respective streams
+            with a caller listening on those streams and publishing data to a
+            new stream. This test ensures that the new stream contains all the
+            data from the responders.
         """
         caller, caller_name = caller
         responder, responder_name = responder
@@ -613,7 +620,8 @@ class TestAtom:
     def test_read_since(self, caller, responder):
         """
         Sets the current timestamp as last_id and writes 5 entries to a stream.
-        Ensures that we can get 5 entries since the last id using entry_read_since.
+        Ensures that we can get 5 entries since the last id using
+            entry_read_since.
         """
         caller, caller_name = caller
         responder, responder_name = responder
@@ -630,7 +638,8 @@ class TestAtom:
         for i in range(5):
             responder.entry_write("test_stream", {"data": i})
 
-        # Ensure this doesn't get an entry (because it's waiting for new entries and they never come)
+        # Ensure this doesn't get an entry (because it's waiting for new entries
+        #   nd they never come)
         entries = caller.entry_read_since(responder_name, "test_stream")
         assert len(entries) == 0
 
@@ -668,17 +677,21 @@ class TestAtom:
     def test_parallel_read_write(self, caller, responder):
         """
         Has the same responder class receiving commands on 1 thread,
-        while publishing to a stream on a 2nd thread at high volume.
-        Meanwhile, a caller quickly sends a series of commands to the responder and verifies
-        we get valid results back.
-        Ensures that we can safely send and receive using the same element class without concurrency issues.
+            while publishing to a stream on a 2nd thread at high volume.
+        Meanwhile, a caller quickly sends a series of commands to the responder
+            and verifies we get valid results back.
+        Ensures that we can safely send and receive using the same element class
+            without concurrency issues.
         """
         caller, caller_name = caller
         responder, responder_name = responder
         responder_0_name = responder_name + "_0"
         responder_0 = self._element_create(responder_0_name)
-        # NO_OP command responds with whatever data it receives
+
         def no_op_serialized(data):
+            """
+            NO_OP command responds with whatever data it receives
+            """
             return Response(data, serialization="msgpack")
 
         responder_0.command_add("no_op", no_op_serialized, serialization="msgpack")
@@ -697,8 +710,8 @@ class TestAtom:
         )
         entry_write_thread.start()
 
-        # Send a bunch of commands to responder and you should get valid responses back,
-        # even while its busy publishing to a stream
+        # Send a bunch of commands to responder and you should get valid
+        #   responses back, even while its busy publishing to a stream
         try:
             for i in range(20):
                 response = caller.command_send(
@@ -777,7 +790,8 @@ class TestAtom:
             target=wait_for_elements_check, args=(caller, [responder_name]), daemon=True
         )
         wait_for_elements_thread.start()
-        # If elements reported healthy, call should have returned quickly and thread should exit
+        # If elements reported healthy, call should have returned quickly and
+        #   thread should exit
         wait_for_elements_thread.join(0.5)
         assert not wait_for_elements_thread.is_alive()
 
@@ -787,7 +801,8 @@ class TestAtom:
             daemon=True,
         )
         wait_for_elements_thread.start()
-        # 1 of these elements is missing, so thread is busy and this join call should timeout retrying
+        # 1 of these elements is missing, so thread is busy and this join call
+        #   should timeout retrying
         wait_for_elements_thread.join(0.5)
         assert wait_for_elements_thread.is_alive()
 
@@ -795,7 +810,8 @@ class TestAtom:
             responder_2 = self._element_create("test_responder_2")
             self._element_start(responder_2, caller, do_healthcheck=False)
 
-            # test_responder_2 is alive now, so both healthchecks should succeed and thread should exit roughly within the retry interval
+            # test_responder_2 is alive now, so both healthchecks should succeed
+            #   and thread should exit roughly within the retry interval
             wait_for_elements_thread.join(HEALTHCHECK_RETRY_INTERVAL + 1.0)
             assert not wait_for_elements_thread.is_alive()
         finally:
@@ -997,7 +1013,8 @@ class TestAtom:
 
     def test_command_timeout(self, caller, responder):
         """
-        Element sends command to responder that does not return data within the timeout.
+        Element sends command to responder that does not return data within the
+            timeout.
         """
         caller, caller_name = caller
         responder, responder_name = responder
@@ -1028,7 +1045,8 @@ class TestAtom:
     # TODO: come back and fix logging tests once that's sorted
     # def test_log(self, caller):
     #     """
-    #     Writes a log with each severity level and ensures that all the logs exist.
+    #     Writes a log with each severity level and ensures that all the logs
+    #       exist.
     #     """
     #     caller, caller_name = caller
     #     for i, severity in enumerate(LogLevel):
@@ -1085,8 +1103,9 @@ class TestAtom:
 
     def test_reference_arrow(self, caller):
         """
-        Creates references serialized with Apache Arrow; gets references and deserializes
-        based on serialization method embedded within reference key.
+        Creates references serialized with Apache Arrow; gets references and
+            deserializes based on serialization method embedded within reference
+            key.
         """
         caller, caller_name = caller
         data = {
@@ -1388,7 +1407,7 @@ class TestAtom:
         data_1_id = caller.entry_write(
             "test_stream", {"data": test_data_1}, serialization="msgpack"
         )
-        data_2_id = caller.entry_write(
+        caller.entry_write(
             "test_stream", {"data": test_data_2}, serialization="msgpack"
         )
 
@@ -1660,7 +1679,6 @@ class TestAtom:
 
     def test_metrics_add_multiple(self, caller, metrics):
         caller, caller_name = caller
-        curr_time = int(time.time() * 1000)
         data = caller.metrics_create_custom(
             MetricsLevel.INFO, "some_metric", retention=10000
         )
@@ -1690,7 +1708,6 @@ class TestAtom:
 
     def test_metrics_add_multiple_handle_same_timestamp(self, caller, metrics):
         caller, caller_name = caller
-        curr_time = int(time.time() * 1000)
         data = caller.metrics_create_custom(
             MetricsLevel.INFO, "some_metric", retention=10000
         )
@@ -1714,22 +1731,21 @@ class TestAtom:
         )
         assert data == "some_metric"
         pipeline = caller.metrics_get_pipeline()
-        assert pipeline != None
+        assert pipeline is not None
         pipeline = caller.metrics_get_pipeline()
-        assert pipeline != None
+        assert pipeline is not None
         data = caller.metrics_add("some_metric", 42, pipeline=pipeline)
-        assert data == None
+        assert data is None
 
         data = metrics.get("some_metric")
-        assert data == None
+        assert data is None
         data = caller.metrics_write_pipeline(pipeline)
-        assert data != None
+        assert data is not None
         data = metrics.get("some_metric")
         assert type(data[0]) == int and data[1] == 42
 
     def test_metrics_add_multiple_simultaneous(self, caller, metrics):
         caller, caller_name = caller
-        curr_time = int(time.time() * 1000)
         data = caller.metrics_create_custom(
             MetricsLevel.INFO, "some_metric", retention=10000
         )
@@ -1739,9 +1755,9 @@ class TestAtom:
         )
         assert data == "some_other_metric"
         data = caller.metrics_add("some_metric", 42)
-        assert data != None
+        assert data is not None
         data = caller.metrics_add("some_other_metric", 2020)
-        assert data != None
+        assert data is not None
 
         # make a metric and have the timestamp auto-created
         data = metrics.range("some_metric", 0, -1)
@@ -1751,7 +1767,6 @@ class TestAtom:
 
     def test_metrics_add_multiple_simultaneous_async(self, caller, metrics):
         caller, caller_name = caller
-        curr_time = int(time.time() * 1000)
         data = caller.metrics_create_custom(
             MetricsLevel.INFO, "some_metric", retention=10000
         )
@@ -1761,15 +1776,15 @@ class TestAtom:
         )
         assert data == "some_other_metric"
         pipeline = caller.metrics_get_pipeline()
-        assert pipeline != None
+        assert pipeline is not None
         data = caller.metrics_add("some_metric", 42, pipeline=pipeline)
-        assert data == None
+        assert data is None
         data = caller.metrics_add("some_other_metric", 2020, pipeline=pipeline)
-        assert data == None
+        assert data is None
 
         time.sleep(0.001)
         data = caller.metrics_write_pipeline(pipeline)
-        assert data != None
+        assert data is not None
 
         # make a metric and have the timestamp auto-created
         data = metrics.range("some_metric", 0, -1)
@@ -1779,47 +1794,45 @@ class TestAtom:
 
     def test_metrics_add_multiple_async(self, caller, metrics):
         caller, caller_name = caller
-        curr_time = int(time.time() * 1000)
         data = caller.metrics_create_custom(
             MetricsLevel.INFO, "some_metric", retention=10000
         )
         assert data == "some_metric"
         pipeline = caller.metrics_get_pipeline()
-        assert pipeline != None
+        assert pipeline is not None
         pipeline = caller.metrics_get_pipeline()
-        assert pipeline != None
+        assert pipeline is not None
         data = caller.metrics_add("some_metric", 42, pipeline=pipeline)
-        assert data == None
+        assert data is None
         time.sleep(0.001)
         data = caller.metrics_add("some_metric", 2020, pipeline=pipeline)
-        assert data == None
+        assert data is None
         data = caller.metrics_write_pipeline(pipeline)
-        assert data != None
+        assert data is not None
         # make a metric and have the timestamp auto-created
         data = metrics.range("some_metric", 0, -1)
         assert len(data) == 2 and data[0][1] == 42 and data[1][1] == 2020
 
     def test_metrics_add_multiple_async_handle_same_timestamp(self, caller, metrics):
         caller, caller_name = caller
-        curr_time = int(time.time() * 1000)
         data = caller.metrics_create_custom(
             MetricsLevel.INFO, "some_metric", retention=10000
         )
         assert data == "some_metric"
         pipeline = caller.metrics_get_pipeline()
-        assert pipeline != None
+        assert pipeline is not None
         data = caller.metrics_add("some_metric", 42, timestamp=1234, pipeline=pipeline)
-        assert data == None
+        assert data is None
         data = caller.metrics_add(
             "some_metric", 2020, timestamp=1234, pipeline=pipeline
         )
-        assert data == None
+        assert data is None
 
         data = metrics.get("some_metric")
-        assert data == None
+        assert data is None
 
         data = caller.metrics_write_pipeline(pipeline)
-        assert data != None
+        assert data is not None
 
         # make a metric and have the timestamp auto-created
         data = metrics.range("some_metric", 0, -1)
@@ -1842,19 +1855,19 @@ class TestAtom:
         )
         assert data == "some_metric"
         pipeline = caller.metrics_get_pipeline()
-        assert pipeline != None
+        assert pipeline is not None
         data = caller.metrics_add("some_metric", 42, pipeline=pipeline)
-        assert data == None
+        assert data is None
         add_time = time.time()
 
         data = metrics.get("some_metric")
-        assert data == None
+        assert data is None
 
         time.sleep(2.0)
         flush_time = time.time()
 
         data = caller.metrics_write_pipeline(pipeline)
-        assert data != None
+        assert data is not None
 
         data = metrics.get("some_metric")
         assert data[1] == 42
@@ -1868,7 +1881,7 @@ class TestAtom:
         my_elem = Element(
             "test_metrics_no_redis", metrics_host="127.0.0.1", metrics_port=6380
         )
-        assert my_elem != None
+        assert my_elem is not None
 
         data = my_elem.metrics_create_custom(
             MetricsLevel.INFO, "some_metric", retention=10000
@@ -1881,12 +1894,12 @@ class TestAtom:
         my_elem = Element(
             "test_metrics_no_redis", metrics_host="127.0.0.1", metrics_port=6381
         )
-        assert my_elem != None
+        assert my_elem is not None
 
         data = my_elem.metrics_create_custom(
             MetricsLevel.INFO, "some_metric", retention=10000
         )
-        assert data == None
+        assert data is None
 
         my_elem._clean_up()
 
@@ -1894,7 +1907,7 @@ class TestAtom:
         enforced = False
 
         try:
-            my_elem = Element(
+            Element(
                 "test_metrics_no_redis",
                 metrics_host="127.0.0.1",
                 metrics_port=6381,
@@ -1904,18 +1917,18 @@ class TestAtom:
             print(e)
             enforced = True
 
-        assert enforced == True
+        assert enforced is True
 
     def test_metrics_socket_nonexist(self, caller, metrics):
         my_elem = Element(
             "test_metrics_no_redis", metrics_socket_path="/shared/nonexistent.sock"
         )
-        assert my_elem != None
+        assert my_elem is not None
 
         data = my_elem.metrics_create_custom(
             MetricsLevel.INFO, "some_metric", retention=10000
         )
-        assert data == None
+        assert data is None
 
         my_elem._clean_up()
 
@@ -1923,7 +1936,7 @@ class TestAtom:
         enforced = False
 
         try:
-            my_elem = Element(
+            Element(
                 "test_metrics_no_redis",
                 metrics_socket_path="/shared/nonexistent.sock",
                 enforce_metrics=True,
@@ -1932,23 +1945,23 @@ class TestAtom:
             print(e)
             enforced = True
 
-        assert enforced == True
+        assert enforced is True
 
     def test_metrics_turned_off(self, caller, metrics):
         os.environ["ATOM_USE_METRICS"] = "FALSE"
         my_elem = Element("test_metrics_turned_off")
-        assert my_elem != None
+        assert my_elem is not None
 
         pipeline = my_elem.metrics_get_pipeline()
-        assert pipeline == None
+        assert pipeline is None
         data = my_elem.metrics_create_custom(
             MetricsLevel.INFO, "some_metric", retention=10000
         )
-        assert data == None
+        assert data is None
         data = my_elem.metrics_add("some_metric", 42)
-        assert data == None
+        assert data is None
         data = my_elem.metrics_write_pipeline(pipeline)
-        assert data == None
+        assert data is None
 
         my_elem._clean_up()
 

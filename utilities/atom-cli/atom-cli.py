@@ -6,11 +6,9 @@ from atom import Element
 import atom.serialization as ser
 from inspect import cleandoc
 from os import uname
-from prompt_toolkit import prompt, HTML, PromptSession
+from prompt_toolkit import HTML, PromptSession
 from prompt_toolkit import print_formatted_text as print
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
-from prompt_toolkit.completion import WordCompleter
-from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.styles import Style
 from pyfiglet import Figlet
 from uuid import uuid4
@@ -141,7 +139,7 @@ class AtomCLI:
             if not self.serialization:
                 try:
                     v = v.decode()
-                except:
+                except Exception:
                     v = str(v)
             formatted_record[k] = v
 
@@ -150,7 +148,7 @@ class AtomCLI:
         }
         try:
             ret = json.dumps(sorted_record, indent=self.indent)
-        except TypeError as te:
+        except TypeError:
             ret = sorted_record
         finally:
             return ret
@@ -269,7 +267,8 @@ class AtomCLI:
         Reads the command and response records from the provided elements.
         Args:
             start_time (str): The time from which to start reading logs.
-            elements (list): The elements to get the command and response records from.
+            elements (list): The elements to get the command and response
+                records from.
         """
         streams, records = [], []
         for element in elements:
@@ -284,10 +283,10 @@ class AtomCLI:
                     try:
                         if not isinstance(value, str):
                             value = value.decode()
-                    except:
+                    except Exception:
                         try:
                             value = ser.deserialize(value, method=self.serialization)
-                        except:
+                        except Exception:
                             pass
 
                     finally:
@@ -309,7 +308,7 @@ class AtomCLI:
             if self.serialization:
                 try:
                     data = json.loads(data)
-                except:
+                except Exception:
                     print("Received improperly formatted data!")
                     return
         else:

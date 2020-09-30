@@ -51,6 +51,7 @@ METRICS_DEFAULT_AGG_TIMING = [
     (3600000, 2592000000),
 ]
 
+
 # Metrics logging levels
 class MetricsLevel(Enum):
     EMERG = 0

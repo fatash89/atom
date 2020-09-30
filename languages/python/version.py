@@ -7,7 +7,6 @@ passed in as an argument.
 
 import subprocess
 import argparse
-import re
 import os
 
 CONFIG_FILE = os.path.join(os.path.abspath(os.path.dirname(__file__)), "atom/config.py")

@@ -7,7 +7,8 @@ import builtins
 
 class GenericSerializationMethod:
     """
-    Class containing generic functions for serialization methods (no serialization).
+    Class containing generic functions for serialization methods
+        (no serialization).
     Parent class for all serialization method classes.
     """
 
@@ -94,7 +95,8 @@ class Serializations(Enum):
     @classmethod
     def print_values(cls):
         """
-        Returns comma separated string of serialization options for pretty printing.
+        Returns comma separated string of serialization options for pretty
+            printing.
         """
         return ", ".join([v.name for v in cls])
 
@@ -113,11 +115,13 @@ def serialize(data, method="none"):
 
     Args:
         data: The data to serialize.
-        method (str, optional): The serialization method to use; defaults to "none"
+        method (str, optional): The serialization method to use; defaults to
+            "none"
     Returns:
         The serialized data.
     Raises:
-        ValueError if requested method is not in available serialization options defined
+        ValueError if requested method is not in available serialization options
+            defined
         by Serializations enum.
     """
     method = "none" if method is None else method
@@ -136,11 +140,13 @@ def deserialize(data, method="msgpack"):
 
     Args:
         data: The data to deserialize.
-        method (str, optional): The deserialization method to use; defaults to "none"
+        method (str, optional): The deserialization method to use; defaults to
+            "none"
     Returns:
         The deserialized data.
     Raises:
-        ValueError if requested method is not in available serialization options defined
+        ValueError if requested method is not in available serialization options
+            defined
         by Serializations enum.
     """
     method = "none" if method is None else method

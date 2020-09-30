@@ -1,8 +1,5 @@
 # atombot.py
 from atom import Element
-from atom.messages import Response
-from threading import Thread
-import pdb
 import time
 
 PUBLISH_FREQUENCY = 100
@@ -48,7 +45,6 @@ if __name__ == "__main__":
         )
         if entries:
             last_id = entries[0]["id"]
-            # voice_string = entries[0]["data"].decode().strip().lower().replace("-", "").split(" ")
             voice_string = entries[0]["data"].decode().lower()
             print("Got voice string {}".format(voice_string))
 
