@@ -676,7 +676,12 @@ def process_metrics_update(element, pipeline):
     def process_metrics_update_item(item_dict, info):
         for proc in item_dict:
             element.metrics_add_type(
-                MetricsLevel.INFO, item_dict[proc], PROCESS_PREFIX, proc, info, pipeline=pipeline
+                MetricsLevel.INFO,
+                item_dict[proc],
+                PROCESS_PREFIX,
+                proc,
+                info,
+                pipeline=pipeline,
             )
 
     def process_metrics_cpu_time_to_pct(curr, prev):

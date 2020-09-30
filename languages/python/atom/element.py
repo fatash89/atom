@@ -16,16 +16,50 @@ from collections import defaultdict
 import redis
 from redistimeseries.client import Client as RedisTimeSeries
 
-from atom.config import DEFAULT_REDIS_PORT, DEFAULT_METRICS_PORT, DEFAULT_REDIS_SOCKET, DEFAULT_METRICS_SOCKET, HEALTHCHECK_RETRY_INTERVAL, LOG_DEFAULT_FILE_SIZE, LOG_DEFAULT_LEVEL
-from atom.config import LANG, VERSION, ACK_TIMEOUT, RESPONSE_TIMEOUT, STREAM_LEN, MAX_BLOCK
-from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESPONSE
-from atom.config import ATOM_COMMAND_UNSUPPORTED, ATOM_CALLBACK_FAILED, ATOM_USER_ERRORS_BEGIN, ATOM_INTERNAL_ERROR
-from atom.config import HEALTHCHECK_COMMAND, VERSION_COMMAND, REDIS_PIPELINE_POOL_SIZE, COMMAND_LIST_COMMAND, RESERVED_COMMANDS
 from atom.config import (
-    METRICS_TYPE_LABEL, METRICS_HOST_LABEL, METRICS_ATOM_VERSION_LABEL,
-    METRICS_SUBTYPE_LABEL, METRICS_DEVICE_LABEL, METRICS_ELEMENT_LABEL,
-    METRICS_LANGUAGE_LABEL, METRICS_LEVEL_LABEL, METRICS_AGGREGATION_LABEL,
-    METRICS_DEFAULT_RETENTION, METRICS_DEFAULT_AGG_TIMING, METRICS_AGGREGATION_TYPE_LABEL
+    DEFAULT_REDIS_PORT,
+    DEFAULT_METRICS_PORT,
+    DEFAULT_REDIS_SOCKET,
+    DEFAULT_METRICS_SOCKET,
+    HEALTHCHECK_RETRY_INTERVAL,
+    LOG_DEFAULT_FILE_SIZE,
+    LOG_DEFAULT_LEVEL,
+)
+from atom.config import (
+    LANG,
+    VERSION,
+    ACK_TIMEOUT,
+    RESPONSE_TIMEOUT,
+    STREAM_LEN,
+    MAX_BLOCK,
+)
+from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESPONSE
+from atom.config import (
+    ATOM_COMMAND_UNSUPPORTED,
+    ATOM_CALLBACK_FAILED,
+    ATOM_USER_ERRORS_BEGIN,
+    ATOM_INTERNAL_ERROR,
+)
+from atom.config import (
+    HEALTHCHECK_COMMAND,
+    VERSION_COMMAND,
+    REDIS_PIPELINE_POOL_SIZE,
+    COMMAND_LIST_COMMAND,
+    RESERVED_COMMANDS,
+)
+from atom.config import (
+    METRICS_TYPE_LABEL,
+    METRICS_HOST_LABEL,
+    METRICS_ATOM_VERSION_LABEL,
+    METRICS_SUBTYPE_LABEL,
+    METRICS_DEVICE_LABEL,
+    METRICS_ELEMENT_LABEL,
+    METRICS_LANGUAGE_LABEL,
+    METRICS_LEVEL_LABEL,
+    METRICS_AGGREGATION_LABEL,
+    METRICS_DEFAULT_RETENTION,
+    METRICS_DEFAULT_AGG_TIMING,
+    METRICS_AGGREGATION_TYPE_LABEL,
 )
 from atom.config import MetricsLevel
 from atom.config import VERSION
@@ -52,6 +86,7 @@ logger = logging.getLogger(__name__)
 class ElementConnectionTimeoutError(redis.exceptions.TimeoutError):
     pass
 
+
 class AtomError(Exception):
     def __init__(self, *args):
         if args:
@@ -65,18 +100,33 @@ class AtomError(Exception):
         else:
             return "An Atom Error Occurred"
 
-class MetricsPipeline():
+
+class MetricsPipeline:
     def __init__(self, element):
         self.element = element
+
     def __enter__(self):
         self.pipeline = self.element.metrics_get_pipeline()
         return self.pipeline
+
     def __exit__(self, type, value, traceback):
         self.element.metrics_write_pipeline(self.pipeline)
 
+
 class Element:
-    def __init__(self, name, host=ATOM_NUCLEUS_HOST, port=ATOM_NUCLEUS_PORT, metrics_host=ATOM_METRICS_HOST, metrics_port=ATOM_METRICS_PORT,
-                 socket_path=ATOM_NUCLEUS_SOCKET, metrics_socket_path=ATOM_METRICS_SOCKET, conn_timeout_ms=30000, data_timeout_ms=5000, enforce_metrics=False):
+    def __init__(
+        self,
+        name,
+        host=ATOM_NUCLEUS_HOST,
+        port=ATOM_NUCLEUS_PORT,
+        metrics_host=ATOM_METRICS_HOST,
+        metrics_port=ATOM_METRICS_PORT,
+        socket_path=ATOM_NUCLEUS_SOCKET,
+        metrics_socket_path=ATOM_METRICS_SOCKET,
+        conn_timeout_ms=30000,
+        data_timeout_ms=5000,
+        enforce_metrics=False,
+    ):
         """
         Args:
             name (str): The name of the element to register with Atom.
@@ -102,10 +152,11 @@ class Element:
         self.host = uname().nodename
         self.handler_map = {}
         self.timeouts = {}
-        self._redis_connection_timeout = float(conn_timeout_ms / 1000.)
-        self._redis_data_timeout = float(data_timeout_ms / 1000.)
-        assert self._redis_connection_timeout > 0, \
-            "timeout must be positive and non-zero"
+        self._redis_connection_timeout = float(conn_timeout_ms / 1000.0)
+        self._redis_data_timeout = float(data_timeout_ms / 1000.0)
+        assert (
+            self._redis_connection_timeout > 0
+        ), "timeout must be positive and non-zero"
         self.streams = set()
         self._rclient = None
         self._command_loop_shutdown = multiprocessing.Event()
@@ -129,34 +180,42 @@ class Element:
         self._command_send_metrics = defaultdict(lambda: defaultdict(lambda: None))
         self._entry_read_n_metrics = defaultdict(lambda: defaultdict(lambda: None))
         self._entry_read_since_metrics = defaultdict(lambda: defaultdict(lambda: None))
-        self._entry_write_metrics = defaultdict(lambda : None)
+        self._entry_write_metrics = defaultdict(lambda: None)
         self._reference_create_metrics = None
-        self._reference_create_from_stream_metrics = defaultdict(lambda: defaultdict(lambda: None))
+        self._reference_create_from_stream_metrics = defaultdict(
+            lambda: defaultdict(lambda: None)
+        )
         self._reference_get_metrics = None
 
         #
         # Set up metrics logging levels
         #
         self._metrics_level = MetricsLevel[os.getenv("ATOM_METRICS_LEVEL", "TIMING")]
-        self._metrics_use_aggregation = os.getenv("ATOM_METRICS_USE_AGGREGATION", "FALSE") == "TRUE"
+        self._metrics_use_aggregation = (
+            os.getenv("ATOM_METRICS_USE_AGGREGATION", "FALSE") == "TRUE"
+        )
 
         #
         # Set up logger
-        # 
-        try: 
-            rfh = logging.handlers.RotatingFileHandler(f'{ATOM_LOG_DIR}{self.name}.log', maxBytes=ATOM_LOG_FILE_SIZE)
-        except FileNotFoundError as e: 
+        #
+        try:
+            rfh = logging.handlers.RotatingFileHandler(
+                f"{ATOM_LOG_DIR}{self.name}.log", maxBytes=ATOM_LOG_FILE_SIZE
+            )
+        except FileNotFoundError as e:
             raise AtomError(f"Invalid element name for logger: {e}")
 
-        extra = {'element_name': self.name}
-        formatter = logging.Formatter("%(asctime)s element:%(element_name)s [%(levelname)s] %(message)s")
+        extra = {"element_name": self.name}
+        formatter = logging.Formatter(
+            "%(asctime)s element:%(element_name)s [%(levelname)s] %(message)s"
+        )
         rfh.setFormatter(formatter)
         logger.addHandler(rfh)
         self.logger = logging.LoggerAdapter(logger, extra)
 
         #
         # Set up log level
-        # 
+        #
         loglevel = os.getenv("ATOM_LOG_LEVEL", LOG_DEFAULT_LEVEL)
         numeric_level = getattr(logging, loglevel.upper(), None)
         if not isinstance(numeric_level, int):
@@ -175,7 +234,7 @@ class Element:
                     port=self._metrics_port,
                     socket_timeout=self._redis_data_timeout,
                     socket_connect_timeout=self._redis_connection_timeout,
-                    client_name=self.name
+                    client_name=self.name,
                 )
             else:
                 self._metrics_socket_path = metrics_socket_path
@@ -183,14 +242,16 @@ class Element:
                     unix_socket_path=self._metrics_socket_path,
                     socket_timeout=self._redis_data_timeout,
                     socket_connect_timeout=self._redis_connection_timeout,
-                    client_name=self.name
+                    client_name=self.name,
                 )
 
             try:
                 data = self._mclient.redis.ping()
                 if not data:
                     # Don't have redis, so need to only print to stdout
-                    self.logger.warning(f"Invalid ping response {data} from metrics server")
+                    self.logger.warning(
+                        f"Invalid ping response {data} from metrics server"
+                    )
 
                 # Create pipeline pool
                 for i in range(REDIS_PIPELINE_POOL_SIZE):
@@ -199,7 +260,11 @@ class Element:
                 self.logger.info("Metrics initialized.")
                 self._metrics_enabled = True
 
-            except (redis.exceptions.TimeoutError, redis.exceptions.RedisError, redis.exceptions.ConnectionError) as e:
+            except (
+                redis.exceptions.TimeoutError,
+                redis.exceptions.RedisError,
+                redis.exceptions.ConnectionError,
+            ) as e:
                 self.logger.error(f"Unable to connect to metrics server, error {e}")
                 if enforce_metrics:
 
@@ -222,7 +287,7 @@ class Element:
                 port=self._port,
                 socket_timeout=self._redis_data_timeout,
                 socket_connect_timeout=self._redis_connection_timeout,
-                client_name=self.name
+                client_name=self.name,
             )
         else:
             self._socket_path = socket_path
@@ -230,7 +295,7 @@ class Element:
                 unix_socket_path=socket_path,
                 socket_timeout=self._redis_data_timeout,
                 socket_connect_timeout=self._redis_connection_timeout,
-                client_name=self.name
+                client_name=self.name,
             )
 
         try:
@@ -260,22 +325,18 @@ class Element:
 
         _pipe.xadd(
             self._make_response_id(self.name),
-            {
-                "language": LANG,
-                "version": VERSION
-            },
-            maxlen=STREAM_LEN)
+            {"language": LANG, "version": VERSION},
+            maxlen=STREAM_LEN,
+        )
         # Keep track of response_last_id to know last time the client's response stream was read from
         self.response_last_id = _pipe.execute()[-1].decode()
         self.response_last_id_lock = threading.Lock()
 
         _pipe.xadd(
             self._make_command_id(self.name),
-            {
-                "language": LANG,
-                "version": VERSION
-            },
-            maxlen=STREAM_LEN)
+            {"language": LANG, "version": VERSION},
+            maxlen=STREAM_LEN,
+        )
         # Keep track of command_last_id to know last time the element's command stream was read from
         self.command_last_id = _pipe.execute()[-1].decode()
         _pipe = self._release_pipeline(_pipe)
@@ -290,7 +351,10 @@ class Element:
         current_major_version = ".".join(VERSION.split(".")[:-1])
         self.command_add(
             VERSION_COMMAND,
-            lambda: Response(data={"language": LANG, "version": float(current_major_version)}, serialization="msgpack")
+            lambda: Response(
+                data={"language": LANG, "version": float(current_major_version)},
+                serialization="msgpack",
+            ),
         )
 
         # Add command to query all commands
@@ -298,23 +362,25 @@ class Element:
             COMMAND_LIST_COMMAND,
             lambda: Response(
                 data=[k for k in self.handler_map if k not in RESERVED_COMMANDS],
-                serialization="msgpack"
-            )
+                serialization="msgpack",
+            ),
         )
 
         # Load lua scripts
         self._stream_reference_sha = None
         this_dir, this_filename = os.path.split(__file__)
-        with open(os.path.join(this_dir, 'stream_reference.lua')) as f:
+        with open(os.path.join(this_dir, "stream_reference.lua")) as f:
             data = f.read()
             _pipe = self._rpipeline_pool.get()
             _pipe.script_load(data)
             script_response = _pipe.execute()
             _pipe = self._release_pipeline(_pipe)
 
-            if (not isinstance(script_response, list)) or \
-                (len(script_response) != 1) or \
-                (not isinstance(script_response[0], str)):
+            if (
+                (not isinstance(script_response, list))
+                or (len(script_response) != 1)
+                or (not isinstance(script_response[0], str))
+            ):
                 self.logger.error("Failed to load lua script stream_reference.lua")
             else:
                 self._stream_reference_sha = script_response[0]
@@ -407,7 +473,9 @@ class Element:
         components = new_id.split("-")
         new_id_time = int(components[0])
         new_id_seq = int(components[1])
-        if (new_id_time > global_id_time or (new_id_time == global_id_time and new_id_seq > global_id_seq)):
+        if new_id_time > global_id_time or (
+            new_id_time == global_id_time and new_id_seq > global_id_seq
+        ):
             self.response_last_id = new_id
         self.response_last_id_lock.release()
 
@@ -570,7 +638,9 @@ class Element:
                     pass
         return entry
 
-    def _check_element_version(self, element_name, supported_language_set=None, supported_min_version=None):
+    def _check_element_version(
+        self, element_name, supported_language_set=None, supported_min_version=None
+    ):
         """
         Convenient helper function to query an element about whether it meets min language and version requirements for some feature
 
@@ -584,17 +654,29 @@ class Element:
         if response["err_code"] != ATOM_NO_ERROR or type(response["data"]) is not dict:
             return False
         # Check for valid response to version command
-        if not ("version" in response["data"] and "language" in response["data"] and type(response["data"]["version"]) is float):
+        if not (
+            "version" in response["data"]
+            and "language" in response["data"]
+            and type(response["data"]["version"]) is float
+        ):
             return False
         # Validate element meets language requirement
-        if supported_language_set and response["data"]["language"] not in supported_language_set:
+        if (
+            supported_language_set
+            and response["data"]["language"] not in supported_language_set
+        ):
             return False
         # Validate element meets version requirement
-        if supported_min_version and response["data"]["version"] < supported_min_version:
+        if (
+            supported_min_version
+            and response["data"]["version"] < supported_min_version
+        ):
             return False
         return True
 
-    def _get_serialization_method(self, data, user_serialization, force_serialization, deserialize=None):
+    def _get_serialization_method(
+        self, data, user_serialization, force_serialization, deserialize=None
+    ):
         """
         Helper function to make a unified serialization decision based off of
         common user arguments. The serialization method returned will
@@ -671,7 +753,9 @@ class Element:
         Returns:
             A dictionary of the response from the command.
         """
-        return self.command_send(element_name, VERSION_COMMAND, "", serialization="msgpack")
+        return self.command_send(
+            element_name, VERSION_COMMAND, "", serialization="msgpack"
+        )
 
     def get_all_commands(self, element_name=None, ignore_caller=True):
         """
@@ -698,15 +782,15 @@ class Element:
         command_list = []
         for element in elements:
             # Check support for command_list command
-            if self._check_element_version(element, {'Python'}, 0.3):
+            if self._check_element_version(element, {"Python"}, 0.3):
                 # Retrieve commands for each element
                 elem_commands = self.command_send(
-                    element,
-                    COMMAND_LIST_COMMAND,
-                    serialization="msgpack"
-                )['data']
+                    element, COMMAND_LIST_COMMAND, serialization="msgpack"
+                )["data"]
                 # Rename each command pre-pending the element name
-                command_list.extend([f'{element}:{command}' for command in elem_commands])
+                command_list.extend(
+                    [f"{element}:{command}" for command in elem_commands]
+                )
         return command_list
 
     def _command_add_init_metrics(self, name):
@@ -721,37 +805,37 @@ class Element:
 
         # Number of times a commmand is called
         self._command_metrics[name]["count"] = self.metrics_create(
-            MetricsLevel.INFO,
-            "atom:command", "count", name,
-            agg_types=["SUM"]
+            MetricsLevel.INFO, "atom:command", "count", name, agg_types=["SUM"]
         )
 
         # Make the metric for timing the command handler
         self._command_metrics[name]["runtime"] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:command", "runtime", name,
-            agg_types=["AVG", "MIN", "MAX"]
+            "atom:command",
+            "runtime",
+            name,
+            agg_types=["AVG", "MIN", "MAX"],
         )
 
         # Make the error counter for the command handler
         self._command_metrics[name]["failed"] = self.metrics_create(
-            MetricsLevel.ERR,
-            "atom:command", "failed", name,
-            agg_types=["SUM"]
+            MetricsLevel.ERR, "atom:command", "failed", name, agg_types=["SUM"]
         )
         self._command_metrics[name]["unhandled"] = self.metrics_create(
-            MetricsLevel.CRIT,
-            "atom:command", "unhandled", name,
-            agg_types=["SUM"]
+            MetricsLevel.CRIT, "atom:command", "unhandled", name, agg_types=["SUM"]
         )
         self._command_metrics[name]["error"] = self.metrics_create(
-            MetricsLevel.ERR,
-            "atom:command", "error", name,
-            agg_types=["SUM"]
+            MetricsLevel.ERR, "atom:command", "error", name, agg_types=["SUM"]
         )
 
-
-    def command_add(self, name, handler, timeout=RESPONSE_TIMEOUT, serialization=None, deserialize=None):
+    def command_add(
+        self,
+        name,
+        handler,
+        timeout=RESPONSE_TIMEOUT,
+        serialization=None,
+        deserialize=None,
+    ):
         """
         Adds a command to the element for another element to call.
 
@@ -768,18 +852,20 @@ class Element:
         """
         if not callable(handler):
             raise TypeError("Passed in handler is not a function!")
-        if (name in RESERVED_COMMANDS and name in self.handler_map):
+        if name in RESERVED_COMMANDS and name in self.handler_map:
             raise ValueError(
                 f"'{name}' is a reserved command name dedicated to {name} "
-                 "commands, choose another name"
-             )
+                "commands, choose another name"
+            )
 
         if deserialize is not None:  # check for deprecated legacy mode
             serialization = "msgpack" if deserialize else None
 
         if not ser.is_valid_serialization(serialization):
-            raise ValueError(f"Invalid serialization method \"{serialization}\"."
-                             "Must be one of {ser.Serializations.print_values()}.")
+            raise ValueError(
+                f'Invalid serialization method "{serialization}".'
+                "Must be one of {ser.Serializations.print_values()}."
+            )
 
         self.handler_map[name] = {"handler": handler, "serialization": serialization}
 
@@ -799,10 +885,15 @@ class Element:
         if not callable(handler):
             raise TypeError("Passed in handler is not a function!")
         # Handler must return response with 0 error_code to pass healthcheck
-        self.handler_map[HEALTHCHECK_COMMAND] = {"handler": handler, "serialization": None}
+        self.handler_map[HEALTHCHECK_COMMAND] = {
+            "handler": handler,
+            "serialization": None,
+        }
         self.timeouts[HEALTHCHECK_COMMAND] = RESPONSE_TIMEOUT
 
-    def wait_for_elements_healthy(self, element_list, retry_interval=HEALTHCHECK_RETRY_INTERVAL, strict=False):
+    def wait_for_elements_healthy(
+        self, element_list, retry_interval=HEALTHCHECK_RETRY_INTERVAL, strict=False
+    ):
         """
         Blocking call will wait until all elements in the element respond that they are healthy.
 
@@ -818,10 +909,16 @@ class Element:
             all_healthy = True
             for element_name in element_list:
                 # Verify element is reachable and supports healthcheck feature
-                if not self._check_element_version(element_name, supported_language_set={LANG}, supported_min_version=0.2):
+                if not self._check_element_version(
+                    element_name,
+                    supported_language_set={LANG},
+                    supported_min_version=0.2,
+                ):
                     # In strict mode, if element is not reachable or doesn't support healthchecks, assume unhealthy
                     if strict:
-                        self.logger.warning(f"Failed healthcheck on {element_name}, retrying...")
+                        self.logger.warning(
+                            f"Failed healthcheck on {element_name}, retrying..."
+                        )
                         all_healthy = False
                         break
                     else:
@@ -829,7 +926,9 @@ class Element:
 
                 response = self.command_send(element_name, HEALTHCHECK_COMMAND, "")
                 if response["err_code"] != ATOM_NO_ERROR:
-                    self.logger.warning(f"Failed healthcheck on {element_name}, retrying...")
+                    self.logger.warning(
+                        f"Failed healthcheck on {element_name}, retrying..."
+                    )
                     all_healthy = False
                     break
             if all_healthy:
@@ -837,7 +936,9 @@ class Element:
 
             time.sleep(retry_interval)
 
-    def command_loop(self, n_procs=1, block=True, read_block_ms=1000, join_timeout=None):
+    def command_loop(
+        self, n_procs=1, block=True, read_block_ms=1000, join_timeout=None
+    ):
         """Main command execution event loop
 
         For each worker process, performs the following event loop:
@@ -879,14 +980,22 @@ class Element:
         #       https://stackoverflow.com/questions/39890363/what-happens-when-a-thread-forks
         thread_count = threading.active_count()
         if thread_count > 1:
-            self.logger.warning(f"[element:{self.name}] Active thread count is currently {thread_count}.  Child command_loop "
+            self.logger.warning(
+                f"[element:{self.name}] Active thread count is currently {thread_count}.  Child command_loop "
                 "processes will only copy one active thread's state and therefore may not "
                 "work properly."
             )
 
         self.processes = []
         for i in range(n_procs):
-            p = Process(target=self._command_loop, args=(self._command_loop_shutdown, i,), kwargs={'read_block_ms' : read_block_ms})
+            p = Process(
+                target=self._command_loop,
+                args=(
+                    self._command_loop_shutdown,
+                    i,
+                ),
+                kwargs={"read_block_ms": read_block_ms},
+            )
             p.start()
             self.processes.append(p)
 
@@ -897,17 +1006,17 @@ class Element:
         """Incremeents reference counter for element stream collection"""
         _pipe.incr(self._make_consumer_group_counter(self.name))
         result = _pipe.execute()[-1]
-        self.logger.debug(f'inrementing element {self.name} {result}')
+        self.logger.debug(f"inrementing element {self.name} {result}")
         return result
 
     def _decrement_command_group_counter(self, _pipe):
         """Decrements reference counter for element stream collection"""
         _pipe.decr(self._make_consumer_group_counter(self.name))
         result = _pipe.execute()[-1]
-        self.logger.debug(f'decrementing element {self.name} {result}')
+        self.logger.debug(f"decrementing element {self.name} {result}")
         if not result:
-            #TODO: consider logging
-            self.logger.debug(f'cleaning up stream {self.name}')
+            # TODO: consider logging
+            self.logger.debug(f"cleaning up stream {self.name}")
             self._clean_up_streams()
         return result
 
@@ -927,81 +1036,133 @@ class Element:
 
         self._command_loop_metrics[worker_num]["block_time"] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:command_loop", worker_num, "block_time",
-            labels={"worker" : f"{worker_num}"}, agg_types=["AVG", "MIN", "MAX"]
+            "atom:command_loop",
+            worker_num,
+            "block_time",
+            labels={"worker": f"{worker_num}"},
+            agg_types=["AVG", "MIN", "MAX"],
         )
-        self._command_loop_metrics[worker_num]["block_handler_time"] = self.metrics_create(
+        self._command_loop_metrics[worker_num][
+            "block_handler_time"
+        ] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:command_loop", worker_num, "block_handler_time",
-            labels={"worker" : f"{worker_num}"}, agg_types=["AVG", "MIN", "MAX"]
+            "atom:command_loop",
+            worker_num,
+            "block_handler_time",
+            labels={"worker": f"{worker_num}"},
+            agg_types=["AVG", "MIN", "MAX"],
         )
         self._command_loop_metrics[worker_num]["handler_time"] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:command_loop", worker_num, "handler_time",
-            labels={"worker" : f"{worker_num}"}, agg_types=["AVG", "MIN", "MAX"]
+            "atom:command_loop",
+            worker_num,
+            "handler_time",
+            labels={"worker": f"{worker_num}"},
+            agg_types=["AVG", "MIN", "MAX"],
         )
-        self._command_loop_metrics[worker_num]["handler_block_time"] = self.metrics_create(
+        self._command_loop_metrics[worker_num][
+            "handler_block_time"
+        ] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:command_loop", worker_num, "handler_block_time",
-            labels={"worker" : f"{worker_num}"}, agg_types=["AVG", "MIN", "MAX"]
+            "atom:command_loop",
+            worker_num,
+            "handler_block_time",
+            labels={"worker": f"{worker_num}"},
+            agg_types=["AVG", "MIN", "MAX"],
         )
 
         # Info counters
         self._command_loop_metrics[worker_num]["n_commands"] = self.metrics_create(
             MetricsLevel.INFO,
-            "atom:command_loop", worker_num, "n_commands",
-            labels={"worker" : f"{worker_num}"}, agg_types=["SUM"]
+            "atom:command_loop",
+            worker_num,
+            "n_commands",
+            labels={"worker": f"{worker_num}"},
+            agg_types=["SUM"],
         )
 
         # Error counters
-        self._command_loop_metrics[worker_num]["xreadgroup_error"] = self.metrics_create(
+        self._command_loop_metrics[worker_num][
+            "xreadgroup_error"
+        ] = self.metrics_create(
             MetricsLevel.ERR,
-            "atom:command_loop", worker_num, "xreadgroup_error",
-            labels={"worker" : f"{worker_num}"}, agg_types=["SUM"]
+            "atom:command_loop",
+            worker_num,
+            "xreadgroup_error",
+            labels={"worker": f"{worker_num}"},
+            agg_types=["SUM"],
         )
-        self._command_loop_metrics[worker_num]["stream_match_error"] = self.metrics_create(
+        self._command_loop_metrics[worker_num][
+            "stream_match_error"
+        ] = self.metrics_create(
             MetricsLevel.ERR,
-            "atom:command_loop", worker_num, "stream_match_error",
-            labels={"worker" : f"{worker_num}"}, agg_types=["SUM"]
+            "atom:command_loop",
+            worker_num,
+            "stream_match_error",
+            labels={"worker": f"{worker_num}"},
+            agg_types=["SUM"],
         )
         self._command_loop_metrics[worker_num]["no_caller"] = self.metrics_create(
             MetricsLevel.ERR,
-            "atom:command_loop", worker_num, "no_caller",
-            labels={"worker" : f"{worker_num}"}, agg_types=["SUM"]
+            "atom:command_loop",
+            worker_num,
+            "no_caller",
+            labels={"worker": f"{worker_num}"},
+            agg_types=["SUM"],
         )
-        self._command_loop_metrics[worker_num]["unsupported_command"] = self.metrics_create(
+        self._command_loop_metrics[worker_num][
+            "unsupported_command"
+        ] = self.metrics_create(
             MetricsLevel.ERR,
-            "atom:command_loop", worker_num, "unsupported_command",
-            labels={"worker" : f"{worker_num}"}, agg_types=["SUM"]
+            "atom:command_loop",
+            worker_num,
+            "unsupported_command",
+            labels={"worker": f"{worker_num}"},
+            agg_types=["SUM"],
         )
         self._command_loop_metrics[worker_num]["unhandled"] = self.metrics_create(
             MetricsLevel.CRIT,
-            "atom:command_loop", worker_num, "unhandled",
-            labels={"worker" : f"{worker_num}"}, agg_types=["SUM"]
+            "atom:command_loop",
+            worker_num,
+            "unhandled",
+            labels={"worker": f"{worker_num}"},
+            agg_types=["SUM"],
         )
         self._command_loop_metrics[worker_num]["failed"] = self.metrics_create(
             MetricsLevel.ERR,
-            "atom:command_loop", worker_num, "failed",
-            labels={"worker" : f"{worker_num}"}, agg_types=["SUM"]
+            "atom:command_loop",
+            worker_num,
+            "failed",
+            labels={"worker": f"{worker_num}"},
+            agg_types=["SUM"],
         )
         self._command_loop_metrics[worker_num]["response_error"] = self.metrics_create(
             MetricsLevel.ERR,
-            "atom:command_loop", worker_num, "response_error",
-            labels={"worker" : f"{worker_num}"}, agg_types=["SUM"]
+            "atom:command_loop",
+            worker_num,
+            "response_error",
+            labels={"worker": f"{worker_num}"},
+            agg_types=["SUM"],
         )
         self._command_loop_metrics[worker_num]["xack_error"] = self.metrics_create(
             MetricsLevel.ERR,
-            "atom:command_loop", worker_num, "xack_error",
-            labels={"worker" : f"{worker_num}"}, agg_types=["SUM"]
+            "atom:command_loop",
+            worker_num,
+            "xack_error",
+            labels={"worker": f"{worker_num}"},
+            agg_types=["SUM"],
         )
 
-
     def _command_loop(self, shutdown_event, worker_num, read_block_ms=1000):
-        client_name=f"{self.name}-command-loop-{worker_num}"
-        if hasattr(self, '_host'):
-            _rclient = redis.StrictRedis(host=self._host, port=self._port, client_name=client_name)
+        client_name = f"{self.name}-command-loop-{worker_num}"
+        if hasattr(self, "_host"):
+            _rclient = redis.StrictRedis(
+                host=self._host, port=self._port, client_name=client_name
+            )
         else:
-            _rclient = redis.StrictRedis(unix_socket_path=self._socket_path, client_name=client_name)
+            _rclient = redis.StrictRedis(
+                unix_socket_path=self._socket_path, client_name=client_name
+            )
 
         # get a group handle
         # note: if use_command_last_id is set then the group will receive
@@ -1014,10 +1175,7 @@ class Element:
         group_last_cmd_id = self.command_last_id
         try:
             _rclient.xgroup_create(
-                stream_name,
-                group_name,
-                group_last_cmd_id,
-                mkstream=True
+                stream_name, group_name, group_last_cmd_id, mkstream=True
             )
         except redis.exceptions.ResponseError:
             # If we encounter a `ResponseError` we assume it's because of a `BUSYGROUP`
@@ -1041,42 +1199,55 @@ class Element:
                 try:
 
                     # Pre-block metrics
-                    self.metrics_timing_start(self._command_loop_metrics[worker_num]["block_time"])
+                    self.metrics_timing_start(
+                        self._command_loop_metrics[worker_num]["block_time"]
+                    )
 
                     # Block, get a command
                     cmd_responses = _rclient.xreadgroup(
                         group_name,
                         consumer_uuid,
-                        {stream_name: '>'},
+                        {stream_name: ">"},
                         block=read_block_ms,
-                        count=1
+                        count=1,
                     )
 
                     # Post-block metrics
-                    self.metrics_timing_end(self._command_loop_metrics[worker_num]["block_time"], pipeline=pipeline)
-                    self.metrics_timing_start(self._command_loop_metrics[worker_num]["block_handler_time"])
+                    self.metrics_timing_end(
+                        self._command_loop_metrics[worker_num]["block_time"],
+                        pipeline=pipeline,
+                    )
+                    self.metrics_timing_start(
+                        self._command_loop_metrics[worker_num]["block_handler_time"]
+                    )
                 except redis.exceptions.ResponseError:
-                    self.logger.error(f"Recieved redis ResponseError.  Possible attempted "
+                    self.logger.error(
+                        f"Recieved redis ResponseError.  Possible attempted "
                         "XREADGROUP on closed stream %s (is shutdown: %s).  "
                         "Please ensure you have performed the command_loop_shutdown"
-                        " command on the object running command_loop." % (
-                            stream_name,
-                            shutdown_event.is_set()
-                        )
+                        " command on the object running command_loop."
+                        % (stream_name, shutdown_event.is_set())
                     )
-                    self.metrics_add(self._command_loop_metrics[worker_num]["xreadgroup_error"], 1, pipeline=pipeline)
+                    self.metrics_add(
+                        self._command_loop_metrics[worker_num]["xreadgroup_error"],
+                        1,
+                        pipeline=pipeline,
+                    )
                     return
 
                 if not cmd_responses:
                     continue
                 cmd_stream_name, msgs = cmd_responses[0]
                 if cmd_stream_name.decode() != stream_name:
-                    self.metrics_add(self._command_loop_metrics[worker_num]["stream_match_error"], 1, pipeline=pipeline)
+                    self.metrics_add(
+                        self._command_loop_metrics[worker_num]["stream_match_error"],
+                        1,
+                        pipeline=pipeline,
+                    )
                     raise RuntimeError(
-                        "Expected received stream name to match: %s %s" % (
-                            cmd_stream_name,
-                            stream_name
-                        ))
+                        "Expected received stream name to match: %s %s"
+                        % (cmd_stream_name, stream_name)
+                    )
 
                 assert len(msgs) == 1, "expected one message: %s" % (msgs,)
 
@@ -1097,7 +1268,9 @@ class Element:
 
                 if not caller:
                     self.logger.error("No caller name present in command!")
-                    self.metrics_add((f"atom:command_loop:worker{worker_num}:no_caller", 1))
+                    self.metrics_add(
+                        (f"atom:command_loop:worker{worker_num}:no_caller", 1)
+                    )
                     continue
 
                 # Send acknowledge to caller
@@ -1107,26 +1280,45 @@ class Element:
                     timeout = self.timeouts[cmd_name]
                 acknowledge = Acknowledge(self.name, cmd_id, timeout)
 
-                _rclient.xadd(self._make_response_id(caller), vars(acknowledge), maxlen=STREAM_LEN)
+                _rclient.xadd(
+                    self._make_response_id(caller), vars(acknowledge), maxlen=STREAM_LEN
+                )
 
                 # Send response to caller
                 if cmd_name not in self.handler_map.keys():
                     self.logger.error("Received unsupported command: %s" % (cmd_name,))
                     response = Response(
                         err_code=ATOM_COMMAND_UNSUPPORTED,
-                        err_str="Unsupported command."
+                        err_str="Unsupported command.",
                     )
-                    self.metrics_add(self._command_loop_metrics[worker_num]["unsupported_command"], 1, pipeline=pipeline)
+                    self.metrics_add(
+                        self._command_loop_metrics[worker_num]["unsupported_command"],
+                        1,
+                        pipeline=pipeline,
+                    )
                 else:
 
                     # Pre-handler metrics
-                    self.metrics_timing_end(self._command_loop_metrics[worker_num]["block_handler_time"], pipeline=pipeline)
-                    self.metrics_timing_start(self._command_loop_metrics[worker_num]["handler_time"])
-                    self.metrics_timing_start(self._command_metrics[cmd_name]["runtime"])
+                    self.metrics_timing_end(
+                        self._command_loop_metrics[worker_num]["block_handler_time"],
+                        pipeline=pipeline,
+                    )
+                    self.metrics_timing_start(
+                        self._command_loop_metrics[worker_num]["handler_time"]
+                    )
+                    self.metrics_timing_start(
+                        self._command_metrics[cmd_name]["runtime"]
+                    )
 
                     if cmd_name not in RESERVED_COMMANDS:
-                        if "deserialize" in self.handler_map[cmd_name]:  # check for deprecated legacy mode
-                            serialization = "msgpack" if self.handler_map[cmd_name]["deserialize"] else None
+                        if (
+                            "deserialize" in self.handler_map[cmd_name]
+                        ):  # check for deprecated legacy mode
+                            serialization = (
+                                "msgpack"
+                                if self.handler_map[cmd_name]["deserialize"]
+                                else None
+                            )
                         else:
                             serialization = self.handler_map[cmd_name]["serialization"]
                         data = ser.deserialize(data, method=serialization)
@@ -1134,18 +1326,25 @@ class Element:
                             response = self.handler_map[cmd_name]["handler"](data)
 
                         except:
-                            self.logger.error("encountered error with command: %s\n%s" % (
-                                    cmd_name,
-                                    format_exc()
-                                )
+                            self.logger.error(
+                                "encountered error with command: %s\n%s"
+                                % (cmd_name, format_exc())
                             )
                             response = Response(
                                 err_code=ATOM_INTERNAL_ERROR,
                                 err_str="encountered an internal exception "
-                                        "during command execution: %s" % (cmd_name,)
+                                "during command execution: %s" % (cmd_name,),
                             )
-                            self.metrics_add(self._command_loop_metrics[worker_num]["unhandled"], 1, pipeline=pipeline)
-                            self.metrics_add(self._command_metrics[cmd_name]["unhandled"], 1, pipeline=pipeline)
+                            self.metrics_add(
+                                self._command_loop_metrics[worker_num]["unhandled"],
+                                1,
+                                pipeline=pipeline,
+                            )
+                            self.metrics_add(
+                                self._command_metrics[cmd_name]["unhandled"],
+                                1,
+                                pipeline=pipeline,
+                            )
 
                     else:
                         # healthcheck/version requests/command_list commands don't
@@ -1153,28 +1352,49 @@ class Element:
                         response = self.handler_map[cmd_name]["handler"]()
 
                     # Post-handler-metrics
-                    self.metrics_timing_end(self._command_metrics[cmd_name]["runtime"], pipeline=pipeline)
-                    self.metrics_timing_end(self._command_loop_metrics[worker_num]["handler_time"], pipeline=pipeline)
+                    self.metrics_timing_end(
+                        self._command_metrics[cmd_name]["runtime"], pipeline=pipeline
+                    )
+                    self.metrics_timing_end(
+                        self._command_loop_metrics[worker_num]["handler_time"],
+                        pipeline=pipeline,
+                    )
 
                     # Add ATOM_USER_ERRORS_BEGIN to err_code to map to element error range
                     if isinstance(response, Response):
                         if response.err_code != 0:
                             response.err_code += ATOM_USER_ERRORS_BEGIN
-                            self.metrics_add(self._command_metrics[cmd_name]["error"], 1, pipeline=pipeline)
+                            self.metrics_add(
+                                self._command_metrics[cmd_name]["error"],
+                                1,
+                                pipeline=pipeline,
+                            )
 
                     else:
                         response = Response(
                             err_code=ATOM_CALLBACK_FAILED,
-                            err_str=f"Return type of {cmd_name} is not of type Response"
+                            err_str=f"Return type of {cmd_name} is not of type Response",
                         )
-                        self.metrics_add(self._command_loop_metrics[worker_num]["failed"], 1, pipeline=pipeline)
-                        self.metrics_add(self._command_metrics[cmd_name]["failed"], 1, pipeline=pipeline)
+                        self.metrics_add(
+                            self._command_loop_metrics[worker_num]["failed"],
+                            1,
+                            pipeline=pipeline,
+                        )
+                        self.metrics_add(
+                            self._command_metrics[cmd_name]["failed"],
+                            1,
+                            pipeline=pipeline,
+                        )
 
                     # Note we called the command and got through it
-                    self.metrics_add(self._command_metrics[cmd_name]["count"], 1, pipeline=pipeline)
+                    self.metrics_add(
+                        self._command_metrics[cmd_name]["count"], 1, pipeline=pipeline
+                    )
 
                 # Need to start the handler <> block time
-                self.metrics_timing_start(self._command_loop_metrics[worker_num]["handler_block_time"])
+                self.metrics_timing_start(
+                    self._command_loop_metrics[worker_num]["handler_block_time"]
+                )
 
                 # send response on appropriate stream
                 kv = vars(response)
@@ -1188,33 +1408,40 @@ class Element:
                     # we will xack the response to bring it out of pending list.
                     # This command will be treated as being "handled" and will not
                     # be re-attempted
-                    self.metrics_add(self._command_loop_metrics[worker_num]["response_error"], 1, pipeline=pipeline)
+                    self.metrics_add(
+                        self._command_loop_metrics[worker_num]["response_error"],
+                        1,
+                        pipeline=pipeline,
+                    )
 
                 # `XACK` the command we have just completed back to the consumer
                 # group to remove the command from the consumer group pending
                 # entry list (PEL).
                 try:
-                    _rclient.xack(
-                        stream_name,
-                        group_name,
-                        cmd_id
+                    _rclient.xack(stream_name, group_name, cmd_id)
+                    self.metrics_add(
+                        self._command_loop_metrics[worker_num]["n_commands"],
+                        1,
+                        pipeline=pipeline,
                     )
-                    self.metrics_add(self._command_loop_metrics[worker_num]["n_commands"], 1, pipeline=pipeline)
                 except:
-                    self.logger.error("encountered error during xack (stream name:%s, group name: "
-                        "%s, cmd_id: %s)\n%s" % (
-                            stream_name,
-                            group_name,
-                            cmd_id,
-                            format_exc()
-                        )
+                    self.logger.error(
+                        "encountered error during xack (stream name:%s, group name: "
+                        "%s, cmd_id: %s)\n%s"
+                        % (stream_name, group_name, cmd_id, format_exc())
                     )
-                    self.metrics_add(self._command_loop_metrics[worker_num]["xack_error"], 1, pipeline=pipeline)
+                    self.metrics_add(
+                        self._command_loop_metrics[worker_num]["xack_error"],
+                        1,
+                        pipeline=pipeline,
+                    )
 
                 # we're essentially going into the block and if we wrap it up here we don't
                 #   need to handle edge cases where it hadn't been started before
-                self.metrics_timing_end(self._command_loop_metrics[worker_num]["handler_block_time"], pipeline=pipeline)
-
+                self.metrics_timing_end(
+                    self._command_loop_metrics[worker_num]["handler_block_time"],
+                    pipeline=pipeline,
+                )
 
     def _command_loop_join(self, join_timeout=10.0):
         """Waits for all threads from command loop to be finished"""
@@ -1244,36 +1471,58 @@ class Element:
 
         self._command_send_metrics[element_name][cmd_name] = {}
 
-        self._command_send_metrics[element_name][cmd_name]["serialize"] = self.metrics_create(
+        self._command_send_metrics[element_name][cmd_name][
+            "serialize"
+        ] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:command_send", "serialize", element_name, cmd_name,
-            agg_types=["AVG", "MIN", "MAX"]
+            "atom:command_send",
+            "serialize",
+            element_name,
+            cmd_name,
+            agg_types=["AVG", "MIN", "MAX"],
         )
-        self._command_send_metrics[element_name][cmd_name]["runtime"] = self.metrics_create(
+        self._command_send_metrics[element_name][cmd_name][
+            "runtime"
+        ] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:command_send", "runtime", element_name, cmd_name,
-            agg_types=["AVG", "MIN", "MAX"]
+            "atom:command_send",
+            "runtime",
+            element_name,
+            cmd_name,
+            agg_types=["AVG", "MIN", "MAX"],
         )
-        self._command_send_metrics[element_name][cmd_name]["deserialize"] = self.metrics_create(
+        self._command_send_metrics[element_name][cmd_name][
+            "deserialize"
+        ] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:command_send", "deserialize", element_name, cmd_name,
-            agg_types=["AVG", "MIN", "MAX"]
+            "atom:command_send",
+            "deserialize",
+            element_name,
+            cmd_name,
+            agg_types=["AVG", "MIN", "MAX"],
         )
-        self._command_send_metrics[element_name][cmd_name]["error"] = self.metrics_create(
+        self._command_send_metrics[element_name][cmd_name][
+            "error"
+        ] = self.metrics_create(
             MetricsLevel.ERR,
-            "atom:command_send", "error", element_name, cmd_name,
-            agg_types=["SUM"]
+            "atom:command_send",
+            "error",
+            element_name,
+            cmd_name,
+            agg_types=["SUM"],
         )
 
-    def command_send(self,
-                     element_name,
-                     cmd_name,
-                     data="",
-                     block=True,
-                     ack_timeout=ACK_TIMEOUT,
-                     serialization=None,
-                     serialize=None,
-                     deserialize=None):
+    def command_send(
+        self,
+        element_name,
+        cmd_name,
+        data="",
+        block=True,
+        ack_timeout=ACK_TIMEOUT,
+        serialization=None,
+        serialize=None,
+        deserialize=None,
+    ):
         """
         Sends command to element and waits for acknowledge.
         When acknowledge is received, waits for timeout from acknowledge or until response is received.
@@ -1313,14 +1562,23 @@ class Element:
             if serialize is not None:  # check for deprecated legacy mode
                 serialization = "msgpack" if serialize else None
 
-            self.metrics_timing_start(self._command_send_metrics[element_name][cmd_name]["serialize"])
+            self.metrics_timing_start(
+                self._command_send_metrics[element_name][cmd_name]["serialize"]
+            )
             data = ser.serialize(data, method=serialization) if (data != "") else data
-            self.metrics_timing_end(self._command_send_metrics[element_name][cmd_name]["serialize"], pipeline=pipeline)
+            self.metrics_timing_end(
+                self._command_send_metrics[element_name][cmd_name]["serialize"],
+                pipeline=pipeline,
+            )
 
-            self.metrics_timing_start(self._command_send_metrics[element_name][cmd_name]["runtime"])
+            self.metrics_timing_start(
+                self._command_send_metrics[element_name][cmd_name]["runtime"]
+            )
             cmd = Cmd(self.name, cmd_name, data)
             _pipe = self._rpipeline_pool.get()
-            _pipe.xadd(self._make_command_id(element_name), vars(cmd), maxlen=STREAM_LEN)
+            _pipe.xadd(
+                self._make_command_id(element_name), vars(cmd), maxlen=STREAM_LEN
+            )
             cmd_id = _pipe.execute()[-1].decode()
             _pipe = self._release_pipeline(_pipe)
 
@@ -1332,15 +1590,21 @@ class Element:
             while True:
                 responses = self._rclient.xread(
                     {self._make_response_id(self.name): local_last_id},
-                    block=max(int(ack_timeout - elapsed_time_ms), 1)
+                    block=max(int(ack_timeout - elapsed_time_ms), 1),
                 )
                 if not responses:
                     elapsed_time_ms = (time.time() - start_read) * 1000
                     if elapsed_time_ms >= ack_timeout:
                         err_str = f"Did not receive acknowledge from {element_name}."
                         self.logger.error(err_str)
-                        self.metrics_add(self._command_send_metrics[element_name][cmd_name]["error"], 1, pipeline=pipeline)
-                        return vars(Response(err_code=ATOM_COMMAND_NO_ACK, err_str=err_str))
+                        self.metrics_add(
+                            self._command_send_metrics[element_name][cmd_name]["error"],
+                            1,
+                            pipeline=pipeline,
+                        )
+                        return vars(
+                            Response(err_code=ATOM_COMMAND_NO_ACK, err_str=err_str)
+                        )
                         break
                     else:
                         continue
@@ -1349,9 +1613,13 @@ class Element:
                 for id, response in msgs:
                     local_last_id = id.decode()
 
-                    if b"element" in response and response[b"element"].decode() == element_name \
-                    and b"cmd_id" in response and response[b"cmd_id"].decode() == cmd_id \
-                    and b"timeout" in response:
+                    if (
+                        b"element" in response
+                        and response[b"element"].decode() == element_name
+                        and b"cmd_id" in response
+                        and response[b"cmd_id"].decode() == cmd_id
+                        and b"timeout" in response
+                    ):
                         timeout = int(response[b"timeout"].decode())
                         break
 
@@ -1364,7 +1632,11 @@ class Element:
             if timeout is None:
                 err_str = f"Did not receive acknowledge from {element_name}."
                 self.logger.error(err_str)
-                self.metrics_add(self._command_send_metrics[element_name][cmd_name]["error"], 1, pipeline=pipeline)
+                self.metrics_add(
+                    self._command_send_metrics[element_name][cmd_name]["error"],
+                    1,
+                    pipeline=pipeline,
+                )
                 return vars(Response(err_code=ATOM_COMMAND_NO_ACK, err_str=err_str))
 
             # Receive response from element
@@ -1378,28 +1650,51 @@ class Element:
 
                 responses = self._rclient.xread(
                     {self._make_response_id(self.name): local_last_id},
-                    block=max(int(timeout - elapsed_time_ms), 1)
+                    block=max(int(timeout - elapsed_time_ms), 1),
                 )
                 if not responses:
                     err_str = f"Did not receive response from {element_name}."
                     self.logger.error(err_str)
-                    self.metrics_add(self._command_send_metrics[element_name][cmd_name]["error"], 1, pipeline=pipeline)
-                    return vars(Response(err_code=ATOM_COMMAND_NO_RESPONSE, err_str=err_str))
+                    self.metrics_add(
+                        self._command_send_metrics[element_name][cmd_name]["error"],
+                        1,
+                        pipeline=pipeline,
+                    )
+                    return vars(
+                        Response(err_code=ATOM_COMMAND_NO_RESPONSE, err_str=err_str)
+                    )
 
                 stream_name, msgs = responses[0]  # we only read from one stream
                 for msg in msgs:
                     id, response = msg
                     local_last_id = id.decode()
 
-                    if b"element" in response and response[b"element"].decode() == element_name \
-                    and b"cmd_id" in response and response[b"cmd_id"].decode() == cmd_id \
-                    and b"err_code" in response:
+                    if (
+                        b"element" in response
+                        and response[b"element"].decode() == element_name
+                        and b"cmd_id" in response
+                        and response[b"cmd_id"].decode() == cmd_id
+                        and b"err_code" in response
+                    ):
 
-                        self.metrics_timing_end(self._command_send_metrics[element_name][cmd_name]["runtime"], pipeline=pipeline)
-                        self.metrics_timing_start(self._command_send_metrics[element_name][cmd_name]["deserialize"])
+                        self.metrics_timing_end(
+                            self._command_send_metrics[element_name][cmd_name][
+                                "runtime"
+                            ],
+                            pipeline=pipeline,
+                        )
+                        self.metrics_timing_start(
+                            self._command_send_metrics[element_name][cmd_name][
+                                "deserialize"
+                            ]
+                        )
 
                         err_code = int(response[b"err_code"].decode())
-                        err_str = response[b"err_str"].decode() if b"err_str" in response else ""
+                        err_str = (
+                            response[b"err_str"].decode()
+                            if b"err_str" in response
+                            else ""
+                        )
                         if err_code != ATOM_NO_ERROR:
                             self.logger.error(err_str)
 
@@ -1407,20 +1702,39 @@ class Element:
                         # check response for serialization method; if not present, use user specified method
                         if b"ser" in response:
                             serialization = response[b"ser"].decode()
-                        elif deserialize is not None:  # check for deprecated legacy mode
+                        elif (
+                            deserialize is not None
+                        ):  # check for deprecated legacy mode
                             serialization = "msgpack" if deserialize else None
 
                         try:
-                            response_data = (ser.deserialize(response_data, method=serialization) if
-                                             (len(response_data) != 0) else response_data)
+                            response_data = (
+                                ser.deserialize(response_data, method=serialization)
+                                if (len(response_data) != 0)
+                                else response_data
+                            )
                         except TypeError:
                             self.logger.warning("Could not deserialize response.")
-                            self.metrics_add((f"atom:command_send:error:{element_name}:{cmd_name}", 1))
+                            self.metrics_add(
+                                (
+                                    f"atom:command_send:error:{element_name}:{cmd_name}",
+                                    1,
+                                )
+                            )
 
-                        self.metrics_timing_end(self._command_send_metrics[element_name][cmd_name]["deserialize"], pipeline=pipeline)
+                        self.metrics_timing_end(
+                            self._command_send_metrics[element_name][cmd_name][
+                                "deserialize"
+                            ],
+                            pipeline=pipeline,
+                        )
 
                         # Make the final response
-                        resp = vars(Response(data=response_data, err_code=err_code, err_str=err_str))
+                        resp = vars(
+                            Response(
+                                data=response_data, err_code=err_code, err_str=err_str
+                            )
+                        )
                         break
 
                 self._update_response_id_if_older(local_last_id)
@@ -1433,11 +1747,23 @@ class Element:
             # Proper response was not in responses
             err_str = f"Did not receive response from {element_name}."
             self.logger.error(err_str)
-            self.metrics_add(self._command_send_metrics[element_name][cmd_name]["error"], 1, pipeline=pipeline)
+            self.metrics_add(
+                self._command_send_metrics[element_name][cmd_name]["error"],
+                1,
+                pipeline=pipeline,
+            )
 
         return vars(Response(err_code=ATOM_COMMAND_NO_RESPONSE, err_str=err_str))
 
-    def entry_read_loop(self, stream_handlers, n_loops=None, timeout=MAX_BLOCK, serialization=None, force_serialization=False, deserialize=None):
+    def entry_read_loop(
+        self,
+        stream_handlers,
+        n_loops=None,
+        timeout=MAX_BLOCK,
+        serialization=None,
+        force_serialization=False,
+        deserialize=None,
+    ):
         """
         Listens to streams and pass any received entry to corresponding handler.
 
@@ -1465,7 +1791,9 @@ class Element:
         for stream_handler in stream_handlers:
             if not isinstance(stream_handler, StreamHandler):
                 raise TypeError(f"{stream_handler} is not a StreamHandler!")
-            stream_id = self._make_stream_id(stream_handler.element, stream_handler.stream)
+            stream_id = self._make_stream_id(
+                stream_handler.element, stream_handler.stream
+            )
             streams[stream_id] = self._get_redis_timestamp()
             stream_handler_map[stream_id] = stream_handler.handler
         for _ in n_loops:
@@ -1476,7 +1804,9 @@ class Element:
                 for uid, entry in msgs:
                     streams[stream] = uid
                     entry = self._decode_entry(entry)
-                    serialization = self._get_serialization_method(entry, serialization, force_serialization, deserialize)
+                    serialization = self._get_serialization_method(
+                        entry, serialization, force_serialization, deserialize
+                    )
                     entry = self._deserialize_entry(entry, method=serialization)
                     entry["id"] = uid.decode()
                     stream_handler_map[stream.decode()](entry)
@@ -1496,24 +1826,46 @@ class Element:
 
         self._entry_read_n_metrics[element_name][stream_name] = {}
 
-        self._entry_read_n_metrics[element_name][stream_name]["data"] = self.metrics_create(
+        self._entry_read_n_metrics[element_name][stream_name][
+            "data"
+        ] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:entry_read_n", "data", element_name, stream_name,
-            agg_types=["AVG", "MIN", "MAX"]
+            "atom:entry_read_n",
+            "data",
+            element_name,
+            stream_name,
+            agg_types=["AVG", "MIN", "MAX"],
         )
-        self._entry_read_n_metrics[element_name][stream_name]["deserialize"] = self.metrics_create(
+        self._entry_read_n_metrics[element_name][stream_name][
+            "deserialize"
+        ] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:entry_read_n", "deserialize", element_name, stream_name,
-            agg_types=["AVG", "MIN", "MAX"]
+            "atom:entry_read_n",
+            "deserialize",
+            element_name,
+            stream_name,
+            agg_types=["AVG", "MIN", "MAX"],
         )
-        self._entry_read_n_metrics[element_name][stream_name]["n"] = self.metrics_create(
+        self._entry_read_n_metrics[element_name][stream_name][
+            "n"
+        ] = self.metrics_create(
             MetricsLevel.INFO,
-            "atom:entry_read_n", "n", element_name, stream_name,
-            agg_types=["SUM"]
+            "atom:entry_read_n",
+            "n",
+            element_name,
+            stream_name,
+            agg_types=["SUM"],
         )
 
-
-    def entry_read_n(self, element_name, stream_name, n, serialization=None, force_serialization=False, deserialize=None):
+    def entry_read_n(
+        self,
+        element_name,
+        stream_name,
+        n,
+        serialization=None,
+        force_serialization=False,
+        deserialize=None,
+    ):
         """
         Gets the n most recent entries from the specified stream.
 
@@ -1544,25 +1896,40 @@ class Element:
             stream_id = self._make_stream_id(element_name, stream_name)
 
             # Read data
-            self.metrics_timing_start(self._entry_read_n_metrics[element_name][stream_name]["data"])
+            self.metrics_timing_start(
+                self._entry_read_n_metrics[element_name][stream_name]["data"]
+            )
             uid_entries = self._rclient.xrevrange(stream_id, count=n)
-            self.metrics_timing_end(self._entry_read_n_metrics[element_name][stream_name]["data"], pipeline=pipeline)
+            self.metrics_timing_end(
+                self._entry_read_n_metrics[element_name][stream_name]["data"],
+                pipeline=pipeline,
+            )
 
             # Deserialize
-            self.metrics_timing_start(self._entry_read_n_metrics[element_name][stream_name]["deserialize"])
+            self.metrics_timing_start(
+                self._entry_read_n_metrics[element_name][stream_name]["deserialize"]
+            )
             for uid, entry in uid_entries:
                 entry = self._decode_entry(entry)
-                serialization = self._get_serialization_method(entry, serialization, force_serialization, deserialize)
+                serialization = self._get_serialization_method(
+                    entry, serialization, force_serialization, deserialize
+                )
                 entry = self._deserialize_entry(entry, method=serialization)
                 entry["id"] = uid.decode()
                 entries.append(entry)
-            self.metrics_timing_end(self._entry_read_n_metrics[element_name][stream_name]["deserialize"], pipeline=pipeline)
+            self.metrics_timing_end(
+                self._entry_read_n_metrics[element_name][stream_name]["deserialize"],
+                pipeline=pipeline,
+            )
 
             # Note we read entries
-            self.metrics_add(self._entry_read_n_metrics[element_name][stream_name]["n"], len(uid_entries), pipeline=pipeline)
+            self.metrics_add(
+                self._entry_read_n_metrics[element_name][stream_name]["n"],
+                len(uid_entries),
+                pipeline=pipeline,
+            )
 
         return entries
-
 
     def _entry_read_since_init_metrics(self, element_name, stream_name):
         """
@@ -1579,31 +1946,48 @@ class Element:
 
         self._entry_read_since_metrics[element_name][stream_name] = {}
 
-        self._entry_read_since_metrics[element_name][stream_name]["data"] = self.metrics_create(
+        self._entry_read_since_metrics[element_name][stream_name][
+            "data"
+        ] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:entry_read_since", "data", element_name, stream_name,
-            agg_types=["AVG", "MIN", "MAX"]
+            "atom:entry_read_since",
+            "data",
+            element_name,
+            stream_name,
+            agg_types=["AVG", "MIN", "MAX"],
         )
-        self._entry_read_since_metrics[element_name][stream_name]["deserialize"] = self.metrics_create(
+        self._entry_read_since_metrics[element_name][stream_name][
+            "deserialize"
+        ] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:entry_read_since", "deserialize", element_name, stream_name,
-            agg_types=["AVG", "MIN", "MAX"]
+            "atom:entry_read_since",
+            "deserialize",
+            element_name,
+            stream_name,
+            agg_types=["AVG", "MIN", "MAX"],
         )
-        self._entry_read_since_metrics[element_name][stream_name]["n"] = self.metrics_create(
+        self._entry_read_since_metrics[element_name][stream_name][
+            "n"
+        ] = self.metrics_create(
             MetricsLevel.INFO,
-            "atom:entry_read_n", "n", element_name, stream_name,
-            agg_types=["SUM"]
+            "atom:entry_read_n",
+            "n",
+            element_name,
+            stream_name,
+            agg_types=["SUM"],
         )
 
-    def entry_read_since(self,
-                         element_name,
-                         stream_name,
-                         last_id="$",
-                         n=None,
-                         block=None,
-                         serialization=None,
-                         force_serialization=False,
-                         deserialize=None):
+    def entry_read_since(
+        self,
+        element_name,
+        stream_name,
+        last_id="$",
+        n=None,
+        block=None,
+        serialization=None,
+        force_serialization=False,
+        deserialize=None,
+    ):
         """
         Read entries from a stream since the last_id.
 
@@ -1636,27 +2020,43 @@ class Element:
             streams[stream_id] = last_id
 
             # Read data
-            self.metrics_timing_start(self._entry_read_since_metrics[element_name][stream_name]["data"])
+            self.metrics_timing_start(
+                self._entry_read_since_metrics[element_name][stream_name]["data"]
+            )
             stream_entries = self._rclient.xread(streams, count=n, block=block)
-            self.metrics_timing_end(self._entry_read_since_metrics[element_name][stream_name]["data"], pipeline=pipeline)
+            self.metrics_timing_end(
+                self._entry_read_since_metrics[element_name][stream_name]["data"],
+                pipeline=pipeline,
+            )
             stream_names = [x[0].decode() for x in stream_entries]
             if not stream_entries or stream_id not in stream_names:
                 return entries
 
             # Deserialize
-            self.metrics_timing_start(self._entry_read_since_metrics[element_name][stream_name]["deserialize"])
+            self.metrics_timing_start(
+                self._entry_read_since_metrics[element_name][stream_name]["deserialize"]
+            )
             for key, msgs in stream_entries:
                 if key.decode() == stream_id:
                     for uid, entry in msgs:
                         entry = self._decode_entry(entry)
-                        serialization = self._get_serialization_method(entry, serialization, force_serialization, deserialize)
+                        serialization = self._get_serialization_method(
+                            entry, serialization, force_serialization, deserialize
+                        )
                         entry = self._deserialize_entry(entry, method=serialization)
                         entry["id"] = uid.decode()
                         entries.append(entry)
-            self.metrics_timing_end(self._entry_read_since_metrics[element_name][stream_name]["data"], pipeline=pipeline)
+            self.metrics_timing_end(
+                self._entry_read_since_metrics[element_name][stream_name]["data"],
+                pipeline=pipeline,
+            )
 
             # Note we read the entries
-            self.metrics_add(self._entry_read_since_metrics[element_name][stream_name]["n"], len(stream_entries), pipeline=pipeline)
+            self.metrics_add(
+                self._entry_read_since_metrics[element_name][stream_name]["n"],
+                len(stream_entries),
+                pipeline=pipeline,
+            )
 
         return entries
 
@@ -1676,16 +2076,27 @@ class Element:
 
         self._entry_write_metrics[stream_name]["data"] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:entry_write", "data", stream_name,
-            agg_types=["AVG", "MIN", "MAX"]
+            "atom:entry_write",
+            "data",
+            stream_name,
+            agg_types=["AVG", "MIN", "MAX"],
         )
         self._entry_write_metrics[stream_name]["serialize"] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:entry_write", "serialize", stream_name,
-            agg_types=["AVG", "MIN", "MAX"]
+            "atom:entry_write",
+            "serialize",
+            stream_name,
+            agg_types=["AVG", "MIN", "MAX"],
         )
 
-    def entry_write(self, stream_name, field_data_map, maxlen=STREAM_LEN, serialization=None, serialize=None):
+    def entry_write(
+        self,
+        stream_name,
+        field_data_map,
+        maxlen=STREAM_LEN,
+        serialization=None,
+        serialize=None,
+    ):
         """
         Creates element's stream if it does not exist.
         Adds the fields and data to a Entry and puts it in the element's stream.
@@ -1717,27 +2128,42 @@ class Element:
                 serialization = "msgpack" if serialize else None
 
             # Serialize
-            self.metrics_timing_start(self._entry_write_metrics[stream_name]["serialize"])
+            self.metrics_timing_start(
+                self._entry_write_metrics[stream_name]["serialize"]
+            )
             ser_field_data_map = {}
             for k, v in field_data_map.items():
                 if k in ENTRY_RESERVED_KEYS:
-                    raise ValueError(f"Invalid key \"{k}\": \"{k}\" is a reserved entry key")
+                    raise ValueError(
+                        f'Invalid key "{k}": "{k}" is a reserved entry key'
+                    )
                 ser_field_data_map[k] = ser.serialize(v, method=serialization)
 
-            ser_field_data_map["ser"] = str(serialization) if serialization is not None else "none"
+            ser_field_data_map["ser"] = (
+                str(serialization) if serialization is not None else "none"
+            )
             entry = Entry(ser_field_data_map)
-            self.metrics_timing_end(self._entry_write_metrics[stream_name]["serialize"], pipeline=pipeline)
+            self.metrics_timing_end(
+                self._entry_write_metrics[stream_name]["serialize"], pipeline=pipeline
+            )
 
             # Write Data
             self.metrics_timing_start(self._entry_write_metrics[stream_name]["data"])
             _pipe = self._rpipeline_pool.get()
-            _pipe.xadd(self._make_stream_id(self.name, stream_name), vars(entry), maxlen=maxlen)
+            _pipe.xadd(
+                self._make_stream_id(self.name, stream_name), vars(entry), maxlen=maxlen
+            )
             ret = _pipe.execute()
             _pipe = self._release_pipeline(_pipe)
-            self.metrics_timing_end(self._entry_write_metrics[stream_name]["data"], pipeline=pipeline)
+            self.metrics_timing_end(
+                self._entry_write_metrics[stream_name]["data"], pipeline=pipeline
+            )
 
-        if ((not isinstance(ret, list)) or (len(ret) != 1)
-                or (not isinstance(ret[0], bytes))):
+        if (
+            (not isinstance(ret, list))
+            or (len(ret) != 1)
+            or (not isinstance(ret[0], bytes))
+        ):
             print(ret)
             raise ValueError("Failed to write data to stream")
 
@@ -1774,16 +2200,20 @@ class Element:
 
         self._reference_create_metrics["data"] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:reference_create", "data",
-            agg_types=["AVG", "MIN", "MAX", "COUNT"]
+            "atom:reference_create",
+            "data",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
         )
         self._reference_create_metrics["serialize"] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:reference_create", "serialize",
-            agg_types=["AVG", "MIN", "MAX"]
+            "atom:reference_create",
+            "serialize",
+            agg_types=["AVG", "MIN", "MAX"],
         )
 
-    def reference_create(self, *data, serialization=None, serialize=None, timeout_ms=10000):
+    def reference_create(
+        self, *data, serialization=None, serialize=None, timeout_ms=10000
+    ):
         """
         Creates one or more expiring references (similar to a pointer) in the atom system.
         This will typically be used when we've gotten a piece of data from a
@@ -1830,16 +2260,24 @@ class Element:
                 # Now, we can go ahead and do the SET in redis for the key
                 # Expire as set by the user
                 serialized_datum = ser.serialize(datum, method=serialization)
-                key = key + ":ser:" + (str(serialization) if serialization is not None else "none")
+                key = (
+                    key
+                    + ":ser:"
+                    + (str(serialization) if serialization is not None else "none")
+                )
                 _pipe.set(key, serialized_datum, px=px_val, nx=True)
                 keys.append(key)
-            self.metrics_timing_end(self._reference_create_metrics["serialize"], pipeline=pipeline)
+            self.metrics_timing_end(
+                self._reference_create_metrics["serialize"], pipeline=pipeline
+            )
 
             # Write data
             self.metrics_timing_start(self._reference_create_metrics["data"])
             response = _pipe.execute()
             _pipe = self._release_pipeline(_pipe)
-            self.metrics_timing_end(self._reference_create_metrics["data"], pipeline=pipeline)
+            self.metrics_timing_end(
+                self._reference_create_metrics["data"], pipeline=pipeline
+            )
 
         if not all(response):
             raise ValueError(f"Failed to create reference! response {response}")
@@ -1862,13 +2300,20 @@ class Element:
 
         self._reference_create_from_stream_metrics[element][stream] = {}
 
-        self._reference_create_from_stream_metrics[element][stream]["data"] = self.metrics_create(
+        self._reference_create_from_stream_metrics[element][stream][
+            "data"
+        ] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:reference_create_from_stream", "data", element, stream,
-            agg_types=["AVG", "MIN", "MAX", "COUNT"]
+            "atom:reference_create_from_stream",
+            "data",
+            element,
+            stream,
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
         )
 
-    def reference_create_from_stream(self, element, stream, stream_id="", timeout_ms=10000):
+    def reference_create_from_stream(
+        self, element, stream, stream_id="", timeout_ms=10000
+    ):
         """
         Creates an expiring reference (similar to a pointer) in the atom system.
         This API will take an element and a stream and, depending on the value
@@ -1901,7 +2346,9 @@ class Element:
         """
 
         if self._stream_reference_sha is None:
-            raise ValueError("Lua script not loaded -- unable to call reference_create_from_stream")
+            raise ValueError(
+                "Lua script not loaded -- unable to call reference_create_from_stream"
+            )
 
         # Initialize metrics
         self._reference_create_from_stream_init_metrics(element, stream)
@@ -1914,13 +2361,20 @@ class Element:
             # Get the stream we'll be reading from
             stream_name = self._make_stream_id(element, stream)
 
-            self.metrics_timing_start(self._reference_create_from_stream_metrics[element][stream]["data"])
+            self.metrics_timing_start(
+                self._reference_create_from_stream_metrics[element][stream]["data"]
+            )
             # Call the script to make a reference
             _pipe = self._rpipeline_pool.get()
-            _pipe.evalsha(self._stream_reference_sha, 0, stream_name, stream_id, key, timeout_ms)
+            _pipe.evalsha(
+                self._stream_reference_sha, 0, stream_name, stream_id, key, timeout_ms
+            )
             data = _pipe.execute()
             _pipe = self._release_pipeline(_pipe)
-            self.metrics_timing_end(self._reference_create_from_stream_metrics[element][stream]["data"], pipeline=pipeline)
+            self.metrics_timing_end(
+                self._reference_create_from_stream_metrics[element][stream]["data"],
+                pipeline=pipeline,
+            )
 
         if (type(data) != list) or (len(data) != 1) or (type(data[0]) != list):
             raise ValueError("Failed to make reference!")
@@ -1928,7 +2382,7 @@ class Element:
         # Make a dictionary to return from the response
         key_dict = {}
         for key in data[0]:
-            key_val = key.decode().split(':')[-1]
+            key_val = key.decode().split(":")[-1]
             key_dict[key_val] = key
 
         return key_dict
@@ -1946,16 +2400,20 @@ class Element:
 
         self._reference_get_metrics["data"] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:reference_get", "data",
-            agg_types=["AVG", "MIN", "MAX", "COUNT"]
+            "atom:reference_get",
+            "data",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
         )
         self._reference_get_metrics["deserialize"] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:reference_get", "deserialize",
-            agg_types=["AVG", "MIN", "MAX"]
+            "atom:reference_get",
+            "deserialize",
+            agg_types=["AVG", "MIN", "MAX"],
         )
 
-    def reference_get(self, *keys, serialization=None, force_serialization=False, deserialize=None):
+    def reference_get(
+        self, *keys, serialization=None, force_serialization=False, deserialize=None
+    ):
         """
         Gets one or more reference from the atom system. Reads the key(s) from redis
         and returns the data, performing a serialize/deserialize operation on each
@@ -1986,23 +2444,29 @@ class Element:
                 _pipe.get(key)
             data = _pipe.execute()
             _pipe = self._release_pipeline(_pipe)
-            self.metrics_timing_end(self._reference_get_metrics["data"], pipeline=pipeline)
+            self.metrics_timing_end(
+                self._reference_get_metrics["data"], pipeline=pipeline
+            )
 
             if type(data) is not list:
                 raise ValueError(f"Invalid response from redis: {data}")
 
             # Deserialize
             self.metrics_timing_start(self._reference_get_metrics["deserialize"])
-            deserialized_data = [ ]
+            deserialized_data = []
             for key, ref in zip(keys, data):
                 # look for serialization method in reference key first; if not present use user specified method
-                key_split = key.split(':') if type(key) == str else key.decode().split(':')
+                key_split = (
+                    key.split(":") if type(key) == str else key.decode().split(":")
+                )
 
                 # Need to reformat the data into a dictionary with a "ser"
                 #   key like it comes in on entries to use the shared logic function
                 get_serialization_data = {}
                 if "ser" in key_split:
-                    get_serialization_data["ser"] = key_split[key_split.index("ser") + 1]
+                    get_serialization_data["ser"] = key_split[
+                        key_split.index("ser") + 1
+                    ]
 
                 # Use the serialization data to get the method for deserializing
                 #   according to the user's preference
@@ -2010,12 +2474,18 @@ class Element:
                     get_serialization_data,
                     serialization,
                     force_serialization,
-                    deserialize
+                    deserialize,
                 )
 
                 # Deserialize the data
-                deserialized_data.append(ser.deserialize(ref, method=serialization) if ref is not None else None)
-            self.metrics_timing_end(self._reference_get_metrics["deserialize"], pipeline=pipeline)
+                deserialized_data.append(
+                    ser.deserialize(ref, method=serialization)
+                    if ref is not None
+                    else None
+                )
+            self.metrics_timing_end(
+                self._reference_get_metrics["deserialize"], pipeline=pipeline
+            )
 
         return deserialized_data
 
@@ -2109,7 +2579,9 @@ class Element:
         try:
             pipeline = self._mpipeline_pool.get(block=False)
         except QueueEmpty:
-            self.logger.error("Failed to get metrics pipeline, something is very wrong!")
+            self.logger.error(
+                "Failed to get metrics pipeline, something is very wrong!"
+            )
             raise AtomError("Ran out of metrics pipelines!")
 
         return pipeline
@@ -2161,7 +2633,8 @@ class Element:
         labels=None,
         rules=None,
         update=True,
-        duplicate_policy='last'):
+        duplicate_policy="last",
+    ):
         """
         Create a metric at the given key with retention and labels. This is a
         direct interface to the redis time series API. It's generally not
@@ -2220,7 +2693,9 @@ class Element:
         #   since it's not added to self._metrics any calls to metrics_add() will
         #   be no-ops.
         if level.value > self._metrics_level.value:
-            print(f"Ignoring metric {key} with level {level.name} due to active level being {self._metrics_level.name}")
+            print(
+                f"Ignoring metric {key} with level {level.name} due to active level being {self._metrics_level.name}"
+            )
             return key
 
         # If we've already seen/created the metric once in this program/
@@ -2234,7 +2709,7 @@ class Element:
         _labels = {
             METRICS_AGGREGATION_LABEL: "none",
             METRICS_AGGREGATION_TYPE_LABEL: "none",
-            **labels
+            **labels,
         }
 
         # Try to make the key. Need to know if the key already exists in order
@@ -2245,7 +2720,7 @@ class Element:
                 key,
                 retention_msecs=retention,
                 labels=_labels,
-                duplicate_policy=duplicate_policy
+                duplicate_policy=duplicate_policy,
             )
         # Key already exists
         except redis.exceptions.ResponseError:
@@ -2264,7 +2739,7 @@ class Element:
                 key,
                 retention_msecs=retention,
                 labels=_labels,
-                duplicate_policy=duplicate_policy
+                duplicate_policy=duplicate_policy,
             )
 
             # Need to get info about the key
@@ -2283,7 +2758,7 @@ class Element:
                         pass
 
                     # If we want to use the same rule key, note it exists
-                    rule_str = rule[0].decode('utf-8')
+                    rule_str = rule[0].decode("utf-8")
                     if rule_str in rules:
                         rule_key_exists.append(rule_str)
 
@@ -2293,7 +2768,7 @@ class Element:
             _rule_labels = {
                 METRICS_AGGREGATION_LABEL: f"{rules[rule][1] // (1000 * 60)}m",
                 METRICS_AGGREGATION_TYPE_LABEL: rules[rule][0],
-                **labels
+                **labels,
             }
             # If we found the rule earlier, make sure its stream matches our
             #   desired retention and labels
@@ -2302,7 +2777,7 @@ class Element:
                     rule,
                     retention_msecs=rules[rule][2],
                     labels=_rule_labels,
-                    duplicate_policy=duplicate_policy
+                    duplicate_policy=duplicate_policy,
                 )
             else:
                 try:
@@ -2310,7 +2785,7 @@ class Element:
                         rule,
                         retention_msecs=rules[rule][2],
                         labels=_rule_labels,
-                        duplicate_policy=duplicate_policy
+                        duplicate_policy=duplicate_policy,
                     )
                 except redis.exceptions.ResponseError:
                     pass
@@ -2337,7 +2812,8 @@ class Element:
         labels=None,
         agg_timing=METRICS_DEFAULT_AGG_TIMING,
         agg_types=None,
-        duplicate_policy='last'):
+        duplicate_policy="last",
+    ):
         """
         Create a metric of the given type and subtypes. All labels you need
         will be auto-generated, though more can be passed. Aggregation will
@@ -2410,12 +2886,34 @@ class Element:
         if self._metrics_use_aggregation:
             for agg in agg_types:
                 for timing in agg_timing:
-                    _rule_key = self._make_metric_id(self.name, m_type, *m_subtypes, agg)
-                    _rules[f"{_rule_key}:{timing[0]//(1000 * 60)}m"] = (agg, timing[0], timing[1])
+                    _rule_key = self._make_metric_id(
+                        self.name, m_type, *m_subtypes, agg
+                    )
+                    _rules[f"{_rule_key}:{timing[0]//(1000 * 60)}m"] = (
+                        agg,
+                        timing[0],
+                        timing[1],
+                    )
 
-        return self.metrics_create_custom(level, _key, retention=retention, labels=_labels, rules=_rules, duplicate_policy=duplicate_policy)
+        return self.metrics_create_custom(
+            level,
+            _key,
+            retention=retention,
+            labels=_labels,
+            rules=_rules,
+            duplicate_policy=duplicate_policy,
+        )
 
-    def metrics_add(self, key, val, timestamp=None, pipeline=None, enforce_exists=True, retention=86400000, labels=None):
+    def metrics_add(
+        self,
+        key,
+        val,
+        timestamp=None,
+        pipeline=None,
+        enforce_exists=True,
+        retention=86400000,
+        labels=None,
+    ):
         """
         Adds a metric at the given key with the given value. Timestamp
             can be set if desired, leaving at the default of '*' will result
@@ -2481,7 +2979,17 @@ class Element:
         #   we need to extract the outer list here for simplicity.
         return data
 
-    def metrics_add_type(self, level, value, m_type, *m_subtypes, timestamp=None, pipeline=None, retention=86400000, labels=None):
+    def metrics_add_type(
+        self,
+        level,
+        value,
+        m_type,
+        *m_subtypes,
+        timestamp=None,
+        pipeline=None,
+        retention=86400000,
+        labels=None,
+    ):
         """
         Adds a metric at the given key with the given value. Timestamp
             can be set if desired, leaving at the default of '*' will result
@@ -2523,7 +3031,9 @@ class Element:
         #   sending labels the first time we see a new key. They're ignored
         #   each time after anyway
         if _key not in self._metrics_add_type_keys:
-            _labels = self._metrics_add_default_labels(labels, level, m_type, *m_subtypes)
+            _labels = self._metrics_add_default_labels(
+                labels, level, m_type, *m_subtypes
+            )
             self._metrics_add_type_keys = _key
         else:
             _labels = {}
@@ -2536,7 +3046,7 @@ class Element:
             pipeline=pipeline,
             retention=retention,
             labels=_labels,
-            enforce_exists=False # This API is designed for not having called metrics_create
+            enforce_exists=False,  # This API is designed for not having called metrics_create
         )
 
     def _metrics_get_timing_key(self, key):
@@ -2559,7 +3069,9 @@ class Element:
         Args:
             key (string): Key we want to start tracking timing for
         """
-        self._active_timing_metrics[self._metrics_get_timing_key(key)] = time.monotonic()
+        self._active_timing_metrics[
+            self._metrics_get_timing_key(key)
+        ] = time.monotonic()
 
     def metrics_timing_end(self, key, pipeline=None, strict=False):
         """

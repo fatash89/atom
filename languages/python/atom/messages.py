@@ -7,7 +7,7 @@ import atom.serialization as ser
 
 CMD_RESERVED_KEYS = ("data", "cmd", "element", "ser")
 RES_RESERVED_KEYS = ("data", "err_code", "err_str", "element", "cmd", "cmd_id", "ser")
-ENTRY_RESERVED_KEYS = ("ser")
+ENTRY_RESERVED_KEYS = "ser"
 
 
 def format_redis_py(data):
@@ -46,7 +46,9 @@ class Cmd:
 
 
 class Response:
-    def __init__(self, data="", err_code=0, err_str="", serialization=None, serialize=None):
+    def __init__(
+        self, data="", err_code=0, err_str="", serialization=None, serialize=None
+    ):
         """
         Specifies the format of a response that an element returns from a command.
 
@@ -73,6 +75,7 @@ class Response:
 
         self.err_code = err_code
         self.err_str = err_str
+
 
 class Entry:
     def __init__(self, field_data_map):
@@ -164,6 +167,7 @@ class LogLevel(Enum):
     """
     An enum for the Unix syslog severity levels.
     """
+
     EMERG = 0
     ALERT = 1
     CRIT = 2

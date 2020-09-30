@@ -10,18 +10,19 @@ import argparse
 import re
 import os
 
-CONFIG_FILE = os.path.join(os.path.abspath(os.path.dirname(__file__)),"atom/config.py")
+CONFIG_FILE = os.path.join(os.path.abspath(os.path.dirname(__file__)), "atom/config.py")
 
 
 def call_git_describe(abbrev):
     """
     Returns latest git tag if available.
     """
-    p = subprocess.run(['git', 'describe', '--tags', '--abbrev=%d' % abbrev],
-                       stdout=subprocess.PIPE)
-    line = str(p.stdout, 'utf-8').strip()
-    line = line[1:] if line[0] == 'v' else line
-    return line.strip('\n')
+    p = subprocess.run(
+        ["git", "describe", "--tags", "--abbrev=%d" % abbrev], stdout=subprocess.PIPE
+    )
+    line = str(p.stdout, "utf-8").strip()
+    line = line[1:] if line[0] == "v" else line
+    return line.strip("\n")
 
 
 def is_dirty():
@@ -29,8 +30,9 @@ def is_dirty():
     Returns True/False if there are commits since the last tag.
     """
     try:
-        p = subprocess.run(["git", "diff-index", "--name-only", "HEAD"],
-                           stdout=subprocess.PIPE)
+        p = subprocess.run(
+            ["git", "diff-index", "--name-only", "HEAD"], stdout=subprocess.PIPE
+        )
         return len(str(p.stdout)) > 0
     except Exception:
         return False
@@ -86,16 +88,15 @@ def main(version=None):
 
     # replace version config if there's a new one
     if version:
-        version_str = "\nVERSION = \"{}\"\n".format(version)
+        version_str = '\nVERSION = "{}"\n'.format(version)
         replace_version_config(version_str)
 
     return version
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Replace library version config')
-    parser.add_argument('--version', type=str,
-                        help='library version')
+    parser = argparse.ArgumentParser(description="Replace library version config")
+    parser.add_argument("--version", type=str, help="library version")
 
     args = parser.parse_args()
 

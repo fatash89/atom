@@ -4,8 +4,8 @@ from atom.messages import Response
 from threading import Thread, Lock
 from time import sleep
 
-class AtomBot:
 
+class AtomBot:
     def __init__(self):
         # This defines atombot's current position
         self.pos = 2
@@ -29,7 +29,9 @@ class AtomBot:
         steps = int(steps)
         if steps < 0 or steps > self.max_pos:
             # If we encounter an error, we can send an error code and error string in the response of the command
-            return Response(err_code=1, err_str=f"Steps must be between 0 and {self.max_pos}")
+            return Response(
+                err_code=1, err_str=f"Steps must be between 0 and {self.max_pos}"
+            )
 
         # Update the position
         try:
@@ -52,7 +54,9 @@ class AtomBot:
         steps = int(steps)
         if steps < 0 or steps > self.max_pos:
             # If we encounter an error, we can send an error code and error string in the response of the command
-            return Response(err_code=1, err_str=f"Steps must be between 0 and {self.max_pos}")
+            return Response(
+                err_code=1, err_str=f"Steps must be between 0 and {self.max_pos}"
+            )
 
         # Update the position
         try:
@@ -108,6 +112,7 @@ class AtomBot:
         # whether you are ready to receive commands or not. Any non-zero error code means you are unhealthy.
         return Response(err_code=0, err_str="Everything is good")
 
+
 if __name__ == "__main__":
     print("Launching...")
     # Create our element and call it "atombot"
@@ -133,15 +138,19 @@ if __name__ == "__main__":
     thread.start()
 
     # This will block until every element in the list reports it is healthy. Useful if you depend on other elements.
-    element.wait_for_elements_healthy(['atombot'])
+    element.wait_for_elements_healthy(["atombot"])
 
     # Create an infinite loop that publishes the position of atombot to a stream as well as a visual of its position
     while True:
         # We write our position data and the visual of atombot's position to their respective streams
         # The maxlen parameter will determine how many entries atom stores
         # This data is serialized using msgpack
-        element.entry_write("pos", {"data": atombot.get_pos()}, maxlen=10, serialize=True)
-        element.entry_write("pos_map", {"data": atombot.get_pos_map()}, maxlen=10, serialize=True)
+        element.entry_write(
+            "pos", {"data": atombot.get_pos()}, maxlen=10, serialize=True
+        )
+        element.entry_write(
+            "pos_map", {"data": atombot.get_pos_map()}, maxlen=10, serialize=True
+        )
         # We can also choose to write binary data directly without serializing it
         element.entry_write("pos_binary", {"data": atombot.get_pos()}, maxlen=10)
 
