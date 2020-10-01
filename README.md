@@ -70,6 +70,59 @@ to check out the [guide to making your first element](ELEMENT_DEVELOPMENT.md)
 
 Contributions of issues and pull requests are welcome!
 
+### Formatting + Linting
+
+Formatting + Linting checks are run in our CI/CD pipeline. Code will not be able
+to be merged into `latest` without passing.
+
+#### Python
+
+Atom utilizes the following formatting guidelines:
+
+1. Use [`black`](https://github.com/psf/black) for formatting. All code must
+    pass `black --check`.
+2. Atop black, follow the Elementary Robotics [company-wide `.flake8`](
+    utilities/formatting/.flake8). This is more strict than black and catches
+    more things than black can/will catch since black only deals with stylistic
+    errors and not the full set of errors that can be caught with good linting.
+
+We have created a [Docker container](utilities/formatting/Dockerfile) that comes
+preinstalled with `.flake8` and `black`.
+
+To check your formatting:
+```
+docker-compose -f docker-compose-dev.yml run formatting
+```
+
+This, by default, will:
+1. Build the formatting container (if not already built)
+2. Launch the formatting container
+3. Run `black --check` and `flake8`
+4. Return an exit code of 0 if all code passes, else an exit code of 1 if
+    anything failed
+
+If you'd like to configure the formatter to auto-format and then do the `.flake8`
+check you can do so by adding `-e DO_FORMAT=y` to the command:
+
+```
+docker-compose -f docker-compose-dev.yml run -e DO_FORMAT=y formatting
+```
+
+This will add a step to call `black` between steps (2) and (3) of the above list
+but otherwise run the same process.
+
+#### C
+
+No formatting enforced
+
+#### C++
+
+No formatting enforced
+
+#### Shell
+
+No formatting enforced
+
 ## Building Docker Images
 
 ### Update Submodules
