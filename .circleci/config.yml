@@ -623,7 +623,7 @@ jobs:
       - run:
           name: Check Formatting
           description: Run black & flake8 checks
-          command: CODE_DIR=$(pwd) ./run.sh
+          command: CODE_DIR=/root/project /usr/local/bin/run.sh
 
 workflows:
   version: 2
