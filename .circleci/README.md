@@ -125,6 +125,38 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 
 ### Release Notes
 
+#### [v0.1.10](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.1.10)
+
+##### New Features
+
+- Adds in `check_formatting` command:
+
+```
+  - atom/check_formatting
+```
+
+Basic config, added to workflow as above will run `black` and `flake8` checks on the entire repository with no exclusions. To customize exclusions (see flake8/black docs for string syntax):
+
+```
+  - atom/check_formatting
+      flake8_exclude: "dir1,dir2"
+      black_exclude: "dir1|dir2"
+
+```
+
+To turn off `black` and only check `flake8`:
+```
+  - atom/check_formatting
+      use_black: ""
+```
+
+- The above deprecates the previous `atom/check_flake8` command.
+
+##### Upgrade Steps
+
+- Replace your `atom/check_flake8` commands with `atom/check_formatting` as described above.
+
+
 #### [v0.1.9](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.1.9)
 
 ##### New Features
