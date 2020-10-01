@@ -615,9 +615,7 @@ jobs:
   check-formatting:
     docker:
       - image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.formatter_repo_name >>:build-<< pipeline.number >>-stock-amd64
-        auth:
-          username: ${DOCKERHUB_USER}
-          password: ${DOCKERHUB_PASSWORD}
+    resource_class: small
     steps:
       - checkout
       - run:
@@ -633,20 +631,6 @@ workflows:
   #
   atom-build:
     jobs:
-
-      # Run the style check on atom
-      - atom/check_flake8:
-          version: 3.7.0
-          exclude: demo,doc,examples,utilities,*third-party,languages
-          requires:
-            - build-atom-stock-amd64
-          filters:
-            tags:
-              only:
-                - /.*/
-            branches:
-              ignore:
-                - /.*-build-base.*/
 
       #
       # Build + test stock atom
