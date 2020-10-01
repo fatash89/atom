@@ -37,7 +37,7 @@ ENV FLAKE8_EXCLUDE=third-party,languages/python/third-party,languages/python/bui
 ENV BLACK_EXCLUDE=third-party|build
 
 # Code to check
-ENV CODE_DIR=/atom
+ENV CODE_DIR=/code
 
 # Define the entrypoint -- need to override the default
 ENTRYPOINT ["/usr/local/bin/run.sh"]

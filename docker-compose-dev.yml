@@ -81,7 +81,7 @@ services:
       context: ./utilities/formatting
       dockerfile: Dockerfile
     volumes:
-      - ".:/atom"
+      - ".:/code"
       - "./utilities/formatting/run.sh:/usr/local/bin/run.sh"
     environment:
       - "DO_FORMAT="
