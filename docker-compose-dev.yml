@@ -84,7 +84,7 @@ services:
       - ".:/atom"
       - "./utilities/formatting/run.sh:/usr/local/bin/run.sh"
     environment:
-      - "DO_HANG=y"
+      - "DO_HANG="
 
 volumes:
   shared:
