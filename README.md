@@ -77,6 +77,8 @@ to be merged into `latest` without passing.
 
 #### Python
 
+##### Formatting for Atom
+
 Atom utilizes the following formatting guidelines:
 
 1. Use [`black`](https://github.com/psf/black) for formatting. All code must
@@ -110,6 +112,35 @@ docker-compose -f docker-compose-dev.yml run -e DO_FORMAT=y formatting
 
 This will add a step to call `black` between steps (2) and (3) of the above list
 but otherwise run the same process.
+
+##### General-purpose Formatting
+
+This repo contains a [Dockerfile](utilities/formatting/Dockerfile) and builds a general-purpose formatter image that can be used to apply the style formatting/checks in this repo anywhere you write code.
+
+To check your code:
+```
+docker run -e BLACK_EXCLUDE="" -e FLAKE8_EXCLUDE="" --mount src=$(pwd),target=/code,type=bind elementaryrobotics/formatter
+```
+
+After running this, check the return code with `echo $?` to see if the checks passed. If the return code is 0, then the checks passed, if nonzero then there were formatting inconsistencies. The logs will also be indicative.
+
+To reformat your code:
+```
+docker run -e DO_FORMAT=y -e BLACK_EXCLUDE="" -e FLAKE8_EXCLUDE="" --mount src=$(pwd),target=/code,type=bind elementaryrobotics/formatter
+```
+
+Build checks are set up s.t. the formatter must pass for code to be merged in.
+
+The formatter exposes the following command-line options which are used in the [run script](utilities/formatting/run.sh)
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `DO_FORMAT` | "" | If non-empty, i.e. not "", run the auto-formatter before running the formatting check. Default is to not run the auto-formatter |
+| `FORMAT_BLACK` | "y" | Use Black as the auto-formatter of choice. This is default, but we may add other auto-formatters in the future. Set to empty to not use black. |
+| `DO_CHECK` | "y" | If non-empty, i.e. not "", run the formatting/linting check automatically. This is the default. |
+| `DO_HANG` | "" | If non-empty, instead of returning when finished, hang the container. This is nice if you want to then shell in to the container and play around with the formatter, but otherwise not that useful |
+
+
 
 #### C
 
