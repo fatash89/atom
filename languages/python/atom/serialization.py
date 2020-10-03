@@ -5,11 +5,13 @@ from enum import Enum
 import builtins
 
 
-class GenericSerializationMethod():
+class GenericSerializationMethod:
     """
-    Class containing generic functions for serialization methods (no serialization).
+    Class containing generic functions for serialization methods
+        (no serialization).
     Parent class for all serialization method classes.
     """
+
     @classmethod
     def serialize(cls, data):
         return data
@@ -56,12 +58,16 @@ class Arrow(GenericSerializationMethod):
             for item in data:
                 cls._type_check(item)
         else:
-            if (not hasattr(builtins, type(data).__name__)
+            if (
+                not hasattr(builtins, type(data).__name__)
                 and not isinstance(data, np.ndarray)
-                or isinstance(data, type(lambda:()))
-                or isinstance(data, type)):
-                raise TypeError(f"Data is type {type(data).__name__}, which is not serializeable by pyarrow without "
-                    "pickling; Change data type or choose a different serialization method.")
+                or isinstance(data, type(lambda: ()))
+                or isinstance(data, type)
+            ):
+                raise TypeError(
+                    f"Data is type {type(data).__name__}, which is not serializeable by pyarrow without "
+                    "pickling; Change data type or choose a different serialization method."
+                )
 
     @classmethod
     def serialize(cls, data):
@@ -81,14 +87,16 @@ class Serializations(Enum):
     """
     Enum class that defines available serialization options.
     """
+
     msgpack = Msgpack
-    arrow   = Arrow
-    none    = GenericSerializationMethod
+    arrow = Arrow
+    none = GenericSerializationMethod
 
     @classmethod
     def print_values(cls):
         """
-        Returns comma separated string of serialization options for pretty printing.
+        Returns comma separated string of serialization options for pretty
+            printing.
         """
         return ", ".join([v.name for v in cls])
 
@@ -107,17 +115,21 @@ def serialize(data, method="none"):
 
     Args:
         data: The data to serialize.
-        method (str, optional): The serialization method to use; defaults to "none"
+        method (str, optional): The serialization method to use; defaults to
+            "none"
     Returns:
         The serialized data.
     Raises:
-        ValueError if requested method is not in available serialization options defined
+        ValueError if requested method is not in available serialization options
+            defined
         by Serializations enum.
     """
     method = "none" if method is None else method
 
     if not is_valid_serialization(method):
-        raise ValueError(f'Invalid serialization method. Must be one of {Serializations.print_values()}.')
+        raise ValueError(
+            f"Invalid serialization method. Must be one of {Serializations.print_values()}."
+        )
 
     return Serializations[method].value.serialize(data)
 
@@ -128,16 +140,20 @@ def deserialize(data, method="msgpack"):
 
     Args:
         data: The data to deserialize.
-        method (str, optional): The deserialization method to use; defaults to "none"
+        method (str, optional): The deserialization method to use; defaults to
+            "none"
     Returns:
         The deserialized data.
     Raises:
-        ValueError if requested method is not in available serialization options defined
+        ValueError if requested method is not in available serialization options
+            defined
         by Serializations enum.
     """
     method = "none" if method is None else method
 
     if not is_valid_serialization(method):
-        raise ValueError(f'Invalid deserialization method {method}. Must be one of {Serializations.print_values()}.')
+        raise ValueError(
+            f"Invalid deserialization method {method}. Must be one of {Serializations.print_values()}."
+        )
 
     return Serializations[method].value.deserialize(data)

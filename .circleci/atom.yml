@@ -209,12 +209,6 @@ executors:
       DOCKER_CLI_EXPERIMENTAL: enabled
     resource_class: medium
 
-  # Docker image for running flake8 jobs
-  docker-flake8:
-    docker:
-      - image: elementaryrobotics/atom-flake8
-    resource_class: small
-
   # Docker-in-docker. Need to call setup_remote_docker
   # before using. Useful when you don't need a bunch of
   # CPU and are just deploying things
@@ -548,40 +542,31 @@ commands:
 #
 jobs:
 
-  # Run flake8 format check
-  check_flake8:
-    executor: docker-flake8
-    description: Check that code conforms with flake8 formatting
+  # Run ER formatting check
+  check_formatting:
+    docker:
+      - image: elementaryrobotics/formatter
+    resource_class: small
+    description: Check formatting against flake8 and optionally black
     parameters:
-      version:
-        description: Python version to run
-        type: string
-        default: 3.7.0
-      exclude:
-        description: Comma separated list of directories to exclude when running flake8
+      flake8_exclude:
+        description: Flake8 exclude string
         type: string
         default: ""
-      directory:
-        description: Directory to run flake8 format check from
+      black_exclude:
+        description: Black exclude string
         type: string
-        default: "."
+        default: ""
+      use_black:
+        description: Whether to use black or not. Set to empty string for no
+        type: string
+        default: "y"
     steps:
       - checkout
       - run:
-          name: Create .flake8 config file
-          command: |
-            echo "[flake8]" > .flake8
-            echo "exclude = << parameters.exclude >>" >> .flake8
-            echo "max-line-length = 120" >> .flake8
-            echo "max-doc-length = 80" >> .flake8
-            echo "select = C,E,F,W,B" >> .flake8
-            echo "ignore = E203,W503" >> .flake8
-            cat .flake8
-      - run:
-          name: Run flake8 check
-          command: |
-            export LC_ALL=C.UTF-8 && export LANG=C.UTF-8
-            flake8 << parameters.directory >>
+          name: Check Formatting
+          description: Run black & flake8 checks
+          command: CODE_DIR=/root/project FLAKE8_EXCLUDE=<< parameters.flake8_exclude>> BLACK_EXCLUDE=<< parameters.black_exclude >> FORMAT_BLACK=<< parameters.use_black >> /usr/local/bin/run.sh
 
   build:
     executor: build-ubuntu

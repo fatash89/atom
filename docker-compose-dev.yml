@@ -75,12 +75,23 @@ services:
       - "ATOM_USE_METRICS=TRUE"
     command: tail -f /dev/null
 
+  formatting:
+    container_name: formatting
+    build:
+      context: ./utilities/formatting
+      dockerfile: Dockerfile
+    volumes:
+      - ".:/code"
+      - "./utilities/formatting/run.sh:/usr/local/bin/run.sh"
+    environment:
+      - "DO_FORMAT="
+
 volumes:
   shared:
     driver_opts:
       type: tmpfs
       device: tmpfs
-  log: 
-    driver_opts: 
+  log:
+    driver_opts:
       type: tmpfs
       device: tmpfs

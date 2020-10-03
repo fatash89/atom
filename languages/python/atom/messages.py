@@ -1,13 +1,11 @@
-from collections import namedtuple
 from enum import Enum
-from msgpack import packb
 
 import atom.serialization as ser
 
 
 CMD_RESERVED_KEYS = ("data", "cmd", "element", "ser")
 RES_RESERVED_KEYS = ("data", "err_code", "err_str", "element", "cmd", "cmd_id", "ser")
-ENTRY_RESERVED_KEYS = ("ser")
+ENTRY_RESERVED_KEYS = "ser"
 
 
 def format_redis_py(data):
@@ -46,9 +44,12 @@ class Cmd:
 
 
 class Response:
-    def __init__(self, data="", err_code=0, err_str="", serialization=None, serialize=None):
+    def __init__(
+        self, data="", err_code=0, err_str="", serialization=None, serialize=None
+    ):
         """
-        Specifies the format of a response that an element returns from a command.
+        Specifies the format of a response that an element returns from a
+            command.
 
         Args:
             data (optional): The data returned from the element's command.
@@ -58,7 +59,8 @@ class Response:
                                            defaults to None.
 
             Deprecated:
-            serialize (bool, optional): Whether or not to serialize data using msgpack.
+            serialize (bool, optional): Whether or not to serialize data using
+                sgpack.
         """
         if not isinstance(err_code, int):
             raise TypeError("err_code must be an int")
@@ -74,14 +76,15 @@ class Response:
         self.err_code = err_code
         self.err_str = err_str
 
+
 class Entry:
     def __init__(self, field_data_map):
         """
         Formats the data published on a stream from an element.
 
         Args:
-            field_data_map (dict): Dict where the keys are the names of the fields
-                and the values are the data of the corresponding field.
+            field_data_map (dict): Dict where the keys are the names of the
+                fields and the values are the data of the corresponding field.
         """
         for field, data in field_data_map.items():
             if not isinstance(field, str):
@@ -92,12 +95,15 @@ class Entry:
 class Acknowledge:
     def __init__(self, element, cmd_id, timeout):
         """
-        Formats the acknowledge that a element sends to a caller upon receiving a command.
+        Formats the acknowledge that a element sends to a caller upon receiving
+            a command.
 
         Args:
             element (str): The element from which this acknowledge comes from.
-            cmd_id (bytes): The Redis ID of the command that generated this acknowledge.
-            timeout (int): Time for the caller to wait for the command to finish.
+            cmd_id (bytes): The Redis ID of the command that generated this
+                acknowledge.
+            timeout (int): Time for the caller to wait for the command to
+                finish.
         """
         if not isinstance(element, str):
             raise TypeError("element must be a str")
@@ -118,7 +124,8 @@ class StreamHandler:
         Args:
             element (str): Name of the element that owns the stream of interest.
             stream (str): Name of the stream to listen to.
-            handler (callable): Function to call on the data received from the stream.
+            handler (callable): Function to call on the data received from the
+                stream.
         """
         if not isinstance(element, str):
             raise TypeError("element must be a str")
@@ -164,6 +171,7 @@ class LogLevel(Enum):
     """
     An enum for the Unix syslog severity levels.
     """
+
     EMERG = 0
     ALERT = 1
     CRIT = 2

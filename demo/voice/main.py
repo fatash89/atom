@@ -1,8 +1,5 @@
 # atombot.py
 from atom import Element
-from atom.messages import Response
-from threading import Thread
-import pdb
 import time
 
 PUBLISH_FREQUENCY = 100
@@ -22,7 +19,7 @@ if __name__ == "__main__":
         "t": TIME_FOR_WAVEFORM,
         "perm": False,
         "e": "waveform",
-        "s": "serialized"
+        "s": "serialized",
     }
     res = element.command_send("record", "start", data, serialize=True)
     time.sleep(TIME_FOR_WAVEFORM + 2)
@@ -30,7 +27,13 @@ if __name__ == "__main__":
     # Strings we'll recognize for the plotting commands. This is pretty
     #   rudimentary and can be improved with some better parsing/processing/NLP
     sinx_strings = ["show sin", "show sign", "show sine"]
-    cosx_strings = ["show cos", "show cosine", "show coast", "show coats", "show cosign"]
+    cosx_strings = [
+        "show cos",
+        "show cosine",
+        "show coast",
+        "show coats",
+        "show cosign",
+    ]
     tanx_strings = ["show tan", "showtime"]
 
     print("listening..")
@@ -38,10 +41,10 @@ if __name__ == "__main__":
 
     while True:
         entries = element.entry_read_since(
-            "voice", "string", last_id=last_id, block=1000)
+            "voice", "string", last_id=last_id, block=1000
+        )
         if entries:
             last_id = entries[0]["id"]
-            #voice_string = entries[0]["data"].decode().strip().lower().replace("-", "").split(" ")
             voice_string = entries[0]["data"].decode().lower()
             print("Got voice string {}".format(voice_string))
 
@@ -51,12 +54,9 @@ if __name__ == "__main__":
                 data = {
                     "name": "example",
                     "msgpack": True,
-                    "plots": [{
-                        "data": [["x", ["sin"], "value"]]
-                    }]
+                    "plots": [{"data": [["x", ["sin"], "value"]]}],
                 }
-                res = element.command_send(
-                    "record", "plot", data, serialize=True)
+                res = element.command_send("record", "plot", data, serialize=True)
 
             if any(x in voice_string for x in cosx_strings):
 
@@ -64,24 +64,18 @@ if __name__ == "__main__":
                 data = {
                     "name": "example",
                     "msgpack": True,
-                    "plots": [{
-                        "data": [["x", ["cos"], "value"]]
-                    }]
+                    "plots": [{"data": [["x", ["cos"], "value"]]}],
                 }
 
-                res = element.command_send(
-                    "record", "plot", data, serialize=True)
+                res = element.command_send("record", "plot", data, serialize=True)
 
             if any(x in voice_string for x in tanx_strings):
                 print("Plotting tanx")
                 data = {
                     "name": "example",
                     "msgpack": True,
-                    "plots": [{
-                        "data": [["x", ["tan"], "value"]]
-                    }]
+                    "plots": [{"data": [["x", ["tan"], "value"]]}],
                 }
-                res = element.command_send(
-                    "record", "plot", data, serialize=True)
+                res = element.command_send("record", "plot", data, serialize=True)
 
             time.sleep(1 / PUBLISH_FREQUENCY)

@@ -28,11 +28,7 @@ ATOM_USER_ERRORS_BEGIN = 1000
 HEALTHCHECK_COMMAND = "healthcheck"
 VERSION_COMMAND = "version"
 COMMAND_LIST_COMMAND = "command_list"
-RESERVED_COMMANDS = [
-    COMMAND_LIST_COMMAND,
-    VERSION_COMMAND,
-    HEALTHCHECK_COMMAND
-]
+RESERVED_COMMANDS = [COMMAND_LIST_COMMAND, VERSION_COMMAND, HEALTHCHECK_COMMAND]
 
 # Metrics
 METRICS_ELEMENT_LABEL = "element"
@@ -50,10 +46,11 @@ METRICS_DEFAULT_RETENTION = 3600000
 # Metrics default aggregation rules
 METRICS_DEFAULT_AGG_TIMING = [
     # Keep data in 10m buckets for 3 days
-    (600000,  259200000),
+    (600000, 259200000),
     # Then keep data in 1h buckets for 30 days
-    (3600000, 2592000000)
+    (3600000, 2592000000),
 ]
+
 
 # Metrics logging levels
 class MetricsLevel(Enum):
@@ -67,6 +64,9 @@ class MetricsLevel(Enum):
     TIMING = 7
     DEBUG = 8
 
+
 # Logging constants
 LOG_DEFAULT_FILE_SIZE = 2000
 LOG_DEFAULT_LEVEL = "INFO"
+
+VERSION = "2.0.0"

@@ -6,24 +6,23 @@ from atom import Element
 import atom.serialization as ser
 from inspect import cleandoc
 from os import uname
-from prompt_toolkit import prompt, HTML, PromptSession
+from prompt_toolkit import HTML, PromptSession
 from prompt_toolkit import print_formatted_text as print
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
-from prompt_toolkit.completion import WordCompleter
-from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.styles import Style
 from pyfiglet import Figlet
 from uuid import uuid4
 
 
 class AtomCLI:
-
     def __init__(self):
         self.element = Element(f"atom-cli_{uname().nodename}_{uuid4().hex}")
         self.indent = 2
-        self.style = Style.from_dict({
-            "logo_color": "#6039C8",
-        })
+        self.style = Style.from_dict(
+            {
+                "logo_color": "#6039C8",
+            }
+        )
         self.session = PromptSession(style=self.style)
         self.print_atom_os_logo()
         self.serialization = "msgpack"
@@ -37,56 +36,64 @@ class AtomCLI:
             "serialization": self.cmd_serialization,
         }
         self.usage = {
-            "cmd_help": cleandoc("""
+            "cmd_help": cleandoc(
+                """
                 Displays available commands and shows usage for commands.
 
                 Usage:
-                  help [<command>]"""),
-
-            "cmd_list": cleandoc("""
+                  help [<command>]"""
+            ),
+            "cmd_list": cleandoc(
+                """
                 Displays available elements, streams, or commands.
                 Can filter streams and commands based on element.
 
                 Usage:
                   list elements
                   list streams [<element>]
-                  list commands [<element>]"""),
-
-            "cmd_records": cleandoc("""
+                  list commands [<element>]"""
+            ),
+            "cmd_records": cleandoc(
+                """
                 Displays log records or command and response records.
                 Can filter records from the last N seconds or from certain elements.
 
                 Usage:
                   records log [<last_N_seconds>] [<element>...]
-                  records cmdres [<last_N_seconds>] <element>..."""),
-
-            "cmd_command": cleandoc("""
+                  records cmdres [<last_N_seconds>] <element>..."""
+            ),
+            "cmd_command": cleandoc(
+                """
                 Sends a command to an element and displays the response.
 
                 Usage:
-                  command <element> <element_command> [<data>]"""),
-
-            "cmd_read": cleandoc("""
+                  command <element> <element_command> [<data>]"""
+            ),
+            "cmd_read": cleandoc(
+                """
                 Displays the entries of an element's stream.
                 Can provide a rate to print the entries for ease of reading.
 
                 Usage:
-                  read <element> <stream> [<rate_hz>]"""),
-
-            "cmd_exit": cleandoc("""
+                  read <element> <stream> [<rate_hz>]"""
+            ),
+            "cmd_exit": cleandoc(
+                """
                 Exits the atom-cli tool.
                 Can also use the shortcut CTRL+D.
 
                 Usage:
-                  exit"""),
-
-            "cmd_serialization": cleandoc("""
+                  exit"""
+            ),
+            "cmd_serialization": cleandoc(
+                """
                 Sets serialization/deserialization setting to either use msgpack,
                 Apache arrow, or no (de)serialization. Defaults to msgpack serialization.
                 This setting is overriden by deserialization keys received in stream.
 
                 Usage:
-                  serialization (msgpack | arrow | none)"""),
+                  serialization (msgpack | arrow | none)"""
+            ),
         }
 
     def run(self):
@@ -97,7 +104,8 @@ class AtomCLI:
         while True:
             try:
                 inp = self.session.prompt(
-                    "\n> ", auto_suggest=AutoSuggestFromHistory()).split(" ")
+                    "\n> ", auto_suggest=AutoSuggestFromHistory()
+                ).split(" ")
                 if not inp:
                     continue
                 command, args = inp[0], inp[1:]
@@ -131,15 +139,16 @@ class AtomCLI:
             if not self.serialization:
                 try:
                     v = v.decode()
-                except:
+                except Exception:
                     v = str(v)
             formatted_record[k] = v
 
-        sorted_record = {k: v for k, v in sorted(
-            formatted_record.items(), key=lambda x: x[0])}
+        sorted_record = {
+            k: v for k, v in sorted(formatted_record.items(), key=lambda x: x[0])
+        }
         try:
             ret = json.dumps(sorted_record, indent=self.indent)
-        except TypeError as te:
+        except TypeError:
             ret = sorted_record
         finally:
             return ret
@@ -167,7 +176,7 @@ class AtomCLI:
         mode_map = {
             "elements": self.element.get_all_elements,
             "streams": self.element.get_all_streams,
-            "commands": self.element.get_all_commands
+            "commands": self.element.get_all_commands,
         }
         if not args:
             print(usage)
@@ -217,7 +226,8 @@ class AtomCLI:
             if not elements:
                 print(usage)
                 print(
-                    "\nMust provide elements from which to get command response streams from.")
+                    "\nMust provide elements from which to get command response streams from."
+                )
                 return
             records = self.mode_cmdres(start_time, elements)
         else:
@@ -241,11 +251,14 @@ class AtomCLI:
         """
         records = []
         all_records = self.element.entry_read_since(
-            None, "log", start_time, serialization=None)
+            None, "log", start_time, serialization=None
+        )
         for record in all_records:
             if not elements or record["element"].decode() in elements:
-                record = {key: (value if isinstance(value, str) else value.decode(
-                )) for key, value in record.items()}  # Decode strings only which are required to
+                record = {
+                    key: (value if isinstance(value, str) else value.decode())
+                    for key, value in record.items()
+                }  # Decode strings only which are required to
                 records.append(record)
         return records
 
@@ -254,7 +267,8 @@ class AtomCLI:
         Reads the command and response records from the provided elements.
         Args:
             start_time (str): The time from which to start reading logs.
-            elements (list): The elements to get the command and response records from.
+            elements (list): The elements to get the command and response
+                records from.
         """
         streams, records = [], []
         for element in elements:
@@ -262,16 +276,17 @@ class AtomCLI:
             streams.append(self.element._make_command_id(element))
         for stream in streams:
             cur_records = self.element.entry_read_since(
-                None, stream, start_time, serialization=None)
+                None, stream, start_time, serialization=None
+            )
             for record in cur_records:
                 for key, value in record.items():
                     try:
                         if not isinstance(value, str):
                             value = value.decode()
-                    except:
+                    except Exception:
                         try:
                             value = ser.deserialize(value, method=self.serialization)
-                        except:
+                        except Exception:
                             pass
 
                     finally:
@@ -293,17 +308,19 @@ class AtomCLI:
             if self.serialization:
                 try:
                     data = json.loads(data)
-                except:
+                except Exception:
                     print("Received improperly formatted data!")
                     return
         else:
             data = ""
-        resp = self.element.command_send(element_name,
-                                         command_name,
-                                         data,
-                                         serialize=(self.serialization is not None),
-                                         deserialize=(self.serialization is not None),
-                                         serialization=self.serialization)  # shouldn't be used if it's None
+        resp = self.element.command_send(
+            element_name,
+            command_name,
+            data,
+            serialize=(self.serialization is not None),
+            deserialize=(self.serialization is not None),
+            serialization=self.serialization,
+        )  # shouldn't be used if it's None
         print(self.format_record(resp))
 
     def cmd_read(self, *args):
@@ -331,11 +348,13 @@ class AtomCLI:
         last_timestamp = None
         while True:
             start_time = time.time()
-            entries = self.element.entry_read_n(element_name,
-                                                stream_name,
-                                                1,
-                                                deserialize=(self.serialization is not None),
-                                                serialization=self.serialization)  # shouldn't be used if it's None
+            entries = self.element.entry_read_n(
+                element_name,
+                stream_name,
+                1,
+                deserialize=(self.serialization is not None),
+                serialization=self.serialization,
+            )  # shouldn't be used if it's None
             if not entries:
                 print(f"No data from {element_name} {stream_name}.")
                 return
@@ -350,7 +369,7 @@ class AtomCLI:
 
     def cmd_serialization(self, *args):
         usage = self.usage["cmd_serialization"]
-        if (len(args) != 1):
+        if len(args) != 1:
             print(usage)
             print(f"\nPass one argument: {ser.Serializations.print_values()}.")
             return

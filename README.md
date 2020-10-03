@@ -70,6 +70,90 @@ to check out the [guide to making your first element](ELEMENT_DEVELOPMENT.md)
 
 Contributions of issues and pull requests are welcome!
 
+### Formatting + Linting
+
+Formatting + Linting checks are run in our CI/CD pipeline. Code will not be able
+to be merged into `latest` without passing.
+
+#### Python
+
+##### Formatting for Atom
+
+Atom utilizes the following formatting guidelines:
+
+1. Use [`black`](https://github.com/psf/black) for formatting. All code must
+    pass `black --check`.
+2. Atop black, follow the Elementary Robotics [company-wide `.flake8`](
+    utilities/formatting/.flake8). This is more strict than black and catches
+    more things than black can/will catch since black only deals with stylistic
+    errors and not the full set of errors that can be caught with good linting.
+
+We have created a [Docker container](utilities/formatting/Dockerfile) that comes
+preinstalled with `.flake8` and `black`.
+
+To check your formatting:
+```
+docker-compose -f docker-compose-dev.yml run formatting
+```
+
+This, by default, will:
+1. Build the formatting container (if not already built)
+2. Launch the formatting container
+3. Run `black --check` and `flake8`
+4. Return an exit code of 0 if all code passes, else an exit code of 1 if
+    anything failed
+
+If you'd like to configure the formatter to auto-format and then do the `.flake8`
+check you can do so by adding `-e DO_FORMAT=y` to the command:
+
+```
+docker-compose -f docker-compose-dev.yml run -e DO_FORMAT=y formatting
+```
+
+This will add a step to call `black` between steps (2) and (3) of the above list
+but otherwise run the same process.
+
+##### General-purpose Formatting
+
+This repo contains a [Dockerfile](utilities/formatting/Dockerfile) and builds a general-purpose formatter image that can be used to apply the style formatting/checks in this repo anywhere you write code.
+
+To check your code:
+```
+docker run -e BLACK_EXCLUDE="" -e FLAKE8_EXCLUDE="" --mount src=$(pwd),target=/code,type=bind elementaryrobotics/formatter
+```
+
+After running this, check the return code with `echo $?` to see if the checks passed. If the return code is 0, then the checks passed, if nonzero then there were formatting inconsistencies. The logs will also be indicative.
+
+To reformat your code:
+```
+docker run -e DO_FORMAT=y -e BLACK_EXCLUDE="" -e FLAKE8_EXCLUDE="" --mount src=$(pwd),target=/code,type=bind elementaryrobotics/formatter
+```
+
+Build checks are set up s.t. the formatter must pass for code to be merged in.
+
+The formatter exposes the following command-line options which are used in the [run script](utilities/formatting/run.sh)
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `DO_FORMAT` | "" | If non-empty, i.e. not "", run the auto-formatter before running the formatting check. Default is to not run the auto-formatter |
+| `FORMAT_BLACK` | "y" | Use Black as the auto-formatter of choice. This is default, but we may add other auto-formatters in the future. Set to empty to not use black. |
+| `DO_CHECK` | "y" | If non-empty, i.e. not "", run the formatting/linting check automatically. This is the default. |
+| `DO_HANG` | "" | If non-empty, instead of returning when finished, hang the container. This is nice if you want to then shell in to the container and play around with the formatter, but otherwise not that useful |
+
+
+
+#### C
+
+No formatting enforced
+
+#### C++
+
+No formatting enforced
+
+#### Shell
+
+No formatting enforced
+
 ## Building Docker Images
 
 ### Update Submodules
