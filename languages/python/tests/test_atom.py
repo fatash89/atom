@@ -1495,6 +1495,21 @@ class TestAtom:
         data = metrics.info("some_metric")
         assert data.labels == {**label_dict, **{"agg": "none", "agg_type": "none"}}
 
+    def test_validate_metrics_labels_enforced(self, caller, metrics): 
+        enforced = False
+        caller, caller_name = caller
+        label_dict = {"label1": "", "label2": "valid"}
+
+        try:
+            data = caller.metrics_create_custom(
+                MetricsLevel.INFO, "some_metric", labels=label_dict
+            )
+        except AtomError as e:
+            print(e)
+            enforced = True
+
+        assert enforced is True
+
     def test_metrics_create_rule(self, caller, metrics):
         caller, caller_name = caller
         rule_dict = {"some_metric_sum": ("sum", 10000, 200000)}
