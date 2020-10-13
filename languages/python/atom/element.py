@@ -589,8 +589,8 @@ class Element:
         else:
             return default_labels
 
-    def _metrics_validate_labels(self, labels): 
-        if "" in labels.values(): 
+    def _metrics_validate_labels(self, labels):
+        if "" in labels.values():
             raise AtomError("Metrics labels cannot include empty strings")
 
     def _make_reference_id(self):

@@ -1495,7 +1495,7 @@ class TestAtom:
         data = metrics.info("some_metric")
         assert data.labels == {**label_dict, **{"agg": "none", "agg_type": "none"}}
 
-    def test_validate_metrics_labels_enforced(self, caller, metrics): 
+    def test_validate_metrics_labels_enforced(self, caller, metrics):
         enforced = False
         caller, caller_name = caller
         label_dict = {"label1": "", "label2": "valid"}
