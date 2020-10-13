@@ -1501,7 +1501,7 @@ class TestAtom:
         label_dict = {"label1": "", "label2": "valid"}
 
         try:
-            data = caller.metrics_create_custom(
+            caller.metrics_create_custom(
                 MetricsLevel.INFO, "some_metric", labels=label_dict
             )
         except AtomError as e:
