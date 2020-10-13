@@ -589,6 +589,10 @@ class Element:
         else:
             return default_labels
 
+    def _metrics_validate_labels(self, labels):
+        if "" in labels.values():
+            raise AtomError("Metrics labels cannot include empty strings")
+
     def _make_reference_id(self):
         """
         Creates a reference ID
@@ -2754,6 +2758,9 @@ class Element:
             print(f"Already called metrics_create_custom on {key}, skipping")
             return key
 
+        # Validate labels
+        self._metrics_validate_labels(labels)
+
         # Add in the aggregation to the labels we'll be setting
         _labels = {
             METRICS_AGGREGATION_LABEL: "none",
@@ -2928,6 +2935,9 @@ class Element:
         # Get the key to use
         _key = self._make_metric_id(self.name, m_type, *m_subtypes)
 
+        # Validate labels
+        self._metrics_validate_labels(labels)
+
         # Add in the default labels
         _labels = self._metrics_add_default_labels(labels, level, m_type, *m_subtypes)
 
@@ -3085,6 +3095,7 @@ class Element:
         #   generating/sending labels the first time we see a new key. They're
         #   ignored each time after anyway
         if _key not in self._metrics_add_type_keys:
+            self._metrics_validate_labels(labels)
             _labels = self._metrics_add_default_labels(
                 labels, level, m_type, *m_subtypes
             )
