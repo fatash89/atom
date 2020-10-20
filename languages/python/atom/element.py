@@ -79,6 +79,9 @@ ATOM_METRICS_SOCKET = os.getenv("ATOM_METRICS_SOCKET", DEFAULT_METRICS_SOCKET)
 ATOM_LOG_DIR = os.getenv("ATOM_LOG_DIR", "")
 ATOM_LOG_FILE_SIZE = int(os.getenv("ATOM_LOG_FILE_SIZE", LOG_DEFAULT_FILE_SIZE))
 
+# Track element loggers to avoid duplication
+loggers = {}
+
 
 class ElementConnectionTimeoutError(redis.exceptions.TimeoutError):
     pass
@@ -195,34 +198,7 @@ class Element:
         #
         # Set up logger
         #
-        # Initialize the logger
-        logger = logging.getLogger(self.__class__.__name__)
-        if not logger.handlers:
-            try:
-                rfh = logging.handlers.RotatingFileHandler(
-                    f"{ATOM_LOG_DIR}{self.name}.log", maxBytes=ATOM_LOG_FILE_SIZE
-                )
-            except FileNotFoundError as e:
-                raise AtomError(f"Invalid element name for logger: {e}")
-
-            extra = {"element_name": self.name}
-            formatter = logging.Formatter(
-                "%(asctime)s element:%(element_name)s [%(levelname)s] %(message)s"
-            )
-            rfh.setFormatter(formatter)
-            logger.addHandler(rfh)
-            logger = logging.LoggerAdapter(logger, extra)
-
-            #
-            # Set up log level
-            #
-            loglevel = os.getenv("ATOM_LOG_LEVEL", LOG_DEFAULT_LEVEL)
-            numeric_level = getattr(logging, loglevel.upper(), None)
-            if not isinstance(numeric_level, int):
-                loglevel = LOG_DEFAULT_LEVEL
-            logger.setLevel(loglevel)
-
-        self.logger = logger
+        self.logger = self._get_atom_logger(self.name)
 
         # For now, only enable metrics if turned on in an environment flag
         if os.getenv("ATOM_USE_METRICS", "FALSE") == "TRUE":
@@ -391,6 +367,37 @@ class Element:
                 self._stream_reference_sha = script_response[0]
 
         self.logger.info("Element initialized.")
+
+    def _get_atom_logger(self, name):
+        # Avoid redefining the logger if it already exists
+        if loggers.get(name):
+            return loggers.get(name)
+        else:
+            logger = logging.getLogger(name)
+            try:
+                rfh = logging.handlers.RotatingFileHandler(
+                    f"{ATOM_LOG_DIR}{self.name}.log", maxBytes=ATOM_LOG_FILE_SIZE
+                )
+            except FileNotFoundError as e:
+                raise AtomError(f"Invalid element name for logger: {e}")
+
+            extra = {"element_name": self.name}
+            formatter = logging.Formatter(
+                "%(asctime)s element:%(element_name)s [%(levelname)s] %(message)s"
+            )
+            rfh.setFormatter(formatter)
+            logger.addHandler(rfh)
+            logger = logging.LoggerAdapter(logger, extra)
+
+            # Set log level
+            loglevel = os.getenv("ATOM_LOG_LEVEL", LOG_DEFAULT_LEVEL)
+            numeric_level = getattr(logging, loglevel.upper(), None)
+            if not isinstance(numeric_level, int):
+                loglevel = LOG_DEFAULT_LEVEL
+            logger.setLevel(loglevel)
+
+            loggers.update(dict(name=logger))
+            return logger
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"
