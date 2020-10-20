@@ -197,29 +197,30 @@ class Element:
         #
         # Set up logger
         #
-        try:
-            rfh = logging.handlers.RotatingFileHandler(
-                f"{ATOM_LOG_DIR}{self.name}.log", maxBytes=ATOM_LOG_FILE_SIZE
+        if not logger.handlers:
+            try:
+                rfh = logging.handlers.RotatingFileHandler(
+                    f"{ATOM_LOG_DIR}{self.name}.log", maxBytes=ATOM_LOG_FILE_SIZE
+                )
+            except FileNotFoundError as e:
+                raise AtomError(f"Invalid element name for logger: {e}")
+
+            extra = {"element_name": self.name}
+            formatter = logging.Formatter(
+                "%(asctime)s element:%(element_name)s [%(levelname)s] %(message)s"
             )
-        except FileNotFoundError as e:
-            raise AtomError(f"Invalid element name for logger: {e}")
+            rfh.setFormatter(formatter)
+            logger.addHandler(rfh)
+            self.logger = logging.LoggerAdapter(logger, extra)
 
-        extra = {"element_name": self.name}
-        formatter = logging.Formatter(
-            "%(asctime)s element:%(element_name)s [%(levelname)s] %(message)s"
-        )
-        rfh.setFormatter(formatter)
-        logger.addHandler(rfh)
-        self.logger = logging.LoggerAdapter(logger, extra)
-
-        #
-        # Set up log level
-        #
-        loglevel = os.getenv("ATOM_LOG_LEVEL", LOG_DEFAULT_LEVEL)
-        numeric_level = getattr(logging, loglevel.upper(), None)
-        if not isinstance(numeric_level, int):
-            loglevel = LOG_DEFAULT_LEVEL
-        self.logger.setLevel(loglevel)
+            #
+            # Set up log level
+            #
+            loglevel = os.getenv("ATOM_LOG_LEVEL", LOG_DEFAULT_LEVEL)
+            numeric_level = getattr(logging, loglevel.upper(), None)
+            if not isinstance(numeric_level, int):
+                loglevel = LOG_DEFAULT_LEVEL
+            self.logger.setLevel(loglevel)
 
         # For now, only enable metrics if turned on in an environment flag
         if os.getenv("ATOM_USE_METRICS", "FALSE") == "TRUE":
