@@ -209,7 +209,7 @@ class Element:
         )
         rfh.setFormatter(formatter)
         logger.addHandler(rfh)
-        logger = logging.LoggerAdapter(logger, extra)
+        self.logger = logging.LoggerAdapter(logger, extra)
 
         #
         # Set up log level
@@ -218,9 +218,7 @@ class Element:
         numeric_level = getattr(logging, loglevel.upper(), None)
         if not isinstance(numeric_level, int):
             loglevel = LOG_DEFAULT_LEVEL
-        logger.setLevel(loglevel)
-
-        self.logger = logger
+        self.logger.setLevel(loglevel)
 
         # For now, only enable metrics if turned on in an environment flag
         if os.getenv("ATOM_USE_METRICS", "FALSE") == "TRUE":
@@ -389,7 +387,6 @@ class Element:
                 self._stream_reference_sha = script_response[0]
 
         self.logger.info("Element initialized.")
-
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"
