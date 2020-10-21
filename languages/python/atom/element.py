@@ -198,7 +198,7 @@ class Element:
         #
         # Set up logger
         #
-        self.logger = self._get_atom_logger(self.name)
+        self.logger = self._get_atom_logger()
 
         # For now, only enable metrics if turned on in an environment flag
         if os.getenv("ATOM_USE_METRICS", "FALSE") == "TRUE":
@@ -368,12 +368,12 @@ class Element:
 
         self.logger.info("Element initialized.")
 
-    def _get_atom_logger(self, name):
+    def _get_atom_logger(self):
         # Avoid redefining the logger if it already exists
-        if loggers.get(name):
-            return loggers.get(name)
+        if self.name in loggers:
+            return loggers.get(self.name)
         else:
-            logger = logging.getLogger(name)
+            logger = logging.getLogger(self.name)
             try:
                 rfh = logging.handlers.RotatingFileHandler(
                     f"{ATOM_LOG_DIR}{self.name}.log", maxBytes=ATOM_LOG_FILE_SIZE
@@ -396,7 +396,7 @@ class Element:
                 loglevel = LOG_DEFAULT_LEVEL
             logger.setLevel(loglevel)
 
-            loggers.update(dict(name=logger))
+            loggers[self.name] = logger
             return logger
 
     def __repr__(self):
