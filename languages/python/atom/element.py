@@ -78,8 +78,6 @@ ATOM_METRICS_SOCKET = os.getenv("ATOM_METRICS_SOCKET", DEFAULT_METRICS_SOCKET)
 # Get the log directory and log file size
 ATOM_LOG_DIR = os.getenv("ATOM_LOG_DIR", "")
 ATOM_LOG_FILE_SIZE = int(os.getenv("ATOM_LOG_FILE_SIZE", LOG_DEFAULT_FILE_SIZE))
-# Initialize the logger
-logger = logging.getLogger(__name__)
 
 
 class ElementConnectionTimeoutError(redis.exceptions.TimeoutError):
@@ -197,6 +195,7 @@ class Element:
         #
         # Set up logger
         #
+        logger = logging.getLogger(self.name)
         try:
             rfh = logging.handlers.RotatingFileHandler(
                 f"{ATOM_LOG_DIR}{self.name}.log", maxBytes=ATOM_LOG_FILE_SIZE
