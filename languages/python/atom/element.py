@@ -238,7 +238,6 @@ class Element:
                 self._metrics_socket_path = metrics_socket_path
                 self._mclient = RedisTimeSeries(
                     unix_socket_path=self._metrics_socket_path,
-                    socket_timeout=self._redis_data_timeout,
                     socket_connect_timeout=self._redis_connection_timeout,
                     client_name=self.name,
                 )
@@ -291,7 +290,6 @@ class Element:
             self._socket_path = socket_path
             self._rclient = redis.StrictRedis(
                 unix_socket_path=socket_path,
-                socket_timeout=self._redis_data_timeout,
                 socket_connect_timeout=self._redis_connection_timeout,
                 client_name=self.name,
             )
