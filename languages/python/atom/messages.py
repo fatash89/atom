@@ -180,3 +180,12 @@ class LogLevel(Enum):
     NOTICE = 5
     INFO = 6
     DEBUG = 7
+
+# Convert syslog log levels to python log level
+LOG_LEVEL_CONVERSION = {
+    2: 50,
+    3: 40,
+    4: 30,
+    6: 20,
+    7: 10
+}

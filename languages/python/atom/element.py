@@ -63,7 +63,7 @@ from atom.config import (
 )
 from atom.config import MetricsLevel
 from atom.messages import Cmd, Response, StreamHandler, format_redis_py
-from atom.messages import Acknowledge, Entry, ENTRY_RESERVED_KEYS
+from atom.messages import Acknowledge, Entry, ENTRY_RESERVED_KEYS, LOG_LEVEL_CONVERSION
 import atom.serialization as ser
 
 # Need to figure out how we're connecting to the Nucleus
@@ -2217,7 +2217,10 @@ class Element:
             redis (bool, optional): Default true, whether to log to
                 redis or not
         """
-
+        # Convert syslog level to python log level 
+        converted_level = LOG_LEVEL_CONVERSION.get(level, 0)
+        
+        # Ensure we got a valid python log level 
         numeric_level = getattr(logging, level.name.upper(), None)
         if not isinstance(numeric_level, int):
             numeric_level = getattr(logging, LOG_DEFAULT_LEVEL)
