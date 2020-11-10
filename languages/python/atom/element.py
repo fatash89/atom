@@ -196,20 +196,25 @@ class Element:
         # Set up logger
         #
         logger = logging.getLogger(self.name)
-        try:
-            rfh = logging.handlers.RotatingFileHandler(
-                f"{ATOM_LOG_DIR}{self.name}.log", maxBytes=ATOM_LOG_FILE_SIZE
-            )
-        except FileNotFoundError as e:
-            raise AtomError(f"Invalid element name for logger: {e}")
+        # If the logger already exists, use it
+        if logger.handlers: 
+            self.logger = logger
+        # Otherwise, create it
+        else: 
+            try:
+                rfh = logging.handlers.RotatingFileHandler(
+                    f"{ATOM_LOG_DIR}{self.name}.log", maxBytes=ATOM_LOG_FILE_SIZE
+                )
+            except FileNotFoundError as e:
+                raise AtomError(f"Invalid element name for logger: {e}")
 
-        extra = {"element_name": self.name}
-        formatter = logging.Formatter(
-            "%(asctime)s element:%(element_name)s [%(levelname)s] %(message)s"
-        )
-        rfh.setFormatter(formatter)
-        logger.addHandler(rfh)
-        self.logger = logging.LoggerAdapter(logger, extra)
+            extra = {"element_name": self.name}
+            formatter = logging.Formatter(
+                "%(asctime)s element:%(element_name)s [%(levelname)s] %(message)s"
+            )
+            rfh.setFormatter(formatter)
+            logger.addHandler(rfh)
+            self.logger = logging.LoggerAdapter(logger, extra)
 
         #
         # Set up log level
@@ -2219,7 +2224,7 @@ class Element:
         """
         # Convert syslog level to python log level 
         converted_level = LOG_LEVEL_CONVERSION.get(level, 0)
-        
+
         # Ensure we got a valid python log level 
         numeric_level = getattr(logging, level.name.upper(), None)
         if not isinstance(numeric_level, int):
