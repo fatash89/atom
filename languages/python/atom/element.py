@@ -2225,6 +2225,7 @@ class Element:
             redis (bool, optional): Default true, whether to log to
                 redis or not
         """
+
         default_level = getattr(logging, LOG_DEFAULT_LEVEL)
         # Convert syslog log level to python log level
         converted_level = LOG_LEVEL_CONVERSION.get(level, default_level)

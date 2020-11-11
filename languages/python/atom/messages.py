@@ -1,4 +1,5 @@
 from enum import Enum
+import logging
 
 import atom.serialization as ser
 
@@ -184,14 +185,9 @@ class LogLevel(Enum):
 
 # Convert syslog log levels to python log level
 LOG_LEVEL_CONVERSION = {
-    # Critical
-    2: 50,
-    # Error
-    3: 40,
-    # Warning
-    4: 30,
-    # Info
-    6: 20,
-    # Debug
-    7: 10,
+    LogLevel.CRIT: logging.CRITICAL,
+    LogLevel.ERR: logging.ERROR,
+    LogLevel.WARNING: logging.WARNING,
+    LogLevel.INFO: logging.INFO,
+    LogLevel.DEBUG: logging.DEBUG,
 }
