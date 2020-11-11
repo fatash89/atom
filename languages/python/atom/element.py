@@ -197,10 +197,10 @@ class Element:
         #
         logger = logging.getLogger(self.name)
         # If the logger already exists, use it
-        if logger.handlers: 
+        if logger.handlers:
             self.logger = logger
         # Otherwise, create it
-        else: 
+        else:
             try:
                 rfh = logging.handlers.RotatingFileHandler(
                     f"{ATOM_LOG_DIR}{self.name}.log", maxBytes=ATOM_LOG_FILE_SIZE
@@ -2222,10 +2222,10 @@ class Element:
             redis (bool, optional): Default true, whether to log to
                 redis or not
         """
-        # Convert syslog level to python log level 
+        # Convert syslog level to python log level
         converted_level = LOG_LEVEL_CONVERSION.get(level, 0)
 
-        # Ensure we got a valid python log level 
+        # Ensure we got a valid python log level
         numeric_level = getattr(logging, level.name.upper(), None)
         if not isinstance(numeric_level, int):
             numeric_level = getattr(logging, LOG_DEFAULT_LEVEL)
