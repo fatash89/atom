@@ -183,4 +183,15 @@ class LogLevel(Enum):
 
 
 # Convert syslog log levels to python log level
-LOG_LEVEL_CONVERSION = {2: 50, 3: 40, 4: 30, 6: 20, 7: 10}
+LOG_LEVEL_CONVERSION = {
+    # Critical
+    2: 50,
+    # Error
+    3: 40,
+    # Warning
+    4: 30,
+    # Info
+    6: 20,
+    # Debug
+    7: 10,
+}

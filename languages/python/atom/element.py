@@ -79,6 +79,10 @@ ATOM_METRICS_SOCKET = os.getenv("ATOM_METRICS_SOCKET", DEFAULT_METRICS_SOCKET)
 ATOM_LOG_DIR = os.getenv("ATOM_LOG_DIR", "")
 ATOM_LOG_FILE_SIZE = int(os.getenv("ATOM_LOG_FILE_SIZE", LOG_DEFAULT_FILE_SIZE))
 
+# Track loggers by element name to avoid duplication across multiple
+# instances of an element
+LOGGERS = {}
+
 
 class ElementConnectionTimeoutError(redis.exceptions.TimeoutError):
     pass
@@ -195,12 +199,10 @@ class Element:
         #
         # Set up logger
         #
-        logger = logging.getLogger(self.name)
-        # If the logger already exists, use it
-        if logger.handlers:
-            self.logger = logger
-        # Otherwise, create it
+        if LOGGERS.get(self.name):
+            self.logger = LOGGERS[self.name]
         else:
+            logger = logging.getLogger(self.name)
             try:
                 rfh = logging.handlers.RotatingFileHandler(
                     f"{ATOM_LOG_DIR}{self.name}.log", maxBytes=ATOM_LOG_FILE_SIZE
@@ -215,6 +217,7 @@ class Element:
             rfh.setFormatter(formatter)
             logger.addHandler(rfh)
             self.logger = logging.LoggerAdapter(logger, extra)
+            LOGGERS[self.name] = self.logger
 
         #
         # Set up log level
@@ -2222,14 +2225,10 @@ class Element:
             redis (bool, optional): Default true, whether to log to
                 redis or not
         """
-        # Convert syslog level to python log level
-        converted_level = LOG_LEVEL_CONVERSION.get(level, 0)
-
-        # Ensure we got a valid python log level
-        numeric_level = getattr(logging, level.name.upper(), None)
-        if not isinstance(numeric_level, int):
-            numeric_level = getattr(logging, LOG_DEFAULT_LEVEL)
-        self.logger.log(numeric_level, msg)
+        default_level = getattr(logging, LOG_DEFAULT_LEVEL)
+        # Convert syslog log level to python log level
+        converted_level = LOG_LEVEL_CONVERSION.get(level, default_level)
+        self.logger.log(converted_level, msg)
 
     def _reference_create_init_metrics(self):
         """
