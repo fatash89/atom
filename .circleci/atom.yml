@@ -437,6 +437,13 @@ commands:
           command: >-
             << parameters.build_invocation >>
             << parameters.build_additional_command >>
+            --label "com.elementaryrobotics.tag=${CIRCLE_TAG}"
+            --label "com.elementaryrobotics.branch=${CIRCLE_BRANCH}"
+            --label "com.elementaryrobotics.repo=${CIRCLE_PROJECT_REPONAME}"
+            --label "com.elementaryrobotics.commit=${CIRCLE_SHA1}"
+            --label "com.elementaryrobotics.describe=$(git describe --tags)"
+            --label "com.elementaryrobotics.build_num=${CIRCLE_BUILD_NUM}"
+            --label "com.elementaryrobotics.build_url=${CIRCLE_BUILD_URL}"
             -t << parameters.image_name >>:<< parameters.image_tag >>-<< parameters.variant >>-<< parameters.platform >>
             << parameters.build_command >>
             << parameters.build_context >>

@@ -125,6 +125,29 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 
 ### Release Notes
 
+#### [v0.1.11](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.1.11)
+
+##### New Features
+
+Adds in labels to all Docker images built. The following labels are added to all docker images:
+
+| Label | Description |
+|-------|-------------|
+| `com.elementaryrobotics.branch` | Git branch the image was built off of|
+| `com.elementaryrobotics.build_num` | CircleCI build number the image was built off of |
+| `com.elementaryrobotics.build_url` | URL to the CircleCI build for the image|
+| `com.elementaryrobotics.commit` | SHA1 of git commit for the image |
+| `com.elementaryrobotics.repo` | Git reposity for the image |
+| `com.elementaryrobotics.tag` | Typically blank, will be non-blank if this is a build run due to a new tag. |
+| `com.elementaryrobotics.describe` | Output of `git describe --tags`  for the build |
+
+Labels can be seen using `docker image inspect` on any image.
+
+##### Upgrade Steps
+
+- Upgrade to new orb only, no other action required
+
+
 #### [v0.1.10](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.1.10)
 
 ##### New Features
