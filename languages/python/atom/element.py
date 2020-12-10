@@ -590,15 +590,17 @@ class Element:
         if "" in labels.values():
             raise AtomError("Metrics labels cannot include empty strings")
 
-    def _make_reference_id(self):
+    def _make_reference_id(self, key=None):
         """
         Creates a reference ID
 
         Args:
-
+            key (str, optional): User specified key; defaults to None
+        Returns:
+            Full reference key that includes element name
         """
-
-        return f"reference:{self.name}:{str(uuid.uuid4())}"
+        key = key if key else str(uuid.uuid4())
+        return f"reference:{self.name}:{key}"
 
     def _get_redis_timestamp(self):
         """
@@ -2248,7 +2250,7 @@ class Element:
         )
 
     def reference_create(
-        self, *data, serialization=None, serialize=None, timeout_ms=10000
+        self, *data, key=None, serialization=None, serialize=None, timeout_ms=10000
     ):
         """
         Creates one or more expiring references (similar to a pointer) in the
@@ -2261,6 +2263,8 @@ class Element:
         Args:
             data (binary or object): one or more data items to be included in
                 the reference
+            key (str, optional): key to use as reference ID; defaults to None,
+                in which case it will be an auto-generated UUID.
             timeout_ms (int, optional): How long the reference should persist
                 in atom unless otherwise extended/deleted. Set to 0 to have the
                 reference never time out (generally a terrible idea)
@@ -2291,8 +2295,8 @@ class Element:
             # Serialize
             self.metrics_timing_start(self._reference_create_metrics["serialize"])
             for datum in data:
-                # Get the key name for the reference to use in redis
-                key = self._make_reference_id()
+                # Get the full key name for the reference to use in redis
+                key = self._make_reference_id(key)
 
                 # Now, we can go ahead and do the SET in redis for the key
                 # Expire as set by the user

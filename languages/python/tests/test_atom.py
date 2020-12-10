@@ -1083,6 +1083,15 @@ class TestAtom:
         assert ref_data == data
         caller.reference_delete(ref_id)
 
+    def test_reference_user_key(self, caller):
+        caller, caller_name = caller
+        data = b"hello, world!"
+        key = "my_string"
+        ref_id = caller.reference_create(data, key=key)[0]
+        ref_data = caller.reference_get(ref_id)[0]
+        assert ref_data == data
+        caller.reference_delete(ref_id)
+
     def test_reference_doesnt_exist(self, caller):
         caller, caller_name = caller
         ref_id = "nonexistent"
