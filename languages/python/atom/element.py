@@ -178,6 +178,8 @@ class Element:
         self._entry_read_n_metrics = defaultdict(lambda: defaultdict(lambda: None))
         self._entry_read_since_metrics = defaultdict(lambda: defaultdict(lambda: None))
         self._entry_write_metrics = defaultdict(lambda: None)
+        self._parameter_write_metrics = None
+        self._parameter_read_metrics = None
         self._reference_create_metrics = None
         self._reference_create_from_stream_metrics = defaultdict(
             lambda: defaultdict(lambda: None)
@@ -2224,6 +2226,246 @@ class Element:
         if not isinstance(numeric_level, int):
             numeric_level = getattr(logging, LOG_DEFAULT_LEVEL)
         self.logger.log(numeric_level, msg)
+
+    def _parameter_write_init_metrics(self):
+        """
+        Initialize parameter write metrics
+        """
+
+        # If we've already initialized the metrics, no need to worry
+        if self._parameter_write_metrics:
+            return
+
+        self._parameter_write_metrics = {}
+
+        self._parameter_write_metrics["data"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:parameter_write",
+            "data",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+        self._parameter_write_metrics["serialize"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:parameter_write",
+            "serialize",
+            agg_types=["AVG", "MIN", "MAX"],
+        )
+        self._parameter_write_metrics["check"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:parameter_write",
+            "check",
+            agg_types=["AVG", "MIN", "MAX"],
+        )
+
+    def parameter_write(
+        self, key, data, override=True, serialization=None, timeout_ms=10000
+    ):
+        """
+        Creates a Redis hash store, prefixed under the "parameter:" namespace
+        with user specified key. Each field in the data dictionary will be 
+        stored as a field on the Redis hash. Override and serialization fields
+        will be added based on the user-passed args. The store will expire after
+        timeout_ms amount of time.
+
+        If the store already exists under the specified key, the override
+        field will be checked. The fields will be updated if override is true,
+        otherwise an error will be raised.
+
+        Args:
+            key (str): name of parameter to store
+            data (dict): dictionary of data fields to store
+            override (bool, optional): whether or not hash fields can be overwritten
+            serialization (str, optional): Method of serialization to use;
+                defaults to None.
+            timeout_ms (int, optional): How long the reference should persist
+                in atom unless otherwise extended/deleted. Set to 0 to have the
+                reference never time out (generally a terrible idea)
+        Returns:
+            tuple of key written to and list of fields updated
+        Raises:
+            Exception if key exists and cannot be overwritten
+        """
+        key = f"parameter:{key}"
+        fields = []
+
+        # Initialize metrics
+        self._parameter_write_init_metrics()
+
+        # Get a metrics pipeline
+        with MetricsPipeline(self) as pipeline:
+
+            _pipe = self._rpipeline_pool.get()
+            timeout = timeout_ms if timeout_ms != 0 else None
+
+            # Check if parameter exists
+            self.metrics_timing_start(self._parameter_write_metrics["check"])
+            _pipe.exists(key)
+            exists = _pipe.execute()
+            print(f"exists: {exists[0]}")
+
+            if exists[0]:
+                # Check for requested fields
+                for field in data.keys():
+                    _pipe.hget(key, field)
+
+                fields_exist = _pipe.execute()
+                print(f"fields exist: {fields_exist}")
+                if any(fields_exist):
+                    # Check override setting and raise error if false
+                    _pipe.hget(key, "override")
+                    data = _pipe.execute()
+
+                    if data[0] != "true":
+                        raise Exception("Cannot override existing key fields")
+
+            self.metrics_timing_end(
+                self._parameter_write_metrics["check"], pipeline=pipeline
+            )
+
+            # Serialize
+            self.metrics_timing_start(self._parameter_write_metrics["serialize"])
+            for field, datum in data.items():
+                # Do the SET in redis for each field
+                serialized_datum = ser.serialize(datum, method=serialization)
+                _pipe.hset(key, field, serialized_datum)
+                fields.append(field)
+
+            self.metrics_timing_end(
+                self._parameter_write_metrics["serialize"], pipeline=pipeline
+            )
+
+            # Add serialization field
+            _pipe.hset(key, "ser", serialization)
+            fields.append("ser")
+
+            # Add override field
+            _pipe.hset(key, "override", override)
+            fields.append("override")
+
+            # Add key timeout
+            _pipe.expire(key, timeout)
+
+            # Write data and update timeout
+            self.metrics_timing_start(self._parameter_write_metrics["data"])
+            response = _pipe.execute()
+            _pipe = self._release_pipeline(_pipe)
+            self.metrics_timing_end(
+                self._parameter_write_metrics["data"], pipeline=pipeline
+            )
+
+        if not all(response):
+            raise ValueError(f"Failed to create reference! response {response}")
+
+        # Return key and all fields written to
+        return key, fields
+
+    def _parameter_read_init_metrics(self):
+        """
+        Initialize metrics for reading parameters
+        """
+
+        # If we've already done this, just return out
+        if self._parameter_read_metrics:
+            return
+
+        self._parameter_read_metrics = {}
+
+        self._parameter_read_metrics["data"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:parameter_read",
+            "data",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+        self._parameter_read_metrics["deserialize"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:parameter_read",
+            "deserialize",
+            agg_types=["AVG", "MIN", "MAX"],
+        )
+
+    def parameter_read(self, key, fields=None, serialization=None, force_serialization=None):
+        """
+        Gets one parameter from the atom system. Reads the key from
+        redis and returns the data, performing a serialize/deserialize operation
+        on each field as commanded by the user.
+
+        Args:
+            key (str): One parameter key to get from Atom
+            serialization (str, optional): If deserializing, the method of
+                serialization to use; defaults to msgpack.
+            force_serialization (bool): Boolean to ignore serialization field if found
+                in favor of the user-passed serialization. Defaults to false.
+        """
+
+        # Initialize metrics
+        self._parameter_read_init_metrics()
+
+        # Get a metrics pipeline
+        with MetricsPipeline(self) as pipeline:
+
+            # Get the data
+            self.metrics_timing_start(self._parameter_read_metrics["data"])
+            _pipe = self._rpipeline_pool.get()
+            if fields:
+                for field in fields:
+                    _pipe.hget(key, fields)
+            else:
+                _pipe.hgetall(key)
+
+            data = _pipe.execute()
+            _pipe = self._release_pipeline(_pipe)
+            self.metrics_timing_end(
+                self._parameter_read_metrics["data"], pipeline=pipeline
+            )
+
+            if type(data) is not list:
+                raise ValueError(f"Invalid response from redis: {data}")
+
+            # Deserialize
+            print(f"data: {data}")
+            data = data[0] if type(data[0]) is dict else zip(fields, data)
+
+            self.metrics_timing_start(self._parameter_read_metrics["deserialize"])
+            deserialized_data = []
+            # look for serialization method in parameter first; if not
+            #   present use user-specified method
+            # Need to reformat the data into a dictionary with a "ser"
+            #   key like it comes in on entries to use the shared logic
+            #   function
+            get_serialization_data = {}
+            if "ser" in data.keys():
+                get_serialization_data["ser"] = data["ser"]
+
+            # Use the serialization data to get the method for deserializing
+            #   according to the user's preference
+            serialization = self._get_serialization_method(
+                get_serialization_data,
+                serialization,
+                force_serialization,
+            )
+
+            # Deserialize the data
+            for field, val in data.items():
+                deserialized_data.append(
+                    ser.deserialize(val, method=serialization)
+                    if val is not None
+                    else None
+                )
+            self.metrics_timing_end(
+                self._parameter_read_metrics["deserialize"], pipeline=pipeline
+            )
+
+        return deserialized_data
+
+
+    def parameter_delete(self, keys):
+        """
+        Deletes one or more parameters and cleans up their memory
+
+        Args:
+            keys (strs): Keys of parameters to delete from Atom
+        """
+        self.reference_delete(keys)
 
     def _reference_create_init_metrics(self):
         """

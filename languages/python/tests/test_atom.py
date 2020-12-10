@@ -1075,6 +1075,15 @@ class TestAtom:
         test_empty = EmptyContractTest()
         assert test_empty.to_data() == ""
 
+    def test_parameter_write(self, caller):
+        caller, caller_name = caller
+        data = {"my_str": "hello, world!"}
+        key = "my_param"
+        full_key, fields = caller.parameter_write(key, data)
+        param_data = caller.parameter_read(key)
+        assert data == param_data
+        caller.parameter_delete(full_key)
+
     def test_reference_basic(self, caller):
         caller, caller_name = caller
         data = b"hello, world!"
