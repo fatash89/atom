@@ -2401,6 +2401,8 @@ class Element:
                 serialization to use; defaults to None.
             force_serialization (bool): Boolean to ignore serialization field if found
                 in favor of the user-passed serialization. Defaults to false.
+        Returns:
+            dictionary of data read from the parameter store
         """
         key = f"parameter:{key}"
 
@@ -2468,8 +2470,7 @@ class Element:
         Args:
             keys (str): Key of parameter to delete from Atom
         """
-        key = f"parameter:{key}"
-        self.reference_delete(key)
+        self.reference_delete(f"parameter:{key}")
 
     def parameter_update_timeout_ms(self, key, timeout_ms):
         """
@@ -2485,7 +2486,7 @@ class Element:
                         a terrible idea)
 
         """
-        self.reference_update_timeout_ms(key, timeout_ms)
+        self.reference_update_timeout_ms(f"parameter:{key}", timeout_ms)
 
     def parameter_get_timeout_ms(self, key):
         """
@@ -2496,7 +2497,7 @@ class Element:
             key (str):  Key of a reference for which we want to get the
                         timeout ms for.
         """
-        return self.reference_get_timeout_ms(key)
+        return self.reference_get_timeout_ms(f"parameter:{key}")
 
     def _reference_create_init_metrics(self):
         """
@@ -2811,10 +2812,10 @@ class Element:
 
     def reference_delete(self, *keys):
         """
-        Deletes one or more references and cleans up their memory
+        Deletes one or more Redis keys and cleans up their memory
 
         Args:
-            keys (strs): Keys of references to delete from Atom
+            keys (strs): Keys to delete from Atom
         """
 
         # Unlink the data
@@ -2827,7 +2828,8 @@ class Element:
         if type(data) is not list:
             raise ValueError(f"Invalid response from redis: {data}")
         if all(data) != 1:
-            raise KeyError(f"Key {key} not in redis")
+            missing_keys = [key for i, key in enumerate(keys) if data[i] != 1]
+            raise KeyError(f"Keys {missing_keys} not in redis")
 
     def reference_update_timeout_ms(self, key, timeout_ms):
         """

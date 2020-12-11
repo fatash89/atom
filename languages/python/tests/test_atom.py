@@ -1120,10 +1120,10 @@ class TestAtom:
         data = {b"my_str": b"hello, world!"}
         key = "my_param"
         param_key, param_fields = caller.parameter_write(key, data, timeout_ms=1000)
-        remaining_ms = caller.parameter_get_timeout_ms(param_key)
+        remaining_ms = caller.parameter_get_timeout_ms(key)
         assert remaining_ms > 0 and remaining_ms <= 1000
         time.sleep(0.1)
-        still_remaining_ms = caller.parameter_get_timeout_ms(param_key)
+        still_remaining_ms = caller.parameter_get_timeout_ms(key)
         assert (still_remaining_ms < remaining_ms) and (still_remaining_ms > 0)
         caller.parameter_delete(key)
 
@@ -1132,11 +1132,11 @@ class TestAtom:
         data = {b"my_str": b"hello, world!"}
         key = "my_param"
         param_key, param_fields = caller.parameter_write(key, data, timeout_ms=1000)
-        remaining_ms = caller.parameter_get_timeout_ms(param_key)
+        remaining_ms = caller.parameter_get_timeout_ms(key)
         assert remaining_ms > 0 and remaining_ms <= 1000
 
-        caller.parameter_update_timeout_ms(param_key, 10000)
-        updated_ms = caller.parameter_get_timeout_ms(param_key)
+        caller.parameter_update_timeout_ms(key, 10000)
+        updated_ms = caller.parameter_get_timeout_ms(key)
         assert (updated_ms > 1000) and (updated_ms <= 10000)
         caller.parameter_delete(key)
 
@@ -1145,11 +1145,11 @@ class TestAtom:
         data = {b"my_str": b"hello, world!"}
         key = "my_param"
         param_key, param_fields = caller.parameter_write(key, data, timeout_ms=1000)
-        remaining_ms = caller.parameter_get_timeout_ms(param_key)
+        remaining_ms = caller.parameter_get_timeout_ms(key)
         assert remaining_ms > 0 and remaining_ms <= 1000
 
-        caller.parameter_update_timeout_ms(param_key, 0)
-        updated_ms = caller.parameter_get_timeout_ms(param_key)
+        caller.parameter_update_timeout_ms(key, 0)
+        updated_ms = caller.parameter_get_timeout_ms(key)
         assert updated_ms == -1
         caller.parameter_delete(key)
 
@@ -1161,12 +1161,23 @@ class TestAtom:
         param_data = caller.parameter_read(key)
         assert param_data == data
 
-        timeout_ms = caller.parameter_get_timeout_ms(param_key)
+        timeout_ms = caller.parameter_get_timeout_ms(key)
         assert timeout_ms == -1
 
         caller.parameter_delete(key)
         del_data = caller.parameter_read(key)
         assert del_data is None
+
+    def test_parameter_delete_missing(self, caller):
+        caller, caller_name = caller
+        data = {b"my_str": b"hello, world!"}
+        key = "my_param"
+        param_key, param_fields = caller.parameter_write(key, data, timeout_ms=0)
+        caller.parameter_delete(key)
+        del_data = caller.parameter_read(key)
+        assert del_data is None
+        with pytest.raises(KeyError):
+            caller.parameter_delete(key)
 
     def test_reference_basic(self, caller):
         caller, caller_name = caller
