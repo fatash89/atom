@@ -48,6 +48,11 @@ from atom.config import (
     RESERVED_COMMANDS,
 )
 from atom.config import (
+    OVERRIDE_PARAM_FIELD,
+    SERIALIZATION_PARAM_FIELD,
+    RESERVED_PARAM_FIELDS,
+)
+from atom.config import (
     METRICS_TYPE_LABEL,
     METRICS_HOST_LABEL,
     METRICS_ATOM_VERSION_LABEL,
@@ -2301,7 +2306,6 @@ class Element:
             self.metrics_timing_start(self._parameter_write_metrics["check"])
             _pipe.exists(key)
             exists = _pipe.execute()
-            print(f"exists: {exists[0]}")
 
             if exists[0]:
                 # Check for requested fields
@@ -2309,10 +2313,9 @@ class Element:
                     _pipe.hget(key, field)
 
                 fields_exist = _pipe.execute()
-                print(f"fields exist: {fields_exist}")
                 if any(fields_exist):
                     # Check override setting and raise error if false
-                    _pipe.hget(key, "override")
+                    _pipe.hget(key, OVERRIDE_PARAM_FIELD)
                     data = _pipe.execute()
 
                     if data[0] != "true":
@@ -2336,16 +2339,16 @@ class Element:
 
             # Add serialization field
             serialization = "none" if serialization is None else serialization
-            _pipe.hset(key, "ser", serialization)
+            _pipe.hset(key, SERIALIZATION_PARAM_FIELD, serialization)
 
             # Add override field
             override = "true" if override is True else "false"
-            _pipe.hset(key, "override", override)
+            _pipe.hset(key, OVERRIDE_PARAM_FIELD, override)
 
             # Add key timeout
             _pipe.expire(key, timeout)
 
-            # Write data and update timeout
+            # Write data
             self.metrics_timing_start(self._parameter_write_metrics["data"])
             response = _pipe.execute()
             _pipe = self._release_pipeline(_pipe)
@@ -2354,7 +2357,7 @@ class Element:
             )
 
         if not all(response):
-            raise ValueError(f"Failed to create reference! response {response}")
+            raise ValueError(f"Failed to create parameter! response {response}")
 
         # Return key and all fields written to
         return key, fields
@@ -2408,7 +2411,6 @@ class Element:
             # Get the data
             self.metrics_timing_start(self._parameter_read_metrics["data"])
             _pipe = self._rpipeline_pool.get()
-            print(f"reading {key}")
             _pipe.hgetall(key)
             data = _pipe.execute()[0]
             _pipe = self._release_pipeline(_pipe)
@@ -2421,9 +2423,8 @@ class Element:
             # look for serialization method in parameter first; reformat data
             #   into a dictionary with a "ser" key to use shared logic function
             get_serialization_data = {}
-            if b"ser" in data.keys():
-                print(f"ser type: {data[b'ser']}")
-                get_serialization_data["ser"] = data.pop(b"ser")
+            if SERIALIZATION_PARAM_FIELD.encode() in data.keys():
+                get_serialization_data[SERIALIZATION_PARAM_FIELD] = data.pop(SERIALIZATION_PARAM_FIELD.encode())
 
             # Use the serialization data to get the method for deserializing
             #   according to the user's preference
@@ -2435,7 +2436,7 @@ class Element:
 
             # Deserialize the data
             for field, val in data.items():
-                if field != b"override":
+                if field.decode() not in RESERVED_PARAM_FIELDS:
                     deserialized_data[field] = (
                         ser.deserialize(val, method=serialization)
                         if val is not None
@@ -2446,15 +2447,12 @@ class Element:
                 self._parameter_read_metrics["deserialize"], pipeline=pipeline
             )
 
-            print(deserialized_data)
-
             return_data = {}
             if fields:
                 fields = [fields] if type(fields) != list else fields
                 return {field.encode(): deserialized_data[field.encode()] for field in fields}
 
         return deserialized_data
-
 
     def parameter_delete(self, keys):
         """

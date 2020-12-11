@@ -1079,39 +1079,39 @@ class TestAtom:
         caller, caller_name = caller
         data = {b"my_str": b"hello, world!"}
         key = "my_param"
-        full_key, fields = caller.parameter_write(key, data)
+        param_key, param_fields = caller.parameter_write(key, data)
         param_data = caller.parameter_read(key)
         assert param_data == data
-        caller.parameter_delete(full_key)
+        caller.parameter_delete(param_key)
 
     def test_parameter_read_field(self, caller):
         caller, caller_name = caller
         data = {b"str1": b"hello, world!",
                 b"str2": b"goodbye"}
         key = "my_param"
-        full_key, fields = caller.parameter_write(key, data)
+        param_key, param_fields = caller.parameter_write(key, data)
         param_data = caller.parameter_read(key, fields="str2")
         assert param_data == {b"str2": b"goodbye"}
-        caller.parameter_delete(full_key)
+        caller.parameter_delete(param_key)
 
     def test_parameter_write_msgpack(self, caller):
         caller, caller_name = caller
         data = {b"my_str": b"hello, world!"}
         key = "my_param"
-        full_key, fields = caller.parameter_write(key, data, serialization="msgpack")
+        param_key, param_fields = caller.parameter_write(key, data, serialization="msgpack")
         param_data = caller.parameter_read(key)
         assert param_data == data
-        caller.parameter_delete(full_key)
+        caller.parameter_delete(param_key)
 
     def test_parameter_read_msgpack_field(self, caller):
         caller, caller_name = caller
         data = {b"str1": b"hello, world!",
                 b"str2": b"goodbye"}
         key = "my_param"
-        full_key, fields = caller.parameter_write(key, data, serialization="msgpack")
+        param_key, param_fields = caller.parameter_write(key, data, serialization="msgpack")
         param_data = caller.parameter_read(key, fields=["str2"])
         assert param_data == {b"str2": b"goodbye"}
-        caller.parameter_delete(full_key)
+        caller.parameter_delete(param_key)
 
     def test_reference_basic(self, caller):
         caller, caller_name = caller
