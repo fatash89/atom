@@ -2267,7 +2267,7 @@ class Element:
     ):
         """
         Creates a Redis hash store, prefixed under the "parameter:" namespace
-        with user specified key. Each field in the data dictionary will be 
+        with user specified key. Each field in the data dictionary will be
         stored as a field on the Redis hash. Override and serialization fields
         will be added based on the user-passed args. The store will expire after
         timeout_ms amount of time.
@@ -2386,7 +2386,9 @@ class Element:
             agg_types=["AVG", "MIN", "MAX"],
         )
 
-    def parameter_read(self, key, fields=None, serialization=None, force_serialization=False):
+    def parameter_read(
+        self, key, fields=None, serialization=None, force_serialization=False
+    ):
         """
         Gets a parameter from the atom system. Reads the key from redis and returns
         the data, performing a serialize/deserialize operation on each field as commanded
@@ -2424,7 +2426,9 @@ class Element:
             #   into a dictionary with a "ser" key to use shared logic function
             get_serialization_data = {}
             if SERIALIZATION_PARAM_FIELD.encode() in data.keys():
-                get_serialization_data[SERIALIZATION_PARAM_FIELD] = data.pop(SERIALIZATION_PARAM_FIELD.encode())
+                get_serialization_data[SERIALIZATION_PARAM_FIELD] = data.pop(
+                    SERIALIZATION_PARAM_FIELD.encode()
+                )
 
             # Use the serialization data to get the method for deserializing
             #   according to the user's preference
@@ -2449,7 +2453,9 @@ class Element:
 
         if fields:
             fields = [fields] if type(fields) != list else fields
-            return_data = {field.encode(): deserialized_data[field.encode()] for field in fields}
+            return_data = {
+                field.encode(): deserialized_data[field.encode()] for field in fields
+            }
         else:
             return_data = deserialized_data
 
