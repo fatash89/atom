@@ -2286,9 +2286,9 @@ class Element:
                 in atom unless otherwise extended/deleted. Set to 0 to have the
                 reference never time out (generally a terrible idea)
         Returns:
-            tuple of key written to and list of fields updated
+            tuple of (key written to, list of fields updated)
         Raises:
-            Exception if key exists and cannot be overwritten
+            Exception if key exists and cannot be overridden
         """
         key = f"parameter:{key}"
         fields = []
@@ -2300,7 +2300,6 @@ class Element:
         with MetricsPipeline(self) as pipeline:
 
             _pipe = self._rpipeline_pool.get()
-            timeout = timeout_ms if timeout_ms != 0 else None
 
             # Check if parameter exists
             self.metrics_timing_start(self._parameter_write_metrics["check"])
@@ -2345,8 +2344,9 @@ class Element:
             override = "true" if override is True else "false"
             _pipe.hset(key, OVERRIDE_PARAM_FIELD, override)
 
-            # Add key timeout
-            _pipe.expire(key, timeout)
+            # Set timeout in ms if nonzero positive
+            if timeout_ms > 0:
+                _pipe.pexpire(key, timeout_ms)
 
             # Write data
             self.metrics_timing_start(self._parameter_write_metrics["data"])
@@ -2386,17 +2386,17 @@ class Element:
             agg_types=["AVG", "MIN", "MAX"],
         )
 
-    def parameter_read(self, key, fields=None, serialization=None, force_serialization=None):
+    def parameter_read(self, key, fields=None, serialization=None, force_serialization=False):
         """
-        Gets one parameter from the atom system. Reads the key from
-        redis and returns the data, performing a serialize/deserialize operation
-        on each field as commanded by the user.
+        Gets a parameter from the atom system. Reads the key from redis and returns
+        the data, performing a serialize/deserialize operation on each field as commanded
+        by the user. Can optionally choose which fields to read from the parameter.
 
         Args:
             key (str): One parameter key to get from Atom
             fields (strs, optional): list of field names to read from parameter
             serialization (str, optional): If deserializing, the method of
-                serialization to use; defaults to msgpack.
+                serialization to use; defaults to None.
             force_serialization (bool): Boolean to ignore serialization field if found
                 in favor of the user-passed serialization. Defaults to false.
         """
@@ -2447,12 +2447,13 @@ class Element:
                 self._parameter_read_metrics["deserialize"], pipeline=pipeline
             )
 
-            return_data = {}
-            if fields:
-                fields = [fields] if type(fields) != list else fields
-                return {field.encode(): deserialized_data[field.encode()] for field in fields}
+        if fields:
+            fields = [fields] if type(fields) != list else fields
+            return_data = {field.encode(): deserialized_data[field.encode()] for field in fields}
+        else:
+            return_data = deserialized_data
 
-        return deserialized_data
+        return return_data if return_data else None
 
     def parameter_delete(self, keys):
         """
@@ -2462,6 +2463,33 @@ class Element:
             keys (strs): Keys of parameters to delete from Atom
         """
         self.reference_delete(keys)
+
+    def parameter_update_timeout_ms(self, key, timeout_ms):
+        """
+        Updates the timeout for an existing parameter. This might want to
+        be done as we won't know exactly how long we'll need the key for
+        at the original point in time for which we created it
+
+        Args:
+            key (str): Key of a parameter for which we want to update the
+                        timeout
+            timeout_ms (int): Timeout at which we want the key to expire.
+                        Pass <= 0 for no timeout, i.e. never expire (generally
+                        a terrible idea)
+
+        """
+        self.reference_update_timeout_ms(key, timeout_ms)
+
+    def parameter_get_timeout_ms(self, key):
+        """
+        Get the current amount of ms left on the parameter. Mainly useful
+        for debug. Returns -1 if no timeout, else the timeout in ms.
+
+        Args:
+            key (str):  Key of a reference for which we want to get the
+                        timeout ms for.
+        """
+        return self.reference_get_timeout_ms(key)
 
     def _reference_create_init_metrics(self):
         """
@@ -2792,7 +2820,7 @@ class Element:
         if type(data) is not list:
             raise ValueError(f"Invalid response from redis: {data}")
         if all(data) != 1:
-            raise KeyError(f"Reference {key} not in redis")
+            raise KeyError(f"Key {key} not in redis")
 
     def reference_update_timeout_ms(self, key, timeout_ms):
         """
@@ -2806,11 +2834,10 @@ class Element:
             timeout_ms (int): Timeout at which we want the key to expire.
                         Pass <= 0 for no timeout, i.e. never expire (generally
                         a terrible idea)
-
         """
         _pipe = self._rpipeline_pool.get()
 
-        # Call pexpeire to set the timeout in ms if we got a positive
+        # Call pexpire to set the timeout in ms if we got a positive
         #   nonzero timeout, else call persist to remove any existing
         #   timeout
         if timeout_ms > 0:
@@ -2826,13 +2853,12 @@ class Element:
             raise ValueError(f"Invalid response from redis: {data}")
 
         if data[0] != 1:
-            raise KeyError(f"Reference {key} not in redis")
+            raise KeyError(f"Key {key} not in redis")
 
     def reference_get_timeout_ms(self, key):
         """
         Get the current amount of ms left on the reference. Mainly useful
-        for debug I'd imagine. Returns -1 if no timeout, else the timeout
-        in ms.
+        for debug. Returns -1 if no timeout, else the timeout in ms.
 
         Args:
             key (str):  Key of a reference for which we want to get the
@@ -2847,7 +2873,7 @@ class Element:
             raise ValueError(f"Invalid response from redis: {data}")
 
         if data[0] == -2:
-            raise KeyError(f"Reference {key} doesn't exist")
+            raise KeyError(f"Key {key} doesn't exist")
 
         return data[0]
 
