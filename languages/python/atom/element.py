@@ -2461,14 +2461,15 @@ class Element:
 
         return return_data if return_data else None
 
-    def parameter_delete(self, keys):
+    def parameter_delete(self, key):
         """
-        Deletes one or more parameters and cleans up their memory
+        Deletes a parameter and cleans up its memory
 
         Args:
-            keys (strs): Keys of parameters to delete from Atom
+            keys (str): Key of parameter to delete from Atom
         """
-        self.reference_delete(keys)
+        key = f"parameter:{key}"
+        self.reference_delete(key)
 
     def parameter_update_timeout_ms(self, key, timeout_ms):
         """

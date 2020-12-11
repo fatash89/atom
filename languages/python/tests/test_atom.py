@@ -1082,7 +1082,7 @@ class TestAtom:
         param_key, param_fields = caller.parameter_write(key, data)
         param_data = caller.parameter_read(key)
         assert param_data == data
-        caller.parameter_delete(param_key)
+        caller.parameter_delete(key)
 
     def test_parameter_read_field(self, caller):
         caller, caller_name = caller
@@ -1091,7 +1091,7 @@ class TestAtom:
         param_key, param_fields = caller.parameter_write(key, data)
         param_data = caller.parameter_read(key, fields="str2")
         assert param_data == {b"str2": b"goodbye"}
-        caller.parameter_delete(param_key)
+        caller.parameter_delete(key)
 
     def test_parameter_write_msgpack(self, caller):
         caller, caller_name = caller
@@ -1102,7 +1102,7 @@ class TestAtom:
         )
         param_data = caller.parameter_read(key)
         assert param_data == data
-        caller.parameter_delete(param_key)
+        caller.parameter_delete(key)
 
     def test_parameter_read_msgpack_field(self, caller):
         caller, caller_name = caller
@@ -1113,7 +1113,7 @@ class TestAtom:
         )
         param_data = caller.parameter_read(key, fields=["str2"])
         assert param_data == {b"str2": b"goodbye"}
-        caller.parameter_delete(param_key)
+        caller.parameter_delete(key)
 
     def test_parameter_get_timeout_ms(self, caller):
         caller, caller_name = caller
@@ -1125,7 +1125,7 @@ class TestAtom:
         time.sleep(0.1)
         still_remaining_ms = caller.parameter_get_timeout_ms(param_key)
         assert (still_remaining_ms < remaining_ms) and (still_remaining_ms > 0)
-        caller.reference_delete(param_key)
+        caller.parameter_delete(key)
 
     def test_parameter_update_timeout_ms(self, caller):
         caller, caller_name = caller
@@ -1138,7 +1138,7 @@ class TestAtom:
         caller.parameter_update_timeout_ms(param_key, 10000)
         updated_ms = caller.parameter_get_timeout_ms(param_key)
         assert (updated_ms > 1000) and (updated_ms <= 10000)
-        caller.reference_delete(param_key)
+        caller.parameter_delete(key)
 
     def test_parameter_remove_timeout(self, caller):
         caller, caller_name = caller
@@ -1151,7 +1151,7 @@ class TestAtom:
         caller.parameter_update_timeout_ms(param_key, 0)
         updated_ms = caller.parameter_get_timeout_ms(param_key)
         assert updated_ms == -1
-        caller.reference_delete(param_key)
+        caller.parameter_delete(key)
 
     def test_parameter_delete(self, caller):
         caller, caller_name = caller
@@ -1164,7 +1164,7 @@ class TestAtom:
         timeout_ms = caller.parameter_get_timeout_ms(param_key)
         assert timeout_ms == -1
 
-        caller.parameter_delete(param_key)
+        caller.parameter_delete(key)
         del_data = caller.parameter_read(key)
         assert del_data is None
 
