@@ -2279,7 +2279,8 @@ class Element:
         Args:
             key (str): name of parameter to store
             data (dict): dictionary of data fields to store
-            override (bool, optional): whether or not hash fields can be overwritten
+            override (bool, optional): whether or not hash fields can be
+                overwritten
             serialization (str, optional): Method of serialization to use;
                 defaults to None.
             timeout_ms (int, optional): How long the reference should persist
@@ -2390,17 +2391,19 @@ class Element:
         self, key, fields=None, serialization=None, force_serialization=False
     ):
         """
-        Gets a parameter from the atom system. Reads the key from redis and returns
-        the data, performing a serialize/deserialize operation on each field as commanded
-        by the user. Can optionally choose which fields to read from the parameter.
+        Gets a parameter from the atom system. Reads the key from redis and
+        returns the data, performing a serialize/deserialize operation on each
+        field as commanded by the user. Can optionally choose which fields to
+        read from the parameter.
 
         Args:
             key (str): One parameter key to get from Atom
             fields (strs, optional): list of field names to read from parameter
             serialization (str, optional): If deserializing, the method of
                 serialization to use; defaults to None.
-            force_serialization (bool): Boolean to ignore serialization field if found
-                in favor of the user-passed serialization. Defaults to false.
+            force_serialization (bool): Boolean to ignore serialization field if
+                found in favor of the user-passed serialization. Defaults to
+                false.
         Returns:
             dictionary of data read from the parameter store
         """
