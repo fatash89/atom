@@ -2435,23 +2435,23 @@ class Element:
 
             # Deserialize the data
             for field, val in data.items():
-                deserialized_data[field] = (
-                    ser.deserialize(val, method=serialization)
-                    if val is not None
-                    else None
-                )
+                if field != b"override":
+                    deserialized_data[field] = (
+                        ser.deserialize(val, method=serialization)
+                        if val is not None
+                        else None
+                    )
 
             self.metrics_timing_end(
                 self._parameter_read_metrics["deserialize"], pipeline=pipeline
             )
 
-            # Remove override setting from return data
-            deserialized_data.pop(b"override")
+            print(deserialized_data)
 
             return_data = {}
             if fields:
                 fields = [fields] if type(fields) != list else fields
-                return {field: deserialized_data[field.encode()] for field in fields}
+                return {field.encode(): deserialized_data[field.encode()] for field in fields}
 
         return deserialized_data
 
