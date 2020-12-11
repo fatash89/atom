@@ -1077,11 +1077,21 @@ class TestAtom:
 
     def test_parameter_write(self, caller):
         caller, caller_name = caller
-        data = {"my_str": "hello, world!"}
+        data = {b"my_str": b"hello, world!"}
         key = "my_param"
         full_key, fields = caller.parameter_write(key, data)
         param_data = caller.parameter_read(key)
-        assert data == param_data
+        assert param_data == data
+        caller.parameter_delete(full_key)
+
+    def test_parameter_read_field(self, caller):
+        caller, caller_name = caller
+        data = {b"str1": b"hello, world!",
+                b"str2": b"goodbye"}
+        key = "my_param"
+        full_key, fields = caller.parameter_write(key, data)
+        param_data = caller.parameter_read(key, fields="str2")
+        assert param_data == {b"str2": b"goodbye"}
         caller.parameter_delete(full_key)
 
     def test_reference_basic(self, caller):

@@ -1028,7 +1028,7 @@ class Element:
         """Incremeents reference counter for element stream collection"""
         _pipe.incr(self._make_consumer_group_counter(self.name))
         result = _pipe.execute()[-1]
-        self.logger.debug(f"inrementing element {self.name} {result}")
+        self.logger.debug(f"incrementing element {self.name} {result}")
         return result
 
     def _decrement_command_group_counter(self, _pipe):
@@ -2335,12 +2335,12 @@ class Element:
             )
 
             # Add serialization field
+            serialization = "none" if serialization is None else serialization
             _pipe.hset(key, "ser", serialization)
-            fields.append("ser")
 
             # Add override field
+            override = "true" if override is True else "false"
             _pipe.hset(key, "override", override)
-            fields.append("override")
 
             # Add key timeout
             _pipe.expire(key, timeout)
@@ -2391,11 +2391,13 @@ class Element:
 
         Args:
             key (str): One parameter key to get from Atom
+            fields (strs, optional): list of field names to read from parameter
             serialization (str, optional): If deserializing, the method of
                 serialization to use; defaults to msgpack.
             force_serialization (bool): Boolean to ignore serialization field if found
                 in favor of the user-passed serialization. Defaults to false.
         """
+        key = f"parameter:{key}"
 
         # Initialize metrics
         self._parameter_read_init_metrics()
@@ -2406,35 +2408,22 @@ class Element:
             # Get the data
             self.metrics_timing_start(self._parameter_read_metrics["data"])
             _pipe = self._rpipeline_pool.get()
-            if fields:
-                for field in fields:
-                    _pipe.hget(key, fields)
-            else:
-                _pipe.hgetall(key)
-
-            data = _pipe.execute()
+            print(f"reading {key}")
+            _pipe.hgetall(key)
+            data = _pipe.execute()[0]
             _pipe = self._release_pipeline(_pipe)
             self.metrics_timing_end(
                 self._parameter_read_metrics["data"], pipeline=pipeline
             )
 
-            if type(data) is not list:
-                raise ValueError(f"Invalid response from redis: {data}")
-
-            # Deserialize
-            print(f"data: {data}")
-            data = data[0] if type(data[0]) is dict else zip(fields, data)
-
             self.metrics_timing_start(self._parameter_read_metrics["deserialize"])
-            deserialized_data = []
-            # look for serialization method in parameter first; if not
-            #   present use user-specified method
-            # Need to reformat the data into a dictionary with a "ser"
-            #   key like it comes in on entries to use the shared logic
-            #   function
+            deserialized_data = {}
+            # look for serialization method in parameter first; reformat data
+            #   into a dictionary with a "ser" key to use shared logic function
             get_serialization_data = {}
-            if "ser" in data.keys():
-                get_serialization_data["ser"] = data["ser"]
+            if b"ser" in data.keys():
+                print(f"ser type: {data[b'ser']}")
+                get_serialization_data["ser"] = data.pop(b"ser")
 
             # Use the serialization data to get the method for deserializing
             #   according to the user's preference
@@ -2446,14 +2435,23 @@ class Element:
 
             # Deserialize the data
             for field, val in data.items():
-                deserialized_data.append(
+                deserialized_data[field] = (
                     ser.deserialize(val, method=serialization)
                     if val is not None
                     else None
                 )
+
             self.metrics_timing_end(
                 self._parameter_read_metrics["deserialize"], pipeline=pipeline
             )
+
+            # Remove override setting from return data
+            deserialized_data.pop(b"override")
+
+            return_data = {}
+            if fields:
+                fields = [fields] if type(fields) != list else fields
+                return {field: deserialized_data[field.encode()] for field in fields}
 
         return deserialized_data
 
