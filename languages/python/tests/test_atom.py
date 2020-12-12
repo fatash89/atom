@@ -1115,6 +1115,31 @@ class TestAtom:
         assert param_data == {b"str2": b"goodbye"}
         caller.parameter_delete(key)
 
+    def test_parameter_cannot_override_existing_key(sef, caller):
+        caller, caller_name = caller
+        data = {b"str1": b"hello, world!", b"str2": b"goodbye"}
+        key = "my_param"
+        param_fields = caller.parameter_write(
+            key, data, override=False
+        )
+        new_data = {b"str2": b"goodbye again"}
+        with pytest.raises(Exception):
+            new_fields = caller.parameter_write(key, new_data)
+
+        caller.parameter_delete(key)
+
+    def test_parameter_write_new_key_override_false(sef, caller):
+        caller, caller_name = caller
+        data = {b"str1": b"hello, world!", b"str2": b"goodbye"}
+        key = "my_param"
+        param_fields = caller.parameter_write(
+            key, data, override=False
+        )
+        new_data = {b"str3": b"goodbye again"}
+        new_fields = caller.parameter_write(key, new_data)
+        assert new_fields == ["str3"]
+        caller.parameter_delete(key)
+
     def test_parameter_get_timeout_ms(self, caller):
         caller, caller_name = caller
         data = {b"my_str": b"hello, world!"}

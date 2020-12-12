@@ -2299,6 +2299,7 @@ class Element:
         """
         key = self._make_parameter_key(key)
         fields = []
+        existing_override = None
 
         # Initialize metrics
         self._parameter_write_init_metrics()
@@ -2311,21 +2312,24 @@ class Element:
             # Check if parameter exists
             self.metrics_timing_start(self._parameter_write_metrics["check"])
             _pipe.exists(key)
-            exists = _pipe.execute()
+            key_exists = _pipe.execute()[0]
 
-            if exists[0]:
-                # Check for requested fields
-                for field in data.keys():
-                    _pipe.hget(key, field)
+            if key_exists:
+                # Check override setting
+                _pipe.hget(key, OVERRIDE_PARAM_FIELD)
+                existing_override = _pipe.execute()[0]
 
-                fields_exist = _pipe.execute()
-                if any(fields_exist):
-                    # Check override setting and raise error if false
-                    _pipe.hget(key, OVERRIDE_PARAM_FIELD)
-                    data = _pipe.execute()
+                if existing_override == "false":
+                    # Check for requested fields
+                    for field in data.keys():
+                        _pipe.hget(key, field)
 
-                    if data[0] != "true":
-                        raise Exception("Cannot override existing key fields")
+                    fields_exist = _pipe.execute()
+
+                    # Raise error if override is false and any requested fields
+                    # already exist
+                    if any(fields_exist):
+                        raise Exception("Cannot override existing parameter fields")
 
             self.metrics_timing_end(
                 self._parameter_write_metrics["check"], pipeline=pipeline
@@ -2347,9 +2351,12 @@ class Element:
             serialization = "none" if serialization is None else serialization
             _pipe.hset(key, SERIALIZATION_PARAM_FIELD, serialization)
 
-            # Add override field
-            override = "true" if override is True else "false"
-            _pipe.hset(key, OVERRIDE_PARAM_FIELD, override)
+            # Add override field if existing override isn't false
+            if existing_override != "false":
+                override = "true" if override is True else "false"
+                _pipe.hset(key, OVERRIDE_PARAM_FIELD, override)
+            else:
+                self.logger.warning("Cannot override existing override value")
 
             # Set timeout in ms if nonzero positive
             if timeout_ms > 0:
