@@ -2262,6 +2262,12 @@ class Element:
             agg_types=["AVG", "MIN", "MAX"],
         )
 
+    def _make_parameter_key(self, key):
+        """
+        Prefixes requested key under parameter namespace.
+        """
+        return f"parameter:{key}"
+
     def parameter_write(
         self, key, data, override=True, serialization=None, timeout_ms=10000
     ):
@@ -2291,7 +2297,7 @@ class Element:
         Raises:
             Exception if key exists and cannot be overridden
         """
-        key = f"parameter:{key}"
+        key = self._make_parameter_key(key)
         fields = []
 
         # Initialize metrics
@@ -2407,7 +2413,7 @@ class Element:
         Returns:
             dictionary of data read from the parameter store
         """
-        key = f"parameter:{key}"
+        key = self._make_parameter_key(key)
 
         # Initialize metrics
         self._parameter_read_init_metrics()
@@ -2473,7 +2479,7 @@ class Element:
         Args:
             keys (str): Key of parameter to delete from Atom
         """
-        self.reference_delete(f"parameter:{key}")
+        self.reference_delete(self._make_parameter_key(key))
 
     def parameter_update_timeout_ms(self, key, timeout_ms):
         """
@@ -2489,7 +2495,7 @@ class Element:
                         a terrible idea)
 
         """
-        self.reference_update_timeout_ms(f"parameter:{key}", timeout_ms)
+        self.reference_update_timeout_ms(self._make_parameter_key(key), timeout_ms)
 
     def parameter_get_timeout_ms(self, key):
         """
@@ -2500,7 +2506,7 @@ class Element:
             key (str):  Key of a reference for which we want to get the
                         timeout ms for.
         """
-        return self.reference_get_timeout_ms(f"parameter:{key}")
+        return self.reference_get_timeout_ms(self._make_parameter_key(key))
 
     def _reference_create_init_metrics(self):
         """
