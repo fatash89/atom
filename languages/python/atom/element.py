@@ -2287,7 +2287,7 @@ class Element:
                 in atom unless otherwise extended/deleted. Set to 0 to have the
                 reference never time out (generally a terrible idea)
         Returns:
-            tuple of (key written to, list of fields updated)
+            list of fields written to
         Raises:
             Exception if key exists and cannot be overridden
         """
@@ -2360,8 +2360,8 @@ class Element:
         if not all(response):
             raise ValueError(f"Failed to create parameter! response {response}")
 
-        # Return key and all fields written to
-        return key, fields
+        # Return list of all fields written to
+        return fields
 
     def _parameter_read_init_metrics(self):
         """

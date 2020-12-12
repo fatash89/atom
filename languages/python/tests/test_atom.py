@@ -1079,7 +1079,7 @@ class TestAtom:
         caller, caller_name = caller
         data = {b"my_str": b"hello, world!"}
         key = "my_param"
-        param_key, param_fields = caller.parameter_write(key, data)
+        param_fields = caller.parameter_write(key, data)
         param_data = caller.parameter_read(key)
         assert param_data == data
         caller.parameter_delete(key)
@@ -1088,7 +1088,7 @@ class TestAtom:
         caller, caller_name = caller
         data = {b"str1": b"hello, world!", b"str2": b"goodbye"}
         key = "my_param"
-        param_key, param_fields = caller.parameter_write(key, data)
+        param_fields = caller.parameter_write(key, data)
         param_data = caller.parameter_read(key, fields="str2")
         assert param_data == {b"str2": b"goodbye"}
         caller.parameter_delete(key)
@@ -1097,7 +1097,7 @@ class TestAtom:
         caller, caller_name = caller
         data = {b"my_str": b"hello, world!"}
         key = "my_param"
-        param_key, param_fields = caller.parameter_write(
+        param_fields = caller.parameter_write(
             key, data, serialization="msgpack"
         )
         param_data = caller.parameter_read(key)
@@ -1108,7 +1108,7 @@ class TestAtom:
         caller, caller_name = caller
         data = {b"str1": b"hello, world!", b"str2": b"goodbye"}
         key = "my_param"
-        param_key, param_fields = caller.parameter_write(
+        param_fields = caller.parameter_write(
             key, data, serialization="msgpack"
         )
         param_data = caller.parameter_read(key, fields=["str2"])
@@ -1119,7 +1119,7 @@ class TestAtom:
         caller, caller_name = caller
         data = {b"my_str": b"hello, world!"}
         key = "my_param"
-        param_key, param_fields = caller.parameter_write(key, data, timeout_ms=1000)
+        param_fields = caller.parameter_write(key, data, timeout_ms=1000)
         remaining_ms = caller.parameter_get_timeout_ms(key)
         assert remaining_ms > 0 and remaining_ms <= 1000
         time.sleep(0.1)
@@ -1131,7 +1131,7 @@ class TestAtom:
         caller, caller_name = caller
         data = {b"my_str": b"hello, world!"}
         key = "my_param"
-        param_key, param_fields = caller.parameter_write(key, data, timeout_ms=1000)
+        param_fields = caller.parameter_write(key, data, timeout_ms=1000)
         remaining_ms = caller.parameter_get_timeout_ms(key)
         assert remaining_ms > 0 and remaining_ms <= 1000
 
@@ -1144,7 +1144,7 @@ class TestAtom:
         caller, caller_name = caller
         data = {b"my_str": b"hello, world!"}
         key = "my_param"
-        param_key, param_fields = caller.parameter_write(key, data, timeout_ms=1000)
+        param_fields = caller.parameter_write(key, data, timeout_ms=1000)
         remaining_ms = caller.parameter_get_timeout_ms(key)
         assert remaining_ms > 0 and remaining_ms <= 1000
 
@@ -1157,7 +1157,7 @@ class TestAtom:
         caller, caller_name = caller
         data = {b"my_str": b"hello, world!"}
         key = "my_param"
-        param_key, param_fields = caller.parameter_write(key, data, timeout_ms=0)
+        param_fields = caller.parameter_write(key, data, timeout_ms=0)
         param_data = caller.parameter_read(key)
         assert param_data == data
 
@@ -1172,7 +1172,7 @@ class TestAtom:
         caller, caller_name = caller
         data = {b"my_str": b"hello, world!"}
         key = "my_param"
-        param_key, param_fields = caller.parameter_write(key, data, timeout_ms=0)
+        param_fields = caller.parameter_write(key, data, timeout_ms=0)
         caller.parameter_delete(key)
         del_data = caller.parameter_read(key)
         assert del_data is None

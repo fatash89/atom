@@ -1606,32 +1606,32 @@ PEXPIRE $key $timeout_ms
 # Basic parameter, override=True, default seralization="none", timout_ms=10000
 data = {b"my_str": b"hello, world!"}
 key = "my_param"
-param_key, param_fields = caller.parameter_write(key, data)
-my_element.parameter_delete(param_key)
+param_fields = caller.parameter_write(key, data)
+my_element.parameter_delete(key)
 
 # Serialized parameter
 data = {b"my_str": b"hello, world!"}
 key = "my_param"
-param_key, param_fields = caller.parameter_write(key, data, serialization="msgpack")
-my_element.parameter_delete(param_key)
+param_fields = caller.parameter_write(key, data, serialization="msgpack")
+my_element.parameter_delete(key)
 
 # Explicit timeout
 data = {b"my_str": b"hello, world!"}
 key = "my_param"
-param_key, param_fields = caller.parameter_write(key, data, serialization="msgpack", timeout_ms=1000)
-my_element.parameter_delete(param_key)
+param_fields = caller.parameter_write(key, data, serialization="msgpack", timeout_ms=1000)
+my_element.parameter_delete(key)
 
 # No timeout
 data = {b"my_str": b"hello, world!"}
 key = "my_param"
-param_key, param_fields = caller.parameter_write(key, data, serialization="msgpack", timeout_ms=0)
-my_element.parameter_delete(param_key)
+param_fields = caller.parameter_write(key, data, serialization="msgpack", timeout_ms=0)
+my_element.parameter_delete(key)
 
 # Overrides not allowed
 data = {b"my_str": b"hello, world!"}
 key = "my_param"
-param_key, param_fields = caller.parameter_write(key, data, override=False)
-my_element.parameter_delete(param_key)
+param_fields = caller.parameter_write(key, data, override=False)
+my_element.parameter_delete(key)
 ```
 
 Turn a user-specified data dictionary into an Atom parameter. The data
@@ -1652,7 +1652,7 @@ The `timeout_ms` argument is powerful -- it allows you to set a time at which th
 
 ### Return Value
 
-Tuple of key parameter is stored at, and list of parameter fields written to.
+List of parameter fields written to.
 
 ### Spec
 
@@ -1671,7 +1671,7 @@ HSET $key $field $value
 5. If the data is serialized, use HSET to set the reserved "ser" field.
 6. Use HSET to set the reserved "override" field to either "true" or "false".
 4. Depending on the value of `timeout_ms`, run a PEXPIRE command to set the timeout.
-4. Return `($key, $fields)`
+4. Return list of fields written to.
 
 ## Read Parameter
 
@@ -1680,7 +1680,7 @@ HSET $key $field $value
 # Basic parameter, default and timout_ms=10000
 data = {b"my_str": b"hello, world!"}
 key = "my_param"
-param_key, param_fields = caller.parameter_write(key, data)
+param_fields = caller.parameter_write(key, data)
 param_data = caller.parameter_read(key)
 # param_data == data
 my_element.parameter_delete(key)
@@ -1688,7 +1688,7 @@ my_element.parameter_delete(key)
 # Serialized parameter
 data = {b"my_str": b"hello, world!"}
 key = "my_param"
-param_key, param_fields = caller.parameter_write(key, data, serialization="msgpack")
+param_fields = caller.parameter_write(key, data, serialization="msgpack")
 param_data = my_element.parameter_read(key)
 # param_data == data
 my_element.parameter_delete(key)
@@ -1697,7 +1697,7 @@ my_element.parameter_delete(key)
 data = {b"str1": b"hello, world!",
         b"str2": b"goodbye"}
 key = "my_param"
-param_key, param_fields = caller.parameter_write(key, data, serialization="msgpack")
+param_fields = caller.parameter_write(key, data, serialization="msgpack")
 param_data = my_element.parameter_read(key, fields=["str2"])
 my_element.parameter_delete(key)
 ```
@@ -1735,7 +1735,7 @@ HGETALL $key
 # Basic parameter, no expiry -- exists until deleted
 data = {b"my_str": b"hello, world!"}
 key = "my_param"
-param_key, param_fields = caller.parameter_write(key, data, timeout_ms=0)
+param_fields = caller.parameter_write(key, data, timeout_ms=0)
 
 # Delete the parameter
 my_element.parameter_delete(key)
@@ -1770,7 +1770,7 @@ DEL $key
 # Basic parameter, no expiry -- exists until deleted
 data = {b"my_str": b"hello, world!"}
 key = "my_param"
-param_key, param_fields = caller.parameter_write(key, data, timeout_ms=0)
+param_fields = caller.parameter_write(key, data, timeout_ms=0)
 time_remaining = my_element.parameter_get_timeout_ms(key)
 # time_remaining == -1 i.e. no timeout
 my_element.parameter_delete(key)
@@ -1778,7 +1778,7 @@ my_element.parameter_delete(key)
 # Basic parameter, with timeout
 data = {b"my_str": b"hello, world!"}
 key = "my_param"
-param_key, param_fields = caller.parameter_write(key, data, timeout_ms=1000)
+param_fields = caller.parameter_write(key, data, timeout_ms=1000)
 time_remaining = my_element.parameter_get_timeout_ms(key)
 # time_remaining ~= 1000
 my_element.parameter_delete(key)
@@ -1810,7 +1810,7 @@ PTTL $key
 # Basic parameter, no expiry -- exists until deleted
 data = {b"my_str": b"hello, world!"}
 key = "my_param"
-param_key, param_fields = caller.parameter_write(key, data, timeout_ms=0)[0]
+param_fields = caller.parameter_write(key, data, timeout_ms=0)[0]
 time_remaining = my_element.parameter_get_timeout_ms(key)
 # time_remaining == -1 i.e. no timeout
 
