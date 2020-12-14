@@ -2388,6 +2388,28 @@ class Element:
         # Return list of all fields written to
         return fields
 
+    def parameter_get_override(self, key):
+        """
+        Return parameter's override setting
+
+        Args:
+            key (str): Parameter key
+        Returns:
+            (str) "true" or "false" parameter override setting
+        Raises:
+            Exception if parameter does not exist
+        """
+        key = self._make_parameter_key(key)
+        _pipe = self._rpipeline_pool.get()
+        _pipe.exists(key)
+        key_exists = _pipe.execute()[0]
+        if not key_exists:
+            raise Exception(f"Parameter {key} does not exist")
+
+        _pipe.hget(key, OVERRIDE_PARAM_FIELD)
+        override = _pipe.execute()[0]
+        return override.decode()
+
     def _parameter_read_init_metrics(self):
         """
         Initialize metrics for reading parameters

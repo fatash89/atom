@@ -1195,6 +1195,21 @@ class TestAtom:
         assert current_data == data
         caller.parameter_delete(key)
 
+    def test_parameter_get_override(self, caller):
+        caller, caller_name = caller
+        data = {b"str1": b"hello, world!", b"str2": b"goodbye"}
+        key = "my_param"
+        _ = caller.parameter_write(key, data, override=False)
+        override = caller.parameter_get_override(key)
+        assert override == "false"
+        caller.parameter_delete(key)
+
+    def test_parameter_get_override_doesnt_exist(self, caller):
+        caller, caller_name = caller
+        key = "my_param"
+        with pytest.raises(Exception):
+            override = caller.parameter_get_override(key)
+
     def test_parameter_get_timeout_ms(self, caller):
         caller, caller_name = caller
         data = {b"my_str": b"hello, world!"}
