@@ -2300,6 +2300,7 @@ class Element:
         key = self._make_parameter_key(key)
         fields = []
         existing_override = None
+        serialization = "none" if serialization is None else serialization
 
         # Initialize metrics
         self._parameter_write_init_metrics()
@@ -2315,9 +2316,19 @@ class Element:
             key_exists = _pipe.execute()[0]
 
             if key_exists:
+                # Check requested serialization is same as existing
+                _pipe.hget(key, SERIALIZATION_PARAM_FIELD)
+                existing_ser = _pipe.execute()[0]
+
+                if existing_ser != serialization.encode():
+                    raise Exception(
+                        f"Parameter already exists with serialization {existing_ser};"
+                        f"any changes must also use {existing_ser} serialization"
+                    )
+
                 # Check override setting
                 _pipe.hget(key, OVERRIDE_PARAM_FIELD)
-                existing_override = _pipe.execute()[0]
+                existing_override = _pipe.execute()[0].decode()
 
                 if existing_override == "false":
                     # Check for requested fields
@@ -2347,16 +2358,16 @@ class Element:
                 self._parameter_write_metrics["serialize"], pipeline=pipeline
             )
 
-            # Add serialization field
-            serialization = "none" if serialization is None else serialization
-            _pipe.hset(key, SERIALIZATION_PARAM_FIELD, serialization)
+            # Add serialization field to new parameter
+            if not key_exists:
+                _pipe.hset(key, SERIALIZATION_PARAM_FIELD, serialization)
 
             # Add override field if existing override isn't false
             if existing_override != "false":
                 override = "true" if override is True else "false"
                 _pipe.hset(key, OVERRIDE_PARAM_FIELD, override)
-            else:
-                self.logger.warning("Cannot override existing override value")
+            elif override is True:
+                self.logger.warning("Cannot override existing false override value")
 
             # Set timeout in ms if nonzero positive
             if timeout_ms > 0:
@@ -2370,7 +2381,8 @@ class Element:
                 self._parameter_write_metrics["data"], pipeline=pipeline
             )
 
-        if not all(response):
+        # Check for valid HSET responses
+        if not all([(code == 0 or code == 1) for code in response]):
             raise ValueError(f"Failed to create parameter! response {response}")
 
         # Return list of all fields written to

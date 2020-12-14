@@ -1079,12 +1079,16 @@ class TestAtom:
         caller, caller_name = caller
         data = {b"my_str": b"hello, world!"}
         key = "my_param"
-        param_fields = caller.parameter_write(key, data)
+        _ = caller.parameter_write(key, data)
         param_data = caller.parameter_read(key)
         assert param_data == data
         caller.parameter_delete(key)
 
     def test_parameter_read_field(self, caller):
+        """
+        Writes parameter with multiple fields; verifies that
+        a single field can be successfully read.
+        """
         caller, caller_name = caller
         data = {b"str1": b"hello, world!", b"str2": b"goodbye"}
         key = "my_param"
@@ -1094,57 +1098,108 @@ class TestAtom:
         caller.parameter_delete(key)
 
     def test_parameter_write_msgpack(self, caller):
+        """
+        Writes parameter with msgpack serialization.
+        Verifies it is successfully deserialized when read.
+        """
         caller, caller_name = caller
         data = {b"my_str": b"hello, world!"}
         key = "my_param"
-        param_fields = caller.parameter_write(
-            key, data, serialization="msgpack"
-        )
+        param_fields = caller.parameter_write(key, data, serialization="msgpack")
         param_data = caller.parameter_read(key)
         assert param_data == data
         caller.parameter_delete(key)
 
     def test_parameter_read_msgpack_field(self, caller):
+        """
+        Writes parameter with multiple fields serialized with msgpack.
+        Verifies that a single field is successfully read and deserialized.
+        """
         caller, caller_name = caller
         data = {b"str1": b"hello, world!", b"str2": b"goodbye"}
         key = "my_param"
-        param_fields = caller.parameter_write(
-            key, data, serialization="msgpack"
-        )
+        param_fields = caller.parameter_write(key, data, serialization="msgpack")
         param_data = caller.parameter_read(key, fields=["str2"])
         assert param_data == {b"str2": b"goodbye"}
         caller.parameter_delete(key)
 
-    def test_parameter_cannot_override_existing_key(sef, caller):
+    def test_parameter_write_override_true(self, caller):
+        """
+        Writes parameter with override allowed. Updates one existing
+        field. Reads parameter and checks field was updated.
+        """
         caller, caller_name = caller
         data = {b"str1": b"hello, world!", b"str2": b"goodbye"}
         key = "my_param"
-        param_fields = caller.parameter_write(
-            key, data, override=False
-        )
+        _ = caller.parameter_write(key, data)
+        new_data = {b"str2": b"goodbye again"}
+        updated = caller.parameter_write(key, new_data)
+        assert updated == [b"str2"]
+        new_data = caller.parameter_read(key)
+        assert new_data == {b"str1": b"hello, world!", b"str2": b"goodbye again"}
+        caller.parameter_delete(key)
+
+    def test_parameter_write_override_false(sef, caller):
+        """
+        Writes parmaeter with override not allowed. Tries updating
+        existing field and verifies that exception is raised. Reads
+        parameter and checks field was not updated.
+        """
+        caller, caller_name = caller
+        data = {b"str1": b"hello, world!", b"str2": b"goodbye"}
+        key = "my_param"
+        _ = caller.parameter_write(key, data, override=False)
         new_data = {b"str2": b"goodbye again"}
         with pytest.raises(Exception):
             new_fields = caller.parameter_write(key, new_data)
 
+        current_data = caller.parameter_read(key)
+        assert current_data == data
         caller.parameter_delete(key)
 
-    def test_parameter_write_new_key_override_false(sef, caller):
+    def test_parameter_write_override_false_allows_new_key(sef, caller):
+        """
+        Writes parameter with override not allowed. Tries adding new field
+        to parameter and verifies new field was successfully added.
+        """
         caller, caller_name = caller
         data = {b"str1": b"hello, world!", b"str2": b"goodbye"}
         key = "my_param"
-        param_fields = caller.parameter_write(
-            key, data, override=False
-        )
+        _ = caller.parameter_write(key, data, override=False)
         new_data = {b"str3": b"goodbye again"}
         new_fields = caller.parameter_write(key, new_data)
-        assert new_fields == ["str3"]
+        assert new_fields == [b"str3"]
+        new_data = caller.parameter_read(key)
+        assert new_data == {
+            b"str1": b"hello, world!",
+            b"str2": b"goodbye",
+            b"str3": b"goodbye again",
+        }
+        caller.parameter_delete(key)
+
+    def test_parameter_write_new_serialization_raises_error(self, caller):
+        """
+        Writes parameter with msgpack serialization. Attempts to add
+        new field with no serialization; verifies that exception is raised
+        and existing parameter is not changed.
+        """
+        caller, caller_name = caller
+        data = {b"str1": b"hello, world!", b"str2": b"goodbye"}
+        key = "my_param"
+        _ = caller.parameter_write(key, data, serialization="msgpack")
+        new_data = {b"str3": b"goodbye again"}
+        with pytest.raises(Exception):
+            new_fields = caller.parameter_write(key, new_data)
+
+        current_data = caller.parameter_read(key)
+        assert current_data == data
         caller.parameter_delete(key)
 
     def test_parameter_get_timeout_ms(self, caller):
         caller, caller_name = caller
         data = {b"my_str": b"hello, world!"}
         key = "my_param"
-        param_fields = caller.parameter_write(key, data, timeout_ms=1000)
+        _ = caller.parameter_write(key, data, timeout_ms=1000)
         remaining_ms = caller.parameter_get_timeout_ms(key)
         assert remaining_ms > 0 and remaining_ms <= 1000
         time.sleep(0.1)
@@ -1156,7 +1211,7 @@ class TestAtom:
         caller, caller_name = caller
         data = {b"my_str": b"hello, world!"}
         key = "my_param"
-        param_fields = caller.parameter_write(key, data, timeout_ms=1000)
+        _ = caller.parameter_write(key, data, timeout_ms=1000)
         remaining_ms = caller.parameter_get_timeout_ms(key)
         assert remaining_ms > 0 and remaining_ms <= 1000
 
@@ -1169,7 +1224,7 @@ class TestAtom:
         caller, caller_name = caller
         data = {b"my_str": b"hello, world!"}
         key = "my_param"
-        param_fields = caller.parameter_write(key, data, timeout_ms=1000)
+        _ = caller.parameter_write(key, data, timeout_ms=1000)
         remaining_ms = caller.parameter_get_timeout_ms(key)
         assert remaining_ms > 0 and remaining_ms <= 1000
 
@@ -1182,7 +1237,7 @@ class TestAtom:
         caller, caller_name = caller
         data = {b"my_str": b"hello, world!"}
         key = "my_param"
-        param_fields = caller.parameter_write(key, data, timeout_ms=0)
+        _ = caller.parameter_write(key, data, timeout_ms=0)
         param_data = caller.parameter_read(key)
         assert param_data == data
 
@@ -1197,7 +1252,7 @@ class TestAtom:
         caller, caller_name = caller
         data = {b"my_str": b"hello, world!"}
         key = "my_param"
-        param_fields = caller.parameter_write(key, data, timeout_ms=0)
+        _ = caller.parameter_write(key, data, timeout_ms=0)
         caller.parameter_delete(key)
         del_data = caller.parameter_read(key)
         assert del_data is None
