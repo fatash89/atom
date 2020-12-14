@@ -2269,18 +2269,20 @@ class Element:
         return f"parameter:{key}"
 
     def parameter_write(
-        self, key, data, override=True, serialization=None, timeout_ms=10000
+        self, key, data, override=True, serialization=None, timeout_ms=0
     ):
         """
         Creates a Redis hash store, prefixed under the "parameter:" namespace
         with user specified key. Each field in the data dictionary will be
         stored as a field on the Redis hash. Override and serialization fields
-        will be added based on the user-passed args. The store will expire after
-        timeout_ms amount of time.
+        will be added based on the user-passed args. The store will never
+        expire by default and should be explicitly deleted when no longer
+        needed.
 
         If the store already exists under the specified key, the override
         field will be checked. The fields will be updated if override is true,
-        otherwise an error will be raised.
+        otherwise an error will be raised. A parameter's serialization method
+        cannot be changed once it is set at the intial write.
 
         Args:
             key (str): name of parameter to store
@@ -2290,12 +2292,13 @@ class Element:
             serialization (str, optional): Method of serialization to use;
                 defaults to None.
             timeout_ms (int, optional): How long the reference should persist
-                in atom unless otherwise extended/deleted. Set to 0 to have the
-                reference never time out (generally a terrible idea)
+                in atom unless otherwise extended/deleted. Defaults to 0 for no
+                timeout, i.e. parameter exists until explicitly deleted.
         Returns:
             list of fields written to
         Raises:
-            Exception if key exists and cannot be overridden
+            Exception if key exists and cannot be overridden or a serialization
+            method other than the existing one is requested
         """
         key = self._make_parameter_key(key)
         fields = []
@@ -2525,8 +2528,7 @@ class Element:
     def parameter_update_timeout_ms(self, key, timeout_ms):
         """
         Updates the timeout for an existing parameter. This might want to
-        be done as we won't know exactly how long we'll need the key for
-        at the original point in time for which we created it
+        be done in case we don't want the parameter to live forever.
 
         Args:
             key (str): Key of a parameter for which we want to update the

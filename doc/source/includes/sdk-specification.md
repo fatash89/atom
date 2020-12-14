@@ -1273,7 +1273,7 @@ Wait for elements healthy should leverage the existing healthcheck command and b
 
 ```python
 
-# Basic reference, default seralization="none" and timout_ms=10000
+# Basic reference, default seralization="none" and timeout_ms=10000
 data = b'hello, world!'
 ref_ids = my_element.reference_create(data)
 my_element.reference_delete(*ref_ids)
@@ -1324,7 +1324,7 @@ List of string IDs for the newly created references.
 key = reference:$element_name:$uuid4
 ```
 2. Serialize the data if specified to in the args
-3. Depending on the value of `timeout_ms`, run a SET command as below with `PX $timeout` of `timout_ms>0`, else without the `PX` portion. The NX portion ensures that the reference key doesn't already exist which is pretty unlikely with the UUID scheme but should be checked regardless.
+3. Depending on the value of `timeout_ms`, run a SET command as below with `PX $timeout` of `timeout_ms>0`, else without the `PX` portion. The NX portion ensures that the reference key doesn't already exist which is pretty unlikely with the UUID scheme but should be checked regardless.
 ```
 SET $key NX [PX $timeout]
 ```
@@ -1334,7 +1334,7 @@ SET $key NX [PX $timeout]
 
 ```python
 
-# Basic reference, default and timout_ms=10000
+# Basic reference, default and timeout_ms=10000
 data = b'hello, world!'
 ref_id = my_element.reference_create(data)[0]
 ref_data = my_element.reference_get(ref_id)[0]
@@ -1575,7 +1575,7 @@ time_remaining = my_element.reference_get_timeout_ms(ref_id)
 my_element.reference_delete(ref_id)
 ```
 
-Update the timout for a reference so that it expires in `timeout_ms` milliseconds from now, with the edge case of `timeout_ms==0` yielding no timeout, i.e. it persists until deleted.
+Update the timeout for a reference so that it expires in `timeout_ms` milliseconds from now, with the edge case of `timeout_ms==0` yielding no timeout, i.e. it persists until deleted.
 
 ### API
 
@@ -1590,7 +1590,7 @@ None
 
 ### Spec
 
-1. If `timout_ms == ` call `PERSIST` on the key
+1. If `timeout_ms == 0` call `PERSIST` on the key
 ```
 PERSIST $key
 ```
@@ -1603,7 +1603,7 @@ PEXPIRE $key $timeout_ms
 
 ```python
 
-# Basic parameter, override=True, default seralization="none", timout_ms=10000
+# Basic parameter, override=True, default seralization="none", timeout_ms=0
 data = {b"my_str": b"hello, world!"}
 key = "my_param"
 param_fields = caller.parameter_write(key, data)
@@ -1624,7 +1624,7 @@ my_element.parameter_delete(key)
 # No timeout
 data = {b"my_str": b"hello, world!"}
 key = "my_param"
-param_fields = caller.parameter_write(key, data, serialization="msgpack", timeout_ms=0)
+param_fields = caller.parameter_write(key, data, serialization="msgpack")
 my_element.parameter_delete(key)
 
 # Overrides not allowed
@@ -1638,7 +1638,7 @@ Turn a user-specified data dictionary into an Atom parameter. The data
 will be stored in Redis and will be able to be retrieved using
 the `parameter_read` API.
 
-The `timeout_ms` argument is powerful -- it allows you to set a time at which the parameter will auto-expire and the memory will be cleaned up. *This feature is not to be depended on as the primary clean-up mechanism for parameters*. Do not rely on the timeout to free your memory, this is poor form.
+The `timeout_ms` argument is powerful -- it allows you to set a time at which the parameter will auto-expire and the memory will be cleaned up. By default, the `timeout_ms` is set to 0 so the parameter will not expire and will exist until explicitly deleted. Elements that create parameters should explicitly delete them when they are no longer needed.
 
 ### API
 
@@ -1648,7 +1648,7 @@ The `timeout_ms` argument is powerful -- it allows you to set a time at which th
 | `data` | dict | Dictionary containing key-val pairs to store in Redis hash at specified key |
 | `override` | bool | Boolean for whether parameter values may be overriden by future calls to `parameter_write` |
 | `serialization` | str | The method of serialization to use on the parameter fields; defaults to None. |
-| `timeout_ms` | int | How long the parameter should exist in Atom. This sets the expiry timeout in redis. Units in milliseconds. Set to 0 for no timeout, i.e. parameter exists until explicitly deleted. |
+| `timeout_ms` | int | How long the parameter should exist in Atom. This sets the expiry timeout in redis. Units in milliseconds. Defaults to 0 for no timeout, i.e. parameter exists until explicitly deleted. |
 
 ### Return Value
 
@@ -1660,24 +1660,29 @@ List of parameter fields written to.
 ```
 key = parameter:$key
 ```
-2. Check if the parameter already exists in atom; if so, check its override value. If its override is set to false,
-raise an Exception. Otherwise, continue writing the parameter.
-3. Serialize the data if specified to in the args
+2. Check if the parameter already exists in atom; if so, check that the requested serialization is the same as the
+existing serialization, and if not raise an Exception.
+3. If the parameter exists and the requested serialization matches the existing serialization, check the existing override
+setting. If the existing override is set to false, and the user is trying to update existing param fields,
+raise an Exception. Otherwise, continue writing or updating the parameter fields.
+3. Serialize the data as requested.
 4. Run an HSET command to set each field of the parameter in Redis, where the `($field, $value)` pairs come from the
 data dictionary.
 ```
 HSET $key $field $value
 ```
 5. If the data is serialized, use HSET to set the reserved "ser" field.
-6. Use HSET to set the reserved "override" field to either "true" or "false".
-4. Depending on the value of `timeout_ms`, run a PEXPIRE command to set the timeout.
+6. Use HSET to set the reserved "override" field to either "true" or "false". Note that if the parameter already existed
+with an override value of "false", it cannot be updated. If the override value was set to "true", however, it can be updated
+to "false".
+4. If a postive, nonzero `timeout_ms` is requested, run a PEXPIRE command to set the timeout.
 4. Return list of fields written to.
 
 ## Read Parameter
 
 ```python
 
-# Basic parameter, default and timout_ms=10000
+# Basic parameter, default serialization/override/timeout
 data = {b"my_str": b"hello, world!"}
 key = "my_param"
 param_fields = caller.parameter_write(key, data)
@@ -1744,7 +1749,7 @@ param_data = my_element.parameter_read(key)
 # param_data is None
 ```
 
-Explicitly delete parameters from Atom. If a parameter was created with `timeout_ms=0` then this *always* needs to be called after, otherwise the memory will just sit in redis. In general, it's ill-advised to use `timeout_ms=0` and recommended you choose a safe timeout as a fallback in case we ever forget to call this function. Normal dev flows should *always* plan to call this function and should use the timeout as a fallback, not a primary mechanism, for cleaning up memory.
+Explicitly delete parameters from Atom. If a parameter was created with the default `timeout_ms=0` then this should *always* be called on element shutdown or when the parameter is no longer necessary, otherwise the memory will just sit in Redis.
 
 ### API
 
@@ -1770,7 +1775,7 @@ DEL $key
 # Basic parameter, no expiry -- exists until deleted
 data = {b"my_str": b"hello, world!"}
 key = "my_param"
-param_fields = caller.parameter_write(key, data, timeout_ms=0)
+param_fields = caller.parameter_write(key, data)
 time_remaining = my_element.parameter_get_timeout_ms(key)
 # time_remaining == -1 i.e. no timeout
 my_element.parameter_delete(key)
@@ -1810,7 +1815,7 @@ PTTL $key
 # Basic parameter, no expiry -- exists until deleted
 data = {b"my_str": b"hello, world!"}
 key = "my_param"
-param_fields = caller.parameter_write(key, data, timeout_ms=0)[0]
+param_fields = caller.parameter_write(key, data)[0]
 time_remaining = my_element.parameter_get_timeout_ms(key)
 # time_remaining == -1 i.e. no timeout
 
@@ -1822,7 +1827,7 @@ time_remaining = my_element.parameter_get_timeout_ms(key)
 my_element.parameter_delete(key)
 ```
 
-Update the timout for a parameter so that it expires in `timeout_ms` milliseconds from now, with the edge case of `timeout_ms==0` yielding no timeout, i.e. it persists until deleted.
+Update the timeout for a parameter so that it expires in `timeout_ms` milliseconds from now, with the edge case of `timeout_ms==0` yielding no timeout, i.e. it persists until deleted.
 
 ### API
 
@@ -1837,7 +1842,7 @@ None
 
 ### Spec
 
-1. If `timout_ms == ` call `PERSIST` on the key
+1. If `timeout_ms == 0` call `PERSIST` on the key
 ```
 PERSIST $key
 ```

@@ -1092,7 +1092,7 @@ class TestAtom:
         caller, caller_name = caller
         data = {b"str1": b"hello, world!", b"str2": b"goodbye"}
         key = "my_param"
-        param_fields = caller.parameter_write(key, data)
+        _ = caller.parameter_write(key, data)
         param_data = caller.parameter_read(key, fields="str2")
         assert param_data == {b"str2": b"goodbye"}
         caller.parameter_delete(key)
@@ -1105,7 +1105,7 @@ class TestAtom:
         caller, caller_name = caller
         data = {b"my_str": b"hello, world!"}
         key = "my_param"
-        param_fields = caller.parameter_write(key, data, serialization="msgpack")
+        _ = caller.parameter_write(key, data, serialization="msgpack")
         param_data = caller.parameter_read(key)
         assert param_data == data
         caller.parameter_delete(key)
@@ -1118,7 +1118,7 @@ class TestAtom:
         caller, caller_name = caller
         data = {b"str1": b"hello, world!", b"str2": b"goodbye"}
         key = "my_param"
-        param_fields = caller.parameter_write(key, data, serialization="msgpack")
+        _ = caller.parameter_write(key, data, serialization="msgpack")
         param_data = caller.parameter_read(key, fields=["str2"])
         assert param_data == {b"str2": b"goodbye"}
         caller.parameter_delete(key)
@@ -1151,7 +1151,7 @@ class TestAtom:
         _ = caller.parameter_write(key, data, override=False)
         new_data = {b"str2": b"goodbye again"}
         with pytest.raises(Exception):
-            new_fields = caller.parameter_write(key, new_data)
+            _ = caller.parameter_write(key, new_data)
 
         current_data = caller.parameter_read(key)
         assert current_data == data
@@ -1189,7 +1189,7 @@ class TestAtom:
         _ = caller.parameter_write(key, data, serialization="msgpack")
         new_data = {b"str3": b"goodbye again"}
         with pytest.raises(Exception):
-            new_fields = caller.parameter_write(key, new_data)
+            _ = caller.parameter_write(key, new_data)
 
         current_data = caller.parameter_read(key)
         assert current_data == data
@@ -1208,7 +1208,16 @@ class TestAtom:
         caller, caller_name = caller
         key = "my_param"
         with pytest.raises(Exception):
-            override = caller.parameter_get_override(key)
+            _ = caller.parameter_get_override(key)
+
+    def test_parameter_default_timeout_is_none(self, caller):
+        caller, caller_name = caller
+        data = {b"my_str": b"hello, world!"}
+        key = "my_param"
+        _ = caller.parameter_write(key, data)
+        remaining_ms = caller.parameter_get_timeout_ms(key)
+        assert remaining_ms == -1
+        caller.parameter_delete(key)
 
     def test_parameter_get_timeout_ms(self, caller):
         caller, caller_name = caller
