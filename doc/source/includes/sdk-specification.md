@@ -1278,6 +1278,12 @@ data = b'hello, world!'
 ref_ids = my_element.reference_create(data)
 my_element.reference_delete(*ref_ids)
 
+# Reference with user specified key
+data = b"hello, world!"
+key = "my_ref"
+ref_ids = my_element.reference_create(data, key=key)
+my_element.reference_delete(*ref_ids)
+
 # Serialized reference
 data = {"hello" : "world"}
 ref_ids = my_element.reference_create(data, serialization="msgpack")
@@ -1603,7 +1609,7 @@ PEXPIRE $key $timeout_ms
 
 ```python
 
-# Basic parameter, override=True, default seralization="none", timeout_ms=0
+# Basic parameter, override=True, default seralization="none", timeout_ms=0 (no timeout)
 data = {b"my_str": b"hello, world!"}
 key = "my_param"
 param_fields = caller.parameter_write(key, data)
@@ -1619,12 +1625,6 @@ my_element.parameter_delete(key)
 data = {b"my_str": b"hello, world!"}
 key = "my_param"
 param_fields = caller.parameter_write(key, data, serialization="msgpack", timeout_ms=1000)
-my_element.parameter_delete(key)
-
-# No timeout
-data = {b"my_str": b"hello, world!"}
-key = "my_param"
-param_fields = caller.parameter_write(key, data, serialization="msgpack")
 my_element.parameter_delete(key)
 
 # Overrides not allowed
@@ -1740,7 +1740,7 @@ HGETALL $key
 # Basic parameter, no expiry -- exists until deleted
 data = {b"my_str": b"hello, world!"}
 key = "my_param"
-param_fields = caller.parameter_write(key, data, timeout_ms=0)
+param_fields = caller.parameter_write(key, data)
 
 # Delete the parameter
 my_element.parameter_delete(key)
