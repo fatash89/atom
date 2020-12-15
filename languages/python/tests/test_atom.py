@@ -1365,13 +1365,13 @@ class TestAtom:
         caller, caller_name = caller
         data = [b"hello, world!", b"robots are fun!"]
         with pytest.raises(Exception):
-            ref_ids = caller.reference_create(*data, keys=["ref1"])
+            _ = caller.reference_create(*data, keys=["ref1"])
 
     def test_reference_multiple_mismatch_keys_2(self, caller):
         caller, caller_name = caller
         data = [b"hello, world!"]
         with pytest.raises(Exception):
-            ref_ids = caller.reference_create(*data, keys=["ref1", "ref2"])
+            _ = caller.reference_create(*data, keys=["ref1", "ref2"])
 
     def test_reference_multiple_msgpack(self, caller):
         caller, caller_name = caller

@@ -2589,8 +2589,8 @@ class Element:
         Args:
             data (binary or object): one or more data items to be included in
                 the reference
-            keys (strs, optional): keys to use in reference IDs; defaults to None,
-                in which case they will be auto-generated UUIDs.
+            keys (strs, optional): keys to use in reference IDs; defaults to
+                None, in which case they will be auto-generated UUIDs.
             timeout_ms (int, optional): How long the reference should persist
                 in atom unless otherwise extended/deleted. Set to 0 to have the
                 reference never time out (generally a terrible idea)
@@ -2607,7 +2607,7 @@ class Element:
         ref_ids = []
 
         # Make user keys into list and compare the number to data
-        keys = [None]*len(data) if keys is None else keys
+        keys = [None] * len(data) if keys is None else keys
         keys = [keys] if type(keys) is not list else keys
         if len(data) != len(keys):
             raise Exception("Different number of objects and keys requested")
