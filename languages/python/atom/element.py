@@ -2297,7 +2297,7 @@ class Element:
         Returns:
             list of fields written to
         Raises:
-            Exception if key exists and cannot be overridden or a serialization
+            AtomError if key exists and cannot be overridden or a serialization
             method other than the existing one is requested
         """
         key = self._make_parameter_key(key)
@@ -2324,7 +2324,7 @@ class Element:
                 existing_ser = _pipe.execute()[0]
 
                 if existing_ser != serialization.encode():
-                    raise Exception(
+                    raise AtomError(
                         f"Parameter already exists with serialization {existing_ser};"
                         f"any changes must also use {existing_ser} serialization"
                     )
@@ -2343,7 +2343,7 @@ class Element:
                     # Raise error if override is false and any requested fields
                     # already exist
                     if any(fields_exist):
-                        raise Exception("Cannot override existing parameter fields")
+                        raise AtomError("Cannot override existing parameter fields")
 
             self.metrics_timing_end(
                 self._parameter_write_metrics["check"], pipeline=pipeline
@@ -2386,7 +2386,7 @@ class Element:
 
         # Check for valid HSET responses
         if not all([(code == 0 or code == 1) for code in response]):
-            raise ValueError(f"Failed to create parameter! response {response}")
+            raise AtomError(f"Failed to create parameter! response {response}")
 
         # Return list of all fields written to
         return fields
@@ -2400,14 +2400,14 @@ class Element:
         Returns:
             (str) "true" or "false" parameter override setting
         Raises:
-            Exception if parameter does not exist
+            AtomError if parameter does not exist
         """
         key = self._make_parameter_key(key)
         _pipe = self._rpipeline_pool.get()
         _pipe.exists(key)
         key_exists = _pipe.execute()[0]
         if not key_exists:
-            raise Exception(f"Parameter {key} does not exist")
+            raise AtomError(f"Parameter {key} does not exist")
 
         _pipe.hget(key, OVERRIDE_PARAM_FIELD)
         override = _pipe.execute()[0]
