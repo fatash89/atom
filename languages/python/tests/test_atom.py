@@ -1295,7 +1295,7 @@ class TestAtom:
         caller, caller_name = caller
         data = b"hello, world!"
         key = "my_string"
-        ref_id = caller.reference_create(data, key=key)[0]
+        ref_id = caller.reference_create(data, keys=key)[0]
         ref_data = caller.reference_get(ref_id)[0]
         assert ref_data == data
         caller.reference_delete(ref_id)
@@ -1349,6 +1349,29 @@ class TestAtom:
         for i in range(len(data)):
             assert ref_data[i] == data[i]
         caller.reference_delete(*ref_ids)
+
+    def test_reference_multiple_user_keys(self, caller):
+        caller, caller_name = caller
+        data = [b"hello, world!", b"robots are fun!"]
+        ref_ids = caller.reference_create(*data, keys=["ref1", "ref2"])
+        assert "ref1" in ref_ids[0] and "ref2" in ref_ids[1]
+        ref_data = caller.reference_get(*ref_ids)
+        for i in range(len(data)):
+            assert ref_data[i] == data[i]
+
+        caller.reference_delete(*ref_ids)
+
+    def test_reference_multiple_mismatch_keys(self, caller):
+        caller, caller_name = caller
+        data = [b"hello, world!", b"robots are fun!"]
+        with pytest.raises(Exception):
+            ref_ids = caller.reference_create(*data, keys=["ref1"])
+
+    def test_reference_multiple_mismatch_keys_2(self, caller):
+        caller, caller_name = caller
+        data = [b"hello, world!"]
+        with pytest.raises(Exception):
+            ref_ids = caller.reference_create(*data, keys=["ref1", "ref2"])
 
     def test_reference_multiple_msgpack(self, caller):
         caller, caller_name = caller

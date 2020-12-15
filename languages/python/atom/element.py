@@ -2576,7 +2576,7 @@ class Element:
         )
 
     def reference_create(
-        self, *data, key=None, serialization=None, serialize=None, timeout_ms=10000
+        self, *data, keys=None, serialization=None, serialize=None, timeout_ms=10000
     ):
         """
         Creates one or more expiring references (similar to a pointer) in the
@@ -2589,8 +2589,8 @@ class Element:
         Args:
             data (binary or object): one or more data items to be included in
                 the reference
-            key (str, optional): key to use as reference ID; defaults to None,
-                in which case it will be an auto-generated UUID.
+            keys (strs, optional): keys to use as reference IDs; defaults to None,
+                in which case they will be auto-generated UUIDs.
             timeout_ms (int, optional): How long the reference should persist
                 in atom unless otherwise extended/deleted. Set to 0 to have the
                 reference never time out (generally a terrible idea)
@@ -2604,7 +2604,13 @@ class Element:
         Return:
             List of references corresponding to the arguments passed
         """
-        keys = []
+        ref_ids = []
+
+        # Make user keys into list and compare the number to data
+        keys = [None]*len(data) if keys is None else keys
+        keys = [keys] if type(keys) is not list else keys
+        if len(data) != len(keys):
+            raise Exception("Different number of objects and keys requested")
 
         # Initialize metrics
         self._reference_create_init_metrics()
@@ -2620,9 +2626,9 @@ class Element:
 
             # Serialize
             self.metrics_timing_start(self._reference_create_metrics["serialize"])
-            for datum in data:
+            for i, datum in enumerate(data):
                 # Get the full key name for the reference to use in redis
-                key = self._make_reference_id(key)
+                key = self._make_reference_id(keys[i])
 
                 # Now, we can go ahead and do the SET in redis for the key
                 # Expire as set by the user
@@ -2633,7 +2639,7 @@ class Element:
                     + (str(serialization) if serialization is not None else "none")
                 )
                 _pipe.set(key, serialized_datum, px=px_val, nx=True)
-                keys.append(key)
+                ref_ids.append(key)
             self.metrics_timing_end(
                 self._reference_create_metrics["serialize"], pipeline=pipeline
             )
@@ -2650,7 +2656,7 @@ class Element:
             raise ValueError(f"Failed to create reference! response {response}")
 
         # Return the key that was generated for the reference
-        return keys
+        return ref_ids
 
     def _reference_create_from_stream_init_metrics(self, element, stream):
         """
