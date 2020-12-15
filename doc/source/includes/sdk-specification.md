@@ -1303,6 +1303,12 @@ my_element.reference_delete(*ref_ids)
 data = ["a", "b", "c"]
 ref_ids = my_element.reference_create(*data, serialization="msgpack")
 my_element.reference_delete(*ref_ids)
+
+# Creating multiple references with user-specified keys
+data = ["a", "b", "c"]
+keys = ["ref1", "ref2", "ref3"]
+ref_ids = my_element.reference_create(*data, keys=keys, serialization="msgpack")
+my_element.reference_delete(*ref_ids)
 ```
 
 Turn a user-specified data blob into an Atom reference. The data
@@ -1316,6 +1322,8 @@ The `timeout_ms` argument is powerful -- it allows you to set a time at which th
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `*data` | Binary/Object | One or more objects to be used for the reference |
+| `keys` | strs | Single string or list of strings to be used in reference IDs; defaults to None in which case UUIDs will
+be generated |
 | `serialization` | str | The method of serialization to use; defaults to None. |
 | `timeout_ms` | int | How long the references should exist in Atom. This sets the expiry timeout in redis. Units in milliseconds. Set to 0 for no timeout, i.e. references exist until explicitly deleted. |
 
@@ -1325,9 +1333,10 @@ List of string IDs for the newly created references.
 
 ### Spec
 
-1. Make a reference ID using the following string format:
+1. Check that if keys is not None, same number of keys as data were provided; raise Exception if not.
+2. Make reference IDs using the following string format where `$id` is either user specified or a generated UUID:
 ```
-key = reference:$element_name:$uuid4
+key = reference:$element_name:$id
 ```
 2. Serialize the data if specified to in the args
 3. Depending on the value of `timeout_ms`, run a SET command as below with `PX $timeout` of `timeout_ms>0`, else without the `PX` portion. The NX portion ensures that the reference key doesn't already exist which is pretty unlikely with the UUID scheme but should be checked regardless.

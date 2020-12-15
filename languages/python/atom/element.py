@@ -2589,7 +2589,7 @@ class Element:
         Args:
             data (binary or object): one or more data items to be included in
                 the reference
-            keys (strs, optional): keys to use as reference IDs; defaults to None,
+            keys (strs, optional): keys to use in reference IDs; defaults to None,
                 in which case they will be auto-generated UUIDs.
             timeout_ms (int, optional): How long the reference should persist
                 in atom unless otherwise extended/deleted. Set to 0 to have the
