@@ -107,3 +107,14 @@ easily be done on either the most recent entry in a stream or for any particular
 value that exists in the stream. The reference is created without the data
 ever leaving redis -- there are zero copies to/from the client performed --
 which is beneficial in applications with large entries (such as for cameras).
+
+### Parameters
+
+Similar to references, it is useful to be able to store general key-value pairs
+in memory that are accessible to multiple elements in our system. We solve this
+with parameters, which are Redis hashes consisting of multiple key-val pairs
+stored at a specified Redis key. Parameters offer low-latency communication of shared
+data across our stack. Like references, parameters are set to expire after a
+given amount time. Their field values can also be serialized. Parameters have an
+override setting which determines whether or not their values can be updated with
+additional write calls after the intial parameter has been created.

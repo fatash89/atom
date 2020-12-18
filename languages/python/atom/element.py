@@ -48,6 +48,11 @@ from atom.config import (
     RESERVED_COMMANDS,
 )
 from atom.config import (
+    OVERRIDE_PARAM_FIELD,
+    SERIALIZATION_PARAM_FIELD,
+    RESERVED_PARAM_FIELDS,
+)
+from atom.config import (
     METRICS_TYPE_LABEL,
     METRICS_HOST_LABEL,
     METRICS_ATOM_VERSION_LABEL,
@@ -178,6 +183,8 @@ class Element:
         self._entry_read_n_metrics = defaultdict(lambda: defaultdict(lambda: None))
         self._entry_read_since_metrics = defaultdict(lambda: defaultdict(lambda: None))
         self._entry_write_metrics = defaultdict(lambda: None)
+        self._parameter_write_metrics = None
+        self._parameter_read_metrics = None
         self._reference_create_metrics = None
         self._reference_create_from_stream_metrics = defaultdict(
             lambda: defaultdict(lambda: None)
@@ -590,15 +597,17 @@ class Element:
         if "" in labels.values():
             raise AtomError("Metrics labels cannot include empty strings")
 
-    def _make_reference_id(self):
+    def _make_reference_id(self, key=None):
         """
         Creates a reference ID
 
         Args:
-
+            key (str, optional): User specified key; defaults to None
+        Returns:
+            Full reference key that includes element name
         """
-
-        return f"reference:{self.name}:{str(uuid.uuid4())}"
+        key = key if key else str(uuid.uuid4())
+        return f"reference:{self.name}:{key}"
 
     def _get_redis_timestamp(self):
         """
@@ -1024,7 +1033,7 @@ class Element:
         """Incremeents reference counter for element stream collection"""
         _pipe.incr(self._make_consumer_group_counter(self.name))
         result = _pipe.execute()[-1]
-        self.logger.debug(f"inrementing element {self.name} {result}")
+        self.logger.debug(f"incrementing element {self.name} {result}")
         return result
 
     def _decrement_command_group_counter(self, _pipe):
@@ -2223,6 +2232,325 @@ class Element:
             numeric_level = getattr(logging, LOG_DEFAULT_LEVEL)
         self.logger.log(numeric_level, msg)
 
+    def _parameter_write_init_metrics(self):
+        """
+        Initialize parameter write metrics
+        """
+
+        # If we've already initialized the metrics, no need to worry
+        if self._parameter_write_metrics:
+            return
+
+        self._parameter_write_metrics = {}
+
+        self._parameter_write_metrics["data"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:parameter_write",
+            "data",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+        self._parameter_write_metrics["serialize"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:parameter_write",
+            "serialize",
+            agg_types=["AVG", "MIN", "MAX"],
+        )
+        self._parameter_write_metrics["check"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:parameter_write",
+            "check",
+            agg_types=["AVG", "MIN", "MAX"],
+        )
+
+    def _make_parameter_key(self, key):
+        """
+        Prefixes requested key under parameter namespace.
+        """
+        return f"parameter:{key}"
+
+    def parameter_write(
+        self, key, data, override=True, serialization=None, timeout_ms=0
+    ):
+        """
+        Creates a Redis hash store, prefixed under the "parameter:" namespace
+        with user specified key. Each field in the data dictionary will be
+        stored as a field on the Redis hash. Override and serialization fields
+        will be added based on the user-passed args. The store will never
+        expire by default and should be explicitly deleted when no longer
+        needed.
+
+        If the store already exists under the specified key, the override
+        field will be checked. The fields will be updated if override is true,
+        otherwise an error will be raised. A parameter's serialization method
+        cannot be changed once it is set at the intial write.
+
+        Args:
+            key (str): name of parameter to store
+            data (dict): dictionary of data fields to store
+            override (bool, optional): whether or not hash fields can be
+                overwritten
+            serialization (str, optional): Method of serialization to use;
+                defaults to None.
+            timeout_ms (int, optional): How long the reference should persist
+                in atom unless otherwise extended/deleted. Defaults to 0 for no
+                timeout, i.e. parameter exists until explicitly deleted.
+        Returns:
+            list of fields written to
+        Raises:
+            AtomError if key exists and cannot be overridden or a serialization
+            method other than the existing one is requested
+        """
+        key = self._make_parameter_key(key)
+        fields = []
+        existing_override = None
+        serialization = "none" if serialization is None else serialization
+
+        # Initialize metrics
+        self._parameter_write_init_metrics()
+
+        # Get a metrics pipeline
+        with MetricsPipeline(self) as pipeline:
+
+            _pipe = self._rpipeline_pool.get()
+
+            # Check if parameter exists
+            self.metrics_timing_start(self._parameter_write_metrics["check"])
+            _pipe.exists(key)
+            key_exists = _pipe.execute()[0]
+
+            if key_exists:
+                # Check requested serialization is same as existing
+                _pipe.hget(key, SERIALIZATION_PARAM_FIELD)
+                existing_ser = _pipe.execute()[0]
+
+                if existing_ser != serialization.encode():
+                    raise AtomError(
+                        f"Parameter already exists with serialization {existing_ser};"
+                        f"any changes must also use {existing_ser} serialization"
+                    )
+
+                # Check override setting
+                _pipe.hget(key, OVERRIDE_PARAM_FIELD)
+                existing_override = _pipe.execute()[0].decode()
+
+                if existing_override == "false":
+                    # Check for requested fields
+                    for field in data.keys():
+                        _pipe.hget(key, field)
+
+                    fields_exist = _pipe.execute()
+
+                    # Raise error if override is false and any requested fields
+                    # already exist
+                    if any(fields_exist):
+                        raise AtomError("Cannot override existing parameter fields")
+
+            self.metrics_timing_end(
+                self._parameter_write_metrics["check"], pipeline=pipeline
+            )
+
+            # Serialize
+            self.metrics_timing_start(self._parameter_write_metrics["serialize"])
+            for field, datum in data.items():
+                # Do the SET in redis for each field
+                serialized_datum = ser.serialize(datum, method=serialization)
+                _pipe.hset(key, field, serialized_datum)
+                fields.append(field)
+
+            self.metrics_timing_end(
+                self._parameter_write_metrics["serialize"], pipeline=pipeline
+            )
+
+            # Add serialization field to new parameter
+            if not key_exists:
+                _pipe.hset(key, SERIALIZATION_PARAM_FIELD, serialization)
+
+            # Add override field if existing override isn't false
+            if existing_override != "false":
+                override = "true" if override is True else "false"
+                _pipe.hset(key, OVERRIDE_PARAM_FIELD, override)
+            elif override is True:
+                self.logger.warning("Cannot override existing false override value")
+
+            # Set timeout in ms if nonzero positive
+            if timeout_ms > 0:
+                _pipe.pexpire(key, timeout_ms)
+
+            # Write data
+            self.metrics_timing_start(self._parameter_write_metrics["data"])
+            response = _pipe.execute()
+            _pipe = self._release_pipeline(_pipe)
+            self.metrics_timing_end(
+                self._parameter_write_metrics["data"], pipeline=pipeline
+            )
+
+        # Check for valid HSET responses
+        if not all([(code == 0 or code == 1) for code in response]):
+            raise AtomError(f"Failed to create parameter! response {response}")
+
+        # Return list of all fields written to
+        return fields
+
+    def parameter_get_override(self, key):
+        """
+        Return parameter's override setting
+
+        Args:
+            key (str): Parameter key
+        Returns:
+            (str) "true" or "false" parameter override setting
+        Raises:
+            AtomError if parameter does not exist
+        """
+        key = self._make_parameter_key(key)
+        _pipe = self._rpipeline_pool.get()
+        _pipe.exists(key)
+        key_exists = _pipe.execute()[0]
+        if not key_exists:
+            raise AtomError(f"Parameter {key} does not exist")
+
+        _pipe.hget(key, OVERRIDE_PARAM_FIELD)
+        override = _pipe.execute()[0]
+        return override.decode()
+
+    def _parameter_read_init_metrics(self):
+        """
+        Initialize metrics for reading parameters
+        """
+
+        # If we've already done this, just return out
+        if self._parameter_read_metrics:
+            return
+
+        self._parameter_read_metrics = {}
+
+        self._parameter_read_metrics["data"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:parameter_read",
+            "data",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+        self._parameter_read_metrics["deserialize"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:parameter_read",
+            "deserialize",
+            agg_types=["AVG", "MIN", "MAX"],
+        )
+
+    def parameter_read(
+        self, key, fields=None, serialization=None, force_serialization=False
+    ):
+        """
+        Gets a parameter from the atom system. Reads the key from redis and
+        returns the data, performing a serialize/deserialize operation on each
+        field as commanded by the user. Can optionally choose which fields to
+        read from the parameter.
+
+        Args:
+            key (str): One parameter key to get from Atom
+            fields (strs, optional): list of field names to read from parameter
+            serialization (str, optional): If deserializing, the method of
+                serialization to use; defaults to None.
+            force_serialization (bool): Boolean to ignore serialization field if
+                found in favor of the user-passed serialization. Defaults to
+                false.
+        Returns:
+            dictionary of data read from the parameter store
+        """
+        key = self._make_parameter_key(key)
+
+        # Initialize metrics
+        self._parameter_read_init_metrics()
+
+        # Get a metrics pipeline
+        with MetricsPipeline(self) as pipeline:
+
+            # Get the data
+            self.metrics_timing_start(self._parameter_read_metrics["data"])
+            _pipe = self._rpipeline_pool.get()
+            _pipe.hgetall(key)
+            data = _pipe.execute()[0]
+            _pipe = self._release_pipeline(_pipe)
+            self.metrics_timing_end(
+                self._parameter_read_metrics["data"], pipeline=pipeline
+            )
+
+            self.metrics_timing_start(self._parameter_read_metrics["deserialize"])
+            deserialized_data = {}
+            # look for serialization method in parameter first; reformat data
+            #   into a dictionary with a "ser" key to use shared logic function
+            get_serialization_data = {}
+            if SERIALIZATION_PARAM_FIELD.encode() in data.keys():
+                get_serialization_data[SERIALIZATION_PARAM_FIELD] = data.pop(
+                    SERIALIZATION_PARAM_FIELD.encode()
+                )
+
+            # Use the serialization data to get the method for deserializing
+            #   according to the user's preference
+            serialization = self._get_serialization_method(
+                get_serialization_data,
+                serialization,
+                force_serialization,
+            )
+
+            # Deserialize the data
+            for field, val in data.items():
+                if field.decode() not in RESERVED_PARAM_FIELDS:
+                    deserialized_data[field] = (
+                        ser.deserialize(val, method=serialization)
+                        if val is not None
+                        else None
+                    )
+
+            self.metrics_timing_end(
+                self._parameter_read_metrics["deserialize"], pipeline=pipeline
+            )
+
+        if fields:
+            fields = [fields] if type(fields) != list else fields
+            return_data = {
+                field.encode(): deserialized_data[field.encode()] for field in fields
+            }
+        else:
+            return_data = deserialized_data
+
+        return return_data if return_data else None
+
+    def parameter_delete(self, key):
+        """
+        Deletes a parameter and cleans up its memory
+
+        Args:
+            keys (str): Key of parameter to delete from Atom
+        """
+        self.reference_delete(self._make_parameter_key(key))
+
+    def parameter_update_timeout_ms(self, key, timeout_ms):
+        """
+        Updates the timeout for an existing parameter. This might want to
+        be done in case we don't want the parameter to live forever.
+
+        Args:
+            key (str): Key of a parameter for which we want to update the
+                        timeout
+            timeout_ms (int): Timeout at which we want the key to expire.
+                        Pass <= 0 for no timeout, i.e. never expire (generally
+                        a terrible idea)
+
+        """
+        self.reference_update_timeout_ms(self._make_parameter_key(key), timeout_ms)
+
+    def parameter_get_timeout_ms(self, key):
+        """
+        Get the current amount of ms left on the parameter. Mainly useful
+        for debug. Returns -1 if no timeout, else the timeout in ms.
+
+        Args:
+            key (str):  Key of a reference for which we want to get the
+                        timeout ms for.
+        """
+        return self.reference_get_timeout_ms(self._make_parameter_key(key))
+
     def _reference_create_init_metrics(self):
         """
         Initialize reference create metrics
@@ -2248,7 +2576,7 @@ class Element:
         )
 
     def reference_create(
-        self, *data, serialization=None, serialize=None, timeout_ms=10000
+        self, *data, keys=None, serialization=None, serialize=None, timeout_ms=10000
     ):
         """
         Creates one or more expiring references (similar to a pointer) in the
@@ -2261,6 +2589,8 @@ class Element:
         Args:
             data (binary or object): one or more data items to be included in
                 the reference
+            keys (strs, optional): keys to use in reference IDs; defaults to
+                None, in which case they will be auto-generated UUIDs.
             timeout_ms (int, optional): How long the reference should persist
                 in atom unless otherwise extended/deleted. Set to 0 to have the
                 reference never time out (generally a terrible idea)
@@ -2274,7 +2604,13 @@ class Element:
         Return:
             List of references corresponding to the arguments passed
         """
-        keys = []
+        ref_ids = []
+
+        # Make user keys into list and compare the number to data
+        keys = [None] * len(data) if keys is None else keys
+        keys = [keys] if type(keys) is not list else keys
+        if len(data) != len(keys):
+            raise Exception("Different number of objects and keys requested")
 
         # Initialize metrics
         self._reference_create_init_metrics()
@@ -2290,9 +2626,9 @@ class Element:
 
             # Serialize
             self.metrics_timing_start(self._reference_create_metrics["serialize"])
-            for datum in data:
-                # Get the key name for the reference to use in redis
-                key = self._make_reference_id()
+            for i, datum in enumerate(data):
+                # Get the full key name for the reference to use in redis
+                key = self._make_reference_id(keys[i])
 
                 # Now, we can go ahead and do the SET in redis for the key
                 # Expire as set by the user
@@ -2303,7 +2639,7 @@ class Element:
                     + (str(serialization) if serialization is not None else "none")
                 )
                 _pipe.set(key, serialized_datum, px=px_val, nx=True)
-                keys.append(key)
+                ref_ids.append(key)
             self.metrics_timing_end(
                 self._reference_create_metrics["serialize"], pipeline=pipeline
             )
@@ -2320,7 +2656,7 @@ class Element:
             raise ValueError(f"Failed to create reference! response {response}")
 
         # Return the key that was generated for the reference
-        return keys
+        return ref_ids
 
     def _reference_create_from_stream_init_metrics(self, element, stream):
         """
@@ -2534,10 +2870,10 @@ class Element:
 
     def reference_delete(self, *keys):
         """
-        Deletes one or more references and cleans up their memory
+        Deletes one or more Redis keys and cleans up their memory
 
         Args:
-            keys (strs): Keys of references to delete from Atom
+            keys (strs): Keys to delete from Atom
         """
 
         # Unlink the data
@@ -2550,7 +2886,8 @@ class Element:
         if type(data) is not list:
             raise ValueError(f"Invalid response from redis: {data}")
         if all(data) != 1:
-            raise KeyError(f"Reference {key} not in redis")
+            missing_keys = [key for i, key in enumerate(keys) if data[i] != 1]
+            raise KeyError(f"Keys {missing_keys} not in redis")
 
     def reference_update_timeout_ms(self, key, timeout_ms):
         """
@@ -2564,11 +2901,10 @@ class Element:
             timeout_ms (int): Timeout at which we want the key to expire.
                         Pass <= 0 for no timeout, i.e. never expire (generally
                         a terrible idea)
-
         """
         _pipe = self._rpipeline_pool.get()
 
-        # Call pexpeire to set the timeout in ms if we got a positive
+        # Call pexpire to set the timeout in ms if we got a positive
         #   nonzero timeout, else call persist to remove any existing
         #   timeout
         if timeout_ms > 0:
@@ -2584,13 +2920,12 @@ class Element:
             raise ValueError(f"Invalid response from redis: {data}")
 
         if data[0] != 1:
-            raise KeyError(f"Reference {key} not in redis")
+            raise KeyError(f"Key {key} not in redis")
 
     def reference_get_timeout_ms(self, key):
         """
         Get the current amount of ms left on the reference. Mainly useful
-        for debug I'd imagine. Returns -1 if no timeout, else the timeout
-        in ms.
+        for debug. Returns -1 if no timeout, else the timeout in ms.
 
         Args:
             key (str):  Key of a reference for which we want to get the
@@ -2605,7 +2940,7 @@ class Element:
             raise ValueError(f"Invalid response from redis: {data}")
 
         if data[0] == -2:
-            raise KeyError(f"Reference {key} doesn't exist")
+            raise KeyError(f"Key {key} doesn't exist")
 
         return data[0]
 

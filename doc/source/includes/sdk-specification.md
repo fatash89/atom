@@ -330,7 +330,7 @@ Reads N entries from a stream in a nonblocking fashion. Returns the N most recen
 | `element` | string | Element whose stream we want to read |
 | `name` | string | Stream name |
 | `n` | int | How many entries to read |
-| `serialization` | str | The deserialization method to use (defaults to None). If the reference key contains a serialization method, that method will be used for deserialization before using this parameter. |
+| `serialization` | str | The deserialization method to use (defaults to None). If the entry contains a serialization key, that method will be used for deserialization before using this parameter. |
 | `force_serialization` | bool | If True, explicitly override the auto-serialization and use the user-specified form of serialization |
 
 
@@ -433,7 +433,7 @@ This API can be used to traverse the stream in a blocking pub-sub fashion if `bl
 | `n` | int | How many entries to read |
 | `last_id` | string | Optional. If passed, Redis ID of last entry we read. If not passed we will return the first piece of data that is written to the stream after this call is made.  |
 | `block` | bool | If true, will block until we can return at least 1 piece of data. If false, can return with no data if none has been written. |
-| `serialization` | str | The deserialization method to use (defaults to None). If the reference key contains a serialization method, that method will be used for deserialization before using this parameter. |
+| `serialization` | str | The deserialization method to use (defaults to None). If the entry contains a serialization key, that method will be used for deserialization before using this parameter. |
 | `force_serialization` | bool | If True, explicitly override the auto-serialization and use the user-specified form of serialization |
 
 
@@ -535,7 +535,7 @@ This API is used to monitor multiple streams with a single thread. The user regi
 | `handlers` | map | Map of (element, stream) keys to handler values. Could also be a list of (element, stream, handler) tuples |
 | `n_loops` | int | Optional. Maximum number of loops. If passed, function will return after `n_loops` XREADS. Note that this doesn't necessarily guarantee that `n_loops` pieces of data have been read on a given stream, since each `XREAD` can yield multiple pieces of data on a given stream. |
 | `timeout` | int | Optional. Max timeout between calls to `XREAD`. If 0, will never time out. Otherwise, max number of milliseconds to wait for any data after which we'll return an error. Default 0, i.e. no timeout |
-| `serialization` | str | The deserialization method to use (defaults to None). If the reference key contains a serialization method, that method will be used for deserialization before using this parameter. |
+| `serialization` | str | The deserialization method to use (defaults to None). If the entry contains a serialization key, that method will be used for deserialization before using this parameter. |
 | `force_serialization` | bool | If True, explicitly override the auto-serialization and use the user-specified form of serialization |
 
 
@@ -1273,9 +1273,15 @@ Wait for elements healthy should leverage the existing healthcheck command and b
 
 ```python
 
-# Basic reference, default seralization="none" and timout_ms=10000
+# Basic reference, default seralization="none" and timeout_ms=10000
 data = b'hello, world!'
 ref_ids = my_element.reference_create(data)
+my_element.reference_delete(*ref_ids)
+
+# Reference with user specified key
+data = b"hello, world!"
+key = "my_ref"
+ref_ids = my_element.reference_create(data, key=key)
 my_element.reference_delete(*ref_ids)
 
 # Serialized reference
@@ -1297,6 +1303,12 @@ my_element.reference_delete(*ref_ids)
 data = ["a", "b", "c"]
 ref_ids = my_element.reference_create(*data, serialization="msgpack")
 my_element.reference_delete(*ref_ids)
+
+# Creating multiple references with user-specified keys
+data = ["a", "b", "c"]
+keys = ["ref1", "ref2", "ref3"]
+ref_ids = my_element.reference_create(*data, keys=keys, serialization="msgpack")
+my_element.reference_delete(*ref_ids)
 ```
 
 Turn a user-specified data blob into an Atom reference. The data
@@ -1310,6 +1322,8 @@ The `timeout_ms` argument is powerful -- it allows you to set a time at which th
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `*data` | Binary/Object | One or more objects to be used for the reference |
+| `keys` | strs | Single string or list of strings to be used in reference IDs; defaults to None in which case UUIDs will
+be generated |
 | `serialization` | str | The method of serialization to use; defaults to None. |
 | `timeout_ms` | int | How long the references should exist in Atom. This sets the expiry timeout in redis. Units in milliseconds. Set to 0 for no timeout, i.e. references exist until explicitly deleted. |
 
@@ -1319,12 +1333,13 @@ List of string IDs for the newly created references.
 
 ### Spec
 
-1. Make a reference ID using the following string format:
+1. Check that if keys is not None, same number of keys as data were provided; raise Exception if not.
+2. Make reference IDs using the following string format where `$id` is either user specified or a generated UUID:
 ```
-key = reference:$element_name:$uuid4
+key = reference:$element_name:$id
 ```
 2. Serialize the data if specified to in the args
-3. Depending on the value of `timeout_ms`, run a SET command as below with `PX $timeout` of `timout_ms>0`, else without the `PX` portion. The NX portion ensures that the reference key doesn't already exist which is pretty unlikely with the UUID scheme but should be checked regardless.
+3. Depending on the value of `timeout_ms`, run a SET command as below with `PX $timeout` of `timeout_ms>0`, else without the `PX` portion. The NX portion ensures that the reference key doesn't already exist which is pretty unlikely with the UUID scheme but should be checked regardless.
 ```
 SET $key NX [PX $timeout]
 ```
@@ -1334,7 +1349,7 @@ SET $key NX [PX $timeout]
 
 ```python
 
-# Basic reference, default and timout_ms=10000
+# Basic reference, default and timeout_ms=10000
 data = b'hello, world!'
 ref_id = my_element.reference_create(data)[0]
 ref_data = my_element.reference_get(ref_id)[0]
@@ -1575,7 +1590,7 @@ time_remaining = my_element.reference_get_timeout_ms(ref_id)
 my_element.reference_delete(ref_id)
 ```
 
-Update the timout for a reference so that it expires in `timeout_ms` milliseconds from now, with the edge case of `timeout_ms==0` yielding no timeout, i.e. it persists until deleted.
+Update the timeout for a reference so that it expires in `timeout_ms` milliseconds from now, with the edge case of `timeout_ms==0` yielding no timeout, i.e. it persists until deleted.
 
 ### API
 
@@ -1590,7 +1605,253 @@ None
 
 ### Spec
 
-1. If `timout_ms == ` call `PERSIST` on the key
+1. If `timeout_ms == 0` call `PERSIST` on the key
+```
+PERSIST $key
+```
+2. Else, call `PEXPIRE` on the key
+```
+PEXPIRE $key $timeout_ms
+```
+
+## Write Parameter
+
+```python
+
+# Basic parameter, override=True, default seralization="none", timeout_ms=0 (no timeout)
+data = {b"my_str": b"hello, world!"}
+key = "my_param"
+param_fields = caller.parameter_write(key, data)
+my_element.parameter_delete(key)
+
+# Serialized parameter
+data = {b"my_str": b"hello, world!"}
+key = "my_param"
+param_fields = caller.parameter_write(key, data, serialization="msgpack")
+my_element.parameter_delete(key)
+
+# Explicit timeout
+data = {b"my_str": b"hello, world!"}
+key = "my_param"
+param_fields = caller.parameter_write(key, data, serialization="msgpack", timeout_ms=1000)
+my_element.parameter_delete(key)
+
+# Overrides not allowed
+data = {b"my_str": b"hello, world!"}
+key = "my_param"
+param_fields = caller.parameter_write(key, data, override=False)
+my_element.parameter_delete(key)
+```
+
+Turn a user-specified data dictionary into an Atom parameter. The data
+will be stored in Redis and will be able to be retrieved using
+the `parameter_read` API.
+
+The `timeout_ms` argument is powerful -- it allows you to set a time at which the parameter will auto-expire and the memory will be cleaned up. By default, the `timeout_ms` is set to 0 so the parameter will not expire and will exist until explicitly deleted. Elements that create parameters should explicitly delete them when they are no longer needed.
+
+### API
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | str | Key at which to store the parameter |
+| `data` | dict | Dictionary containing key-val pairs to store in Redis hash at specified key |
+| `override` | bool | Boolean for whether parameter values may be overriden by future calls to `parameter_write` |
+| `serialization` | str | The method of serialization to use on the parameter fields; defaults to None. |
+| `timeout_ms` | int | How long the parameter should exist in Atom. This sets the expiry timeout in redis. Units in milliseconds. Defaults to 0 for no timeout, i.e. parameter exists until explicitly deleted. |
+
+### Return Value
+
+List of parameter fields written to.
+
+### Spec
+
+1. Make a parameter ID using the following string format:
+```
+key = parameter:$key
+```
+2. Check if the parameter already exists in atom; if so, check that the requested serialization is the same as the
+existing serialization, and if not raise an Exception.
+3. If the parameter exists and the requested serialization matches the existing serialization, check the existing override
+setting. If the existing override is set to false, and the user is trying to update existing param fields,
+raise an Exception. Otherwise, continue writing or updating the parameter fields.
+3. Serialize the data as requested.
+4. Run an HSET command to set each field of the parameter in Redis, where the `($field, $value)` pairs come from the
+data dictionary.
+```
+HSET $key $field $value
+```
+5. If the data is serialized, use HSET to set the reserved "ser" field.
+6. Use HSET to set the reserved "override" field to either "true" or "false". Note that if the parameter already existed
+with an override value of "false", it cannot be updated. If the override value was set to "true", however, it can be updated
+to "false".
+4. If a postive, nonzero `timeout_ms` is requested, run a PEXPIRE command to set the timeout.
+4. Return list of fields written to.
+
+## Read Parameter
+
+```python
+
+# Basic parameter, default serialization/override/timeout
+data = {b"my_str": b"hello, world!"}
+key = "my_param"
+param_fields = caller.parameter_write(key, data)
+param_data = caller.parameter_read(key)
+# param_data == data
+my_element.parameter_delete(key)
+
+# Serialized parameter
+data = {b"my_str": b"hello, world!"}
+key = "my_param"
+param_fields = caller.parameter_write(key, data, serialization="msgpack")
+param_data = my_element.parameter_read(key)
+# param_data == data
+my_element.parameter_delete(key)
+
+# Read specific parameter field(s)
+data = {b"str1": b"hello, world!",
+        b"str2": b"goodbye"}
+key = "my_param"
+param_fields = caller.parameter_write(key, data, serialization="msgpack")
+param_data = my_element.parameter_read(key, fields=["str2"])
+my_element.parameter_delete(key)
+```
+
+Receive the data from Atom for the given parameter
+
+### API
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | String | Parameter key to read |
+| `fields` | str(s) | Optional str field name or list of str field names to read from parameter
+| `serialization` | str | The deserialization method to use (defaults to None). If the parameter contains a serialization method, that method will be used for deserialization before using this parameter. |
+| `force_serialization` | bool | If True, explicitly override the auto-serialization and use the user-specified form of serialization |
+
+### Return Value
+
+Dictionary of data read from the parameter store.
+
+### Spec
+
+1. Call redis `HGETALL` on the parameter store
+```
+HGETALL $key
+```
+2. If no data, return None/NULL/error/etc.
+3. If there's data, checks "ser" field for deserialization method to deserialize.
+4. If no serialization method in parameter, use `serialization` parameter to determine deserialization.
+4. Return {$field : data} for every field requested; return all fields if no fields specified.
+
+## Delete Parameter
+
+```python
+
+# Basic parameter, no expiry -- exists until deleted
+data = {b"my_str": b"hello, world!"}
+key = "my_param"
+param_fields = caller.parameter_write(key, data)
+
+# Delete the parameter
+my_element.parameter_delete(key)
+
+param_data = my_element.parameter_read(key)
+# param_data is None
+```
+
+Explicitly delete parameters from Atom. If a parameter was created with the default `timeout_ms=0` then this should *always* be called on element shutdown or when the parameter is no longer necessary, otherwise the memory will just sit in Redis.
+
+### API
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | String | Parameter key to delete |
+
+### Return Value
+
+Nothing. If parameter does not exist, raises a KeyError.
+
+### Spec
+
+1. Call redis `DEL` on the parameter key
+```
+DEL $key
+```
+
+## Get Parameter Time Remaining
+
+```python
+
+# Basic parameter, no expiry -- exists until deleted
+data = {b"my_str": b"hello, world!"}
+key = "my_param"
+param_fields = caller.parameter_write(key, data)
+time_remaining = my_element.parameter_get_timeout_ms(key)
+# time_remaining == -1 i.e. no timeout
+my_element.parameter_delete(key)
+
+# Basic parameter, with timeout
+data = {b"my_str": b"hello, world!"}
+key = "my_param"
+param_fields = caller.parameter_write(key, data, timeout_ms=1000)
+time_remaining = my_element.parameter_get_timeout_ms(key)
+# time_remaining ~= 1000
+my_element.parameter_delete(key)
+```
+
+Gets the amount of time until a parameter expires and its memory is cleaned up.
+
+### API
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | String | Parameter key to get timeout for |
+
+### Return Value
+
+Integer number of milliseconds until the key expires. `-1` for no expiry, i.e. persists until deleted.
+
+### Spec
+
+1. Call `PTTL` on the key
+```
+PTTL $key
+```
+
+## Update parameter timeout
+
+```python
+
+# Basic parameter, no expiry -- exists until deleted
+data = {b"my_str": b"hello, world!"}
+key = "my_param"
+param_fields = caller.parameter_write(key, data)[0]
+time_remaining = my_element.parameter_get_timeout_ms(key)
+# time_remaining == -1 i.e. no timeout
+
+# Update the timeout for the parameter
+my_element.parameter_update_timeout_ms(key, 10000)
+
+time_remaining = my_element.parameter_get_timeout_ms(key)
+# time_remaining ~= 10000
+my_element.parameter_delete(key)
+```
+
+Update the timeout for a parameter so that it expires in `timeout_ms` milliseconds from now, with the edge case of `timeout_ms==0` yielding no timeout, i.e. it persists until deleted.
+
+### API
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | String | Parameter key to update timeout of |
+| `timeout_ms` | Int | How many milliseconds until the timeout should expire |
+
+### Return Value
+
+None
+
+### Spec
+
+1. If `timeout_ms == 0` call `PERSIST` on the key
 ```
 PERSIST $key
 ```

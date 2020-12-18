@@ -35,6 +35,11 @@ Please see the [Redis Talks and Slides](https://github.com/elementary-robotics/a
 
 ### Quickstart
 
+After cloning the repo, clone all submodules with
+```
+git submodule update --init --recursive
+```
+
 It's best to do all developmental testing and building within
 the docker containers. The easiest way to do this is to mount the
 current directory into the latest atom image that's been built and
