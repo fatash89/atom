@@ -761,6 +761,37 @@ class Element:
 
         return serialization
 
+    def _redis_scan_keys(self, pattern):
+        """
+        Scan redis for all keys matching the pattern. Will use redis SCAN
+            under the hood since KEYS is not recommended/suitable for
+            production environments.
+
+        Args:
+            pattern (string): Match pattern to search across keys
+        """
+
+        matches = []
+        cursor = 0
+
+        # Loop until we get a cursor of 0
+        while True:
+
+            # Get a pipeline and do a scan
+            with RedisPipeline(self) as redis_pipeline:
+                redis_pipeline.scan(cursor, match=pattern)
+                cursor, new_matches = redis_pipeline.execute()[0]
+
+            # Take the elements we got back and add them to the list of elements
+            for match in new_matches:
+                matches.append(match.decode())
+
+            # When we get a cursor back of 0 then we are done
+            if cursor == 0:
+                break
+
+        return matches
+
     def get_all_elements(self):
         """
         Gets the names of all the elements connected to the Redis server.
@@ -768,11 +799,9 @@ class Element:
         Returns:
             List of element ids connected to the Redis server.
         """
-        elements = [
-            element.decode().split(":")[-1]
-            for element in self._rclient.keys(self._make_response_id("*"))
-        ]
-        return elements
+
+        matches = self._redis_scan_keys(self._make_response_id("*"))
+        return [x.split(":")[-1] for x in matches]
 
     def get_all_streams(self, element_name="*"):
         """
@@ -786,11 +815,7 @@ class Element:
         Returns:
             List of Stream ids belonging to element_name
         """
-        streams = [
-            stream.decode()
-            for stream in self._rclient.keys(self._make_stream_id(element_name, "*"))
-        ]
-        return streams
+        return self._redis_scan_keys(self._make_stream_id(element_name, "*"))
 
     def get_element_version(self, element_name):
         """

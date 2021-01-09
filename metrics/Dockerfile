@@ -13,6 +13,7 @@ ENV ATOM_METRICS_PORT "6380"
 ENV ATOM_NUCLEUS_SOCKET "/shared/redis.sock"
 ENV ATOM_METRICS_SOCKET "/shared/metrics.sock"
 ENV REDIS_CLI_BIN /usr/bin/redis-cli
+ENV PYTHONUNBUFFERED=TRUE
 
 # Install our rewuirements
 RUN apk update && apk add git go npm python3 py-pip redis
