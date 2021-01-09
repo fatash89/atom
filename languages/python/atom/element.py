@@ -207,14 +207,17 @@ class Element:
         self._entry_write_metrics = defaultdict(lambda: None)
         self._parameter_write_metrics = None
         self._parameter_read_metrics = None
+        self._parameter_delete_metrics = None
         self._counter_set_metrics = None
         self._counter_update_metrics = None
         self._counter_get_metrics = None
+        self._counter_delete_metrics = None
         self._reference_create_metrics = None
         self._reference_create_from_stream_metrics = defaultdict(
             lambda: defaultdict(lambda: None)
         )
         self._reference_get_metrics = None
+        self._reference_delete_metrics = None
 
         #
         # Set up metrics logging levels
@@ -2541,6 +2544,24 @@ class Element:
 
         return return_data if return_data else None
 
+    def _parameter_delete_init_metrics(self):
+        """
+        Initialize metrics for deleting parameters
+        """
+
+        # If we've already done this, just return out
+        if self._parameter_delete_metrics:
+            return
+
+        self._parameter_delete_metrics = {}
+
+        self._parameter_delete_metrics["delete"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:parameter_delete",
+            "delete",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
     def parameter_delete(self, key):
         """
         Deletes a parameter and cleans up its memory
@@ -2548,7 +2569,18 @@ class Element:
         Args:
             keys (str): Key of parameter to delete from Atom
         """
-        self._redis_key_delete(self._make_parameter_key(key))
+
+        # Initialize metrics
+        self._parameter_delete_init_metrics()
+
+        with MetricsPipeline(self) as metrics_pipeline:
+            self.metrics_timing_start(self._parameter_delete_metrics["delete"])
+
+            self._redis_key_delete(self._make_parameter_key(key))
+
+            self.metrics_timing_end(
+                self._parameter_delete_metrics["delete"], pipeline=metrics_pipeline
+            )
 
     def parameter_update_timeout_ms(self, key, timeout_ms):
         """
@@ -2913,11 +2945,42 @@ class Element:
             missing_keys = [key for i, key in enumerate(keys) if data[i] != 1]
             raise KeyError(f"Keys {missing_keys} not in redis")
 
+    def _reference_delete_init_metrics(self):
+        """
+        Initialize metrics for getting references
+        """
+
+        # If we've already done this, just return out
+        if self._reference_delete_metrics:
+            return
+
+        self._reference_delete_metrics = {}
+
+        self._reference_delete_metrics["delete"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:reference_delete",
+            "delete",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
     def reference_delete(self, *keys):
         """
         Deletes one or more references from Atom
         """
-        return self._redis_key_delete(*keys)
+
+        # Initialize metrics
+        self._reference_delete_init_metrics()
+
+        with MetricsPipeline(self) as metrics_pipeline:
+            self.metrics_timing_start(self._reference_delete_metrics["delete"])
+
+            ret_val = self._redis_key_delete(*keys)
+
+            self.metrics_timing_end(
+                self._reference_delete_metrics["delete"], pipeline=metrics_pipeline
+            )
+
+        return ret_val
 
     def _redis_key_update_timeout_ms(self, key, timeout_ms):
         """
@@ -3199,6 +3262,24 @@ class Element:
             else:
                 return None
 
+    def _counter_delete_init_metrics(self):
+        """
+        Initialize the metrics for getting a counter
+        """
+
+        # If we've already created the metrics, just return
+        if self._counter_delete_metrics:
+            return
+
+        self._counter_delete_metrics = {}
+
+        self._counter_delete_metrics["delete"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:counter_delete",
+            "delete",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
     def counter_delete(self, key):
         """
         Deletes a shared counter
@@ -3206,7 +3287,18 @@ class Element:
         Args:
             keys (str): Key of counter to delete from Atom
         """
-        self._redis_key_delete(self._make_counter_key(key))
+
+        # Initialize metrics
+        self._counter_delete_init_metrics()
+
+        with MetricsPipeline(self) as metrics_pipeline:
+            self.metrics_timing_start(self._counter_delete_metrics["delete"])
+
+            self._redis_key_delete(self._make_counter_key(key))
+
+            self.metrics_timing_end(
+                self._counter_delete_metrics["delete"], pipeline=metrics_pipeline
+            )
 
     def metrics_get_pipeline(self):
         """
