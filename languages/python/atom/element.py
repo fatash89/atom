@@ -2289,45 +2289,45 @@ class Element:
         if self._parameter_metrics[key]:
             return
 
-        self._parameter_metrics[key]["data"] = self.metrics_create(
+        self._parameter_metrics[key]["write_data"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:parameter",
-            "write",
-            "data",
+            key,
+            "write_data",
             agg_types=["AVG", "MIN", "MAX", "COUNT"],
         )
         self._parameter_metrics[key]["serialize"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:parameter",
-            "write",
+            key,
             "serialize",
             agg_types=["AVG", "MIN", "MAX"],
         )
         self._parameter_metrics[key]["check"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:parameter",
-            "write",
+            key,
             "check",
             agg_types=["AVG", "MIN", "MAX"],
         )
-        self._parameter_metrics[key]["data"] = self.metrics_create(
+        self._parameter_metrics[key]["read_data"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:parameter",
-            "read",
-            "data",
+            key,
+            "read_data",
             agg_types=["AVG", "MIN", "MAX", "COUNT"],
         )
         self._parameter_metrics[key]["deserialize"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:parameter",
-            "read",
+            key,
             "deserialize",
             agg_types=["AVG", "MIN", "MAX"],
         )
         self._parameter_metrics[key]["delete"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:parameter",
-            "delete",
+            key,
             "delete",
             agg_types=["AVG", "MIN", "MAX", "COUNT"],
         )
@@ -2370,7 +2370,7 @@ class Element:
             AtomError if key exists and cannot be overridden or a serialization
             method other than the existing one is requested
         """
-        key = self._make_parameter_key(key)
+        redis_key = self._make_parameter_key(key)
         fields = []
         existing_override = None
         serialization = "none" if serialization is None else serialization
@@ -2385,12 +2385,12 @@ class Element:
 
             # Check if parameter exists
             self.metrics_timing_start(self._parameter_metrics[key]["check"])
-            _pipe.exists(key)
+            _pipe.exists(redis_key)
             key_exists = _pipe.execute()[0]
 
             if key_exists:
                 # Check requested serialization is same as existing
-                _pipe.hget(key, SERIALIZATION_PARAM_FIELD)
+                _pipe.hget(redis_key, SERIALIZATION_PARAM_FIELD)
                 existing_ser = _pipe.execute()[0]
 
                 if existing_ser != serialization.encode():
@@ -2400,13 +2400,13 @@ class Element:
                     )
 
                 # Check override setting
-                _pipe.hget(key, OVERRIDE_PARAM_FIELD)
+                _pipe.hget(redis_key, OVERRIDE_PARAM_FIELD)
                 existing_override = _pipe.execute()[0].decode()
 
                 if existing_override == "false":
                     # Check for requested fields
                     for field in data.keys():
-                        _pipe.hget(key, field)
+                        _pipe.hget(redis_key, field)
 
                     fields_exist = _pipe.execute()
 
@@ -2424,7 +2424,7 @@ class Element:
             for field, datum in data.items():
                 # Do the SET in redis for each field
                 serialized_datum = ser.serialize(datum, method=serialization)
-                _pipe.hset(key, field, serialized_datum)
+                _pipe.hset(redis_key, field, serialized_datum)
                 fields.append(field)
 
             self.metrics_timing_end(
@@ -2433,25 +2433,25 @@ class Element:
 
             # Add serialization field to new parameter
             if not key_exists:
-                _pipe.hset(key, SERIALIZATION_PARAM_FIELD, serialization)
+                _pipe.hset(redis_key, SERIALIZATION_PARAM_FIELD, serialization)
 
             # Add override field if existing override isn't false
             if existing_override != "false":
                 override = "true" if override is True else "false"
-                _pipe.hset(key, OVERRIDE_PARAM_FIELD, override)
+                _pipe.hset(redis_key, OVERRIDE_PARAM_FIELD, override)
             elif override is True:
                 self.logger.warning("Cannot override existing false override value")
 
             # Set timeout in ms if nonzero positive
             if timeout_ms > 0:
-                _pipe.pexpire(key, timeout_ms)
+                _pipe.pexpire(redis_key, timeout_ms)
 
             # Write data
-            self.metrics_timing_start(self._parameter_metrics[key]["data"])
+            self.metrics_timing_start(self._parameter_metrics[key]["write_data"])
             response = _pipe.execute()
             _pipe = self._release_pipeline(_pipe)
             self.metrics_timing_end(
-                self._parameter_metrics[key]["data"], pipeline=pipeline
+                self._parameter_metrics[key]["write_data"], pipeline=pipeline
             )
 
         # Check for valid HSET responses
@@ -2503,7 +2503,7 @@ class Element:
         Returns:
             dictionary of data read from the parameter store
         """
-        key = self._make_parameter_key(key)
+        redis_key = self._make_parameter_key(key)
 
         # Initialize metrics
         self._parameter_init_metrics(key)
@@ -2512,13 +2512,13 @@ class Element:
         with MetricsPipeline(self) as pipeline:
 
             # Get the data
-            self.metrics_timing_start(self._parameter_metrics[key]["data"])
+            self.metrics_timing_start(self._parameter_metrics[key]["read_data"])
             _pipe = self._rpipeline_pool.get()
-            _pipe.hgetall(key)
+            _pipe.hgetall(redis_key)
             data = _pipe.execute()[0]
             _pipe = self._release_pipeline(_pipe)
             self.metrics_timing_end(
-                self._parameter_metrics[key]["data"], pipeline=pipeline
+                self._parameter_metrics[key]["read_data"], pipeline=pipeline
             )
 
             self.metrics_timing_start(self._parameter_metrics[key]["deserialize"])
@@ -3091,6 +3091,7 @@ class Element:
         self._counter_metrics[key]["get"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:counter",
+            key,
             "get",
             agg_types=["AVG", "MIN", "MAX", "COUNT"],
         )
@@ -3098,6 +3099,7 @@ class Element:
         self._counter_metrics[key]["delete"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:counter",
+            key,
             "delete",
             agg_types=["AVG", "MIN", "MAX", "COUNT"],
         )
@@ -3105,6 +3107,7 @@ class Element:
         self._counter_metrics[key]["value"] = self.metrics_create(
             MetricsLevel.INFO,
             "atom:counter",
+            key,
             "value",
             agg_types=["AVG", "MIN", "MAX", "SUM"],
         )
