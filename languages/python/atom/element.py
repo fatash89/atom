@@ -103,7 +103,29 @@ class AtomError(Exception):
             return "An Atom Error Occurred"
 
 
+class RedisPipeline:
+    """
+    Wrapper around obtaining and releasing redis pipelines to make sure
+    we don't leak any
+    """
+
+    def __init__(self, element):
+        self.element = element
+
+    def __enter__(self):
+        self.pipeline = self.element._rpipeline_pool.get()
+        return self.pipeline
+
+    def __exit__(self, type, value, traceback):
+        self.element._release_pipeline(self.pipeline)
+
+
 class MetricsPipeline:
+    """
+    Wrapper around obtaining and releasing metrics pipelines to make
+    sure we don't leak any
+    """
+
     def __init__(self, element):
         self.element = element
 
@@ -185,6 +207,9 @@ class Element:
         self._entry_write_metrics = defaultdict(lambda: None)
         self._parameter_write_metrics = None
         self._parameter_read_metrics = None
+        self._counter_set_metrics = None
+        self._counter_update_metrics = None
+        self._counter_get_metrics = None
         self._reference_create_metrics = None
         self._reference_create_from_stream_metrics = defaultdict(
             lambda: defaultdict(lambda: None)
@@ -2523,7 +2548,7 @@ class Element:
         Args:
             keys (str): Key of parameter to delete from Atom
         """
-        self.reference_delete(self._make_parameter_key(key))
+        self._redis_key_delete(self._make_parameter_key(key))
 
     def parameter_update_timeout_ms(self, key, timeout_ms):
         """
@@ -2538,7 +2563,7 @@ class Element:
                         a terrible idea)
 
         """
-        self.reference_update_timeout_ms(self._make_parameter_key(key), timeout_ms)
+        self._redis_key_update_timeout_ms(self._make_parameter_key(key), timeout_ms)
 
     def parameter_get_timeout_ms(self, key):
         """
@@ -2549,7 +2574,7 @@ class Element:
             key (str):  Key of a reference for which we want to get the
                         timeout ms for.
         """
-        return self.reference_get_timeout_ms(self._make_parameter_key(key))
+        return self._redis_key_get_timeout_ms(self._make_parameter_key(key))
 
     def _reference_create_init_metrics(self):
         """
@@ -2868,7 +2893,7 @@ class Element:
 
         return deserialized_data
 
-    def reference_delete(self, *keys):
+    def _redis_key_delete(self, *keys):
         """
         Deletes one or more Redis keys and cleans up their memory
 
@@ -2877,11 +2902,10 @@ class Element:
         """
 
         # Unlink the data
-        _pipe = self._rpipeline_pool.get()
-        for key in keys:
-            _pipe.delete(key)
-        data = _pipe.execute()
-        _pipe = self._release_pipeline(_pipe)
+        with RedisPipeline(self) as redis_pipeline:
+            for key in keys:
+                redis_pipeline.delete(key)
+            data = redis_pipeline.execute()
 
         if type(data) is not list:
             raise ValueError(f"Invalid response from redis: {data}")
@@ -2889,9 +2913,15 @@ class Element:
             missing_keys = [key for i, key in enumerate(keys) if data[i] != 1]
             raise KeyError(f"Keys {missing_keys} not in redis")
 
-    def reference_update_timeout_ms(self, key, timeout_ms):
+    def reference_delete(self, *keys):
         """
-        Updates the timeout for an existing reference. This might want to
+        Deletes one or more references from Atom
+        """
+        return self._redis_key_delete(*keys)
+
+    def _redis_key_update_timeout_ms(self, key, timeout_ms):
+        """
+        Updates the timeout for an existing redis key. This might want to
         be done as we won't know exactly how long we'll need the key for
         at the original point in time for which we created it
 
@@ -2922,9 +2952,15 @@ class Element:
         if data[0] != 1:
             raise KeyError(f"Key {key} not in redis")
 
-    def reference_get_timeout_ms(self, key):
+    def reference_update_timeout_ms(self, key, timeout_ms):
         """
-        Get the current amount of ms left on the reference. Mainly useful
+        Updates the timeout for an existing reference
+        """
+        return self._redis_key_update_timeout_ms(key, timeout_ms)
+
+    def _redis_key_get_timeout_ms(self, key):
+        """
+        Get the current amount of ms left on the key. Mainly useful
         for debug. Returns -1 if no timeout, else the timeout in ms.
 
         Args:
@@ -2943,6 +2979,234 @@ class Element:
             raise KeyError(f"Key {key} doesn't exist")
 
         return data[0]
+
+    def reference_get_timeout_ms(self, key):
+        """
+        Return amount of timeout left on reference
+        """
+        return self._redis_key_get_timeout_ms(key)
+
+    def _make_counter_key(self, key):
+        """
+        Prefixes requested key under counter namespace.
+        """
+        return f"counter:{key}"
+
+    def _counter_set_init_metrics(self):
+        """
+        Initialize the metrics for setting a counter
+        """
+
+        # If we've already created the metrics, just return
+        if self._counter_set_metrics:
+            return
+
+        self._counter_set_metrics = {}
+
+        self._counter_set_metrics["write"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:counter_set",
+            "write",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
+    def counter_set(self, key, value, timeout_ms=0):
+        """
+        Set the value for a shared, atomic counter directly using SET
+
+        Args:
+            key (string): Name of the shared counter
+            value (int): Integer value of the shared counter. MUST be int
+                for this API, though SET under the hood can indeed take
+                any value
+            timeout_ms (int, optional): How long the counter should live for.
+                Default None, i.e. won't expire, but if set will call PEXPIRE
+                under the hood to have the value expire after a certain amount
+                of time.
+
+        Return:
+            Current integer value of the counter
+
+        Raises:
+            AtomError on invalid argument
+        """
+
+        # Initialize metrics
+        self._counter_set_init_metrics()
+
+        # Make sure we have an integer argument
+        if type(value) is not int:
+            raise AtomError("Counter value must be int!")
+
+        # Get our pipelines
+        with RedisPipeline(self) as redis_pipeline, MetricsPipeline(
+            self
+        ) as metrics_pipeline:
+
+            self.metrics_timing_start(self._counter_set_metrics["write"])
+
+            # Perform the set
+            redis_pipeline.set(self._make_counter_key(key), value)
+
+            # If we have a timeout, put that in the pipeline as well
+            if timeout_ms > 0:
+                redis_pipeline.pexpire(self._make_counter_key(key), timeout_ms)
+
+            # Execute the pipeline
+            response = redis_pipeline.execute()
+
+            self.metrics_timing_end(
+                self._counter_set_metrics["write"], pipeline=metrics_pipeline
+            )
+
+            # Response[0] will be True on success, else False
+            if not response[0]:
+                raise AtomError("Failed to set counter!")
+
+        return value
+
+    def _counter_update_init_metrics(self):
+        """
+        Initialize the metrics for updating a counter
+        """
+
+        # If we've already created the metrics, just return
+        if self._counter_update_metrics:
+            return
+
+        self._counter_update_metrics = {}
+
+        self._counter_update_metrics["write"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:counter_update",
+            "write",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
+    def counter_update(self, key, value, timeout_ms=0):
+        """
+        Increments the counter at key by the integer value specified. If
+        value is positive, the counter will atomically increment, if negative
+        then it will atomically decrement.
+
+        NOTE: If key does not exist, it will be set to the value here. This
+            is how redis handles it and is good enough for now. We don't
+            throw/raise an error on updating a counter that wasn't previously
+            created.
+
+        Args:
+            key (string): Name of the shared counter
+            value (int): Integer value of the shared counter. MUST be int
+                for this API. Can be positive or negative
+            timeout_ms (int, optional): How long the counter should live for.
+                Default None, i.e. won't expire, but if set will call PEXPIRE
+                under the hood to have the value expire after a certain amount
+                of time.
+
+        Return:
+            Current value of the counter
+
+        Raises:
+            AtomError on invalid argument
+        """
+
+        # Initialize metrics
+        self._counter_update_init_metrics()
+
+        # Make sure we have an integer argument
+        if type(value) is not int:
+            raise AtomError("Counter value must be int!")
+
+        # Get our pipelines
+        with RedisPipeline(self) as redis_pipeline, MetricsPipeline(
+            self
+        ) as metrics_pipeline:
+
+            self.metrics_timing_start(self._counter_update_metrics["write"])
+
+            # Perform the incrby. Incrby decrements on negative values
+            redis_pipeline.incrby(self._make_counter_key(key), value)
+
+            # If we have a timeout, put that in the pipeline as well
+            if timeout_ms > 0:
+                redis_pipeline.pexpire(self._make_counter_key(key), timeout_ms)
+
+            # Execute the pipeline
+            response = redis_pipeline.execute()
+
+            self.metrics_timing_end(
+                self._counter_update_metrics["write"], pipeline=metrics_pipeline
+            )
+
+            # Response[0] will be return of INCRBY which is the new value of the
+            #   counter.
+            return int(response[0])
+
+    def _counter_get_init_metrics(self):
+        """
+        Initialize the metrics for getting a counter
+        """
+
+        # If we've already created the metrics, just return
+        if self._counter_get_metrics:
+            return
+
+        self._counter_get_metrics = {}
+
+        self._counter_get_metrics["read"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:counter_get",
+            "read",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
+    def counter_get(self, key):
+        """
+        Return the value of a shared counter. Returns None if the counter
+            does not exist
+
+        Args:
+            key (string): Name of the shared counter
+
+        Return:
+            Current value of the counter if it exists, else None
+        """
+
+        # Initialize metrics
+        self._counter_get_init_metrics()
+
+        # Get our pipelines
+        with RedisPipeline(self) as redis_pipeline, MetricsPipeline(
+            self
+        ) as metrics_pipeline:
+
+            self.metrics_timing_start(self._counter_get_metrics["read"])
+
+            # Perform the incrby. Incrby decrements on negative values
+            redis_pipeline.get(self._make_counter_key(key))
+
+            # Execute the pipeline
+            response = redis_pipeline.execute()
+
+            self.metrics_timing_end(
+                self._counter_get_metrics["read"], pipeline=metrics_pipeline
+            )
+
+            # Response[0] will be the value of GET, which should be NONE if the
+            #   key does not exist, else will be a value we'll cast to an int.
+            if response[0] is not None:
+                return int(response[0])
+            else:
+                return None
+
+    def counter_delete(self, key):
+        """
+        Deletes a shared counter
+
+        Args:
+            keys (str): Key of counter to delete from Atom
+        """
+        self._redis_key_delete(self._make_counter_key(key))
 
     def metrics_get_pipeline(self):
         """

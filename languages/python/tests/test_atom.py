@@ -8,6 +8,7 @@ from threading import Thread
 import numpy as np
 import pytest
 import redis
+import random
 
 from redistimeseries.client import Client as RedisTimeSeries
 
@@ -23,6 +24,7 @@ from atom.config import (
     LANG,
     VERSION,
     COMMAND_LIST_COMMAND,
+    REDIS_PIPELINE_POOL_SIZE,
 )
 from atom.messages import Response, StreamHandler
 from atom.contracts import RawContract, EmptyContract, BinaryProperty
@@ -54,6 +56,8 @@ class TestAtom:
         conn_timeout_ms=2000,
         data_timeout_ms=5000,
     ):
+        # Make sure metrics is enabled. Some tests turn it off
+        os.environ["ATOM_USE_METRICS"] = "TRUE"
         return Element(
             name,
             host=host,
@@ -2219,6 +2223,185 @@ class TestAtom:
         assert data is None
 
         my_elem._clean_up()
+
+    def test_counter_set(self, caller):
+
+        caller, caller_name = caller
+
+        for i in range(10):
+            counter_val = caller.counter_set("some_counter", i)
+            assert counter_val == i
+
+        caller.counter_delete("some_counter")
+
+    def test_counter_get(self, caller):
+
+        caller, caller_name = caller
+
+        for i in range(10):
+            counter_val = caller.counter_set("some_counter", i)
+            assert counter_val == i
+            assert caller.counter_get("some_counter") == i
+
+        caller.counter_delete("some_counter")
+
+    def test_counter_delete(self, caller):
+
+        caller, caller_name = caller
+
+        counter_val = caller.counter_set("some_counter", 32)
+        assert counter_val == 32
+        assert caller.counter_get("some_counter") == 32
+        caller.counter_delete("some_counter")
+        assert caller.counter_get("some_counter") is None
+
+    def test_counter_update(self, caller):
+
+        caller, caller_name = caller
+
+        counter_sum = 0
+
+        for i in range(20):
+
+            # Test 10 positive and 10 negative numbers
+            rand_val = random.randint(0, 1000)
+            if i % 2 == 0:
+                rand_val *= -1
+
+            # Add the value to the sum
+            counter_sum += rand_val
+
+            # Update the counter
+            counter_val = caller.counter_update("some_counter", rand_val)
+
+            # Make sure our sum matches the counter's
+            assert counter_sum == counter_val
+
+        caller.counter_delete("some_counter")
+
+    def test_counter_set_update(self, caller):
+
+        caller, caller_name = caller
+
+        counter_val = caller.counter_set("some_counter", 40)
+        assert counter_val == 40
+
+        counter_val = caller.counter_update("some_counter", 2)
+        assert counter_val == 42
+
+        counter_val = caller.counter_update("some_counter", 0)
+        assert counter_val == 42
+
+        counter_val = caller.counter_update("some_counter", -1)
+        assert counter_val == 41
+
+        caller.counter_delete("some_counter")
+
+    def test_counter_expire(self, caller):
+
+        caller, caller_name = caller
+
+        counter_val = caller.counter_set("some_counter", -27, timeout_ms=50)
+        assert counter_val == -27
+
+        time.sleep(0.1)
+
+        counter_val = caller.counter_get("some_counter")
+        assert counter_val is None
+
+    def test_multiple_counters(self, caller):
+
+        caller, caller_name = caller
+
+        counter1_sum = 0
+        counter2_sum = 0
+
+        for i in range(20):
+
+            # Test 10 positive and 10 negative numbers
+            rand_val_1 = random.randint(0, 1000)
+            rand_val_2 = random.randint(0, 1000)
+            if i % 2 == 0:
+                rand_val_1 *= -1
+                rand_val_2 *= -1
+
+            # Add the value to the sum
+            counter1_sum += rand_val_1
+            counter2_sum += rand_val_2
+
+            # Update the counter
+            counter1_val = caller.counter_update("some_counter1", rand_val_1)
+            assert counter1_sum == counter1_val
+            counter2_val = caller.counter_update("some_counter2", rand_val_2)
+            assert counter2_sum == counter2_val
+
+        caller.counter_delete("some_counter1")
+        caller.counter_delete("some_counter2")
+
+    def test_counter_set_pipelines(self, caller):
+        """
+        Tests to make sure we're properly releasing pipelines. This should
+        raise a pipeline error if we're having issues and will check that the
+        pipeline pools for both redis and metrics are the proper size at the end
+        """
+
+        caller, caller_name = caller
+        for i in range(2 * REDIS_PIPELINE_POOL_SIZE):
+            caller.counter_set("some_counter", 0)
+
+        assert caller._rpipeline_pool.qsize() == REDIS_PIPELINE_POOL_SIZE
+        assert caller._mpipeline_pool.qsize() == REDIS_PIPELINE_POOL_SIZE
+
+        caller.counter_delete("some_counter")
+
+    def test_counter_update_pipelines(self, caller):
+        """
+        Tests to make sure we're properly releasing pipelines. This should
+        raise a pipeline error if we're having issues and will check that the
+        pipeline pools for both redis and metrics are the proper size at the end
+        """
+
+        caller, caller_name = caller
+        for i in range(2 * REDIS_PIPELINE_POOL_SIZE):
+            caller.counter_update("some_counter", 1)
+
+        assert caller._rpipeline_pool.qsize() == REDIS_PIPELINE_POOL_SIZE
+        assert caller._mpipeline_pool.qsize() == REDIS_PIPELINE_POOL_SIZE
+
+        caller.counter_delete("some_counter")
+
+    def test_counter_get_pipelines(self, caller):
+        """
+        Tests to make sure we're properly releasing pipelines. This should
+        raise a pipeline error if we're having issues and will check that the
+        pipeline pools for both redis and metrics are the proper size at the end
+        """
+        caller, caller_name = caller
+
+        caller.counter_set("some_counter", 239829)
+
+        for i in range(2 * REDIS_PIPELINE_POOL_SIZE):
+            caller.counter_get("some_counter")
+
+        assert caller._rpipeline_pool.qsize() == REDIS_PIPELINE_POOL_SIZE
+        assert caller._mpipeline_pool.qsize() == REDIS_PIPELINE_POOL_SIZE
+
+        caller.counter_delete("some_counter")
+
+    def test_counter_delete_pipelines(self, caller):
+        """
+        Tests to make sure we're properly releasing pipelines. This should
+        raise a pipeline error if we're having issues and will check that the
+        pipeline pools for both redis and metrics are the proper size at the end
+        """
+
+        caller, caller_name = caller
+        for i in range(2 * REDIS_PIPELINE_POOL_SIZE):
+            caller.counter_set("some_counter", i)
+            caller.counter_delete("some_counter")
+
+        assert caller._rpipeline_pool.qsize() == REDIS_PIPELINE_POOL_SIZE
+        assert caller._mpipeline_pool.qsize() == REDIS_PIPELINE_POOL_SIZE
 
 
 def add_1(x):
