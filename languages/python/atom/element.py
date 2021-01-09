@@ -208,10 +208,7 @@ class Element:
         self._parameter_write_metrics = None
         self._parameter_read_metrics = None
         self._parameter_delete_metrics = None
-        self._counter_set_metrics = None
-        self._counter_update_metrics = None
-        self._counter_get_metrics = None
-        self._counter_delete_metrics = None
+        self._counter_metrics = defaultdict(lambda: {})
         self._reference_create_metrics = None
         self._reference_create_from_stream_metrics = defaultdict(
             lambda: defaultdict(lambda: None)
@@ -2988,6 +2985,13 @@ class Element:
             agg_types=["AVG", "MIN", "MAX", "COUNT"],
         )
 
+        self._reference_delete_metrics["count"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:reference_delete",
+            "count",
+            agg_types=["SUM"],
+        )
+
     def reference_delete(self, *keys):
         """
         Deletes one or more references from Atom
@@ -3004,6 +3008,7 @@ class Element:
             self.metrics_timing_end(
                 self._reference_delete_metrics["delete"], pipeline=metrics_pipeline
             )
+            self.metrics_add(self._reference_delete_metrics["count"], len(keys))
 
         return ret_val
 
@@ -3080,22 +3085,50 @@ class Element:
         """
         return f"counter:{key}"
 
-    def _counter_set_init_metrics(self):
+    def _counter_init_metrics(self, key):
         """
         Initialize the metrics for setting a counter
         """
 
         # If we've already created the metrics, just return
-        if self._counter_set_metrics:
+        if self._counter_metrics[key]:
             return
 
-        self._counter_set_metrics = {}
-
-        self._counter_set_metrics["write"] = self.metrics_create(
+        self._counter_metrics[key]["set"] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:counter_set",
-            "write",
+            "atom:counter",
+            key,
+            "set",
             agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
+        self._counter_metrics[key]["update"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:counter",
+            key,
+            "update",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
+        self._counter_metrics[key]["get"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:counter",
+            "get",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
+        self._counter_metrics[key]["delete"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:counter",
+            "delete",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
+        self._counter_metrics[key]["value"] = self.metrics_create(
+            MetricsLevel.INFO,
+            "atom:counter",
+            "value",
+            agg_types=["AVG", "MIN", "MAX", "SUM"],
         )
 
     def counter_set(self, key, value, timeout_ms=0):
@@ -3120,7 +3153,7 @@ class Element:
         """
 
         # Initialize metrics
-        self._counter_set_init_metrics()
+        self._counter_init_metrics(key)
 
         # Make sure we have an integer argument
         if type(value) is not int:
@@ -3131,7 +3164,7 @@ class Element:
             self
         ) as metrics_pipeline:
 
-            self.metrics_timing_start(self._counter_set_metrics["write"])
+            self.metrics_timing_start(self._counter_metrics[key]["set"])
 
             # Perform the set
             redis_pipeline.set(self._make_counter_key(key), value)
@@ -3144,32 +3177,18 @@ class Element:
             response = redis_pipeline.execute()
 
             self.metrics_timing_end(
-                self._counter_set_metrics["write"], pipeline=metrics_pipeline
+                self._counter_metrics[key]["set"], pipeline=metrics_pipeline
             )
 
             # Response[0] will be True on success, else False
             if not response[0]:
                 raise AtomError("Failed to set counter!")
 
+            self.metrics_add(
+                self._counter_metrics[key]["value"], value, pipeline=metrics_pipeline
+            )
+
         return value
-
-    def _counter_update_init_metrics(self):
-        """
-        Initialize the metrics for updating a counter
-        """
-
-        # If we've already created the metrics, just return
-        if self._counter_update_metrics:
-            return
-
-        self._counter_update_metrics = {}
-
-        self._counter_update_metrics["write"] = self.metrics_create(
-            MetricsLevel.TIMING,
-            "atom:counter_update",
-            "write",
-            agg_types=["AVG", "MIN", "MAX", "COUNT"],
-        )
 
     def counter_update(self, key, value, timeout_ms=0):
         """
@@ -3199,7 +3218,7 @@ class Element:
         """
 
         # Initialize metrics
-        self._counter_update_init_metrics()
+        self._counter_init_metrics(key)
 
         # Make sure we have an integer argument
         if type(value) is not int:
@@ -3210,7 +3229,7 @@ class Element:
             self
         ) as metrics_pipeline:
 
-            self.metrics_timing_start(self._counter_update_metrics["write"])
+            self.metrics_timing_start(self._counter_metrics[key]["update"])
 
             # Perform the incrby. Incrby decrements on negative values
             redis_pipeline.incrby(self._make_counter_key(key), value)
@@ -3223,30 +3242,18 @@ class Element:
             response = redis_pipeline.execute()
 
             self.metrics_timing_end(
-                self._counter_update_metrics["write"], pipeline=metrics_pipeline
+                self._counter_metrics[key]["update"], pipeline=metrics_pipeline
             )
 
             # Response[0] will be return of INCRBY which is the new value of the
             #   counter.
-            return int(response[0])
+            value = int(response[0])
 
-    def _counter_get_init_metrics(self):
-        """
-        Initialize the metrics for getting a counter
-        """
+            self.metrics_add(
+                self._counter_metrics[key]["value"], value, pipeline=metrics_pipeline
+            )
 
-        # If we've already created the metrics, just return
-        if self._counter_get_metrics:
-            return
-
-        self._counter_get_metrics = {}
-
-        self._counter_get_metrics["read"] = self.metrics_create(
-            MetricsLevel.TIMING,
-            "atom:counter_get",
-            "read",
-            agg_types=["AVG", "MIN", "MAX", "COUNT"],
-        )
+            return value
 
     def counter_get(self, key):
         """
@@ -3261,14 +3268,14 @@ class Element:
         """
 
         # Initialize metrics
-        self._counter_get_init_metrics()
+        self._counter_init_metrics(key)
 
         # Get our pipelines
         with RedisPipeline(self) as redis_pipeline, MetricsPipeline(
             self
         ) as metrics_pipeline:
 
-            self.metrics_timing_start(self._counter_get_metrics["read"])
+            self.metrics_timing_start(self._counter_metrics[key]["get"])
 
             # Perform the incrby. Incrby decrements on negative values
             redis_pipeline.get(self._make_counter_key(key))
@@ -3277,7 +3284,7 @@ class Element:
             response = redis_pipeline.execute()
 
             self.metrics_timing_end(
-                self._counter_get_metrics["read"], pipeline=metrics_pipeline
+                self._counter_metrics[key]["get"], pipeline=metrics_pipeline
             )
 
             # Response[0] will be the value of GET, which should be NONE if the
@@ -3286,24 +3293,6 @@ class Element:
                 return int(response[0])
             else:
                 return None
-
-    def _counter_delete_init_metrics(self):
-        """
-        Initialize the metrics for getting a counter
-        """
-
-        # If we've already created the metrics, just return
-        if self._counter_delete_metrics:
-            return
-
-        self._counter_delete_metrics = {}
-
-        self._counter_delete_metrics["delete"] = self.metrics_create(
-            MetricsLevel.TIMING,
-            "atom:counter_delete",
-            "delete",
-            agg_types=["AVG", "MIN", "MAX", "COUNT"],
-        )
 
     def counter_delete(self, key):
         """
@@ -3314,15 +3303,15 @@ class Element:
         """
 
         # Initialize metrics
-        self._counter_delete_init_metrics()
+        self._counter_init_metrics(key)
 
         with MetricsPipeline(self) as metrics_pipeline:
-            self.metrics_timing_start(self._counter_delete_metrics["delete"])
+            self.metrics_timing_start(self._counter_metrics[key]["delete"])
 
             self._redis_key_delete(self._make_counter_key(key))
 
             self.metrics_timing_end(
-                self._counter_delete_metrics["delete"], pipeline=metrics_pipeline
+                self._counter_metrics[key]["delete"], pipeline=metrics_pipeline
             )
 
     def metrics_get_pipeline(self):
