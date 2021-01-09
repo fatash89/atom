@@ -205,9 +205,7 @@ class Element:
         self._entry_read_n_metrics = defaultdict(lambda: defaultdict(lambda: None))
         self._entry_read_since_metrics = defaultdict(lambda: defaultdict(lambda: None))
         self._entry_write_metrics = defaultdict(lambda: None)
-        self._parameter_write_metrics = None
-        self._parameter_read_metrics = None
-        self._parameter_delete_metrics = None
+        self._parameter_metrics = defaultdict(lambda: {})
         self._counter_metrics = defaultdict(lambda: {})
         self._reference_create_metrics = None
         self._reference_create_from_stream_metrics = defaultdict(
@@ -2282,34 +2280,56 @@ class Element:
             numeric_level = getattr(logging, LOG_DEFAULT_LEVEL)
         self.logger.log(numeric_level, msg)
 
-    def _parameter_write_init_metrics(self):
+    def _parameter_init_metrics(self, key):
         """
         Initialize parameter write metrics
         """
 
         # If we've already initialized the metrics, no need to worry
-        if self._parameter_write_metrics:
+        if self._parameter_metrics[key]:
             return
 
-        self._parameter_write_metrics = {}
-
-        self._parameter_write_metrics["data"] = self.metrics_create(
+        self._parameter_metrics[key]["data"] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:parameter_write",
+            "atom:parameter",
+            "write",
             "data",
             agg_types=["AVG", "MIN", "MAX", "COUNT"],
         )
-        self._parameter_write_metrics["serialize"] = self.metrics_create(
+        self._parameter_metrics[key]["serialize"] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:parameter_write",
+            "atom:parameter",
+            "write",
             "serialize",
             agg_types=["AVG", "MIN", "MAX"],
         )
-        self._parameter_write_metrics["check"] = self.metrics_create(
+        self._parameter_metrics[key]["check"] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:parameter_write",
+            "atom:parameter",
+            "write",
             "check",
             agg_types=["AVG", "MIN", "MAX"],
+        )
+        self._parameter_metrics[key]["data"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:parameter",
+            "read",
+            "data",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+        self._parameter_metrics[key]["deserialize"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:parameter",
+            "read",
+            "deserialize",
+            agg_types=["AVG", "MIN", "MAX"],
+        )
+        self._parameter_metrics[key]["delete"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:parameter",
+            "delete",
+            "delete",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
         )
 
     def _make_parameter_key(self, key):
@@ -2356,7 +2376,7 @@ class Element:
         serialization = "none" if serialization is None else serialization
 
         # Initialize metrics
-        self._parameter_write_init_metrics()
+        self._parameter_init_metrics(key)
 
         # Get a metrics pipeline
         with MetricsPipeline(self) as pipeline:
@@ -2364,7 +2384,7 @@ class Element:
             _pipe = self._rpipeline_pool.get()
 
             # Check if parameter exists
-            self.metrics_timing_start(self._parameter_write_metrics["check"])
+            self.metrics_timing_start(self._parameter_metrics[key]["check"])
             _pipe.exists(key)
             key_exists = _pipe.execute()[0]
 
@@ -2396,11 +2416,11 @@ class Element:
                         raise AtomError("Cannot override existing parameter fields")
 
             self.metrics_timing_end(
-                self._parameter_write_metrics["check"], pipeline=pipeline
+                self._parameter_metrics[key]["check"], pipeline=pipeline
             )
 
             # Serialize
-            self.metrics_timing_start(self._parameter_write_metrics["serialize"])
+            self.metrics_timing_start(self._parameter_metrics[key]["serialize"])
             for field, datum in data.items():
                 # Do the SET in redis for each field
                 serialized_datum = ser.serialize(datum, method=serialization)
@@ -2408,7 +2428,7 @@ class Element:
                 fields.append(field)
 
             self.metrics_timing_end(
-                self._parameter_write_metrics["serialize"], pipeline=pipeline
+                self._parameter_metrics[key]["serialize"], pipeline=pipeline
             )
 
             # Add serialization field to new parameter
@@ -2427,11 +2447,11 @@ class Element:
                 _pipe.pexpire(key, timeout_ms)
 
             # Write data
-            self.metrics_timing_start(self._parameter_write_metrics["data"])
+            self.metrics_timing_start(self._parameter_metrics[key]["data"])
             response = _pipe.execute()
             _pipe = self._release_pipeline(_pipe)
             self.metrics_timing_end(
-                self._parameter_write_metrics["data"], pipeline=pipeline
+                self._parameter_metrics[key]["data"], pipeline=pipeline
             )
 
         # Check for valid HSET responses
@@ -2463,30 +2483,6 @@ class Element:
         override = _pipe.execute()[0]
         return override.decode()
 
-    def _parameter_read_init_metrics(self):
-        """
-        Initialize metrics for reading parameters
-        """
-
-        # If we've already done this, just return out
-        if self._parameter_read_metrics:
-            return
-
-        self._parameter_read_metrics = {}
-
-        self._parameter_read_metrics["data"] = self.metrics_create(
-            MetricsLevel.TIMING,
-            "atom:parameter_read",
-            "data",
-            agg_types=["AVG", "MIN", "MAX", "COUNT"],
-        )
-        self._parameter_read_metrics["deserialize"] = self.metrics_create(
-            MetricsLevel.TIMING,
-            "atom:parameter_read",
-            "deserialize",
-            agg_types=["AVG", "MIN", "MAX"],
-        )
-
     def parameter_read(
         self, key, fields=None, serialization=None, force_serialization=False
     ):
@@ -2510,22 +2506,22 @@ class Element:
         key = self._make_parameter_key(key)
 
         # Initialize metrics
-        self._parameter_read_init_metrics()
+        self._parameter_init_metrics(key)
 
         # Get a metrics pipeline
         with MetricsPipeline(self) as pipeline:
 
             # Get the data
-            self.metrics_timing_start(self._parameter_read_metrics["data"])
+            self.metrics_timing_start(self._parameter_metrics[key]["data"])
             _pipe = self._rpipeline_pool.get()
             _pipe.hgetall(key)
             data = _pipe.execute()[0]
             _pipe = self._release_pipeline(_pipe)
             self.metrics_timing_end(
-                self._parameter_read_metrics["data"], pipeline=pipeline
+                self._parameter_metrics[key]["data"], pipeline=pipeline
             )
 
-            self.metrics_timing_start(self._parameter_read_metrics["deserialize"])
+            self.metrics_timing_start(self._parameter_metrics[key]["deserialize"])
             deserialized_data = {}
             # look for serialization method in parameter first; reformat data
             #   into a dictionary with a "ser" key to use shared logic function
@@ -2553,7 +2549,7 @@ class Element:
                     )
 
             self.metrics_timing_end(
-                self._parameter_read_metrics["deserialize"], pipeline=pipeline
+                self._parameter_metrics[key]["deserialize"], pipeline=pipeline
             )
 
         if fields:
@@ -2566,24 +2562,6 @@ class Element:
 
         return return_data if return_data else None
 
-    def _parameter_delete_init_metrics(self):
-        """
-        Initialize metrics for deleting parameters
-        """
-
-        # If we've already done this, just return out
-        if self._parameter_delete_metrics:
-            return
-
-        self._parameter_delete_metrics = {}
-
-        self._parameter_delete_metrics["delete"] = self.metrics_create(
-            MetricsLevel.TIMING,
-            "atom:parameter_delete",
-            "delete",
-            agg_types=["AVG", "MIN", "MAX", "COUNT"],
-        )
-
     def parameter_delete(self, key):
         """
         Deletes a parameter and cleans up its memory
@@ -2593,15 +2571,15 @@ class Element:
         """
 
         # Initialize metrics
-        self._parameter_delete_init_metrics()
+        self._parameter_init_metrics(key)
 
         with MetricsPipeline(self) as metrics_pipeline:
-            self.metrics_timing_start(self._parameter_delete_metrics["delete"])
+            self.metrics_timing_start(self._parameter_metrics[key]["delete"])
 
             self._redis_key_delete(self._make_parameter_key(key))
 
             self.metrics_timing_end(
-                self._parameter_delete_metrics["delete"], pipeline=metrics_pipeline
+                self._parameter_metrics[key]["delete"], pipeline=metrics_pipeline
             )
 
     def parameter_update_timeout_ms(self, key, timeout_ms):
