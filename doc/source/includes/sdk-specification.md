@@ -1860,6 +1860,119 @@ PERSIST $key
 PEXPIRE $key $timeout_ms
 ```
 
+## Set Counter
+
+```python
+
+curr_value = caller.counter_set(key, value)
+```
+
+Set a counter to a value. Will return the current value of the counter
+
+### API
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | String | Key of the counter, i.e. the golbal name |
+| `value` | Int | Value to set the counter to |
+
+### Return Value
+
+Integer current value of the counter. Should match value.
+
+### Spec
+
+Call `SET` on `counter:<key>`
+
+## Get Counter
+
+```python
+
+curr_value = caller.counter_get(key)
+```
+
+Get the current value of a counter
+
+### API
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | String | Key of the counter, i.e. the golbal name |
+
+### Return Value
+
+Integer current value of the counter.
+
+### Spec
+
+Call `GET` on `counter:<key>`
+
+## Update Counter
+
+```python
+
+#
+# Update a counter after it's created with an initial counter_set
+#
+
+curr_value = caller.counter_set(key, 10)
+# curr_value == 10
+curr_value = caller.counter_update(key, 2)
+# curr_value == 12
+curr_value = caller.counter_update(key, -5)
+# curr_value == 7
+
+#
+# Use counter_update to create a counter
+#
+curr_value = caller.counter_update(new_key, 3)
+# curr_value == 3
+```
+
+Update a counter's value by the integer passed in an atomic fasion. If the
+counter doesn't previously exist, set the counter's value to the integer
+passed. Integer passed can be positive or negative to increment or decrement
+the counter.
+
+### API
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | String | Key of the counter, i.e. the golbal name |
+| `value` | Int | Value to set the counter to |
+
+### Return Value
+
+Integer current value of the counter after applying the update
+
+### Spec
+
+Call `INCRBY` on `counter:<key>`. `INCRBY`'s default behavior is to create
+if the key does not already exist.
+
+## Delete Counter
+
+```python
+
+curr_value = caller.counter_delete(key)
+```
+
+Delete the counter from redis.
+
+### API
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | String | Key of the counter, i.e. the golbal name |
+
+### Return Value
+
+None
+
+### Spec
+
+Call `DEL` on `counter:<key>`
+
 ## Error Codes
 
 The atom spec defines a set of error codes to standardize errors throughout the system.

@@ -33,6 +33,17 @@ data blobs (such as images), the blobs aren't being copied excessively and don't
 make the logs unreadable. The serialization method used for the data will be stored
 in the pointer string to be used for automatic deserialization.
 
+## Parameter
+
+A globally-accessible data mapping that can contain multiple key:value pairs.
+Parameters can be read/written by all elements but only have one value at
+a time.
+
+## Counter
+
+A globally-acessible atomic shared counter. Multiple elments can be setting,
+incrementing and decrementing.
+
 ## Serialization Options
 
 Below are the serialization methods currently available in Atom. By default, Atom will not serialize any data. Serialization must be specified using the "serialization" option in the API.
