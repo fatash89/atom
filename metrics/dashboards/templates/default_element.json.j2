@@ -1597,7 +1597,7 @@
                         "aggregation": "avg",
                         "bucket": "{{ bucket }}",
                         "command": "ts.mrange",
-                        "fill": true,
+                        "fill": false,
                         "filter": "element={{ element }} type=atom:counter subtype1=value agg={{ agg_label }}",
                         "legend": "subtype0",
                         "query": "",
@@ -2110,8 +2110,311 @@
               ],
               "timeFrom": null,
               "timeShift": null,
-              "title": "Paremter Updates",
+              "title": "Parameter Updates",
               "type": "table"
+            },
+            {
+              "aliasColors": {},
+              "bars": false,
+              "dashLength": 10,
+              "dashes": false,
+              "datasource": "{{ datasource }}",
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {}
+                },
+                "overrides": []
+              },
+              "fill": 0,
+              "fillGradient": 0,
+              "gridPos": {
+                "h": 8,
+                "w": 6,
+                "x": 0,
+                "y": 50
+              },
+              "hiddenSeries": false,
+              "id": 25,
+              "legend": {
+                "avg": false,
+                "current": false,
+                "max": false,
+                "min": false,
+                "show": true,
+                "total": false,
+                "values": false
+              },
+              "lines": true,
+              "linewidth": 1,
+              "nullPointMode": "null",
+              "options": {
+                "alertThreshold": true
+              },
+              "percentage": false,
+              "pluginVersion": "7.3.6",
+              "pointradius": 2,
+              "points": false,
+              "renderer": "flot",
+              "seriesOverrides": [],
+              "spaceLength": 10,
+              "stack": false,
+              "steppedLine": false,
+              "targets": [
+                {
+                  "aggregation": "count",
+                  "bucket": "1000",
+                  "command": "ts.mrange",
+                  "fill": true,
+                  "filter": "element={{ element }} type=atom:sorted_set subtype1=(add,pop,range,read,remove,delete) agg={{ agg_label }}",
+                  "legend": "subtype1",
+                  "query": "",
+                  "refId": "A",
+                  "type": "timeSeries",
+                  "value": "subtype0"
+                }
+              ],
+              "thresholds": [],
+              "timeFrom": null,
+              "timeRegions": [],
+              "timeShift": null,
+              "title": "Set Calls",
+              "tooltip": {
+                "shared": true,
+                "sort": 0,
+                "value_type": "individual"
+              },
+              "type": "graph",
+              "xaxis": {
+                "buckets": null,
+                "mode": "time",
+                "name": null,
+                "show": true,
+                "values": []
+              },
+              "yaxes": [
+                {
+                  "format": "short",
+                  "label": null,
+                  "logBase": 1,
+                  "max": null,
+                  "min": null,
+                  "show": true
+                },
+                {
+                  "format": "short",
+                  "label": null,
+                  "logBase": 1,
+                  "max": null,
+                  "min": null,
+                  "show": true
+                }
+              ],
+              "yaxis": {
+                "align": false,
+                "alignLevel": null
+              }
+            },
+            {
+              "aliasColors": {},
+              "bars": false,
+              "dashLength": 10,
+              "dashes": false,
+              "datasource": "{{ datasource }}",
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {}
+                },
+                "overrides": []
+              },
+              "fill": 0,
+              "fillGradient": 0,
+              "gridPos": {
+                "h": 8,
+                "w": 6,
+                "x": 6,
+                "y": 50
+              },
+              "hiddenSeries": false,
+              "id": 26,
+              "legend": {
+                "avg": false,
+                "current": false,
+                "max": false,
+                "min": false,
+                "show": true,
+                "total": false,
+                "values": false
+              },
+              "lines": true,
+              "linewidth": 1,
+              "nullPointMode": "null",
+              "options": {
+                "alertThreshold": true
+              },
+              "percentage": false,
+              "pluginVersion": "7.3.6",
+              "pointradius": 2,
+              "points": false,
+              "renderer": "flot",
+              "seriesOverrides": [],
+              "spaceLength": 10,
+              "stack": false,
+              "steppedLine": false,
+              "targets": [
+                {
+                  "aggregation": "avg",
+                  "bucket": "1000",
+                  "command": "ts.mrange",
+                  "fill": true,
+                  "filter": "element={{ element }} type=atom:sorted_set subtype1=(add,pop,range,read,remove,delete) agg={{ agg_label }}",
+                  "legend": "subtype1",
+                  "query": "",
+                  "refId": "A",
+                  "type": "timeSeries",
+                  "value": "subtype0"
+                }
+              ],
+              "thresholds": [],
+              "timeFrom": null,
+              "timeRegions": [],
+              "timeShift": null,
+              "title": "Set Timing",
+              "tooltip": {
+                "shared": true,
+                "sort": 0,
+                "value_type": "individual"
+              },
+              "type": "graph",
+              "xaxis": {
+                "buckets": null,
+                "mode": "time",
+                "name": null,
+                "show": true,
+                "values": []
+              },
+              "yaxes": [
+                {
+                  "format": "short",
+                  "label": null,
+                  "logBase": 1,
+                  "max": null,
+                  "min": null,
+                  "show": true
+                },
+                {
+                  "format": "short",
+                  "label": null,
+                  "logBase": 1,
+                  "max": null,
+                  "min": null,
+                  "show": true
+                }
+              ],
+              "yaxis": {
+                "align": false,
+                "alignLevel": null
+              }
+            },
+            {
+              "aliasColors": {},
+              "bars": false,
+              "dashLength": 10,
+              "dashes": false,
+              "datasource": "{{ datasource }}",
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {}
+                },
+                "overrides": []
+              },
+              "fill": 0,
+              "fillGradient": 0,
+              "gridPos": {
+                "h": 8,
+                "w": 6,
+                "x": 12,
+                "y": 50
+              },
+              "hiddenSeries": false,
+              "id": 27,
+              "legend": {
+                "avg": false,
+                "current": false,
+                "max": false,
+                "min": false,
+                "show": true,
+                "total": false,
+                "values": false
+              },
+              "lines": true,
+              "linewidth": 1,
+              "nullPointMode": "null",
+              "options": {
+                "alertThreshold": true
+              },
+              "percentage": false,
+              "pluginVersion": "7.3.6",
+              "pointradius": 2,
+              "points": false,
+              "renderer": "flot",
+              "seriesOverrides": [],
+              "spaceLength": 10,
+              "stack": false,
+              "steppedLine": false,
+              "targets": [
+                {
+                  "aggregation": "avg",
+                  "bucket": "1000",
+                  "command": "ts.mrange",
+                  "fill": false,
+                  "filter": "element={{ element }} type=atom:sorted_set subtype1=card agg={{ agg_label }}",
+                  "legend": "subtype1",
+                  "query": "",
+                  "refId": "A",
+                  "type": "timeSeries",
+                  "value": "subtype0"
+                }
+              ],
+              "thresholds": [],
+              "timeFrom": null,
+              "timeRegions": [],
+              "timeShift": null,
+              "title": "Set Cardinality",
+              "tooltip": {
+                "shared": true,
+                "sort": 0,
+                "value_type": "individual"
+              },
+              "type": "graph",
+              "xaxis": {
+                "buckets": null,
+                "mode": "time",
+                "name": null,
+                "show": true,
+                "values": []
+              },
+              "yaxes": [
+                {
+                  "format": "short",
+                  "label": null,
+                  "logBase": 1,
+                  "max": null,
+                  "min": null,
+                  "show": true
+                },
+                {
+                  "format": "short",
+                  "label": null,
+                  "logBase": 1,
+                  "max": null,
+                  "min": null,
+                  "show": true
+                }
+              ],
+              "yaxis": {
+                "align": false,
+                "alignLevel": null
+              }
             }
         ],
         "refresh": false,

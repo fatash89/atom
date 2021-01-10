@@ -208,6 +208,7 @@ class Element:
         self._entry_write_metrics = defaultdict(lambda: None)
         self._parameter_metrics = defaultdict(lambda: {})
         self._counter_metrics = defaultdict(lambda: {})
+        self._sorted_set_metrics = defaultdict(lambda: {})
         self._reference_create_metrics = None
         self._reference_create_from_stream_metrics = defaultdict(
             lambda: defaultdict(lambda: None)
@@ -3072,7 +3073,7 @@ class Element:
 
     def _counter_init_metrics(self, key):
         """
-        Initialize the metrics for setting a counter
+        Initialize the metrics for using a counter
         """
 
         # If we've already created the metrics, just return
@@ -3300,6 +3301,348 @@ class Element:
 
             self.metrics_timing_end(
                 self._counter_metrics[key]["delete"], pipeline=metrics_pipeline
+            )
+
+    def _make_sorted_set_key(self, key):
+        """
+        Prefixes requested key under sorted set namespace.
+        """
+        return f"sorted_set:{key}"
+
+    def _sorted_set_init_metrics(self, key):
+        """
+        Initialize the metrics for using a sorted set
+        """
+
+        # If we've already created the metrics, just return
+        if self._sorted_set_metrics[key]:
+            return
+
+        self._sorted_set_metrics[key]["add"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:sorted_set",
+            key,
+            "add",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
+        self._sorted_set_metrics[key]["pop"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:sorted_set",
+            key,
+            "pop",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
+        self._sorted_set_metrics[key]["range"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:sorted_set",
+            key,
+            "range",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
+        self._sorted_set_metrics[key]["read"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:sorted_set",
+            key,
+            "read",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
+        self._sorted_set_metrics[key]["remove"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:sorted_set",
+            key,
+            "remove",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
+        self._sorted_set_metrics[key]["delete"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:sorted_set",
+            key,
+            "delete",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
+        self._sorted_set_metrics[key]["card"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:sorted_set",
+            key,
+            "card",
+            agg_types=["AVG", "MIN", "MAX"],
+        )
+
+    def sorted_set_add(self, set_key, member, value):
+        """
+        Set the value for a shared, atomic counter directly using SET
+
+        Args:
+            set_key (string): Name of the sorted set
+            member (string): Name of the member to use in the sorted set
+            value (float): Value to give to the member in the sorted set
+
+        Return:
+            None
+
+        Raises:
+            AtomError on inability to add to set
+        """
+
+        # Initialize metrics
+        self._sorted_set_init_metrics(set_key)
+        redis_key = self._make_sorted_set_key(set_key)
+
+        # Get our pipelines
+        with RedisPipeline(self) as redis_pipeline, MetricsPipeline(
+            self
+        ) as metrics_pipeline:
+
+            # Add to the sorted set
+            self.metrics_timing_start(self._sorted_set_metrics[set_key]["add"])
+
+            redis_pipeline.zadd(redis_key, {member: value})
+            redis_pipeline.zcard(redis_key)
+            response = redis_pipeline.execute()
+
+            self.metrics_timing_end(
+                self._sorted_set_metrics[set_key]["add"], pipeline=metrics_pipeline
+            )
+
+            if response[0] != 1 and response[0] != 0:
+                raise AtomError(
+                    f"Failed add member: {member}, value {value} to sorted set {set_key}"
+                )
+
+            self.metrics_add(
+                self._sorted_set_metrics[set_key]["card"],
+                response[1],
+                pipeline=metrics_pipeline,
+            )
+
+    def sorted_set_pop(self, set_key, least=True):
+        """
+        Pop the value from a sorted set. Minium or maximum (min by default)
+
+        Args:
+            set_key (string): Name of the sorted set
+            least (bool): True to pop minimum, False to pop maximum
+
+        Return:
+            Tuple of (member, value) that was popped
+
+        Raises:
+            AtomError on inability to pop or empty set
+        """
+
+        # Initialize metrics
+        self._sorted_set_init_metrics(set_key)
+        redis_key = self._make_sorted_set_key(set_key)
+
+        # Get our pipelines
+        with RedisPipeline(self) as redis_pipeline, MetricsPipeline(
+            self
+        ) as metrics_pipeline:
+
+            # Add to the sorted set
+            self.metrics_timing_start(self._sorted_set_metrics[set_key]["pop"])
+
+            if least:
+                redis_pipeline.zpopmin(redis_key)
+            else:
+                redis_pipeline.zpopmax(redis_key)
+            redis_pipeline.zcard(redis_key)
+            response = redis_pipeline.execute()
+
+            self.metrics_timing_end(
+                self._sorted_set_metrics[set_key]["pop"], pipeline=metrics_pipeline
+            )
+
+            if not response[0]:
+                raise AtomError(f"Failed to pop from sorted set {set_key}")
+
+            self.metrics_add(
+                self._sorted_set_metrics[set_key]["card"],
+                response[1],
+                pipeline=metrics_pipeline,
+            )
+
+        return response[0][0]
+
+    def sorted_set_range(self, set_key, start, end, least=True, withvalues=True):
+        """
+        Read a range of the sorted set
+
+        Args:
+            set_key (string): Name of the sorted set
+            start (int): start index of the read
+            end (int): End index of the read
+            least (bool): Read from least to greatest, else greatest to least
+            withvalues (bool): Return scores with member.
+
+        Return:
+            List of Tuple of (member, value) that was read if withvalues=True.
+                Else, will be sorted list of members read.
+
+        Raises:
+            AtomError on inability to pop or empty set
+        """
+
+        # Initialize metrics
+        self._sorted_set_init_metrics(set_key)
+        redis_key = self._make_sorted_set_key(set_key)
+
+        # Get our pipelines
+        with RedisPipeline(self) as redis_pipeline, MetricsPipeline(
+            self
+        ) as metrics_pipeline:
+
+            # Add to the sorted set
+            self.metrics_timing_start(self._sorted_set_metrics[set_key]["range"])
+
+            if least:
+                redis_pipeline.zrange(redis_key, start, end, withscores=withvalues)
+            else:
+                redis_pipeline.zrevrange(redis_key, start, end, withscores=withvalues)
+            response = redis_pipeline.execute()
+
+            self.metrics_timing_end(
+                self._sorted_set_metrics[set_key]["range"], pipeline=metrics_pipeline
+            )
+
+            if not response[0]:
+                raise AtomError(
+                    f"Failed to read range {start} to {end} from {'min' if least else 'max'} in sorted set {set_key}"
+                )
+
+        return response[0]
+
+    def sorted_set_read(self, set_key, member):
+        """
+        Read the value of a member from a sorted set
+
+        Args:
+            set_key (string): Name of the sorted set
+            member (string): Mmeber of the sorted set we want to read
+
+        Return:
+            value of member
+
+        Raises:
+            AtomError on inability to read member from set
+        """
+
+        # Initialize metrics
+        self._sorted_set_init_metrics(set_key)
+        redis_key = self._make_sorted_set_key(set_key)
+
+        # Get our pipelines
+        with RedisPipeline(self) as redis_pipeline, MetricsPipeline(
+            self
+        ) as metrics_pipeline:
+
+            # Add to the sorted set
+            self.metrics_timing_start(self._sorted_set_metrics[set_key]["read"])
+
+            redis_pipeline.zscore(redis_key, member)
+            response = redis_pipeline.execute()
+
+            self.metrics_timing_end(
+                self._sorted_set_metrics[set_key]["read"], pipeline=metrics_pipeline
+            )
+
+            if response[0] is None:
+                raise AtomError(
+                    f"Failed to read member {member} from sorted set {set_key}"
+                )
+
+        return response[0]
+
+    def sorted_set_remove(self, set_key, member):
+        """
+        Remove a member from a sorted set
+
+        Args:
+            set_key (string): Name of the sorted set
+            member (string): Mmeber of the sorted set we want to remove
+
+        Return:
+            None
+
+        Raises:
+            AtomError on inability to remove member from set
+        """
+
+        # Initialize metrics
+        self._sorted_set_init_metrics(set_key)
+        redis_key = self._make_sorted_set_key(set_key)
+
+        # Get our pipelines
+        with RedisPipeline(self) as redis_pipeline, MetricsPipeline(
+            self
+        ) as metrics_pipeline:
+
+            # Add to the sorted set
+            self.metrics_timing_start(self._sorted_set_metrics[set_key]["remove"])
+
+            redis_pipeline.zrem(redis_key, member)
+            redis_pipeline.zcard(redis_key)
+            response = redis_pipeline.execute()
+
+            self.metrics_timing_end(
+                self._sorted_set_metrics[set_key]["remove"], pipeline=metrics_pipeline
+            )
+
+            if response[0] != 1:
+                raise AtomError(
+                    f"Failed to remove member {member} from sorted set {set_key}"
+                )
+
+            self.metrics_add(
+                self._sorted_set_metrics[set_key]["card"],
+                response[1],
+                pipeline=metrics_pipeline,
+            )
+
+    def sorted_set_delete(self, set_key):
+        """
+        Delete a sorted set entirely
+
+        Args:
+            set_key (string): Name of the sorted set
+
+        Return:
+            None
+
+        Raises:
+            AtomError on inability to remove member from set
+        """
+
+        # Initialize metrics
+        self._sorted_set_init_metrics(set_key)
+        redis_key = self._make_sorted_set_key(set_key)
+
+        # Get our pipelines
+        with RedisPipeline(self) as redis_pipeline, MetricsPipeline(
+            self
+        ) as metrics_pipeline:
+
+            # Add to the sorted set
+            self.metrics_timing_start(self._sorted_set_metrics[set_key]["delete"])
+
+            redis_pipeline.delete(redis_key)
+            response = redis_pipeline.execute()
+
+            self.metrics_timing_end(
+                self._sorted_set_metrics[set_key]["delete"], pipeline=metrics_pipeline
+            )
+
+            if not response[0]:
+                raise AtomError(f"Failed to delete sorted set {set_key}")
+
+            self.metrics_add(
+                self._sorted_set_metrics[set_key]["card"], 0, pipeline=metrics_pipeline
             )
 
     def metrics_get_pipeline(self):

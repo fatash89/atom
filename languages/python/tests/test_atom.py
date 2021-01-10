@@ -2403,6 +2403,217 @@ class TestAtom:
         assert caller._rpipeline_pool.qsize() == REDIS_PIPELINE_POOL_SIZE
         assert caller._mpipeline_pool.qsize() == REDIS_PIPELINE_POOL_SIZE
 
+    def test_set_add(self, caller):
+
+        caller, caller_name = caller
+        n_items = 10
+
+        for i in range(n_items):
+            member = f"key{i}"
+            caller.sorted_set_add("some_set", member, i)
+            value = caller.sorted_set_read("some_set", member)
+
+            assert value == i
+
+        caller.sorted_set_delete("some_set")
+
+    def test_set_update(self, caller):
+
+        caller, caller_name = caller
+        n_items = 10
+
+        for i in range(n_items):
+            member = "same_value"
+            caller.sorted_set_add("some_set", member, i)
+            value = caller.sorted_set_read("some_set", member)
+
+            assert value == i
+
+        caller.sorted_set_delete("some_set")
+
+    def test_set_range_min_withvalues(self, caller):
+
+        caller, caller_name = caller
+
+        values = []
+        n_items = 10
+
+        for i in range(n_items):
+            member = f"key{i}"
+            caller.sorted_set_add("some_set", member, i)
+            values.append((member.encode("utf-8"), float(i)))
+
+        set_range = caller.sorted_set_range("some_set", 0, -1)
+        assert set_range == values
+
+        caller.sorted_set_delete("some_set")
+
+    def test_set_range_min_slice_withvalues(self, caller):
+
+        caller, caller_name = caller
+
+        values = []
+        slice_start = 3
+        slice_end = 5
+        n_items = 10
+
+        for i in range(n_items):
+            member = f"key{i}"
+            caller.sorted_set_add("some_set", member, i)
+
+            if i >= slice_start and i <= slice_end:
+                values.append((member.encode("utf-8"), float(i)))
+
+        set_range = caller.sorted_set_range("some_set", slice_start, slice_end)
+        assert set_range == values
+
+        caller.sorted_set_delete("some_set")
+
+    def test_set_range_min_novalues(self, caller):
+
+        caller, caller_name = caller
+
+        values = []
+        n_items = 10
+
+        for i in range(n_items):
+            member = f"key{i}"
+            caller.sorted_set_add("some_set", member, i)
+            values.append(member.encode("utf-8"))
+
+        set_range = caller.sorted_set_range("some_set", 0, -1, withvalues=False)
+        assert set_range == values
+
+        caller.sorted_set_delete("some_set")
+
+    def test_set_range_max_withvalues(self, caller):
+
+        caller, caller_name = caller
+
+        values = []
+        n_items = 10
+
+        for i in range(n_items):
+            member = f"key{i}"
+            caller.sorted_set_add("some_set", member, i)
+            values.insert(0, (member.encode("utf-8"), float(i)))
+
+        set_range = caller.sorted_set_range("some_set", 0, -1, least=False)
+        assert set_range == values
+
+        caller.sorted_set_delete("some_set")
+
+    def test_set_range_max_slice_withvalues(self, caller):
+
+        caller, caller_name = caller
+
+        values = []
+        slice_start = 1
+        slice_end = 7
+        n_items = 10
+
+        for i in range(n_items):
+            member = f"key{i}"
+            caller.sorted_set_add("some_set", member, i)
+
+            if i <= (n_items - 1 - slice_start) and i >= (n_items - 1 - slice_end):
+                values.insert(0, (member.encode("utf-8"), float(i)))
+
+        set_range = caller.sorted_set_range(
+            "some_set", slice_start, slice_end, least=False
+        )
+        assert set_range == values
+
+        caller.sorted_set_delete("some_set")
+
+    def test_set_range_max_novalues(self, caller):
+
+        caller, caller_name = caller
+
+        values = []
+        n_items = 10
+
+        for i in range(n_items):
+            member = f"key{i}"
+            caller.sorted_set_add("some_set", member, i)
+            values.insert(0, member.encode("utf-8"))
+
+        set_range = caller.sorted_set_range(
+            "some_set", 0, -1, least=False, withvalues=False
+        )
+        assert set_range == values
+
+        caller.sorted_set_delete("some_set")
+
+    def test_set_pop_min(self, caller):
+
+        caller, caller_name = caller
+
+        values = []
+        n_items = 10
+
+        for i in range(n_items):
+            member = f"key{i}"
+            caller.sorted_set_add("some_set", member, i)
+            values.append((member.encode("utf-8"), float(i)))
+
+        set_range = caller.sorted_set_range("some_set", 0, -1)
+        assert set_range == values
+
+        for i in range(n_items):
+            pop_val = caller.sorted_set_pop("some_set")
+            assert values[0] == pop_val
+            values.pop(0)
+
+        # No delete -- set disappears on its own when final member popped
+
+    def test_set_pop_max(self, caller):
+
+        caller, caller_name = caller
+
+        values = []
+        n_items = 10
+
+        for i in range(n_items):
+            member = f"key{i}"
+            caller.sorted_set_add("some_set", member, i)
+            values.insert(0, (member.encode("utf-8"), float(i)))
+
+        set_range = caller.sorted_set_range("some_set", 0, -1, least=False)
+        assert set_range == values
+
+        for i in range(n_items):
+            pop_val = caller.sorted_set_pop("some_set", least=False)
+            assert values[0] == pop_val
+            values.pop(0)
+
+        # No delete -- set disappears on its own when final member popped
+
+    def test_set_remove(self, caller):
+
+        caller, caller_name = caller
+
+        values = []
+        n_items = 10
+
+        for i in range(n_items):
+            member = f"key{i}"
+            caller.sorted_set_add("some_set", member, i)
+            values.append((member.encode("utf-8"), float(i)))
+
+        set_range = caller.sorted_set_range("some_set", 0, -1)
+        assert set_range == values
+
+        for i in range(n_items):
+            member = f"key{i}"
+            caller.sorted_set_remove("some_set", member)
+            values.pop(0)
+            if values:
+                set_range = caller.sorted_set_range("some_set", 0, -1)
+                assert set_range == values
+
+        # No delete -- set disappears on its own when final member popped
+
 
 def add_1(x):
     return Response(int(x) + 1)

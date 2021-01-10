@@ -51,6 +51,9 @@ SYS_DASHBOARDS = ["cpu", "disk", "memory", "network"]
 # How long to wait between polls for checking elements
 ELEMENT_POLL_S = 10
 
+# Whether or not aggregation is on for metrics
+USE_AGGREGATION = os.getenv("ATOM_METRICS_USE_AGGREGATION", "FALSE") == "TRUE"
+
 
 class DashboardAgent(object):
     """
@@ -200,9 +203,13 @@ class DashboardAgent(object):
         for sys_dash in SYS_DASHBOARDS:
             template = self.env.get_template(f"{sys_dash}.json.j2")
 
-            for timing in [
-                (None, None),
-            ] + METRICS_TIMING:
+            # Determine which timings we should make dashboards for
+            timing_list = [(None, None)]
+            if USE_AGGREGATION:
+                timing_list += METRICS_TIMING
+
+            # Make a dashboard for each timing in the list
+            for timing in timing_list:
                 if timing[0] is not None:
                     bucket = timing[0]
                     agg_label = f"{timing[0] // (1000 * 60)}m"
@@ -298,9 +305,14 @@ class DashboardAgent(object):
         # Create the dashboards for the elements
         print(f"Setting up dashboard for element: {element}")
         element_template = self.env.get_template("default_element.json.j2")
-        for timing in [
-            (None, None),
-        ] + METRICS_TIMING:
+
+        # Determine which timings we should be making dashboards for
+        timing_list = [(None, None)]
+        if USE_AGGREGATION:
+            timing_list += METRICS_TIMING
+
+        # Make a dashboard for each timing in the list
+        for timing in timing_list:
             if timing[0] is not None:
                 bucket = timing[0]
                 agg_label = f"{timing[0] // (1000 * 60)}m"

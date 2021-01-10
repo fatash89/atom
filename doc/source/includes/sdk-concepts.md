@@ -44,6 +44,10 @@ a time.
 A globally-acessible atomic shared counter. Multiple elments can be setting,
 incrementing and decrementing.
 
+## Sorted Set
+
+A globally-accessible sorted set with atomic add, update, pop and remove operations. This is useful for collaborating between multiple elements or multiple processes.
+
 ## Serialization Options
 
 Below are the serialization methods currently available in Atom. By default, Atom will not serialize any data. Serialization must be specified using the "serialization" option in the API.
