@@ -12,6 +12,7 @@ from os import uname
 from queue import Queue, LifoQueue
 from queue import Empty as QueueEmpty
 from collections import defaultdict
+from datetime import datetime
 
 import redis
 from redistimeseries.client import Client as RedisTimeSeries
@@ -2454,6 +2455,12 @@ class Element:
                 self._parameter_metrics[key]["write_data"], pipeline=pipeline
             )
 
+            # Finally, we want to log to the debug stream in the metrics
+            #   redis about the parameter change. This will make it show up
+            #   in the dashboards so we can see what the current/previous
+            #   values of parameters have been
+            self.metrics_log("parameter_stream", key, data, pipeline=pipeline)
+
         # Check for valid HSET responses
         if not all([(code == 0 or code == 1) for code in response]):
             raise AtomError(f"Failed to create parameter! response {response}")
@@ -3648,6 +3655,34 @@ class Element:
             rules=_rules,
             duplicate_policy=duplicate_policy,
         )
+
+    def metrics_log(self, stream, key, data, pipeline=None, maxlen=100):
+        """
+        Logs to a metric/debug stream that can be viewed in Grafana
+        """
+        if not self._metrics_enabled:
+            return None
+
+        if not pipeline:
+            _pipe = self.metrics_get_pipeline()
+        else:
+            _pipe = pipeline
+
+        # We want to log to the debug stream in the metrics
+        #   redis about the parameter change. This will make it show up
+        #   in the dashboards so we can see what the current/previous
+        #   values of parameters have been
+        _pipe.xadd(
+            f"{self.name}:{stream}",
+            {f"{datetime.now()} - {key}": str(data)},
+            maxlen=maxlen,
+        )
+
+        data = None
+        if not pipeline:
+            data = self.metrics_write_pipeline(_pipe)
+
+        return data
 
     def metrics_add(
         self,

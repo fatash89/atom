@@ -2060,6 +2060,58 @@
                     "align": false,
                     "alignLevel": null
                 }
+            },
+            {
+              "datasource": "{{ datasource }}",
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "align": null,
+                    "displayMode": "json-view",
+                    "filterable": false
+                  },
+                  "mappings": [],
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  }
+                },
+                "overrides": []
+              },
+              "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 42
+              },
+              "id": 24,
+              "options": {
+                "showHeader": true
+              },
+              "pluginVersion": "7.3.6",
+              "targets": [
+                {
+                  "command": "",
+                  "query": "XREVRANGE  {{ element }}:parameter_stream + -",
+                  "queryType": "randomWalk",
+                  "refId": "A",
+                  "section": "clients",
+                  "type": "cli"
+                }
+              ],
+              "timeFrom": null,
+              "timeShift": null,
+              "title": "Paremter Updates",
+              "type": "table"
             }
         ],
         "refresh": false,
