@@ -1860,6 +1860,248 @@ PERSIST $key
 PEXPIRE $key $timeout_ms
 ```
 
+## Set Counter
+
+```python
+
+curr_value = caller.counter_set(key, value)
+```
+
+Set a counter to a value. Will return the current value of the counter
+
+### API
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | String | Key of the counter, i.e. the golbal name |
+| `value` | Int | Value to set the counter to |
+
+### Return Value
+
+Integer current value of the counter. Should match value.
+
+### Spec
+
+Call `SET` on `counter:<key>`
+
+## Get Counter
+
+```python
+
+curr_value = caller.counter_get(key)
+```
+
+Get the current value of a counter
+
+### API
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | String | Key of the counter, i.e. the golbal name |
+
+### Return Value
+
+Integer current value of the counter.
+
+### Spec
+
+Call `GET` on `counter:<key>`
+
+## Update Counter
+
+```python
+
+#
+# Update a counter after it's created with an initial counter_set
+#
+
+curr_value = caller.counter_set(key, 10)
+# curr_value == 10
+curr_value = caller.counter_update(key, 2)
+# curr_value == 12
+curr_value = caller.counter_update(key, -5)
+# curr_value == 7
+
+#
+# Use counter_update to create a counter
+#
+curr_value = caller.counter_update(new_key, 3)
+# curr_value == 3
+```
+
+Update a counter's value by the integer passed in an atomic fasion. If the
+counter doesn't previously exist, set the counter's value to the integer
+passed. Integer passed can be positive or negative to increment or decrement
+the counter.
+
+### API
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | String | Key of the counter, i.e. the golbal name |
+| `value` | Int | Value to set the counter to |
+
+### Return Value
+
+Integer current value of the counter after applying the update
+
+### Spec
+
+Call `INCRBY` on `counter:<key>`. `INCRBY`'s default behavior is to create
+if the key does not already exist.
+
+## Delete Counter
+
+```python
+
+curr_value = caller.counter_delete(key)
+```
+
+Delete the counter from redis.
+
+### API
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | String | Key of the counter, i.e. the golbal name |
+
+### Return Value
+
+None
+
+### Spec
+
+Call `DEL` on `counter:<key>`
+
+## Add to / Create sorted set
+
+```python
+
+caller.sorted_set_add(key, member, value)
+```
+
+Add a < member : value > pair to a sorted set
+
+### API
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | String | Key of the sorted set, i.e. the golbal name |
+| `member` | String | Member name within the sorted set |
+| `value` | Float | Value of the member within the sorted set. Members will be sorted according to this value |
+
+### Return Value
+
+None
+
+### Spec
+
+Call `ZADD` with the key, member and value
+
+## Pop from a sorted set
+
+```python
+
+item = caller.sorted_set_pop(key)
+item = caller.sorted_set_pop(key, maximum=True)
+```
+
+Remove and return either the smallest or largest member of a sorted set. The item is removed from the set.
+
+### API
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | String | Key of the sorted set, i.e. the golbal name |
+| `maximum` | Boolean | Optional (default false) argument. If true, will return the largest member of the set, if false will return the smallest member of the set. |
+
+### Return Value
+
+(member, value) tuple of the item removed from the set
+
+### Spec
+
+If `maximum` is false, cal `ZPOPMIN`, else `ZPOPMAX`
+
+## Read a member of sorted set
+
+```python
+
+item = caller.sorted_set_read(key, member)
+```
+
+Read the value of a member in a sorted set without removing it. The item is not removed.
+
+### API
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | String | Key of the sorted set, i.e. the golbal name |
+| `member` | String | Member name within the sorted set |
+
+### Return Value
+
+value of the member, float.
+
+### Spec
+
+Call `ZSCORE` on the key and member
+
+## Remove a member of sorted set
+
+```python
+
+caller.sorted_set_remove(key, member)
+```
+
+Remove a member of a sorted set. The item is removed.
+
+### API
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | String | Key of the sorted set, i.e. the golbal name |
+| `member` | String | Member name within the sorted set |
+
+### Return Value
+
+None
+
+### Spec
+
+Call `ZREM` on the key and member
+
+## Read a range of a sorted set
+
+```python
+
+items = caller.sorted_set_range(key, start, stop)
+items = caller.sorted_set_range(key, start, stop, maximum=True)
+items = caller.sorted_set_range(key, start, stop, withvalues=False)
+```
+
+Reads a range of values over the sorted set, either from least to greatest
+or greatest to least. Either returns only member strings or member strings with
+values.
+
+### API
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | String | Key of the sorted set, i.e. the golbal name |
+| `start` | int | Starting index into the range. Should be >= 0 |
+| `end` | int | Starting index into the range. Should be >= -1, where -1 signifies the full range, i.e. the end of it |
+| `maximum` | Boolean | Optional (default false) argument. If false, will consider the set sorted from least to greatest, i.e. the start index is the least and the end index the greatest. If true, the opposite, i.e. the start index is the greatest and the end index the least. |
+| `withvalues` | Boolean | Optional (default true) argument. If true, return will be sorted list of (member, value) tuples. If false, return will be sorted list of member strings only. |
+
+### Return Value
+
+Sorted list of items in the range specified. If `withvalues` is True, will be list of (member, value) tuples, else will be list of member strings only.
+
+### Spec
+
+If `maximum` is false use `ZRANGE`, else ise `ZREVRANGE`
+
 ## Error Codes
 
 The atom spec defines a set of error codes to standardize errors throughout the system.

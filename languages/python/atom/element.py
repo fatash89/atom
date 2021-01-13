@@ -12,6 +12,7 @@ from os import uname
 from queue import Queue, LifoQueue
 from queue import Empty as QueueEmpty
 from collections import defaultdict
+from datetime import datetime
 
 import redis
 from redistimeseries.client import Client as RedisTimeSeries
@@ -103,7 +104,29 @@ class AtomError(Exception):
             return "An Atom Error Occurred"
 
 
+class RedisPipeline:
+    """
+    Wrapper around obtaining and releasing redis pipelines to make sure
+    we don't leak any
+    """
+
+    def __init__(self, element):
+        self.element = element
+
+    def __enter__(self):
+        self.pipeline = self.element._rpipeline_pool.get()
+        return self.pipeline
+
+    def __exit__(self, type, value, traceback):
+        self.element._release_pipeline(self.pipeline)
+
+
 class MetricsPipeline:
+    """
+    Wrapper around obtaining and releasing metrics pipelines to make
+    sure we don't leak any
+    """
+
     def __init__(self, element):
         self.element = element
 
@@ -183,13 +206,15 @@ class Element:
         self._entry_read_n_metrics = defaultdict(lambda: defaultdict(lambda: None))
         self._entry_read_since_metrics = defaultdict(lambda: defaultdict(lambda: None))
         self._entry_write_metrics = defaultdict(lambda: None)
-        self._parameter_write_metrics = None
-        self._parameter_read_metrics = None
+        self._parameter_metrics = defaultdict(lambda: {})
+        self._counter_metrics = defaultdict(lambda: {})
+        self._sorted_set_metrics = defaultdict(lambda: {})
         self._reference_create_metrics = None
         self._reference_create_from_stream_metrics = defaultdict(
             lambda: defaultdict(lambda: None)
         )
         self._reference_get_metrics = None
+        self._reference_delete_metrics = None
 
         #
         # Set up metrics logging levels
@@ -733,6 +758,37 @@ class Element:
 
         return serialization
 
+    def _redis_scan_keys(self, pattern):
+        """
+        Scan redis for all keys matching the pattern. Will use redis SCAN
+            under the hood since KEYS is not recommended/suitable for
+            production environments.
+
+        Args:
+            pattern (string): Match pattern to search across keys
+        """
+
+        matches = []
+        cursor = 0
+
+        # Loop until we get a cursor of 0
+        while True:
+
+            # Get a pipeline and do a scan
+            with RedisPipeline(self) as redis_pipeline:
+                redis_pipeline.scan(cursor, match=pattern)
+                cursor, new_matches = redis_pipeline.execute()[0]
+
+            # Take the elements we got back and add them to the list of elements
+            for match in new_matches:
+                matches.append(match.decode())
+
+            # When we get a cursor back of 0 then we are done
+            if cursor == 0:
+                break
+
+        return matches
+
     def get_all_elements(self):
         """
         Gets the names of all the elements connected to the Redis server.
@@ -740,11 +796,9 @@ class Element:
         Returns:
             List of element ids connected to the Redis server.
         """
-        elements = [
-            element.decode().split(":")[-1]
-            for element in self._rclient.keys(self._make_response_id("*"))
-        ]
-        return elements
+
+        matches = self._redis_scan_keys(self._make_response_id("*"))
+        return [x.split(":")[-1] for x in matches]
 
     def get_all_streams(self, element_name="*"):
         """
@@ -758,11 +812,7 @@ class Element:
         Returns:
             List of Stream ids belonging to element_name
         """
-        streams = [
-            stream.decode()
-            for stream in self._rclient.keys(self._make_stream_id(element_name, "*"))
-        ]
-        return streams
+        return self._redis_scan_keys(self._make_stream_id(element_name, "*"))
 
     def get_element_version(self, element_name):
         """
@@ -2232,34 +2282,56 @@ class Element:
             numeric_level = getattr(logging, LOG_DEFAULT_LEVEL)
         self.logger.log(numeric_level, msg)
 
-    def _parameter_write_init_metrics(self):
+    def _parameter_init_metrics(self, key):
         """
         Initialize parameter write metrics
         """
 
         # If we've already initialized the metrics, no need to worry
-        if self._parameter_write_metrics:
+        if self._parameter_metrics[key]:
             return
 
-        self._parameter_write_metrics = {}
-
-        self._parameter_write_metrics["data"] = self.metrics_create(
+        self._parameter_metrics[key]["write_data"] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:parameter_write",
-            "data",
+            "atom:parameter",
+            key,
+            "write_data",
             agg_types=["AVG", "MIN", "MAX", "COUNT"],
         )
-        self._parameter_write_metrics["serialize"] = self.metrics_create(
+        self._parameter_metrics[key]["serialize"] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:parameter_write",
+            "atom:parameter",
+            key,
             "serialize",
             agg_types=["AVG", "MIN", "MAX"],
         )
-        self._parameter_write_metrics["check"] = self.metrics_create(
+        self._parameter_metrics[key]["check"] = self.metrics_create(
             MetricsLevel.TIMING,
-            "atom:parameter_write",
+            "atom:parameter",
+            key,
             "check",
             agg_types=["AVG", "MIN", "MAX"],
+        )
+        self._parameter_metrics[key]["read_data"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:parameter",
+            key,
+            "read_data",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+        self._parameter_metrics[key]["deserialize"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:parameter",
+            key,
+            "deserialize",
+            agg_types=["AVG", "MIN", "MAX"],
+        )
+        self._parameter_metrics[key]["delete"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:parameter",
+            key,
+            "delete",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
         )
 
     def _make_parameter_key(self, key):
@@ -2300,13 +2372,13 @@ class Element:
             AtomError if key exists and cannot be overridden or a serialization
             method other than the existing one is requested
         """
-        key = self._make_parameter_key(key)
+        redis_key = self._make_parameter_key(key)
         fields = []
         existing_override = None
         serialization = "none" if serialization is None else serialization
 
         # Initialize metrics
-        self._parameter_write_init_metrics()
+        self._parameter_init_metrics(key)
 
         # Get a metrics pipeline
         with MetricsPipeline(self) as pipeline:
@@ -2314,13 +2386,13 @@ class Element:
             _pipe = self._rpipeline_pool.get()
 
             # Check if parameter exists
-            self.metrics_timing_start(self._parameter_write_metrics["check"])
-            _pipe.exists(key)
+            self.metrics_timing_start(self._parameter_metrics[key]["check"])
+            _pipe.exists(redis_key)
             key_exists = _pipe.execute()[0]
 
             if key_exists:
                 # Check requested serialization is same as existing
-                _pipe.hget(key, SERIALIZATION_PARAM_FIELD)
+                _pipe.hget(redis_key, SERIALIZATION_PARAM_FIELD)
                 existing_ser = _pipe.execute()[0]
 
                 if existing_ser != serialization.encode():
@@ -2330,13 +2402,13 @@ class Element:
                     )
 
                 # Check override setting
-                _pipe.hget(key, OVERRIDE_PARAM_FIELD)
+                _pipe.hget(redis_key, OVERRIDE_PARAM_FIELD)
                 existing_override = _pipe.execute()[0].decode()
 
                 if existing_override == "false":
                     # Check for requested fields
                     for field in data.keys():
-                        _pipe.hget(key, field)
+                        _pipe.hget(redis_key, field)
 
                     fields_exist = _pipe.execute()
 
@@ -2346,43 +2418,49 @@ class Element:
                         raise AtomError("Cannot override existing parameter fields")
 
             self.metrics_timing_end(
-                self._parameter_write_metrics["check"], pipeline=pipeline
+                self._parameter_metrics[key]["check"], pipeline=pipeline
             )
 
             # Serialize
-            self.metrics_timing_start(self._parameter_write_metrics["serialize"])
+            self.metrics_timing_start(self._parameter_metrics[key]["serialize"])
             for field, datum in data.items():
                 # Do the SET in redis for each field
                 serialized_datum = ser.serialize(datum, method=serialization)
-                _pipe.hset(key, field, serialized_datum)
+                _pipe.hset(redis_key, field, serialized_datum)
                 fields.append(field)
 
             self.metrics_timing_end(
-                self._parameter_write_metrics["serialize"], pipeline=pipeline
+                self._parameter_metrics[key]["serialize"], pipeline=pipeline
             )
 
             # Add serialization field to new parameter
             if not key_exists:
-                _pipe.hset(key, SERIALIZATION_PARAM_FIELD, serialization)
+                _pipe.hset(redis_key, SERIALIZATION_PARAM_FIELD, serialization)
 
             # Add override field if existing override isn't false
             if existing_override != "false":
                 override = "true" if override is True else "false"
-                _pipe.hset(key, OVERRIDE_PARAM_FIELD, override)
+                _pipe.hset(redis_key, OVERRIDE_PARAM_FIELD, override)
             elif override is True:
                 self.logger.warning("Cannot override existing false override value")
 
             # Set timeout in ms if nonzero positive
             if timeout_ms > 0:
-                _pipe.pexpire(key, timeout_ms)
+                _pipe.pexpire(redis_key, timeout_ms)
 
             # Write data
-            self.metrics_timing_start(self._parameter_write_metrics["data"])
+            self.metrics_timing_start(self._parameter_metrics[key]["write_data"])
             response = _pipe.execute()
             _pipe = self._release_pipeline(_pipe)
             self.metrics_timing_end(
-                self._parameter_write_metrics["data"], pipeline=pipeline
+                self._parameter_metrics[key]["write_data"], pipeline=pipeline
             )
+
+            # Finally, we want to log to the debug stream in the metrics
+            #   redis about the parameter change. This will make it show up
+            #   in the dashboards so we can see what the current/previous
+            #   values of parameters have been
+            self.metrics_log("parameter_stream", key, data, pipeline=pipeline)
 
         # Check for valid HSET responses
         if not all([(code == 0 or code == 1) for code in response]):
@@ -2413,30 +2491,6 @@ class Element:
         override = _pipe.execute()[0]
         return override.decode()
 
-    def _parameter_read_init_metrics(self):
-        """
-        Initialize metrics for reading parameters
-        """
-
-        # If we've already done this, just return out
-        if self._parameter_read_metrics:
-            return
-
-        self._parameter_read_metrics = {}
-
-        self._parameter_read_metrics["data"] = self.metrics_create(
-            MetricsLevel.TIMING,
-            "atom:parameter_read",
-            "data",
-            agg_types=["AVG", "MIN", "MAX", "COUNT"],
-        )
-        self._parameter_read_metrics["deserialize"] = self.metrics_create(
-            MetricsLevel.TIMING,
-            "atom:parameter_read",
-            "deserialize",
-            agg_types=["AVG", "MIN", "MAX"],
-        )
-
     def parameter_read(
         self, key, fields=None, serialization=None, force_serialization=False
     ):
@@ -2457,25 +2511,25 @@ class Element:
         Returns:
             dictionary of data read from the parameter store
         """
-        key = self._make_parameter_key(key)
+        redis_key = self._make_parameter_key(key)
 
         # Initialize metrics
-        self._parameter_read_init_metrics()
+        self._parameter_init_metrics(key)
 
         # Get a metrics pipeline
         with MetricsPipeline(self) as pipeline:
 
             # Get the data
-            self.metrics_timing_start(self._parameter_read_metrics["data"])
+            self.metrics_timing_start(self._parameter_metrics[key]["read_data"])
             _pipe = self._rpipeline_pool.get()
-            _pipe.hgetall(key)
+            _pipe.hgetall(redis_key)
             data = _pipe.execute()[0]
             _pipe = self._release_pipeline(_pipe)
             self.metrics_timing_end(
-                self._parameter_read_metrics["data"], pipeline=pipeline
+                self._parameter_metrics[key]["read_data"], pipeline=pipeline
             )
 
-            self.metrics_timing_start(self._parameter_read_metrics["deserialize"])
+            self.metrics_timing_start(self._parameter_metrics[key]["deserialize"])
             deserialized_data = {}
             # look for serialization method in parameter first; reformat data
             #   into a dictionary with a "ser" key to use shared logic function
@@ -2503,7 +2557,7 @@ class Element:
                     )
 
             self.metrics_timing_end(
-                self._parameter_read_metrics["deserialize"], pipeline=pipeline
+                self._parameter_metrics[key]["deserialize"], pipeline=pipeline
             )
 
         if fields:
@@ -2523,7 +2577,18 @@ class Element:
         Args:
             keys (str): Key of parameter to delete from Atom
         """
-        self.reference_delete(self._make_parameter_key(key))
+
+        # Initialize metrics
+        self._parameter_init_metrics(key)
+
+        with MetricsPipeline(self) as metrics_pipeline:
+            self.metrics_timing_start(self._parameter_metrics[key]["delete"])
+
+            self._redis_key_delete(self._make_parameter_key(key))
+
+            self.metrics_timing_end(
+                self._parameter_metrics[key]["delete"], pipeline=metrics_pipeline
+            )
 
     def parameter_update_timeout_ms(self, key, timeout_ms):
         """
@@ -2538,7 +2603,7 @@ class Element:
                         a terrible idea)
 
         """
-        self.reference_update_timeout_ms(self._make_parameter_key(key), timeout_ms)
+        self._redis_key_update_timeout_ms(self._make_parameter_key(key), timeout_ms)
 
     def parameter_get_timeout_ms(self, key):
         """
@@ -2549,7 +2614,7 @@ class Element:
             key (str):  Key of a reference for which we want to get the
                         timeout ms for.
         """
-        return self.reference_get_timeout_ms(self._make_parameter_key(key))
+        return self._redis_key_get_timeout_ms(self._make_parameter_key(key))
 
     def _reference_create_init_metrics(self):
         """
@@ -2868,7 +2933,7 @@ class Element:
 
         return deserialized_data
 
-    def reference_delete(self, *keys):
+    def _redis_key_delete(self, *keys):
         """
         Deletes one or more Redis keys and cleans up their memory
 
@@ -2877,11 +2942,10 @@ class Element:
         """
 
         # Unlink the data
-        _pipe = self._rpipeline_pool.get()
-        for key in keys:
-            _pipe.delete(key)
-        data = _pipe.execute()
-        _pipe = self._release_pipeline(_pipe)
+        with RedisPipeline(self) as redis_pipeline:
+            for key in keys:
+                redis_pipeline.delete(key)
+            data = redis_pipeline.execute()
 
         if type(data) is not list:
             raise ValueError(f"Invalid response from redis: {data}")
@@ -2889,9 +2953,54 @@ class Element:
             missing_keys = [key for i, key in enumerate(keys) if data[i] != 1]
             raise KeyError(f"Keys {missing_keys} not in redis")
 
-    def reference_update_timeout_ms(self, key, timeout_ms):
+    def _reference_delete_init_metrics(self):
         """
-        Updates the timeout for an existing reference. This might want to
+        Initialize metrics for getting references
+        """
+
+        # If we've already done this, just return out
+        if self._reference_delete_metrics:
+            return
+
+        self._reference_delete_metrics = {}
+
+        self._reference_delete_metrics["delete"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:reference_delete",
+            "delete",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
+        self._reference_delete_metrics["count"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:reference_delete",
+            "count",
+            agg_types=["SUM"],
+        )
+
+    def reference_delete(self, *keys):
+        """
+        Deletes one or more references from Atom
+        """
+
+        # Initialize metrics
+        self._reference_delete_init_metrics()
+
+        with MetricsPipeline(self) as metrics_pipeline:
+            self.metrics_timing_start(self._reference_delete_metrics["delete"])
+
+            ret_val = self._redis_key_delete(*keys)
+
+            self.metrics_timing_end(
+                self._reference_delete_metrics["delete"], pipeline=metrics_pipeline
+            )
+            self.metrics_add(self._reference_delete_metrics["count"], len(keys))
+
+        return ret_val
+
+    def _redis_key_update_timeout_ms(self, key, timeout_ms):
+        """
+        Updates the timeout for an existing redis key. This might want to
         be done as we won't know exactly how long we'll need the key for
         at the original point in time for which we created it
 
@@ -2922,9 +3031,15 @@ class Element:
         if data[0] != 1:
             raise KeyError(f"Key {key} not in redis")
 
-    def reference_get_timeout_ms(self, key):
+    def reference_update_timeout_ms(self, key, timeout_ms):
         """
-        Get the current amount of ms left on the reference. Mainly useful
+        Updates the timeout for an existing reference
+        """
+        return self._redis_key_update_timeout_ms(key, timeout_ms)
+
+    def _redis_key_get_timeout_ms(self, key):
+        """
+        Get the current amount of ms left on the key. Mainly useful
         for debug. Returns -1 if no timeout, else the timeout in ms.
 
         Args:
@@ -2943,6 +3058,592 @@ class Element:
             raise KeyError(f"Key {key} doesn't exist")
 
         return data[0]
+
+    def reference_get_timeout_ms(self, key):
+        """
+        Return amount of timeout left on reference
+        """
+        return self._redis_key_get_timeout_ms(key)
+
+    def _make_counter_key(self, key):
+        """
+        Prefixes requested key under counter namespace.
+        """
+        return f"counter:{key}"
+
+    def _counter_init_metrics(self, key):
+        """
+        Initialize the metrics for using a counter
+        """
+
+        # If we've already created the metrics, just return
+        if self._counter_metrics[key]:
+            return
+
+        self._counter_metrics[key]["set"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:counter",
+            key,
+            "set",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
+        self._counter_metrics[key]["update"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:counter",
+            key,
+            "update",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
+        self._counter_metrics[key]["get"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:counter",
+            key,
+            "get",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
+        self._counter_metrics[key]["delete"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:counter",
+            key,
+            "delete",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
+        self._counter_metrics[key]["value"] = self.metrics_create(
+            MetricsLevel.INFO,
+            "atom:counter",
+            key,
+            "value",
+            agg_types=["AVG", "MIN", "MAX", "SUM"],
+        )
+
+    def counter_set(self, key, value, timeout_ms=0):
+        """
+        Set the value for a shared, atomic counter directly using SET
+
+        Args:
+            key (string): Name of the shared counter
+            value (int): Integer value of the shared counter. MUST be int
+                for this API, though SET under the hood can indeed take
+                any value
+            timeout_ms (int, optional): How long the counter should live for.
+                Default None, i.e. won't expire, but if set will call PEXPIRE
+                under the hood to have the value expire after a certain amount
+                of time.
+
+        Return:
+            Current integer value of the counter
+
+        Raises:
+            AtomError on invalid argument
+        """
+
+        # Initialize metrics
+        self._counter_init_metrics(key)
+
+        # Make sure we have an integer argument
+        if type(value) is not int:
+            raise AtomError("Counter value must be int!")
+
+        # Get our pipelines
+        with RedisPipeline(self) as redis_pipeline, MetricsPipeline(
+            self
+        ) as metrics_pipeline:
+
+            self.metrics_timing_start(self._counter_metrics[key]["set"])
+
+            # Perform the set
+            redis_pipeline.set(self._make_counter_key(key), value)
+
+            # If we have a timeout, put that in the pipeline as well
+            if timeout_ms > 0:
+                redis_pipeline.pexpire(self._make_counter_key(key), timeout_ms)
+
+            # Execute the pipeline
+            response = redis_pipeline.execute()
+
+            self.metrics_timing_end(
+                self._counter_metrics[key]["set"], pipeline=metrics_pipeline
+            )
+
+            # Response[0] will be True on success, else False
+            if not response[0]:
+                raise AtomError("Failed to set counter!")
+
+            self.metrics_add(
+                self._counter_metrics[key]["value"], value, pipeline=metrics_pipeline
+            )
+
+        return value
+
+    def counter_update(self, key, value, timeout_ms=0):
+        """
+        Increments the counter at key by the integer value specified. If
+        value is positive, the counter will atomically increment, if negative
+        then it will atomically decrement.
+
+        NOTE: If key does not exist, it will be set to the value here. This
+            is how redis handles it and is good enough for now. We don't
+            throw/raise an error on updating a counter that wasn't previously
+            created.
+
+        Args:
+            key (string): Name of the shared counter
+            value (int): Integer value of the shared counter. MUST be int
+                for this API. Can be positive or negative
+            timeout_ms (int, optional): How long the counter should live for.
+                Default None, i.e. won't expire, but if set will call PEXPIRE
+                under the hood to have the value expire after a certain amount
+                of time.
+
+        Return:
+            Current value of the counter
+
+        Raises:
+            AtomError on invalid argument
+        """
+
+        # Initialize metrics
+        self._counter_init_metrics(key)
+
+        # Make sure we have an integer argument
+        if type(value) is not int:
+            raise AtomError("Counter value must be int!")
+
+        # Get our pipelines
+        with RedisPipeline(self) as redis_pipeline, MetricsPipeline(
+            self
+        ) as metrics_pipeline:
+
+            self.metrics_timing_start(self._counter_metrics[key]["update"])
+
+            # Perform the incrby. Incrby decrements on negative values
+            redis_pipeline.incrby(self._make_counter_key(key), value)
+
+            # If we have a timeout, put that in the pipeline as well
+            if timeout_ms > 0:
+                redis_pipeline.pexpire(self._make_counter_key(key), timeout_ms)
+
+            # Execute the pipeline
+            response = redis_pipeline.execute()
+
+            self.metrics_timing_end(
+                self._counter_metrics[key]["update"], pipeline=metrics_pipeline
+            )
+
+            # Response[0] will be return of INCRBY which is the new value of the
+            #   counter.
+            value = int(response[0])
+
+            self.metrics_add(
+                self._counter_metrics[key]["value"], value, pipeline=metrics_pipeline
+            )
+
+            return value
+
+    def counter_get(self, key):
+        """
+        Return the value of a shared counter. Returns None if the counter
+            does not exist
+
+        Args:
+            key (string): Name of the shared counter
+
+        Return:
+            Current value of the counter if it exists, else None
+        """
+
+        # Initialize metrics
+        self._counter_init_metrics(key)
+
+        # Get our pipelines
+        with RedisPipeline(self) as redis_pipeline, MetricsPipeline(
+            self
+        ) as metrics_pipeline:
+
+            self.metrics_timing_start(self._counter_metrics[key]["get"])
+
+            # Perform the incrby. Incrby decrements on negative values
+            redis_pipeline.get(self._make_counter_key(key))
+
+            # Execute the pipeline
+            response = redis_pipeline.execute()
+
+            self.metrics_timing_end(
+                self._counter_metrics[key]["get"], pipeline=metrics_pipeline
+            )
+
+            # Response[0] will be the value of GET, which should be NONE if the
+            #   key does not exist, else will be a value we'll cast to an int.
+            if response[0] is not None:
+                return int(response[0])
+            else:
+                return None
+
+    def counter_delete(self, key):
+        """
+        Deletes a shared counter
+
+        Args:
+            keys (str): Key of counter to delete from Atom
+        """
+
+        # Initialize metrics
+        self._counter_init_metrics(key)
+
+        with MetricsPipeline(self) as metrics_pipeline:
+            self.metrics_timing_start(self._counter_metrics[key]["delete"])
+
+            self._redis_key_delete(self._make_counter_key(key))
+
+            self.metrics_timing_end(
+                self._counter_metrics[key]["delete"], pipeline=metrics_pipeline
+            )
+
+    def _make_sorted_set_key(self, key):
+        """
+        Prefixes requested key under sorted set namespace.
+        """
+        return f"sorted_set:{key}"
+
+    def _sorted_set_init_metrics(self, key):
+        """
+        Initialize the metrics for using a sorted set
+        """
+
+        # If we've already created the metrics, just return
+        if self._sorted_set_metrics[key]:
+            return
+
+        self._sorted_set_metrics[key]["add"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:sorted_set",
+            key,
+            "add",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
+        self._sorted_set_metrics[key]["pop"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:sorted_set",
+            key,
+            "pop",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
+        self._sorted_set_metrics[key]["range"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:sorted_set",
+            key,
+            "range",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
+        self._sorted_set_metrics[key]["read"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:sorted_set",
+            key,
+            "read",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
+        self._sorted_set_metrics[key]["remove"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:sorted_set",
+            key,
+            "remove",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
+        self._sorted_set_metrics[key]["delete"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:sorted_set",
+            key,
+            "delete",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
+        self._sorted_set_metrics[key]["card"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:sorted_set",
+            key,
+            "card",
+            agg_types=["AVG", "MIN", "MAX"],
+        )
+
+    def sorted_set_add(self, set_key, member, value):
+        """
+        Set the value for a shared, atomic counter directly using SET
+
+        Args:
+            set_key (string): Name of the sorted set
+            member (string): Name of the member to use in the sorted set
+            value (float): Value to give to the member in the sorted set
+
+        Return:
+            None
+
+        Raises:
+            AtomError on inability to add to set
+        """
+
+        # Initialize metrics
+        self._sorted_set_init_metrics(set_key)
+        redis_key = self._make_sorted_set_key(set_key)
+
+        # Get our pipelines
+        with RedisPipeline(self) as redis_pipeline, MetricsPipeline(
+            self
+        ) as metrics_pipeline:
+
+            # Add to the sorted set
+            self.metrics_timing_start(self._sorted_set_metrics[set_key]["add"])
+
+            redis_pipeline.zadd(redis_key, {member: value})
+            redis_pipeline.zcard(redis_key)
+            response = redis_pipeline.execute()
+
+            self.metrics_timing_end(
+                self._sorted_set_metrics[set_key]["add"], pipeline=metrics_pipeline
+            )
+
+            if response[0] != 1 and response[0] != 0:
+                raise AtomError(
+                    f"Failed add member: {member}, value {value} to sorted set {set_key}"
+                )
+
+            self.metrics_add(
+                self._sorted_set_metrics[set_key]["card"],
+                response[1],
+                pipeline=metrics_pipeline,
+            )
+
+    def sorted_set_pop(self, set_key, maximum=False):
+        """
+        Pop the value from a sorted set. Minium or maximum (min by default)
+
+        Args:
+            set_key (string): Name of the sorted set
+            maximum (bool): True to pop maximum, False to pop minimum
+
+        Return:
+            Tuple of (member, value) that was popped
+
+        Raises:
+            AtomError on inability to pop or empty set
+        """
+
+        # Initialize metrics
+        self._sorted_set_init_metrics(set_key)
+        redis_key = self._make_sorted_set_key(set_key)
+
+        # Get our pipelines
+        with RedisPipeline(self) as redis_pipeline, MetricsPipeline(
+            self
+        ) as metrics_pipeline:
+
+            # Add to the sorted set
+            self.metrics_timing_start(self._sorted_set_metrics[set_key]["pop"])
+
+            if not maximum:
+                redis_pipeline.zpopmin(redis_key)
+            else:
+                redis_pipeline.zpopmax(redis_key)
+            redis_pipeline.zcard(redis_key)
+            response = redis_pipeline.execute()
+
+            self.metrics_timing_end(
+                self._sorted_set_metrics[set_key]["pop"], pipeline=metrics_pipeline
+            )
+
+            if not response[0]:
+                raise AtomError(f"Failed to pop from sorted set {set_key}")
+
+            self.metrics_add(
+                self._sorted_set_metrics[set_key]["card"],
+                response[1],
+                pipeline=metrics_pipeline,
+            )
+
+        return response[0][0]
+
+    def sorted_set_range(self, set_key, start, end, maximum=False, withvalues=True):
+        """
+        Read a range of the sorted set
+
+        Args:
+            set_key (string): Name of the sorted set
+            start (int): start index of the read
+            end (int): End index of the read
+            maximum (bool): Read from greatest to least, else least to greatest
+            withvalues (bool): Return scores with member.
+
+        Return:
+            List of Tuple of (member, value) that was read if withvalues=True.
+                Else, will be sorted list of members read.
+
+        Raises:
+            AtomError on inability to pop or empty set
+        """
+
+        # Initialize metrics
+        self._sorted_set_init_metrics(set_key)
+        redis_key = self._make_sorted_set_key(set_key)
+
+        # Get our pipelines
+        with RedisPipeline(self) as redis_pipeline, MetricsPipeline(
+            self
+        ) as metrics_pipeline:
+
+            # Add to the sorted set
+            self.metrics_timing_start(self._sorted_set_metrics[set_key]["range"])
+
+            if not maximum:
+                redis_pipeline.zrange(redis_key, start, end, withscores=withvalues)
+            else:
+                redis_pipeline.zrevrange(redis_key, start, end, withscores=withvalues)
+            response = redis_pipeline.execute()
+
+            self.metrics_timing_end(
+                self._sorted_set_metrics[set_key]["range"], pipeline=metrics_pipeline
+            )
+
+            if not response[0]:
+                raise AtomError(
+                    f"Failed to read range {start} to {end} from {'max' if maximum else 'min'} in sorted set {set_key}"
+                )
+
+        return response[0]
+
+    def sorted_set_read(self, set_key, member):
+        """
+        Read the value of a member from a sorted set
+
+        Args:
+            set_key (string): Name of the sorted set
+            member (string): Mmeber of the sorted set we want to read
+
+        Return:
+            value of member
+
+        Raises:
+            AtomError on inability to read member from set
+        """
+
+        # Initialize metrics
+        self._sorted_set_init_metrics(set_key)
+        redis_key = self._make_sorted_set_key(set_key)
+
+        # Get our pipelines
+        with RedisPipeline(self) as redis_pipeline, MetricsPipeline(
+            self
+        ) as metrics_pipeline:
+
+            # Add to the sorted set
+            self.metrics_timing_start(self._sorted_set_metrics[set_key]["read"])
+
+            redis_pipeline.zscore(redis_key, member)
+            response = redis_pipeline.execute()
+
+            self.metrics_timing_end(
+                self._sorted_set_metrics[set_key]["read"], pipeline=metrics_pipeline
+            )
+
+            if response[0] is None:
+                raise AtomError(
+                    f"Failed to read member {member} from sorted set {set_key}"
+                )
+
+        return response[0]
+
+    def sorted_set_remove(self, set_key, member):
+        """
+        Remove a member from a sorted set
+
+        Args:
+            set_key (string): Name of the sorted set
+            member (string): Mmeber of the sorted set we want to remove
+
+        Return:
+            None
+
+        Raises:
+            AtomError on inability to remove member from set
+        """
+
+        # Initialize metrics
+        self._sorted_set_init_metrics(set_key)
+        redis_key = self._make_sorted_set_key(set_key)
+
+        # Get our pipelines
+        with RedisPipeline(self) as redis_pipeline, MetricsPipeline(
+            self
+        ) as metrics_pipeline:
+
+            # Add to the sorted set
+            self.metrics_timing_start(self._sorted_set_metrics[set_key]["remove"])
+
+            redis_pipeline.zrem(redis_key, member)
+            redis_pipeline.zcard(redis_key)
+            response = redis_pipeline.execute()
+
+            self.metrics_timing_end(
+                self._sorted_set_metrics[set_key]["remove"], pipeline=metrics_pipeline
+            )
+
+            if response[0] != 1:
+                raise AtomError(
+                    f"Failed to remove member {member} from sorted set {set_key}"
+                )
+
+            self.metrics_add(
+                self._sorted_set_metrics[set_key]["card"],
+                response[1],
+                pipeline=metrics_pipeline,
+            )
+
+    def sorted_set_delete(self, set_key):
+        """
+        Delete a sorted set entirely
+
+        Args:
+            set_key (string): Name of the sorted set
+
+        Return:
+            None
+
+        Raises:
+            AtomError on inability to remove member from set
+        """
+
+        # Initialize metrics
+        self._sorted_set_init_metrics(set_key)
+        redis_key = self._make_sorted_set_key(set_key)
+
+        # Get our pipelines
+        with RedisPipeline(self) as redis_pipeline, MetricsPipeline(
+            self
+        ) as metrics_pipeline:
+
+            # Add to the sorted set
+            self.metrics_timing_start(self._sorted_set_metrics[set_key]["delete"])
+
+            redis_pipeline.delete(redis_key)
+            response = redis_pipeline.execute()
+
+            self.metrics_timing_end(
+                self._sorted_set_metrics[set_key]["delete"], pipeline=metrics_pipeline
+            )
+
+            if not response[0]:
+                raise AtomError(f"Failed to delete sorted set {set_key}")
+
+            self.metrics_add(
+                self._sorted_set_metrics[set_key]["card"], 0, pipeline=metrics_pipeline
+            )
 
     def metrics_get_pipeline(self):
         """
@@ -3297,6 +3998,34 @@ class Element:
             rules=_rules,
             duplicate_policy=duplicate_policy,
         )
+
+    def metrics_log(self, stream, key, data, pipeline=None, maxlen=100):
+        """
+        Logs to a metric/debug stream that can be viewed in Grafana
+        """
+        if not self._metrics_enabled:
+            return None
+
+        if not pipeline:
+            _pipe = self.metrics_get_pipeline()
+        else:
+            _pipe = pipeline
+
+        # We want to log to the debug stream in the metrics
+        #   redis about the parameter change. This will make it show up
+        #   in the dashboards so we can see what the current/previous
+        #   values of parameters have been
+        _pipe.xadd(
+            f"{self.name}:{stream}",
+            {f"{datetime.now()} - {key}": str(data)},
+            maxlen=maxlen,
+        )
+
+        data = None
+        if not pipeline:
+            data = self.metrics_write_pipeline(_pipe)
+
+        return data
 
     def metrics_add(
         self,
