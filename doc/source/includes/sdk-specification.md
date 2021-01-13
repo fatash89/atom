@@ -2003,7 +2003,7 @@ Call `ZADD` with the key, member and value
 ```python
 
 item = caller.sorted_set_pop(key)
-item = caller.sorted_set_pop(key, least=False)
+item = caller.sorted_set_pop(key, maximum=True)
 ```
 
 Remove and return either the smallest or largest member of a sorted set. The item is removed from the set.
@@ -2013,7 +2013,7 @@ Remove and return either the smallest or largest member of a sorted set. The ite
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `key` | String | Key of the sorted set, i.e. the golbal name |
-| `least` | Boolean | Optional (default true) argument. If true, will return the smallest member of the set, if false will return the largest member of the set. |
+| `maximum` | Boolean | Optional (default false) argument. If true, will return the largest member of the set, if false will return the smallest member of the set. |
 
 ### Return Value
 
@@ -2021,7 +2021,7 @@ Remove and return either the smallest or largest member of a sorted set. The ite
 
 ### Spec
 
-If least is true, cal `ZPOPMIN`, else `ZPOPMAX`
+If `maximum` is false, cal `ZPOPMIN`, else `ZPOPMAX`
 
 ## Read a member of sorted set
 
@@ -2076,7 +2076,7 @@ Call `ZREM` on the key and member
 ```python
 
 items = caller.sorted_set_range(key, start, stop)
-items = caller.sorted_set_range(key, start, stop, least=False)
+items = caller.sorted_set_range(key, start, stop, maximum=True)
 items = caller.sorted_set_range(key, start, stop, withvalues=False)
 ```
 
@@ -2091,7 +2091,7 @@ values.
 | `key` | String | Key of the sorted set, i.e. the golbal name |
 | `start` | int | Starting index into the range. Should be >= 0 |
 | `end` | int | Starting index into the range. Should be >= -1, where -1 signifies the full range, i.e. the end of it |
-| `least` | Boolean | Optional (default true) argument. If true, will consider the set sorted from least to greatest, i.e. the start index is the least and the end index the greatest. If false, the opposite, i.e. the start index is the greatest and the end index the least. |
+| `maximum` | Boolean | Optional (default false) argument. If false, will consider the set sorted from least to greatest, i.e. the start index is the least and the end index the greatest. If true, the opposite, i.e. the start index is the greatest and the end index the least. |
 | `withvalues` | Boolean | Optional (default true) argument. If true, return will be sorted list of (member, value) tuples. If false, return will be sorted list of member strings only. |
 
 ### Return Value
@@ -2100,7 +2100,7 @@ Sorted list of items in the range specified. If `withvalues` is True, will be li
 
 ### Spec
 
-If `least` is true use `ZRANGE`, else ise `ZREVRANGE`
+If `maximum` is false use `ZRANGE`, else ise `ZREVRANGE`
 
 ## Error Codes
 

@@ -2498,7 +2498,7 @@ class TestAtom:
             caller.sorted_set_add("some_set", member, i)
             values.insert(0, (member.encode("utf-8"), float(i)))
 
-        set_range = caller.sorted_set_range("some_set", 0, -1, least=False)
+        set_range = caller.sorted_set_range("some_set", 0, -1, maximum=True)
         assert set_range == values
 
         caller.sorted_set_delete("some_set")
@@ -2520,7 +2520,7 @@ class TestAtom:
                 values.insert(0, (member.encode("utf-8"), float(i)))
 
         set_range = caller.sorted_set_range(
-            "some_set", slice_start, slice_end, least=False
+            "some_set", slice_start, slice_end, maximum=True
         )
         assert set_range == values
 
@@ -2539,7 +2539,7 @@ class TestAtom:
             values.insert(0, member.encode("utf-8"))
 
         set_range = caller.sorted_set_range(
-            "some_set", 0, -1, least=False, withvalues=False
+            "some_set", 0, -1, maximum=True, withvalues=False
         )
         assert set_range == values
 
@@ -2579,11 +2579,11 @@ class TestAtom:
             caller.sorted_set_add("some_set", member, i)
             values.insert(0, (member.encode("utf-8"), float(i)))
 
-        set_range = caller.sorted_set_range("some_set", 0, -1, least=False)
+        set_range = caller.sorted_set_range("some_set", 0, -1, maximum=True)
         assert set_range == values
 
         for i in range(n_items):
-            pop_val = caller.sorted_set_pop("some_set", least=False)
+            pop_val = caller.sorted_set_pop("some_set", maximum=True)
             assert values[0] == pop_val
             values.pop(0)
 

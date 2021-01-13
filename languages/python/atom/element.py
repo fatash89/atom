@@ -3421,13 +3421,13 @@ class Element:
                 pipeline=metrics_pipeline,
             )
 
-    def sorted_set_pop(self, set_key, least=True):
+    def sorted_set_pop(self, set_key, maximum=False):
         """
         Pop the value from a sorted set. Minium or maximum (min by default)
 
         Args:
             set_key (string): Name of the sorted set
-            least (bool): True to pop minimum, False to pop maximum
+            maximum (bool): True to pop maximum, False to pop minimum
 
         Return:
             Tuple of (member, value) that was popped
@@ -3448,7 +3448,7 @@ class Element:
             # Add to the sorted set
             self.metrics_timing_start(self._sorted_set_metrics[set_key]["pop"])
 
-            if least:
+            if not maximum:
                 redis_pipeline.zpopmin(redis_key)
             else:
                 redis_pipeline.zpopmax(redis_key)
@@ -3470,7 +3470,7 @@ class Element:
 
         return response[0][0]
 
-    def sorted_set_range(self, set_key, start, end, least=True, withvalues=True):
+    def sorted_set_range(self, set_key, start, end, maximum=False, withvalues=True):
         """
         Read a range of the sorted set
 
@@ -3478,7 +3478,7 @@ class Element:
             set_key (string): Name of the sorted set
             start (int): start index of the read
             end (int): End index of the read
-            least (bool): Read from least to greatest, else greatest to least
+            maximum (bool): Read from greatest to least, else least to greatest
             withvalues (bool): Return scores with member.
 
         Return:
@@ -3501,7 +3501,7 @@ class Element:
             # Add to the sorted set
             self.metrics_timing_start(self._sorted_set_metrics[set_key]["range"])
 
-            if least:
+            if not maximum:
                 redis_pipeline.zrange(redis_key, start, end, withscores=withvalues)
             else:
                 redis_pipeline.zrevrange(redis_key, start, end, withscores=withvalues)
@@ -3513,7 +3513,7 @@ class Element:
 
             if not response[0]:
                 raise AtomError(
-                    f"Failed to read range {start} to {end} from {'min' if least else 'max'} in sorted set {set_key}"
+                    f"Failed to read range {start} to {end} from {'max' if maximum else 'min'} in sorted set {set_key}"
                 )
 
         return response[0]
