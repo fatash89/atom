@@ -90,6 +90,7 @@ class DashboardAgent(object):
         self.create_datasources()
         self.create_redis_dashboards()
         self.create_system_dashboards()
+        self.create_user_dashboards()
         self.create_home_dashboard()
 
         # Loop indefinitely, checking for new elements we haven't seen, and when
