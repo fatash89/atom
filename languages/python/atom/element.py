@@ -3384,7 +3384,8 @@ class Element:
             value (float): Value to give to the member in the sorted set
 
         Return:
-            None
+            Cardinality of the set, i.e. how many members exist after
+                the ADD.
 
         Raises:
             AtomError on inability to add to set
@@ -3415,11 +3416,14 @@ class Element:
                     f"Failed add member: {member}, value {value} to sorted set {set_key}"
                 )
 
+            cardinality = response[1]
             self.metrics_add(
                 self._sorted_set_metrics[set_key]["card"],
-                response[1],
+                cardinality,
                 pipeline=metrics_pipeline,
             )
+
+        return cardinality
 
     def sorted_set_pop(self, set_key, maximum=False):
         """
@@ -3430,7 +3434,7 @@ class Element:
             maximum (bool): True to pop maximum, False to pop minimum
 
         Return:
-            Tuple of (member, value) that was popped
+            Tuple of (Tuple of (member, value) that was popped, set cardinality)
 
         Raises:
             AtomError on inability to pop or empty set
@@ -3462,13 +3466,14 @@ class Element:
             if not response[0]:
                 raise AtomError(f"Failed to pop from sorted set {set_key}")
 
+            cardinality = response[1]
             self.metrics_add(
                 self._sorted_set_metrics[set_key]["card"],
-                response[1],
+                cardinality,
                 pipeline=metrics_pipeline,
             )
 
-        return response[0][0]
+        return response[0][0], cardinality
 
     def sorted_set_range(self, set_key, start, end, maximum=False, withvalues=True):
         """

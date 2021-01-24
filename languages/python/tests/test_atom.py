@@ -2410,9 +2410,9 @@ class TestAtom:
 
         for i in range(n_items):
             member = f"key{i}"
-            caller.sorted_set_add("some_set", member, i)
+            cardinality = caller.sorted_set_add("some_set", member, i)
+            assert cardinality == i + 1
             value = caller.sorted_set_read("some_set", member)
-
             assert value == i
 
         caller.sorted_set_delete("some_set")
@@ -2440,7 +2440,8 @@ class TestAtom:
 
         for i in range(n_items):
             member = f"key{i}"
-            caller.sorted_set_add("some_set", member, i)
+            cardinality = caller.sorted_set_add("some_set", member, i)
+            assert cardinality == i + 1
             values.append((member.encode("utf-8"), float(i)))
 
         set_range = caller.sorted_set_range("some_set", 0, -1)
@@ -2459,7 +2460,8 @@ class TestAtom:
 
         for i in range(n_items):
             member = f"key{i}"
-            caller.sorted_set_add("some_set", member, i)
+            cardinality = caller.sorted_set_add("some_set", member, i)
+            assert cardinality == i + 1
 
             if i >= slice_start and i <= slice_end:
                 values.append((member.encode("utf-8"), float(i)))
@@ -2478,7 +2480,9 @@ class TestAtom:
 
         for i in range(n_items):
             member = f"key{i}"
-            caller.sorted_set_add("some_set", member, i)
+            cardinality = caller.sorted_set_add("some_set", member, i)
+            assert cardinality == i + 1
+
             values.append(member.encode("utf-8"))
 
         set_range = caller.sorted_set_range("some_set", 0, -1, withvalues=False)
@@ -2495,7 +2499,9 @@ class TestAtom:
 
         for i in range(n_items):
             member = f"key{i}"
-            caller.sorted_set_add("some_set", member, i)
+            cardinality = caller.sorted_set_add("some_set", member, i)
+            assert cardinality == i + 1
+
             values.insert(0, (member.encode("utf-8"), float(i)))
 
         set_range = caller.sorted_set_range("some_set", 0, -1, maximum=True)
@@ -2514,7 +2520,8 @@ class TestAtom:
 
         for i in range(n_items):
             member = f"key{i}"
-            caller.sorted_set_add("some_set", member, i)
+            cardinality = caller.sorted_set_add("some_set", member, i)
+            assert cardinality == i + 1
 
             if i <= (n_items - 1 - slice_start) and i >= (n_items - 1 - slice_end):
                 values.insert(0, (member.encode("utf-8"), float(i)))
@@ -2535,7 +2542,9 @@ class TestAtom:
 
         for i in range(n_items):
             member = f"key{i}"
-            caller.sorted_set_add("some_set", member, i)
+            cardinality = caller.sorted_set_add("some_set", member, i)
+            assert cardinality == i + 1
+
             values.insert(0, member.encode("utf-8"))
 
         set_range = caller.sorted_set_range(
@@ -2554,15 +2563,18 @@ class TestAtom:
 
         for i in range(n_items):
             member = f"key{i}"
-            caller.sorted_set_add("some_set", member, i)
+            cardinality = caller.sorted_set_add("some_set", member, i)
+            assert cardinality == i + 1
+
             values.append((member.encode("utf-8"), float(i)))
 
         set_range = caller.sorted_set_range("some_set", 0, -1)
         assert set_range == values
 
         for i in range(n_items):
-            pop_val = caller.sorted_set_pop("some_set")
+            pop_val, cardinality = caller.sorted_set_pop("some_set")
             assert values[0] == pop_val
+            assert cardinality == n_items - i - 1
             values.pop(0)
 
         # No delete -- set disappears on its own when final member popped
@@ -2576,15 +2588,18 @@ class TestAtom:
 
         for i in range(n_items):
             member = f"key{i}"
-            caller.sorted_set_add("some_set", member, i)
+            cardinality = caller.sorted_set_add("some_set", member, i)
+            assert cardinality == i + 1
+
             values.insert(0, (member.encode("utf-8"), float(i)))
 
         set_range = caller.sorted_set_range("some_set", 0, -1, maximum=True)
         assert set_range == values
 
         for i in range(n_items):
-            pop_val = caller.sorted_set_pop("some_set", maximum=True)
+            pop_val, cardinality = caller.sorted_set_pop("some_set", maximum=True)
             assert values[0] == pop_val
+            assert cardinality == n_items - i - 1
             values.pop(0)
 
         # No delete -- set disappears on its own when final member popped
@@ -2598,7 +2613,9 @@ class TestAtom:
 
         for i in range(n_items):
             member = f"key{i}"
-            caller.sorted_set_add("some_set", member, i)
+            cardinality = caller.sorted_set_add("some_set", member, i)
+            assert cardinality == i + 1
+
             values.append((member.encode("utf-8"), float(i)))
 
         set_range = caller.sorted_set_range("some_set", 0, -1)
