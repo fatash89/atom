@@ -103,6 +103,7 @@ class AtomError(Exception):
         else:
             return "An Atom Error Occurred"
 
+
 class SetEmptyError(Exception):
     def __init__(self, *args):
         if args:
@@ -297,7 +298,7 @@ class Element:
 
                 # Create pipeline pool
                 for i in range(REDIS_PIPELINE_POOL_SIZE):
-                    self._mpipeline_pool.put(self._mclient.pipeline())
+                    self._mpipeline_pool.put(self._mclient.pipeline(transaction=False))
 
                 self.logger.info("Metrics initialized.")
                 self._metrics_enabled = True
@@ -357,7 +358,7 @@ class Element:
 
         # Init our pool of redis clients/pipelines
         for i in range(REDIS_PIPELINE_POOL_SIZE):
-            self._rpipeline_pool.put(self._rclient.pipeline())
+            self._rpipeline_pool.put(self._rclient.pipeline(transaction=False))
 
         _pipe = self._rpipeline_pool.get()
 
@@ -3442,6 +3443,11 @@ class Element:
         """
         Pop the value from a sorted set. Minium or maximum (min by default)
 
+        NOTE: We cannot/should not do blocking operations inside of multi/exec
+            pipelines since this will block the entire server. If we try to do
+            the BZPOP-type operations inside of a traditional multi-exec
+            pipeline we'll get an immediate None/Failure type response
+
         Args:
             set_key (string): Name of the sorted set
             maximum (bool): True to pop maximum, False to pop minimum
@@ -3489,7 +3495,9 @@ class Element:
             )
 
             if not response[0]:
-                raise SetEmptyError(f"Sortet set {set_key} is empty, block: {block}, timeout: {timeout}")
+                raise SetEmptyError(
+                    f"Sorted set {set_key} is empty, block: {block}, timeout: {timeout}"
+                )
 
             cardinality = response[1]
             self.metrics_add(
@@ -3737,7 +3745,7 @@ class Element:
                 self.logger.error(f"Failed to write metrics with exception {e}")
 
             del pipeline
-            self._mpipeline_pool.put(self._mclient.pipeline())
+            self._mpipeline_pool.put(self._mclient.pipeline(transaction=False))
 
         # Only return the data that we care about (if any)
         return data
