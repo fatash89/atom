@@ -2793,6 +2793,80 @@ class TestAtom:
 
         # No delete -- set disappears on its own when final member popped
 
+    def test_set_pop_n(self, caller):
+
+        caller, caller_name = caller
+
+        values = []
+        n_items = 10
+
+        for i in range(n_items):
+            member = f"key{i}"
+            cardinality = caller.sorted_set_add("some_set", member, i)
+            assert cardinality == i + 1
+
+            values.append((member.encode("utf-8"), float(i)))
+
+        set_range = caller.sorted_set_range("some_set", 0, -1)
+        assert set_range == values
+
+        # We'll pop in 2 chunks, once and then the rest
+        pop_chunk_size = 3
+
+        pop_vals, cardinality = caller.sorted_set_pop_n("some_set", pop_chunk_size)
+        assert values[0:pop_chunk_size] == pop_vals
+        assert cardinality == n_items - pop_chunk_size
+
+        pop_vals, cardinality = caller.sorted_set_pop_n("some_set", n_items)
+        assert values[pop_chunk_size:n_items] == pop_vals
+        assert cardinality == 0
+
+        passed = False
+        try:
+            pop_vals, cardinality = caller.sorted_set_pop_n("some_set", 1)
+        except SetEmptyError:
+            passed = True
+        assert passed == True
+
+    def test_set_pop_n_max(self, caller):
+
+        caller, caller_name = caller
+
+        values = []
+        n_items = 10
+
+        for i in range(n_items):
+            member = f"key{i}"
+            cardinality = caller.sorted_set_add("some_set", member, i)
+            assert cardinality == i + 1
+
+            values.insert(0, (member.encode("utf-8"), float(i)))
+
+        set_range = caller.sorted_set_range("some_set", 0, -1, maximum=True)
+        assert set_range == values
+
+        # We'll pop in 2 chunks, once and then the rest
+        pop_chunk_size = 3
+
+        pop_vals, cardinality = caller.sorted_set_pop_n(
+            "some_set", pop_chunk_size, maximum=True
+        )
+        assert values[0:pop_chunk_size] == pop_vals
+        assert cardinality == n_items - pop_chunk_size
+
+        pop_vals, cardinality = caller.sorted_set_pop_n(
+            "some_set", n_items, maximum=True
+        )
+        assert values[pop_chunk_size:n_items] == pop_vals
+        assert cardinality == 0
+
+        passed = False
+        try:
+            pop_vals, cardinality = caller.sorted_set_pop_n("some_set", 1)
+        except SetEmptyError:
+            passed = True
+        assert passed == True
+
 
 def add_1(x):
     return Response(int(x) + 1)

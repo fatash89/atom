@@ -3348,6 +3348,14 @@ class Element:
             agg_types=["AVG", "MIN", "MAX", "COUNT"],
         )
 
+        self._sorted_set_metrics[key]["pop_n"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:sorted_set",
+            key,
+            "pop_n",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
         self._sorted_set_metrics[key]["range"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:sorted_set",
@@ -3441,7 +3449,7 @@ class Element:
 
     def sorted_set_pop(self, set_key, maximum=False, block=False, timeout=0):
         """
-        Pop the value from a sorted set. Minium or maximum (min by default)
+        Pop a value from a sorted set. Minium or maximum (min by default)
 
         NOTE: We cannot/should not do blocking operations inside of multi/exec
             pipelines since this will block the entire server. If we try to do
@@ -3514,6 +3522,65 @@ class Element:
             data = response[0][0]
 
         return data, cardinality
+
+    def sorted_set_pop_n(self, set_key, n, maximum=False):
+        """
+        Pop at most n values from a sorted set. Items are popped and returned
+            in prio order (Minium or maximum (min by default)). Done via a
+            single redis call/transaction.
+
+        Will raise SetEmptyError on no data in the set
+        Will never block
+        Will return at most N items, but only as many items as exist in the
+            set <= N.
+
+        Args:
+            set_key (string): Name of the sorted set
+            n (int): Maximum number of items to pop.
+            maximum (bool): True to pop maximum, False to pop minimum
+
+        Return:
+            Tuple ([List of (member, value)], set cardinality)
+
+        Raises:
+            AtomError on error
+            SetEmptyError on empty set
+        """
+
+        # Initialize metrics
+        self._sorted_set_init_metrics(set_key)
+        redis_key = self._make_sorted_set_key(set_key)
+
+        # Get our pipelines
+        with RedisPipeline(self) as redis_pipeline, MetricsPipeline(
+            self
+        ) as metrics_pipeline:
+
+            # Add to the sorted set
+            self.metrics_timing_start(self._sorted_set_metrics[set_key]["pop_n"])
+
+            if not maximum:
+                redis_pipeline.zpopmin(redis_key, count=n)
+            else:
+                redis_pipeline.zpopmax(redis_key, count=n)
+            redis_pipeline.zcard(redis_key)
+            response = redis_pipeline.execute()
+
+            self.metrics_timing_end(
+                self._sorted_set_metrics[set_key]["pop_n"], pipeline=metrics_pipeline
+            )
+
+            if not response[0]:
+                raise SetEmptyError(f"Sorted set {set_key} is empty")
+
+            cardinality = response[1]
+            self.metrics_add(
+                self._sorted_set_metrics[set_key]["card"],
+                cardinality,
+                pipeline=metrics_pipeline,
+            )
+
+        return response[0], cardinality
 
     def sorted_set_range(self, set_key, start, end, maximum=False, withvalues=True):
         """
