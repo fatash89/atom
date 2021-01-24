@@ -103,6 +103,19 @@ class AtomError(Exception):
         else:
             return "An Atom Error Occurred"
 
+class SetEmptyError(Exception):
+    def __init__(self, *args):
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return f"Set Empty: {self.message}"
+        else:
+            return "Atom set is empty"
+
 
 class RedisPipeline:
     """
@@ -3425,19 +3438,25 @@ class Element:
 
         return cardinality
 
-    def sorted_set_pop(self, set_key, maximum=False):
+    def sorted_set_pop(self, set_key, maximum=False, block=False, timeout=0):
         """
         Pop the value from a sorted set. Minium or maximum (min by default)
 
         Args:
             set_key (string): Name of the sorted set
             maximum (bool): True to pop maximum, False to pop minimum
+            block (bool, optional): True to block and wait for data if none
+                exists, False to not block
+            timeout (float, optional): Seconds. If block is true, this will
+                be how long we wait for data before timing out. Set to 0 for
+                infinite block/no timeout.
 
         Return:
             Tuple of (Tuple of (member, value) that was popped, set cardinality)
 
         Raises:
-            AtomError on inability to pop or empty set
+            AtomError on error
+            SetEmptyError on empty set
         """
 
         # Initialize metrics
@@ -3453,9 +3472,15 @@ class Element:
             self.metrics_timing_start(self._sorted_set_metrics[set_key]["pop"])
 
             if not maximum:
-                redis_pipeline.zpopmin(redis_key)
+                if block:
+                    redis_pipeline.bzpopmin(redis_key, timeout=timeout)
+                else:
+                    redis_pipeline.zpopmin(redis_key)
             else:
-                redis_pipeline.zpopmax(redis_key)
+                if block:
+                    redis_pipeline.bzpopmax(redis_key, timeout=timeout)
+                else:
+                    redis_pipeline.zpopmax(redis_key)
             redis_pipeline.zcard(redis_key)
             response = redis_pipeline.execute()
 
@@ -3464,7 +3489,7 @@ class Element:
             )
 
             if not response[0]:
-                raise AtomError(f"Failed to pop from sorted set {set_key}")
+                raise SetEmptyError(f"Sortet set {set_key} is empty, block: {block}, timeout: {timeout}")
 
             cardinality = response[1]
             self.metrics_add(
@@ -3473,7 +3498,14 @@ class Element:
                 pipeline=metrics_pipeline,
             )
 
-        return response[0][0], cardinality
+        # We get slightly different responses based on if it was a blocking
+        #   or non-blocking call
+        if block:
+            data = (response[0][1], response[0][2])
+        else:
+            data = response[0][0]
+
+        return data, cardinality
 
     def sorted_set_range(self, set_key, start, end, maximum=False, withvalues=True):
         """

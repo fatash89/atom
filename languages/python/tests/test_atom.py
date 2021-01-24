@@ -12,7 +12,7 @@ import random
 
 from redistimeseries.client import Client as RedisTimeSeries
 
-from atom import Element, AtomError, MetricsLevel
+from atom import Element, AtomError, MetricsLevel, SetEmptyError
 from atom.element import ElementConnectionTimeoutError
 from atom.config import DEFAULT_REDIS_SOCKET, DEFAULT_REDIS_PORT
 from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_UNSUPPORTED
@@ -2579,6 +2579,87 @@ class TestAtom:
 
         # No delete -- set disappears on its own when final member popped
 
+    def test_set_pop_min_blocking(self, caller):
+
+        caller, caller_name = caller
+
+        values = []
+        n_items = 10
+
+        for i in range(n_items):
+            member = f"key{i}"
+            cardinality = caller.sorted_set_add("some_set", member, i)
+            assert cardinality == i + 1
+
+            values.append((member.encode("utf-8"), float(i)))
+
+        set_range = caller.sorted_set_range("some_set", 0, -1)
+        assert set_range == values
+
+        for i in range(n_items):
+            pop_val, cardinality = caller.sorted_set_pop(
+                "some_set", block=True, timeout=0.1
+            )
+            assert values[0] == pop_val
+            assert cardinality == n_items - i - 1
+            values.pop(0)
+
+        # No delete -- set disappears on its own when final member popped
+
+    def test_set_pop_no_exist(self, caller):
+
+        caller, caller_name = caller
+        passed = False
+
+        try:
+            pop_val, cardinality = caller.sorted_set_pop("some_set")
+        except SetEmptyError:
+            passed = True
+
+        assert passed == True
+
+        # No delete -- set disappears on its own when final member popped
+
+    def test_set_pop_no_exist_blocking(self, caller):
+
+        caller, caller_name = caller
+        passed = False
+        block_time = 0.1
+
+        start_time = time.time()
+        try:
+            pop_val, cardinality = caller.sorted_set_pop(
+                "some_set", block=True, timeout=block_time
+            )
+        except SetEmptyError:
+            passed = True
+        end_time = time.time()
+
+        assert passed == True
+        assert end_time - start_time >= block_time
+
+        # No delete -- set disappears on its own when final member popped
+
+    def test_set_pop_empty(self, caller):
+
+        caller, caller_name = caller
+        cardinality = caller.sorted_set_add("some_set", "member", 23)
+        assert cardinality == 1
+        pop_val, cardinality = caller.sorted_set_pop("some_set")
+        assert pop_val == (b"member", 23)
+        assert cardinality == 0
+
+        passed = False
+
+        try:
+            pop_val, cardinality = caller.sorted_set_pop("some_set")
+        except SetEmptyError:
+            passed = True
+
+        assert passed == True
+
+        # No delete -- set disappears on its own when final member popped
+
     def test_set_pop_max(self, caller):
 
         caller, caller_name = caller
@@ -2601,6 +2682,87 @@ class TestAtom:
             assert values[0] == pop_val
             assert cardinality == n_items - i - 1
             values.pop(0)
+
+        # No delete -- set disappears on its own when final member popped
+
+    def test_set_pop_max_blocking(self, caller):
+
+        caller, caller_name = caller
+
+        values = []
+        n_items = 10
+
+        for i in range(n_items):
+            member = f"key{i}"
+            cardinality = caller.sorted_set_add("some_set", member, i)
+            assert cardinality == i + 1
+
+            values.insert(0, (member.encode("utf-8"), float(i)))
+
+        set_range = caller.sorted_set_range("some_set", 0, -1, maximum=True)
+        assert set_range == values
+
+        for i in range(n_items):
+            pop_val, cardinality = caller.sorted_set_pop(
+                "some_set", maximum=True, block=True, timeout=0.1
+            )
+            assert values[0] == pop_val
+            assert cardinality == n_items - i - 1
+            values.pop(0)
+
+        # No delete -- set disappears on its own when final member popped
+
+    def test_set_pop_max_no_exist(self, caller):
+
+        caller, caller_name = caller
+        passed = False
+
+        try:
+            pop_val, cardinality = caller.sorted_set_pop("some_set", maximum=True)
+        except SetEmptyError:
+            passed = True
+
+        assert passed == True
+
+        # No delete -- set disappears on its own when final member popped
+
+    def test_set_pop_max_no_exist_blocking(self, caller):
+
+        caller, caller_name = caller
+        passed = False
+        block_time = 1.0
+
+        start_time = time.time()
+        try:
+            pop_val, cardinality = caller.sorted_set_pop(
+                "some_set", maximum=True, block=True, timeout=block_time
+            )
+        except SetEmptyError:
+            passed = True
+        end_time = time.time()
+
+        assert passed == True
+        assert end_time - start_time >= block_time
+
+        # No delete -- set disappears on its own when final member popped
+
+    def test_set_pop_maximum_empty(self, caller):
+
+        caller, caller_name = caller
+        cardinality = caller.sorted_set_add("some_set", "member", 23)
+        assert cardinality == 1
+        pop_val, cardinality = caller.sorted_set_pop("some_set", maximum=True)
+        assert pop_val == (b"member", 23)
+        assert cardinality == 0
+
+        passed = False
+
+        try:
+            pop_val, cardinality = caller.sorted_set_pop("some_set", maximum=True)
+        except SetEmptyError:
+            passed = True
+
+        assert passed == True
 
         # No delete -- set disappears on its own when final member popped
 
