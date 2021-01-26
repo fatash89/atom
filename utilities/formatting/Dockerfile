@@ -39,7 +39,7 @@ ENV DO_HANG=""
 # Excludes
 ENV FLAKE8_EXCLUDE=third-party,languages/python/third-party,languages/python/build
 ENV BLACK_EXCLUDE=third-party|build
-ENV ISORT_EXCLUDE="--skip third-party/** --skip build/**"
+ENV ISORT_EXCLUDE="--skip third-party --skip build"
 
 # Code to check
 ENV CODE_DIR=/code
