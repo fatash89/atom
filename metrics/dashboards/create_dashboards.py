@@ -16,11 +16,12 @@
 #
 
 import json
-import requests
 import os
 import time
+
 import redis
-from jinja2 import FileSystemLoader, Environment, select_autoescape
+import requests
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 GRAFANA_USER = os.getenv("GRAFANA_USER", "admin")
 GRAFANA_PASSWORD = os.getenv("GRAFANA_PASSWORD", "admin")

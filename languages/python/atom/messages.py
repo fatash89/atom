@@ -2,7 +2,6 @@ from enum import Enum
 
 import atom.serialization as ser
 
-
 CMD_RESERVED_KEYS = ("data", "cmd", "element", "ser")
 RES_RESERVED_KEYS = ("data", "err_code", "err_str", "element", "cmd", "cmd_id", "ser")
 ENTRY_RESERVED_KEYS = "ser"

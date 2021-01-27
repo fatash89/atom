@@ -112,8 +112,10 @@ If you'd like to configure the formatter to auto-format and then do the `.flake8
 check you can do so by adding `-e DO_FORMAT=y` to the command:
 
 ```
-docker-compose -f docker-compose-dev.yml run -e DO_FORMAT=y formatting
+docker-compose -f docker-compose-dev.yml run -e DO_FORMAT=y formatting; sudo chown -R $USER:$USER .
 ```
+
+NOTE: We currently need to follow this command with `sudo chown -R $USER:$USER .`. This is due to a [known issue](https://github.com/PyCQA/isort/issues/1644) in `isort` where it causes file ownership change to the caller of `isort`, which is `root` in our formatting docker container. We hope to resolve this soon. `black` is able to reformat without this issue.
 
 This will add a step to call `black` between steps (2) and (3) of the above list
 but otherwise run the same process.

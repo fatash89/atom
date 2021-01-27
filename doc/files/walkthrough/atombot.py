@@ -1,8 +1,9 @@
 # atombot.py
+from threading import Lock, Thread
+from time import sleep
+
 from atom import Element
 from atom.messages import Response
-from threading import Thread, Lock
-from time import sleep
 
 
 class AtomBot:

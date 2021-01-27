@@ -6,9 +6,10 @@
 #
 
 import argparse
-import os
-import requests
 import json
+import os
+
+import requests
 
 
 def save_dashboard(dashboard, filename, directory, url, user, password):

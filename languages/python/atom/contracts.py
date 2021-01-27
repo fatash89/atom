@@ -1,7 +1,7 @@
-from lazycontract import LazyProperty, LazyContract
+from lazycontract import LazyContract, LazyProperty
 from lazycontract.contract import (
-    LazyContractValidationError,
     LazyContractDeserializationError,
+    LazyContractValidationError,
 )
 
 

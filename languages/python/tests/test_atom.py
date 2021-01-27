@@ -1,34 +1,37 @@
-import os
-import time
-import gc
 import copy
+import gc
+import os
+import random
+import time
 from multiprocessing import Process, Queue
 from threading import Thread
 
 import numpy as np
 import pytest
 import redis
-import random
-
-from redistimeseries.client import Client as RedisTimeSeries
-
-from atom import Element, AtomError, MetricsLevel, SetEmptyError
-from atom.element import ElementConnectionTimeoutError
-from atom.config import DEFAULT_REDIS_SOCKET, DEFAULT_REDIS_PORT
-from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_UNSUPPORTED
-from atom.config import ATOM_COMMAND_NO_RESPONSE, ATOM_CALLBACK_FAILED
-from atom.config import ATOM_USER_ERRORS_BEGIN, HEALTHCHECK_RETRY_INTERVAL
+from atom import AtomError, Element, MetricsLevel, SetEmptyError
 from atom.config import (
-    HEALTHCHECK_COMMAND,
-    VERSION_COMMAND,
-    LANG,
-    VERSION,
+    ATOM_CALLBACK_FAILED,
+    ATOM_COMMAND_NO_ACK,
+    ATOM_COMMAND_NO_RESPONSE,
+    ATOM_COMMAND_UNSUPPORTED,
+    ATOM_NO_ERROR,
+    ATOM_USER_ERRORS_BEGIN,
     COMMAND_LIST_COMMAND,
+    DEFAULT_REDIS_PORT,
+    DEFAULT_REDIS_SOCKET,
+    HEALTHCHECK_COMMAND,
+    HEALTHCHECK_RETRY_INTERVAL,
+    LANG,
     REDIS_PIPELINE_POOL_SIZE,
+    VERSION,
+    VERSION_COMMAND,
 )
+from atom.contracts import BinaryProperty, EmptyContract, RawContract
+from atom.element import ElementConnectionTimeoutError
 from atom.messages import Response, StreamHandler
-from atom.contracts import RawContract, EmptyContract, BinaryProperty
 from msgpack import unpackb
+from redistimeseries.client import Client as RedisTimeSeries
 
 pytest.caller_incrementor = 0
 pytest.responder_incrementor = 0

@@ -1,76 +1,74 @@
 import copy
 import logging
 import logging.handlers
-from multiprocessing import Process
 import multiprocessing
-from traceback import format_exc
+import os
 import threading
 import time
 import uuid
-import os
-from os import uname
-from queue import Queue, LifoQueue
-from queue import Empty as QueueEmpty
 from collections import defaultdict
 from datetime import datetime
+from multiprocessing import Process
+from os import uname
+from queue import Empty as QueueEmpty
+from queue import LifoQueue, Queue
+from traceback import format_exc
 
+import atom.serialization as ser
 import redis
-from redistimeseries.client import Client as RedisTimeSeries
-
 from atom.config import (
-    DEFAULT_REDIS_PORT,
+    ACK_TIMEOUT,
+    ATOM_CALLBACK_FAILED,
+    ATOM_COMMAND_NO_ACK,
+    ATOM_COMMAND_NO_RESPONSE,
+    ATOM_COMMAND_UNSUPPORTED,
+    ATOM_INTERNAL_ERROR,
+    ATOM_NO_ERROR,
+    ATOM_USER_ERRORS_BEGIN,
+    COMMAND_LIST_COMMAND,
     DEFAULT_METRICS_PORT,
-    DEFAULT_REDIS_SOCKET,
     DEFAULT_METRICS_SOCKET,
+    DEFAULT_REDIS_PORT,
+    DEFAULT_REDIS_SOCKET,
+    HEALTHCHECK_COMMAND,
     HEALTHCHECK_RETRY_INTERVAL,
+    LANG,
     LOG_DEFAULT_FILE_SIZE,
     LOG_DEFAULT_LEVEL,
-)
-from atom.config import (
-    LANG,
-    VERSION,
-    ACK_TIMEOUT,
-    RESPONSE_TIMEOUT,
-    STREAM_LEN,
     MAX_BLOCK,
-)
-from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESPONSE
-from atom.config import (
-    ATOM_COMMAND_UNSUPPORTED,
-    ATOM_CALLBACK_FAILED,
-    ATOM_USER_ERRORS_BEGIN,
-    ATOM_INTERNAL_ERROR,
-)
-from atom.config import (
-    HEALTHCHECK_COMMAND,
-    VERSION_COMMAND,
-    REDIS_PIPELINE_POOL_SIZE,
-    COMMAND_LIST_COMMAND,
-    RESERVED_COMMANDS,
-)
-from atom.config import (
-    OVERRIDE_PARAM_FIELD,
-    SERIALIZATION_PARAM_FIELD,
-    RESERVED_PARAM_FIELDS,
-)
-from atom.config import (
-    METRICS_TYPE_LABEL,
-    METRICS_HOST_LABEL,
+    METRICS_AGGREGATION_LABEL,
+    METRICS_AGGREGATION_TYPE_LABEL,
     METRICS_ATOM_VERSION_LABEL,
-    METRICS_SUBTYPE_LABEL,
+    METRICS_DEFAULT_AGG_TIMING,
+    METRICS_DEFAULT_RETENTION,
     METRICS_DEVICE_LABEL,
     METRICS_ELEMENT_LABEL,
+    METRICS_HOST_LABEL,
     METRICS_LANGUAGE_LABEL,
     METRICS_LEVEL_LABEL,
-    METRICS_AGGREGATION_LABEL,
-    METRICS_DEFAULT_RETENTION,
-    METRICS_DEFAULT_AGG_TIMING,
-    METRICS_AGGREGATION_TYPE_LABEL,
+    METRICS_SUBTYPE_LABEL,
+    METRICS_TYPE_LABEL,
+    OVERRIDE_PARAM_FIELD,
+    REDIS_PIPELINE_POOL_SIZE,
+    RESERVED_COMMANDS,
+    RESERVED_PARAM_FIELDS,
+    RESPONSE_TIMEOUT,
+    SERIALIZATION_PARAM_FIELD,
+    STREAM_LEN,
+    VERSION,
+    VERSION_COMMAND,
+    MetricsLevel,
 )
-from atom.config import MetricsLevel
-from atom.messages import Cmd, Response, StreamHandler, format_redis_py
-from atom.messages import Acknowledge, Entry, ENTRY_RESERVED_KEYS
-import atom.serialization as ser
+from atom.messages import (
+    ENTRY_RESERVED_KEYS,
+    Acknowledge,
+    Cmd,
+    Entry,
+    Response,
+    StreamHandler,
+    format_redis_py,
+)
+from redistimeseries.client import Client as RedisTimeSeries
 
 # Need to figure out how we're connecting to the Nucleus
 #   Default to local sockets at the default address

@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 import json
-import time
 import sys
-from atom import Element
-import atom.serialization as ser
+import time
 from inspect import cleandoc
 from os import uname
+from uuid import uuid4
+
+import atom.serialization as ser
+from atom import Element
 from prompt_toolkit import HTML, PromptSession
 from prompt_toolkit import print_formatted_text as print
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.styles import Style
 from pyfiglet import Figlet
-from uuid import uuid4
 
 
 class AtomCLI:
