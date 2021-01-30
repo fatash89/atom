@@ -2588,6 +2588,9 @@ class Element:
 
         Args:
             keys (str): Key of parameter to delete from Atom
+
+        Return
+            success (bool)
         """
 
         # Initialize metrics
@@ -2596,11 +2599,13 @@ class Element:
         with MetricsPipeline(self) as metrics_pipeline:
             self.metrics_timing_start(self._parameter_metrics[key]["delete"])
 
-            self._redis_key_delete(self._make_parameter_key(key))
+            success, _ = self._redis_key_delete(self._make_parameter_key(key))
 
             self.metrics_timing_end(
                 self._parameter_metrics[key]["delete"], pipeline=metrics_pipeline
             )
+
+        return success
 
     def parameter_update_timeout_ms(self, key, timeout_ms):
         """
@@ -2951,6 +2956,9 @@ class Element:
 
         Args:
             keys (strs): Keys to delete from Atom
+
+        Return:
+            success (bool), failed_to_delete (list of key)
         """
 
         # Unlink the data
@@ -2959,11 +2967,20 @@ class Element:
                 redis_pipeline.delete(key)
             data = redis_pipeline.execute()
 
+        # Make sure we got a valid response from Redis. It's worthwhile
+        #   to raise if this is not the case
         if type(data) is not list:
             raise ValueError(f"Invalid response from redis: {data}")
+
+        # Make sure we successfully deleted all references. It's OK
+        #   if we didn't, we just need to know
+        success = True
+        failed = []
         if all(data) != 1:
-            missing_keys = [key for i, key in enumerate(keys) if data[i] != 1]
-            raise KeyError(f"Keys {missing_keys} not in redis")
+            success = False
+            failed = [key for i, key in enumerate(keys) if data[i] != 1]
+
+        return success, failed
 
     def _reference_delete_init_metrics(self):
         """
@@ -2993,6 +3010,12 @@ class Element:
     def reference_delete(self, *keys):
         """
         Deletes one or more references from Atom
+
+        Args:
+            keys (list of reference string): References to delete
+
+        Return:
+            success (bool), list of failed keys (list of reference)
         """
 
         # Initialize metrics
@@ -3001,14 +3024,14 @@ class Element:
         with MetricsPipeline(self) as metrics_pipeline:
             self.metrics_timing_start(self._reference_delete_metrics["delete"])
 
-            ret_val = self._redis_key_delete(*keys)
+            success, failed = self._redis_key_delete(*keys)
 
             self.metrics_timing_end(
                 self._reference_delete_metrics["delete"], pipeline=metrics_pipeline
             )
             self.metrics_add(self._reference_delete_metrics["count"], len(keys))
 
-        return ret_val
+        return success, failed
 
     def _redis_key_update_timeout_ms(self, key, timeout_ms):
         """
@@ -3301,6 +3324,9 @@ class Element:
 
         Args:
             keys (str): Key of counter to delete from Atom
+
+        Return:
+            success (bool)
         """
 
         # Initialize metrics
@@ -3309,11 +3335,13 @@ class Element:
         with MetricsPipeline(self) as metrics_pipeline:
             self.metrics_timing_start(self._counter_metrics[key]["delete"])
 
-            self._redis_key_delete(self._make_counter_key(key))
+            success, _ = self._redis_key_delete(self._make_counter_key(key))
 
             self.metrics_timing_end(
                 self._counter_metrics[key]["delete"], pipeline=metrics_pipeline
             )
+
+        return success
 
     def _make_sorted_set_key(self, key):
         """

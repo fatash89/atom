@@ -1089,7 +1089,8 @@ class TestAtom:
         _ = caller.parameter_write(key, data)
         param_data = caller.parameter_read(key)
         assert param_data == data
-        caller.parameter_delete(key)
+        success = caller.parameter_delete(key)
+        assert success == True
 
     def test_parameter_read_field(self, caller):
         """
@@ -1102,7 +1103,8 @@ class TestAtom:
         _ = caller.parameter_write(key, data)
         param_data = caller.parameter_read(key, fields="str2")
         assert param_data == {b"str2": b"goodbye"}
-        caller.parameter_delete(key)
+        success = caller.parameter_delete(key)
+        assert success == True
 
     def test_parameter_write_msgpack(self, caller):
         """
@@ -1115,7 +1117,8 @@ class TestAtom:
         _ = caller.parameter_write(key, data, serialization="msgpack")
         param_data = caller.parameter_read(key)
         assert param_data == data
-        caller.parameter_delete(key)
+        success = caller.parameter_delete(key)
+        assert success == True
 
     def test_parameter_read_msgpack_field(self, caller):
         """
@@ -1128,7 +1131,8 @@ class TestAtom:
         _ = caller.parameter_write(key, data, serialization="msgpack")
         param_data = caller.parameter_read(key, fields=["str2"])
         assert param_data == {b"str2": b"goodbye"}
-        caller.parameter_delete(key)
+        success = caller.parameter_delete(key)
+        assert success == True
 
     def test_parameter_write_override_true(self, caller):
         """
@@ -1144,7 +1148,8 @@ class TestAtom:
         assert updated == [b"str2"]
         new_data = caller.parameter_read(key)
         assert new_data == {b"str1": b"hello, world!", b"str2": b"goodbye again"}
-        caller.parameter_delete(key)
+        success = caller.parameter_delete(key)
+        assert success == True
 
     def test_parameter_write_override_false(sef, caller):
         """
@@ -1162,7 +1167,8 @@ class TestAtom:
 
         current_data = caller.parameter_read(key)
         assert current_data == data
-        caller.parameter_delete(key)
+        success = caller.parameter_delete(key)
+        assert success == True
 
     def test_parameter_write_override_false_allows_new_key(sef, caller):
         """
@@ -1182,7 +1188,8 @@ class TestAtom:
             b"str2": b"goodbye",
             b"str3": b"goodbye again",
         }
-        caller.parameter_delete(key)
+        success = caller.parameter_delete(key)
+        assert success == True
 
     def test_parameter_write_new_serialization_raises_error(self, caller):
         """
@@ -1200,7 +1207,8 @@ class TestAtom:
 
         current_data = caller.parameter_read(key)
         assert current_data == data
-        caller.parameter_delete(key)
+        success = caller.parameter_delete(key)
+        assert success == True
 
     def test_parameter_get_override(self, caller):
         caller, caller_name = caller
@@ -1209,7 +1217,8 @@ class TestAtom:
         _ = caller.parameter_write(key, data, override=False)
         override = caller.parameter_get_override(key)
         assert override == "false"
-        caller.parameter_delete(key)
+        success = caller.parameter_delete(key)
+        assert success == True
 
     def test_parameter_get_override_doesnt_exist(self, caller):
         caller, caller_name = caller
@@ -1224,7 +1233,8 @@ class TestAtom:
         _ = caller.parameter_write(key, data)
         remaining_ms = caller.parameter_get_timeout_ms(key)
         assert remaining_ms == -1
-        caller.parameter_delete(key)
+        success = caller.parameter_delete(key)
+        assert success == True
 
     def test_parameter_get_timeout_ms(self, caller):
         caller, caller_name = caller
@@ -1236,7 +1246,8 @@ class TestAtom:
         time.sleep(0.1)
         still_remaining_ms = caller.parameter_get_timeout_ms(key)
         assert (still_remaining_ms < remaining_ms) and (still_remaining_ms > 0)
-        caller.parameter_delete(key)
+        success = caller.parameter_delete(key)
+        assert success == True
 
     def test_parameter_update_timeout_ms(self, caller):
         caller, caller_name = caller
@@ -1249,7 +1260,8 @@ class TestAtom:
         caller.parameter_update_timeout_ms(key, 10000)
         updated_ms = caller.parameter_get_timeout_ms(key)
         assert (updated_ms > 1000) and (updated_ms <= 10000)
-        caller.parameter_delete(key)
+        success = caller.parameter_delete(key)
+        assert success == True
 
     def test_parameter_remove_timeout(self, caller):
         caller, caller_name = caller
@@ -1262,7 +1274,8 @@ class TestAtom:
         caller.parameter_update_timeout_ms(key, 0)
         updated_ms = caller.parameter_get_timeout_ms(key)
         assert updated_ms == -1
-        caller.parameter_delete(key)
+        success = caller.parameter_delete(key)
+        assert success == True
 
     def test_parameter_delete(self, caller):
         caller, caller_name = caller
@@ -1275,7 +1288,8 @@ class TestAtom:
         timeout_ms = caller.parameter_get_timeout_ms(key)
         assert timeout_ms == -1
 
-        caller.parameter_delete(key)
+        success = caller.parameter_delete(key)
+        assert success == True
         del_data = caller.parameter_read(key)
         assert del_data is None
 
@@ -1284,11 +1298,12 @@ class TestAtom:
         data = {b"my_str": b"hello, world!"}
         key = "my_param"
         _ = caller.parameter_write(key, data, timeout_ms=0)
-        caller.parameter_delete(key)
+        success = caller.parameter_delete(key)
+        assert success == True
         del_data = caller.parameter_read(key)
         assert del_data is None
-        with pytest.raises(KeyError):
-            caller.parameter_delete(key)
+        success = caller.parameter_delete(key)
+        assert success == False
 
     def test_reference_basic(self, caller):
         caller, caller_name = caller
@@ -1296,7 +1311,9 @@ class TestAtom:
         ref_id = caller.reference_create(data)[0]
         ref_data = caller.reference_get(ref_id)[0]
         assert ref_data == data
-        caller.reference_delete(ref_id)
+        success, failed = caller.reference_delete(ref_id)
+        assert success == True
+        assert len(failed) == 0
 
     def test_reference_user_key(self, caller):
         caller, caller_name = caller
@@ -1305,7 +1322,9 @@ class TestAtom:
         ref_id = caller.reference_create(data, keys=key)[0]
         ref_data = caller.reference_get(ref_id)[0]
         assert ref_data == data
-        caller.reference_delete(ref_id)
+        success, failed = caller.reference_delete(ref_id)
+        assert success == True
+        assert len(failed) == 0
 
     def test_reference_doesnt_exist(self, caller):
         caller, caller_name = caller
@@ -1323,7 +1342,9 @@ class TestAtom:
         ref_id = caller.reference_create(data, serialize=True)[0]
         ref_data = caller.reference_get(ref_id, deserialize=True)[0]
         assert ref_data == data
-        caller.reference_delete(ref_id)
+        success, failed = caller.reference_delete(ref_id)
+        assert success == True
+        assert len(failed) == 0
 
     def test_reference_arrow(self, caller):
         """
@@ -1340,7 +1361,9 @@ class TestAtom:
         ref_id = caller.reference_create(data, serialization="arrow")[0]
         ref_data = caller.reference_get(ref_id)[0]
         assert ref_data == data
-        caller.reference_delete(ref_id)
+        success, failed = caller.reference_delete(ref_id)
+        assert success == True
+        assert len(failed) == 0
 
     def test_reference_msgpack_dne(self, caller):
         caller, caller_name = caller
@@ -1355,7 +1378,9 @@ class TestAtom:
         ref_data = caller.reference_get(*ref_ids)
         for i in range(len(data)):
             assert ref_data[i] == data[i]
-        caller.reference_delete(*ref_ids)
+        success, failed = caller.reference_delete(*ref_ids)
+        assert success == True
+        assert len(failed) == 0
 
     def test_reference_multiple_user_keys(self, caller):
         caller, caller_name = caller
@@ -1366,7 +1391,9 @@ class TestAtom:
         for i in range(len(data)):
             assert ref_data[i] == data[i]
 
-        caller.reference_delete(*ref_ids)
+        success, failed = caller.reference_delete(*ref_ids)
+        assert success == True
+        assert len(failed) == 0
 
     def test_reference_multiple_mismatch_keys(self, caller):
         caller, caller_name = caller
@@ -1390,7 +1417,9 @@ class TestAtom:
         ref_data = caller.reference_get(*ref_ids)
         for i in range(len(data)):
             assert ref_data[i] == data[i]
-        caller.reference_delete(*ref_ids)
+        success, failed = caller.reference_delete(*ref_ids)
+        assert success == True
+        assert len(failed) == 0
 
     def test_reference_multiple_mixed_serialization(self, caller):
         caller, caller_name = caller
@@ -1401,7 +1430,9 @@ class TestAtom:
         ref_data = caller.reference_get(*ref_ids)
         for ref, orig in zip(ref_data, data):
             assert ref == orig
-        caller.reference_delete(*ref_ids)
+        success, failed = caller.reference_delete(*ref_ids)
+        assert success == True
+        assert len(failed) == 0
 
     def test_reference_get_timeout_ms(self, caller):
         caller, caller_name = caller
@@ -1414,7 +1445,9 @@ class TestAtom:
         assert (ref_still_remaining_ms < ref_remaining_ms) and (
             ref_still_remaining_ms > 0
         )
-        caller.reference_delete(ref_id)
+        success, failed = caller.reference_delete(ref_id)
+        assert success == True
+        assert len(failed) == 0
 
     def test_reference_update_timeout_ms(self, caller):
         caller, caller_name = caller
@@ -1426,7 +1459,9 @@ class TestAtom:
         caller.reference_update_timeout_ms(ref_id, 10000)
         ref_updated_ms = caller.reference_get_timeout_ms(ref_id)
         assert (ref_updated_ms > 1000) and (ref_updated_ms <= 10000)
-        caller.reference_delete(ref_id)
+        success, failed = caller.reference_delete(ref_id)
+        assert success == True
+        assert len(failed) == 0
 
     def test_reference_remove_timeout(self, caller):
         caller, caller_name = caller
@@ -1438,7 +1473,9 @@ class TestAtom:
         caller.reference_update_timeout_ms(ref_id, 0)
         ref_updated_ms = caller.reference_get_timeout_ms(ref_id)
         assert ref_updated_ms == -1
-        caller.reference_delete(ref_id)
+        success, failed = caller.reference_delete(ref_id)
+        assert success == True
+        assert len(failed) == 0
 
     def test_reference_delete(self, caller):
         caller, caller_name = caller
@@ -1450,7 +1487,9 @@ class TestAtom:
         ref_ms = caller.reference_get_timeout_ms(ref_id)
         assert ref_ms == -1
 
-        caller.reference_delete(ref_id)
+        success, failed = caller.reference_delete(ref_id)
+        assert success == True
+        assert len(failed) == 0
         del_data = caller.reference_get(ref_id)[0]
         assert del_data is None
 
@@ -1468,10 +1507,40 @@ class TestAtom:
         ref_ms = caller.reference_get_timeout_ms(ref_ids[1])
         assert ref_ms == -1
 
-        caller.reference_delete(*ref_ids)
+        success, failed = caller.reference_delete(*ref_ids)
+        assert success == True
+        assert len(failed) == 0
         del_data = caller.reference_get(*ref_ids)
         assert del_data[0] is None
         assert del_data[1] is None
+
+    def test_reference_delete_single_missing(self, caller):
+        caller, caller_name = caller
+
+        data = [b"hello, world!", b"test"]
+        ref_ids = caller.reference_create(*data, timeout_ms=0)
+        ref_data = caller.reference_get(*ref_ids)
+        assert ref_data[0] == data[0]
+        assert ref_data[1] == data[1]
+
+        ref_ms = caller.reference_get_timeout_ms(ref_ids[0])
+        assert ref_ms == -1
+        ref_ms = caller.reference_get_timeout_ms(ref_ids[1])
+        assert ref_ms == -1
+
+        missing_str = "bad-reference"
+        ref_ids.append(missing_str)
+        success, failed = caller.reference_delete(*ref_ids)
+        assert success == False
+        assert failed == [missing_str]
+
+    def test_reference_delete_all_missing(self, caller):
+        caller, caller_name = caller
+
+        missing_references = ["ref-a", "ref-b", "ref-c", "ref-"]
+        success, failed = caller.reference_delete(*missing_references)
+        assert success == False
+        assert failed == missing_references
 
     def test_reference_delete_msgpack(self, caller):
         caller, caller_name = caller
@@ -1484,7 +1553,9 @@ class TestAtom:
         ref_ms = caller.reference_get_timeout_ms(ref_id)
         assert ref_ms == -1
 
-        caller.reference_delete(ref_id)
+        success, failed = caller.reference_delete(ref_id)
+        assert success == True
+        assert len(failed) == 0
         del_data = caller.reference_get(ref_id)[0]
         assert del_data is None
 
@@ -1513,7 +1584,9 @@ class TestAtom:
         )
         ref_data = caller.reference_get(key_dict["data"])[0]
         assert ref_data == stream_data["data"]
-        caller.reference_delete(key_dict["data"])
+        success, failed = caller.reference_delete(key_dict["data"])
+        assert success == True
+        assert len(failed) == 0
 
     def test_reference_create_from_stream_multiple_keys(self, caller):
         caller, caller_name = caller
@@ -1527,7 +1600,9 @@ class TestAtom:
         for key in key_dict:
             ref_data = caller.reference_get(key_dict[key])[0]
             assert ref_data == stream_data[key]
-        caller.reference_delete(*key_dict.values())
+        success, failed = caller.reference_delete(*key_dict.values())
+        assert success == True
+        assert len(failed) == 0
 
     def test_reference_create_from_stream_multiple_keys_legacy_serialization(
         self, caller
@@ -1544,7 +1619,9 @@ class TestAtom:
         for key in key_dict:
             ref_data = caller.reference_get(key_dict[key], deserialize=True)[0]
             assert ref_data == orig_stream_data[key]
-        caller.reference_delete(*key_dict.values())
+        success, failed = caller.reference_delete(*key_dict.values())
+        assert success == True
+        assert len(failed) == 0
 
     def test_reference_create_from_stream_multiple_keys_arrow(self, caller):
         caller, caller_name = caller
@@ -1559,7 +1636,9 @@ class TestAtom:
         for key in key_dict:
             ref_data = caller.reference_get(key_dict[key])[0]
             assert ref_data == orig_stream_data[key]
-        caller.reference_delete(*key_dict.values())
+        success, failed = caller.reference_delete(*key_dict.values())
+        assert success == True
+        assert len(failed) == 0
 
     def test_reference_create_from_stream_multiple_keys_persist(self, caller):
         caller, caller_name = caller
@@ -1572,7 +1651,9 @@ class TestAtom:
         )
         for key in key_dict:
             assert caller.reference_get_timeout_ms(key_dict[key]) == -1
-        caller.reference_delete(*key_dict.values())
+        success, failed = caller.reference_delete(*key_dict.values())
+        assert success == True
+        assert len(failed) == 0
 
     def test_reference_create_from_stream_multiple_keys_timeout(self, caller):
         caller, caller_name = caller
@@ -1620,7 +1701,9 @@ class TestAtom:
                 ref_data = caller.reference_get(key_dict[key])[0]
                 correct_data = get_data(i)
                 assert ref_data == correct_data[key]
-            caller.reference_delete(*key_dict.values())
+            success, failed = caller.reference_delete(*key_dict.values())
+            assert success == True
+            assert len(failed) == 0
 
         # Now, check the final piece and make sure it's the most recent
         key_dict = caller.reference_create_from_stream(
@@ -1634,7 +1717,9 @@ class TestAtom:
             correct_data = get_data(9)
             assert ref_data == correct_data[key]
 
-        caller.reference_delete(*key_dict.values())
+        success, failed = caller.reference_delete(*key_dict.values())
+        assert success == True
+        assert len(failed) == 0
 
     def test_entry_read_n_ignore_serialization(self, caller):
         caller, caller_name = caller
@@ -1680,7 +1765,9 @@ class TestAtom:
         )
         for i in range(len(data)):
             assert unpackb(ref_data[i], raw=False) == data[i]
-        caller.reference_delete(*ref_ids)
+        success, failed = caller.reference_delete(*ref_ids)
+        assert success == True
+        assert len(failed) == 0
 
     def test_command_response_wrong_n_procs(self, caller, responder):
         """
@@ -2235,7 +2322,8 @@ class TestAtom:
             counter_val = caller.counter_set("some_counter", i)
             assert counter_val == i
 
-        caller.counter_delete("some_counter")
+        success = caller.counter_delete("some_counter")
+        assert success == True
 
     def test_counter_get(self, caller):
 
@@ -2246,7 +2334,8 @@ class TestAtom:
             assert counter_val == i
             assert caller.counter_get("some_counter") == i
 
-        caller.counter_delete("some_counter")
+        success = caller.counter_delete("some_counter")
+        assert success == True
 
     def test_counter_delete(self, caller):
 
@@ -2255,7 +2344,8 @@ class TestAtom:
         counter_val = caller.counter_set("some_counter", 32)
         assert counter_val == 32
         assert caller.counter_get("some_counter") == 32
-        caller.counter_delete("some_counter")
+        success = caller.counter_delete("some_counter")
+        assert success == True
         assert caller.counter_get("some_counter") is None
 
     def test_counter_update(self, caller):
@@ -2280,7 +2370,8 @@ class TestAtom:
             # Make sure our sum matches the counter's
             assert counter_sum == counter_val
 
-        caller.counter_delete("some_counter")
+        success = caller.counter_delete("some_counter")
+        assert success == True
 
     def test_counter_set_update(self, caller):
 
@@ -2298,7 +2389,8 @@ class TestAtom:
         counter_val = caller.counter_update("some_counter", -1)
         assert counter_val == 41
 
-        caller.counter_delete("some_counter")
+        success = caller.counter_delete("some_counter")
+        assert success == True
 
     def test_counter_expire(self, caller):
 
@@ -2338,8 +2430,10 @@ class TestAtom:
             counter2_val = caller.counter_update("some_counter2", rand_val_2)
             assert counter2_sum == counter2_val
 
-        caller.counter_delete("some_counter1")
-        caller.counter_delete("some_counter2")
+        success = caller.counter_delete("some_counter1")
+        assert success == True
+        success = caller.counter_delete("some_counter2")
+        assert success == True
 
     def test_counter_set_pipelines(self, caller):
         """
@@ -2355,7 +2449,8 @@ class TestAtom:
         assert caller._rpipeline_pool.qsize() == REDIS_PIPELINE_POOL_SIZE
         assert caller._mpipeline_pool.qsize() == REDIS_PIPELINE_POOL_SIZE
 
-        caller.counter_delete("some_counter")
+        success = caller.counter_delete("some_counter")
+        assert success == True
 
     def test_counter_update_pipelines(self, caller):
         """
@@ -2371,7 +2466,8 @@ class TestAtom:
         assert caller._rpipeline_pool.qsize() == REDIS_PIPELINE_POOL_SIZE
         assert caller._mpipeline_pool.qsize() == REDIS_PIPELINE_POOL_SIZE
 
-        caller.counter_delete("some_counter")
+        success = caller.counter_delete("some_counter")
+        assert success == True
 
     def test_counter_get_pipelines(self, caller):
         """
@@ -2389,7 +2485,8 @@ class TestAtom:
         assert caller._rpipeline_pool.qsize() == REDIS_PIPELINE_POOL_SIZE
         assert caller._mpipeline_pool.qsize() == REDIS_PIPELINE_POOL_SIZE
 
-        caller.counter_delete("some_counter")
+        success = caller.counter_delete("some_counter")
+        assert success == True
 
     def test_counter_delete_pipelines(self, caller):
         """
@@ -2401,7 +2498,8 @@ class TestAtom:
         caller, caller_name = caller
         for i in range(2 * REDIS_PIPELINE_POOL_SIZE):
             caller.counter_set("some_counter", i)
-            caller.counter_delete("some_counter")
+            success = caller.counter_delete("some_counter")
+            assert success == True
 
         assert caller._rpipeline_pool.qsize() == REDIS_PIPELINE_POOL_SIZE
         assert caller._mpipeline_pool.qsize() == REDIS_PIPELINE_POOL_SIZE
