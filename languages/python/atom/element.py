@@ -3366,6 +3366,14 @@ class Element:
             agg_types=["AVG", "MIN", "MAX", "COUNT"],
         )
 
+        self._sorted_set_metrics[key]["size"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:sorted_set",
+            key,
+            "size",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
         self._sorted_set_metrics[key]["pop"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:sorted_set",
@@ -3465,6 +3473,48 @@ class Element:
                 )
 
             cardinality = response[1]
+            self.metrics_add(
+                self._sorted_set_metrics[set_key]["card"],
+                cardinality,
+                pipeline=metrics_pipeline,
+            )
+
+        return cardinality
+
+    def sorted_set_size(self, set_key):
+        """
+        Get the cardinality/size of a sorted set
+
+        Args:
+            set_key (string): Name of the sorted set
+
+        Return:
+            Cardinality of the set, i.e. how many members exist after
+                the ADD.
+
+        Raises:
+            AtomError on inability to add to set
+        """
+        # Initialize metrics
+        self._sorted_set_init_metrics(set_key)
+        redis_key = self._make_sorted_set_key(set_key)
+
+        # Get our pipelines
+        with RedisPipeline(self) as redis_pipeline, MetricsPipeline(
+            self
+        ) as metrics_pipeline:
+
+            # Add to the sorted set
+            self.metrics_timing_start(self._sorted_set_metrics[set_key]["size"])
+
+            redis_pipeline.zcard(redis_key)
+            response = redis_pipeline.execute()
+
+            self.metrics_timing_end(
+                self._sorted_set_metrics[set_key]["size"], pipeline=metrics_pipeline
+            )
+
+            cardinality = response[0]
             self.metrics_add(
                 self._sorted_set_metrics[set_key]["card"],
                 cardinality,

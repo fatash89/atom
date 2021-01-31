@@ -2518,6 +2518,26 @@ class TestAtom:
 
         caller.sorted_set_delete("some_set")
 
+    def test_set_size(self, caller):
+
+        caller, caller_name = caller
+        n_items = 10
+
+        for i in range(n_items):
+            member = f"key{i}"
+            add_cardinality = caller.sorted_set_add("some_set", member, i)
+            size_cardinality = caller.sorted_set_size("some_set")
+            assert add_cardinality == size_cardinality
+
+        caller.sorted_set_delete("some_set")
+
+    def test_set_size_no_set(self, caller):
+
+        caller, caller_name = caller
+
+        size = caller.sorted_set_size("some_set")
+        assert size == 0
+
     def test_set_update(self, caller):
 
         caller, caller_name = caller
