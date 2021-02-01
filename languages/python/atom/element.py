@@ -445,7 +445,7 @@ class Element:
                 "Stream '%s' is not present in Element "
                 "streams (element: %s)" % (stream, self.name),
             )
-        self._rclient.delete(self._make_stream_id(self.name, stream))
+        self._rclient.unlink(self._make_stream_id(self.name, stream))
         self.streams.remove(stream)
 
     def _clean_up(self):
@@ -485,9 +485,9 @@ class Element:
         for stream in self.streams.copy():
             self.clean_up_stream(stream)
         try:
-            self._rclient.delete(self._make_response_id(self.name))
-            self._rclient.delete(self._make_command_id(self.name))
-            self._rclient.delete(self._make_consumer_group_counter(self.name))
+            self._rclient.unlink(self._make_response_id(self.name))
+            self._rclient.unlink(self._make_command_id(self.name))
+            self._rclient.unlink(self._make_consumer_group_counter(self.name))
         except redis.exceptions.RedisError:
             raise Exception("Could not connect to nucleus!")
 
@@ -2964,7 +2964,7 @@ class Element:
         # Unlink the data
         with RedisPipeline(self) as redis_pipeline:
             for key in keys:
-                redis_pipeline.delete(key)
+                redis_pipeline.unlink(key)
             data = redis_pipeline.execute()
 
         # Make sure we got a valid response from Redis. It's worthwhile
@@ -3819,7 +3819,7 @@ class Element:
             # Add to the sorted set
             self.metrics_timing_start(self._sorted_set_metrics[set_key]["delete"])
 
-            redis_pipeline.delete(redis_key)
+            redis_pipeline.unlink(redis_key)
             response = redis_pipeline.execute()
 
             self.metrics_timing_end(
