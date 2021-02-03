@@ -1102,10 +1102,7 @@ class Element:
         """Decrements reference counter for element stream collection"""
         _pipe.decr(self._make_consumer_group_counter(self.name))
         result = _pipe.execute()[-1]
-        self.logger.debug(f"decrementing element {self.name} {result}")
         if not result:
-            # TODO: consider logging
-            self.logger.debug(f"cleaning up stream {self.name}")
             self._clean_up_streams()
         return result
 
