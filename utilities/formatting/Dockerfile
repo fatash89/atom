@@ -1,7 +1,11 @@
 FROM alpine/flake8:3.7.0
 
+ADD ./requirements.txt .
+
 # Need to install build tools and auto-formatters
-RUN apk add git openssh build-base && pip3 install black
+RUN apk add git openssh build-base && \
+    pip3 install --upgrade pip && \
+    pip3 install -r requirements.txt
 
 # Add in the .flake8 spec
 ADD ./.flake8 /usr/local/lib/.flake8
@@ -32,9 +36,10 @@ ENV DO_CHECK="y"
 #   purposes but shouldn't be turned on in prod
 ENV DO_HANG=""
 
-# Excludes for black and .flake8
+# Excludes
 ENV FLAKE8_EXCLUDE=third-party,languages/python/third-party,languages/python/build
 ENV BLACK_EXCLUDE=third-party|build
+ENV ISORT_EXCLUDE="--skip third-party --skip build"
 
 # Code to check
 ENV CODE_DIR=/code

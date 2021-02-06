@@ -1,7 +1,6 @@
 import setuptools
 import version
 
-
 try:
     from atom import __version__
 except Exception:

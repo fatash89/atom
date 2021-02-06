@@ -1,76 +1,74 @@
 import copy
 import logging
 import logging.handlers
-from multiprocessing import Process
 import multiprocessing
-from traceback import format_exc
+import os
 import threading
 import time
 import uuid
-import os
-from os import uname
-from queue import Queue, LifoQueue
-from queue import Empty as QueueEmpty
 from collections import defaultdict
 from datetime import datetime
+from multiprocessing import Process
+from os import uname
+from queue import Empty as QueueEmpty
+from queue import LifoQueue, Queue
+from traceback import format_exc
 
+import atom.serialization as ser
 import redis
-from redistimeseries.client import Client as RedisTimeSeries
-
 from atom.config import (
-    DEFAULT_REDIS_PORT,
+    ACK_TIMEOUT,
+    ATOM_CALLBACK_FAILED,
+    ATOM_COMMAND_NO_ACK,
+    ATOM_COMMAND_NO_RESPONSE,
+    ATOM_COMMAND_UNSUPPORTED,
+    ATOM_INTERNAL_ERROR,
+    ATOM_NO_ERROR,
+    ATOM_USER_ERRORS_BEGIN,
+    COMMAND_LIST_COMMAND,
     DEFAULT_METRICS_PORT,
-    DEFAULT_REDIS_SOCKET,
     DEFAULT_METRICS_SOCKET,
+    DEFAULT_REDIS_PORT,
+    DEFAULT_REDIS_SOCKET,
+    HEALTHCHECK_COMMAND,
     HEALTHCHECK_RETRY_INTERVAL,
+    LANG,
     LOG_DEFAULT_FILE_SIZE,
     LOG_DEFAULT_LEVEL,
-)
-from atom.config import (
-    LANG,
-    VERSION,
-    ACK_TIMEOUT,
-    RESPONSE_TIMEOUT,
-    STREAM_LEN,
     MAX_BLOCK,
-)
-from atom.config import ATOM_NO_ERROR, ATOM_COMMAND_NO_ACK, ATOM_COMMAND_NO_RESPONSE
-from atom.config import (
-    ATOM_COMMAND_UNSUPPORTED,
-    ATOM_CALLBACK_FAILED,
-    ATOM_USER_ERRORS_BEGIN,
-    ATOM_INTERNAL_ERROR,
-)
-from atom.config import (
-    HEALTHCHECK_COMMAND,
-    VERSION_COMMAND,
-    REDIS_PIPELINE_POOL_SIZE,
-    COMMAND_LIST_COMMAND,
-    RESERVED_COMMANDS,
-)
-from atom.config import (
-    OVERRIDE_PARAM_FIELD,
-    SERIALIZATION_PARAM_FIELD,
-    RESERVED_PARAM_FIELDS,
-)
-from atom.config import (
-    METRICS_TYPE_LABEL,
-    METRICS_HOST_LABEL,
+    METRICS_AGGREGATION_LABEL,
+    METRICS_AGGREGATION_TYPE_LABEL,
     METRICS_ATOM_VERSION_LABEL,
-    METRICS_SUBTYPE_LABEL,
+    METRICS_DEFAULT_AGG_TIMING,
+    METRICS_DEFAULT_RETENTION,
     METRICS_DEVICE_LABEL,
     METRICS_ELEMENT_LABEL,
+    METRICS_HOST_LABEL,
     METRICS_LANGUAGE_LABEL,
     METRICS_LEVEL_LABEL,
-    METRICS_AGGREGATION_LABEL,
-    METRICS_DEFAULT_RETENTION,
-    METRICS_DEFAULT_AGG_TIMING,
-    METRICS_AGGREGATION_TYPE_LABEL,
+    METRICS_SUBTYPE_LABEL,
+    METRICS_TYPE_LABEL,
+    OVERRIDE_PARAM_FIELD,
+    REDIS_PIPELINE_POOL_SIZE,
+    RESERVED_COMMANDS,
+    RESERVED_PARAM_FIELDS,
+    RESPONSE_TIMEOUT,
+    SERIALIZATION_PARAM_FIELD,
+    STREAM_LEN,
+    VERSION,
+    VERSION_COMMAND,
+    MetricsLevel,
 )
-from atom.config import MetricsLevel
-from atom.messages import Cmd, Response, StreamHandler, format_redis_py
-from atom.messages import Acknowledge, Entry, ENTRY_RESERVED_KEYS
-import atom.serialization as ser
+from atom.messages import (
+    ENTRY_RESERVED_KEYS,
+    Acknowledge,
+    Cmd,
+    Entry,
+    Response,
+    StreamHandler,
+    format_redis_py,
+)
+from redistimeseries.client import Client as RedisTimeSeries
 
 # Need to figure out how we're connecting to the Nucleus
 #   Default to local sockets at the default address
@@ -102,6 +100,20 @@ class AtomError(Exception):
             return f"Atom Error: {self.message}"
         else:
             return "An Atom Error Occurred"
+
+
+class SetEmptyError(Exception):
+    def __init__(self, *args):
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return f"Set Empty: {self.message}"
+        else:
+            return "Atom set is empty"
 
 
 class RedisPipeline:
@@ -284,7 +296,7 @@ class Element:
 
                 # Create pipeline pool
                 for i in range(REDIS_PIPELINE_POOL_SIZE):
-                    self._mpipeline_pool.put(self._mclient.pipeline())
+                    self._mpipeline_pool.put(self._mclient.pipeline(transaction=False))
 
                 self.logger.info("Metrics initialized.")
                 self._metrics_enabled = True
@@ -344,7 +356,7 @@ class Element:
 
         # Init our pool of redis clients/pipelines
         for i in range(REDIS_PIPELINE_POOL_SIZE):
-            self._rpipeline_pool.put(self._rclient.pipeline())
+            self._rpipeline_pool.put(self._rclient.pipeline(transaction=False))
 
         _pipe = self._rpipeline_pool.get()
 
@@ -433,7 +445,7 @@ class Element:
                 "Stream '%s' is not present in Element "
                 "streams (element: %s)" % (stream, self.name),
             )
-        self._rclient.delete(self._make_stream_id(self.name, stream))
+        self._rclient.unlink(self._make_stream_id(self.name, stream))
         self.streams.remove(stream)
 
     def _clean_up(self):
@@ -473,9 +485,9 @@ class Element:
         for stream in self.streams.copy():
             self.clean_up_stream(stream)
         try:
-            self._rclient.delete(self._make_response_id(self.name))
-            self._rclient.delete(self._make_command_id(self.name))
-            self._rclient.delete(self._make_consumer_group_counter(self.name))
+            self._rclient.unlink(self._make_response_id(self.name))
+            self._rclient.unlink(self._make_command_id(self.name))
+            self._rclient.unlink(self._make_consumer_group_counter(self.name))
         except redis.exceptions.RedisError:
             raise Exception("Could not connect to nucleus!")
 
@@ -1090,10 +1102,7 @@ class Element:
         """Decrements reference counter for element stream collection"""
         _pipe.decr(self._make_consumer_group_counter(self.name))
         result = _pipe.execute()[-1]
-        self.logger.debug(f"decrementing element {self.name} {result}")
         if not result:
-            # TODO: consider logging
-            self.logger.debug(f"cleaning up stream {self.name}")
             self._clean_up_streams()
         return result
 
@@ -2576,6 +2585,9 @@ class Element:
 
         Args:
             keys (str): Key of parameter to delete from Atom
+
+        Return
+            success (bool)
         """
 
         # Initialize metrics
@@ -2584,11 +2596,13 @@ class Element:
         with MetricsPipeline(self) as metrics_pipeline:
             self.metrics_timing_start(self._parameter_metrics[key]["delete"])
 
-            self._redis_key_delete(self._make_parameter_key(key))
+            success, _ = self._redis_key_delete(self._make_parameter_key(key))
 
             self.metrics_timing_end(
                 self._parameter_metrics[key]["delete"], pipeline=metrics_pipeline
             )
+
+        return success
 
     def parameter_update_timeout_ms(self, key, timeout_ms):
         """
@@ -2939,19 +2953,31 @@ class Element:
 
         Args:
             keys (strs): Keys to delete from Atom
+
+        Return:
+            success (bool), failed_to_delete (list of key)
         """
 
         # Unlink the data
         with RedisPipeline(self) as redis_pipeline:
             for key in keys:
-                redis_pipeline.delete(key)
+                redis_pipeline.unlink(key)
             data = redis_pipeline.execute()
 
+        # Make sure we got a valid response from Redis. It's worthwhile
+        #   to raise if this is not the case
         if type(data) is not list:
             raise ValueError(f"Invalid response from redis: {data}")
+
+        # Make sure we successfully deleted all references. It's OK
+        #   if we didn't, we just need to know
+        success = True
+        failed = []
         if all(data) != 1:
-            missing_keys = [key for i, key in enumerate(keys) if data[i] != 1]
-            raise KeyError(f"Keys {missing_keys} not in redis")
+            success = False
+            failed = [key for i, key in enumerate(keys) if data[i] != 1]
+
+        return success, failed
 
     def _reference_delete_init_metrics(self):
         """
@@ -2981,6 +3007,12 @@ class Element:
     def reference_delete(self, *keys):
         """
         Deletes one or more references from Atom
+
+        Args:
+            keys (list of reference string): References to delete
+
+        Return:
+            success (bool), list of failed keys (list of reference)
         """
 
         # Initialize metrics
@@ -2989,14 +3021,14 @@ class Element:
         with MetricsPipeline(self) as metrics_pipeline:
             self.metrics_timing_start(self._reference_delete_metrics["delete"])
 
-            ret_val = self._redis_key_delete(*keys)
+            success, failed = self._redis_key_delete(*keys)
 
             self.metrics_timing_end(
                 self._reference_delete_metrics["delete"], pipeline=metrics_pipeline
             )
             self.metrics_add(self._reference_delete_metrics["count"], len(keys))
 
-        return ret_val
+        return success, failed
 
     def _redis_key_update_timeout_ms(self, key, timeout_ms):
         """
@@ -3289,6 +3321,9 @@ class Element:
 
         Args:
             keys (str): Key of counter to delete from Atom
+
+        Return:
+            success (bool)
         """
 
         # Initialize metrics
@@ -3297,11 +3332,13 @@ class Element:
         with MetricsPipeline(self) as metrics_pipeline:
             self.metrics_timing_start(self._counter_metrics[key]["delete"])
 
-            self._redis_key_delete(self._make_counter_key(key))
+            success, _ = self._redis_key_delete(self._make_counter_key(key))
 
             self.metrics_timing_end(
                 self._counter_metrics[key]["delete"], pipeline=metrics_pipeline
             )
+
+        return success
 
     def _make_sorted_set_key(self, key):
         """
@@ -3326,11 +3363,27 @@ class Element:
             agg_types=["AVG", "MIN", "MAX", "COUNT"],
         )
 
+        self._sorted_set_metrics[key]["size"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:sorted_set",
+            key,
+            "size",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
         self._sorted_set_metrics[key]["pop"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:sorted_set",
             key,
             "pop",
+            agg_types=["AVG", "MIN", "MAX", "COUNT"],
+        )
+
+        self._sorted_set_metrics[key]["pop_n"] = self.metrics_create(
+            MetricsLevel.TIMING,
+            "atom:sorted_set",
+            key,
+            "pop_n",
             agg_types=["AVG", "MIN", "MAX", "COUNT"],
         )
 
@@ -3384,7 +3437,8 @@ class Element:
             value (float): Value to give to the member in the sorted set
 
         Return:
-            None
+            Cardinality of the set, i.e. how many members exist after
+                the ADD.
 
         Raises:
             AtomError on inability to add to set
@@ -3415,25 +3469,81 @@ class Element:
                     f"Failed add member: {member}, value {value} to sorted set {set_key}"
                 )
 
+            cardinality = response[1]
             self.metrics_add(
                 self._sorted_set_metrics[set_key]["card"],
-                response[1],
+                cardinality,
                 pipeline=metrics_pipeline,
             )
 
-    def sorted_set_pop(self, set_key, maximum=False):
+        return cardinality
+
+    def sorted_set_size(self, set_key):
         """
-        Pop the value from a sorted set. Minium or maximum (min by default)
+        Get the cardinality/size of a sorted set
+
+        Args:
+            set_key (string): Name of the sorted set
+
+        Return:
+            Cardinality of the set, i.e. how many members exist after
+                the ADD.
+
+        Raises:
+            AtomError on inability to add to set
+        """
+        # Initialize metrics
+        self._sorted_set_init_metrics(set_key)
+        redis_key = self._make_sorted_set_key(set_key)
+
+        # Get our pipelines
+        with RedisPipeline(self) as redis_pipeline, MetricsPipeline(
+            self
+        ) as metrics_pipeline:
+
+            # Add to the sorted set
+            self.metrics_timing_start(self._sorted_set_metrics[set_key]["size"])
+
+            redis_pipeline.zcard(redis_key)
+            response = redis_pipeline.execute()
+
+            self.metrics_timing_end(
+                self._sorted_set_metrics[set_key]["size"], pipeline=metrics_pipeline
+            )
+
+            cardinality = response[0]
+            self.metrics_add(
+                self._sorted_set_metrics[set_key]["card"],
+                cardinality,
+                pipeline=metrics_pipeline,
+            )
+
+        return cardinality
+
+    def sorted_set_pop(self, set_key, maximum=False, block=False, timeout=0):
+        """
+        Pop a value from a sorted set. Minium or maximum (min by default)
+
+        NOTE: We cannot/should not do blocking operations inside of multi/exec
+            pipelines since this will block the entire server. If we try to do
+            the BZPOP-type operations inside of a traditional multi-exec
+            pipeline we'll get an immediate None/Failure type response
 
         Args:
             set_key (string): Name of the sorted set
             maximum (bool): True to pop maximum, False to pop minimum
+            block (bool, optional): True to block and wait for data if none
+                exists, False to not block
+            timeout (float, optional): Seconds. If block is true, this will
+                be how long we wait for data before timing out. Set to 0 for
+                infinite block/no timeout.
 
         Return:
-            Tuple of (member, value) that was popped
+            Tuple of (Tuple of (member, value) that was popped, set cardinality)
 
         Raises:
-            AtomError on inability to pop or empty set
+            AtomError on error
+            SetEmptyError on empty set
         """
 
         # Initialize metrics
@@ -3449,9 +3559,15 @@ class Element:
             self.metrics_timing_start(self._sorted_set_metrics[set_key]["pop"])
 
             if not maximum:
-                redis_pipeline.zpopmin(redis_key)
+                if block:
+                    redis_pipeline.bzpopmin(redis_key, timeout=timeout)
+                else:
+                    redis_pipeline.zpopmin(redis_key)
             else:
-                redis_pipeline.zpopmax(redis_key)
+                if block:
+                    redis_pipeline.bzpopmax(redis_key, timeout=timeout)
+                else:
+                    redis_pipeline.zpopmax(redis_key)
             redis_pipeline.zcard(redis_key)
             response = redis_pipeline.execute()
 
@@ -3460,15 +3576,84 @@ class Element:
             )
 
             if not response[0]:
-                raise AtomError(f"Failed to pop from sorted set {set_key}")
+                raise SetEmptyError(
+                    f"Sorted set {set_key} is empty, block: {block}, timeout: {timeout}"
+                )
 
+            cardinality = response[1]
             self.metrics_add(
                 self._sorted_set_metrics[set_key]["card"],
-                response[1],
+                cardinality,
                 pipeline=metrics_pipeline,
             )
 
-        return response[0][0]
+        # We get slightly different responses based on if it was a blocking
+        #   or non-blocking call
+        if block:
+            data = (response[0][1], response[0][2])
+        else:
+            data = response[0][0]
+
+        return data, cardinality
+
+    def sorted_set_pop_n(self, set_key, n, maximum=False):
+        """
+        Pop at most n values from a sorted set. Items are popped and returned
+            in prio order (Minium or maximum (min by default)). Done via a
+            single redis call/transaction.
+
+        Will raise SetEmptyError on no data in the set
+        Will never block
+        Will return at most N items, but only as many items as exist in the
+            set <= N.
+
+        Args:
+            set_key (string): Name of the sorted set
+            n (int): Maximum number of items to pop.
+            maximum (bool): True to pop maximum, False to pop minimum
+
+        Return:
+            Tuple ([List of (member, value)], set cardinality)
+
+        Raises:
+            AtomError on error
+            SetEmptyError on empty set
+        """
+
+        # Initialize metrics
+        self._sorted_set_init_metrics(set_key)
+        redis_key = self._make_sorted_set_key(set_key)
+
+        # Get our pipelines
+        with RedisPipeline(self) as redis_pipeline, MetricsPipeline(
+            self
+        ) as metrics_pipeline:
+
+            # Add to the sorted set
+            self.metrics_timing_start(self._sorted_set_metrics[set_key]["pop_n"])
+
+            if not maximum:
+                redis_pipeline.zpopmin(redis_key, count=n)
+            else:
+                redis_pipeline.zpopmax(redis_key, count=n)
+            redis_pipeline.zcard(redis_key)
+            response = redis_pipeline.execute()
+
+            self.metrics_timing_end(
+                self._sorted_set_metrics[set_key]["pop_n"], pipeline=metrics_pipeline
+            )
+
+            if not response[0]:
+                raise SetEmptyError(f"Sorted set {set_key} is empty")
+
+            cardinality = response[1]
+            self.metrics_add(
+                self._sorted_set_metrics[set_key]["card"],
+                cardinality,
+                pipeline=metrics_pipeline,
+            )
+
+        return response[0], cardinality
 
     def sorted_set_range(self, set_key, start, end, maximum=False, withvalues=True):
         """
@@ -3631,7 +3816,7 @@ class Element:
             # Add to the sorted set
             self.metrics_timing_start(self._sorted_set_metrics[set_key]["delete"])
 
-            redis_pipeline.delete(redis_key)
+            redis_pipeline.unlink(redis_key)
             response = redis_pipeline.execute()
 
             self.metrics_timing_end(
@@ -3700,7 +3885,7 @@ class Element:
                 self.logger.error(f"Failed to write metrics with exception {e}")
 
             del pipeline
-            self._mpipeline_pool.put(self._mclient.pipeline())
+            self._mpipeline_pool.put(self._mclient.pipeline(transaction=False))
 
         # Only return the data that we care about (if any)
         return data

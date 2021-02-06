@@ -10,6 +10,9 @@ set -o xtrace
 # If we should format
 if [[ ! -z ${DO_FORMAT} ]]; then
 
+    # Do an isort first
+    isort --profile black ${ISORT_EXCLUDE} $CODE_DIR || exit 1
+
     # If we're using black
     if [[ ! -z ${FORMAT_BLACK} ]]; then
         /usr/local/bin/black --exclude="${BLACK_EXCLUDE}" ${CODE_DIR} || exit 1
@@ -21,6 +24,9 @@ fi
 
 # If we should check
 if [[ ! -z ${DO_CHECK} ]]; then
+
+    # Do an isort first
+    isort --profile black --check ${ISORT_EXCLUDE} $CODE_DIR || exit 1
 
     # If we're using black
     if [[ ! -z ${FORMAT_BLACK} ]]; then

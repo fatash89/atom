@@ -1,8 +1,9 @@
-from msgpack import packb, unpackb
+import builtins
+from enum import Enum
+
 import numpy as np
 import pyarrow as pa
-from enum import Enum
-import builtins
+from msgpack import packb, unpackb
 
 
 class GenericSerializationMethod:

@@ -3,11 +3,12 @@
 #   instance. This is how we will convert system stats
 #   into redis time series datapoints.
 
-from atom import Element, MetricsLevel
-from collections import defaultdict
-import psutil
-import time
 import os
+import time
+from collections import defaultdict
+
+import psutil
+from atom import Element, MetricsLevel
 
 # Which /proc/ to read to get stats. Will default to the /proc/ but this
 #   will only give process-level stats for the container. Mount in the

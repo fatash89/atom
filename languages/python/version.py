@@ -5,9 +5,9 @@ Version can be either dynamically determined through git information, or
 passed in as an argument.
 """
 
-import subprocess
 import argparse
 import os
+import subprocess
 
 CONFIG_FILE = os.path.join(os.path.abspath(os.path.dirname(__file__)), "atom/config.py")
 

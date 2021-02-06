@@ -1,6 +1,7 @@
 # atombot.py
-from atom import Element
 import time
+
+from atom import Element
 
 PUBLISH_FREQUENCY = 100
 TIME_FOR_WAVEFORM = 5
