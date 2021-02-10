@@ -289,8 +289,8 @@ commands:
     steps:
       - run:
           name: Python tests
-          command: docker exec -it -w /atom/languages/python << parameters.container >> pytest
-          no_output_timeout: 30m
+          command: docker exec -it -w /atom/languages/python << parameters.container >> pytest -vv --maxfail=1
+          no_output_timeout: 10m
       - run:
           name: C tests
           command:  docker exec -it -w /atom/languages/c << parameters.container >> make test

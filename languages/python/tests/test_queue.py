@@ -225,7 +225,7 @@ class TestQueue(object):
         get_item = test_q.get(element, block=False)
         end_time = time.monotonic()
         assert get_item == item
-        assert end_time - start_time < 0.01
+        assert end_time - start_time < 0.1
 
         self._finish_and_check_q(nucleus_redis, element, test_q, queue_type)
 
@@ -243,7 +243,7 @@ class TestQueue(object):
         get_item = test_q.get(element, block=False)
         end_time = time.monotonic()
         assert get_item is None
-        assert end_time - start_time < 0.01
+        assert end_time - start_time < 0.1
 
         self._finish_and_check_q(nucleus_redis, element, test_q, queue_type)
 
