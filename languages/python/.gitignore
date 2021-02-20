@@ -1,0 +1,5 @@
+dist/
+*.egg-info/
+*.egg
+__pycache__/
+MANIFEST
