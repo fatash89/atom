@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from lazycontract import LazyContract, LazyProperty
 from lazycontract.contract import (
     LazyContractDeserializationError,
@@ -43,7 +45,7 @@ class RawContract(LazyContract):
                 "Raw contracts must specify a required data field name. No other fields are allowed."
             )
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         raise TypeError(
             "Cannot convert raw contract to dict, use the to_data() function instead"
         )
@@ -70,7 +72,7 @@ class EmptyContract(LazyContract):
                 "Empty contract should contain no data and no field definitions"
             )
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         raise TypeError(
             "Cannot convert empty contract to dict, use the to_data() function instead"
         )

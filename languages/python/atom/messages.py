@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from enum import Enum
+from typing import Any, Callable, Optional, Union
 
 import atom.serialization as ser
 
@@ -23,7 +26,7 @@ def format_redis_py(data):
 
 
 class Cmd:
-    def __init__(self, element, cmd, data):
+    def __init__(self, element: str, cmd: str, data):
         """
         Specifies the format of a command that an element sends to another.
 
@@ -44,7 +47,12 @@ class Cmd:
 
 class Response:
     def __init__(
-        self, data="", err_code=0, err_str="", serialization=None, serialize=None
+        self,
+        data="",
+        err_code: int = 0,
+        err_str: str = "",
+        serialization: Optional[str] = None,
+        serialize: Optional[bool] = None,
     ):
         """
         Specifies the format of a response that an element returns from a
@@ -77,7 +85,7 @@ class Response:
 
 
 class Entry:
-    def __init__(self, field_data_map):
+    def __init__(self, field_data_map: dict[str, Any]):
         """
         Formats the data published on a stream from an element.
 
@@ -92,7 +100,7 @@ class Entry:
 
 
 class Acknowledge:
-    def __init__(self, element, cmd_id, timeout):
+    def __init__(self, element: str, cmd_id: bytes, timeout: int) -> None:
         """
         Formats the acknowledge that a element sends to a caller upon receiving
             a command.
@@ -116,7 +124,7 @@ class Acknowledge:
 
 
 class StreamHandler:
-    def __init__(self, element, stream, handler):
+    def __init__(self, element: str, stream: str, handler: Callable) -> None:
         """
         Formats the association with a stream and handler of the stream's data.
 
@@ -137,8 +145,25 @@ class StreamHandler:
         self.handler = handler
 
 
+class LogLevel(Enum):
+    """
+    An enum for the Unix syslog severity levels.
+    """
+
+    EMERG = 0
+    ALERT = 1
+    CRIT = 2
+    ERR = 3
+    WARNING = 4
+    NOTICE = 5
+    INFO = 6
+    DEBUG = 7
+
+
 class Log:
-    def __init__(self, element, host, level, msg):
+    def __init__(
+        self, element: str, host: str, level: Union[LogLevel, int], msg: str
+    ) -> None:
         """
         Formats the log published on the element's log stream
 
@@ -164,18 +189,3 @@ class Log:
         self.element = element
         self.host = host
         self.msg = msg
-
-
-class LogLevel(Enum):
-    """
-    An enum for the Unix syslog severity levels.
-    """
-
-    EMERG = 0
-    ALERT = 1
-    CRIT = 2
-    ERR = 3
-    WARNING = 4
-    NOTICE = 5
-    INFO = 6
-    DEBUG = 7

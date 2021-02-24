@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import copy
 import logging
 import logging.handlers
@@ -13,6 +15,7 @@ from os import uname
 from queue import Empty as QueueEmpty
 from queue import LifoQueue, Queue
 from traceback import format_exc
+from typing import Any, Callable, Optional, Union
 
 import atom.serialization as ser
 import redis
@@ -64,11 +67,14 @@ from atom.messages import (
     Acknowledge,
     Cmd,
     Entry,
+    LogLevel,
     Response,
     StreamHandler,
     format_redis_py,
 )
+from redis.client import Pipeline
 from redistimeseries.client import Client as RedisTimeSeries
+from typing_extensions import Literal
 
 # Need to figure out how we're connecting to the Nucleus
 #   Default to local sockets at the default address
@@ -122,7 +128,7 @@ class RedisPipeline:
     we don't leak any
     """
 
-    def __init__(self, element):
+    def __init__(self, element: Element):
         self.element = element
 
     def __enter__(self):
@@ -139,7 +145,7 @@ class MetricsPipeline:
     sure we don't leak any
     """
 
-    def __init__(self, element):
+    def __init__(self, element: Element):
         self.element = element
 
     def __enter__(self):
@@ -153,16 +159,16 @@ class MetricsPipeline:
 class Element:
     def __init__(
         self,
-        name,
-        host=ATOM_NUCLEUS_HOST,
-        port=ATOM_NUCLEUS_PORT,
-        metrics_host=ATOM_METRICS_HOST,
-        metrics_port=ATOM_METRICS_PORT,
-        socket_path=ATOM_NUCLEUS_SOCKET,
-        metrics_socket_path=ATOM_METRICS_SOCKET,
-        conn_timeout_ms=30000,
-        data_timeout_ms=5000,
-        enforce_metrics=False,
+        name: str,
+        host: Optional[str] = ATOM_NUCLEUS_HOST,
+        port: int = ATOM_NUCLEUS_PORT,
+        metrics_host: Optional[str] = ATOM_METRICS_HOST,
+        metrics_port: int = ATOM_METRICS_PORT,
+        socket_path: str = ATOM_NUCLEUS_SOCKET,
+        metrics_socket_path: str = ATOM_METRICS_SOCKET,
+        conn_timeout_ms: int = 30000,
+        data_timeout_ms: int = 5000,
+        enforce_metrics: bool = False,
     ):
         """
         Args:
@@ -433,7 +439,7 @@ class Element:
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"
 
-    def clean_up_stream(self, stream):
+    def clean_up_stream(self, stream: str) -> None:
         """
         Deletes the specified stream.
 
@@ -448,7 +454,7 @@ class Element:
         self._rclient.unlink(self._make_stream_id(self.name, stream))
         self.streams.remove(stream)
 
-    def _clean_up(self):
+    def _clean_up(self) -> None:
         """Clean up everything for the element"""
 
         if not self._cleaned_up:
@@ -474,7 +480,7 @@ class Element:
         """Clean up"""
         self._clean_up()
 
-    def _clean_up_streams(self):
+    def _clean_up_streams(self) -> None:
         # if we have encountered a connection timeout there's no use
         # in re-attempting stream cleanup commands as they will implicitly
         # cause the redis pool to reconnect and trigger a subsequent
@@ -491,7 +497,7 @@ class Element:
         except redis.exceptions.RedisError:
             raise Exception("Could not connect to nucleus!")
 
-    def _release_pipeline(self, pipeline, metrics=False):
+    def _release_pipeline(self, pipeline: Pipeline, metrics: bool = False) -> None:
         """
         Resets the specified pipeline and returns it to the pool of available
             pipelines.
@@ -503,7 +509,7 @@ class Element:
         self._rpipeline_pool.put(pipeline)
         return None
 
-    def _update_response_id_if_older(self, new_id):
+    def _update_response_id_if_older(self, new_id: str) -> None:
         """
         Atomically update global response_last_id to new id, if timestamp on new
             id is more recent
@@ -524,7 +530,7 @@ class Element:
             self.response_last_id = new_id
         self.response_last_id_lock.release()
 
-    def _make_response_id(self, element_name):
+    def _make_response_id(self, element_name: str) -> str:
         """
         Creates the string representation for a element's response stream id.
 
@@ -533,7 +539,7 @@ class Element:
         """
         return f"response:{element_name}"
 
-    def _make_command_id(self, element_name):
+    def _make_command_id(self, element_name: str) -> str:
         """
         Creates the string representation for an element's command stream id.
 
@@ -542,7 +548,7 @@ class Element:
         """
         return f"command:{element_name}"
 
-    def _make_consumer_group_counter(self, element_name):
+    def _make_consumer_group_counter(self, element_name: str) -> str:
         """
         Creates the string representation for an element's command group
         stream counter id.
@@ -552,7 +558,7 @@ class Element:
         """
         return f"command_consumer_group_counter:{element_name}"
 
-    def _make_consumer_group_id(self, element_name):
+    def _make_consumer_group_id(self, element_name: str) -> str:
         """
         Creates the string representation for an element's command group
         stream id.
@@ -562,7 +568,7 @@ class Element:
         """
         return f"command_consumer_group:{element_name}"
 
-    def _make_stream_id(self, element_name, stream_name):
+    def _make_stream_id(self, element_name: str, stream_name: str) -> str:
         """
         Creates the string representation of an element's stream id.
 
@@ -576,7 +582,7 @@ class Element:
         else:
             return f"stream:{element_name}:{stream_name}"
 
-    def _make_metric_id(self, element_name, m_type, *m_subtypes):
+    def _make_metric_id(self, element_name: str, m_type: str, *m_subtypes) -> str:
         """
         Creates the string representation of a metric ID created by an
         element
@@ -591,7 +597,9 @@ class Element:
             key_str += f":{subtype}"
         return key_str
 
-    def _metrics_add_default_labels(self, labels, level, m_type, *m_subtypes):
+    def _metrics_add_default_labels(
+        self, labels: dict, level, m_type: str, *m_subtypes
+    ) -> dict:
         """
         Adds the default labels that come from atom. Default labels will
         be things such as the element, perhaps host, type and all subtypes
@@ -630,11 +638,11 @@ class Element:
         else:
             return default_labels
 
-    def _metrics_validate_labels(self, labels):
+    def _metrics_validate_labels(self, labels: dict) -> None:
         if "" in labels.values():
             raise AtomError("Metrics labels cannot include empty strings")
 
-    def _make_reference_id(self, key=None):
+    def _make_reference_id(self, key: Optional[str] = None) -> str:
         """
         Creates a reference ID
 
@@ -646,7 +654,7 @@ class Element:
         key = key if key else str(uuid.uuid4())
         return f"reference:{self.name}:{key}"
 
-    def _get_redis_timestamp(self):
+    def _get_redis_timestamp(self) -> str:
         """
         Gets the current timestamp from Redis.
         """
@@ -654,7 +662,7 @@ class Element:
         timestamp = str(secs) + str(msecs).zfill(6)[:3]
         return timestamp
 
-    def _decode_entry(self, entry):
+    def _decode_entry(self, entry: dict) -> dict:
         """
         Decodes the binary keys of an entry
 
@@ -672,7 +680,7 @@ class Element:
             decoded_entry[k_str] = entry[k]
         return decoded_entry
 
-    def _deserialize_entry(self, entry, method=None):
+    def _deserialize_entry(self, entry: dict, method: Optional[str] = None) -> dict:
         """
         Deserializes the binary data of the entry.
 
@@ -692,8 +700,11 @@ class Element:
         return entry
 
     def _check_element_version(
-        self, element_name, supported_language_set=None, supported_min_version=None
-    ):
+        self,
+        element_name: str,
+        supported_language_set: Optional[set] = None,
+        supported_min_version: Optional[float] = None,
+    ) -> bool:
         """
         Convenient helper function to query an element about whether it meets
             min language and version requirements for some feature
@@ -731,8 +742,12 @@ class Element:
         return True
 
     def _get_serialization_method(
-        self, data, user_serialization, force_serialization, deserialize=None
-    ):
+        self,
+        data: dict,
+        user_serialization: Optional[str],
+        force_serialization: bool,
+        deserialize: Optional[str] = None,
+    ) -> Optional[str]:
         """
         Helper function to make a unified serialization decision based off of
         common user arguments. The serialization method returned will
@@ -770,7 +785,7 @@ class Element:
 
         return serialization
 
-    def _redis_scan_keys(self, pattern):
+    def _redis_scan_keys(self, pattern: str) -> list[str]:
         """
         Scan redis for all keys matching the pattern. Will use redis SCAN
             under the hood since KEYS is not recommended/suitable for
@@ -801,7 +816,7 @@ class Element:
 
         return matches
 
-    def get_all_elements(self):
+    def get_all_elements(self) -> list[str]:
         """
         Gets the names of all the elements connected to the Redis server.
 
@@ -812,7 +827,7 @@ class Element:
         matches = self._redis_scan_keys(self._make_response_id("*"))
         return [x.split(":")[-1] for x in matches]
 
-    def get_all_streams(self, element_name="*"):
+    def get_all_streams(self, element_name: str = "*") -> list[str]:
         """
         Gets the names of all the streams of the specified element
             (all by default).
@@ -826,7 +841,7 @@ class Element:
         """
         return self._redis_scan_keys(self._make_stream_id(element_name, "*"))
 
-    def get_element_version(self, element_name):
+    def get_element_version(self, element_name: str) -> dict:
         """
         Queries the version info for the given element name.
 
@@ -840,7 +855,9 @@ class Element:
             element_name, VERSION_COMMAND, "", serialization="msgpack"
         )
 
-    def get_all_commands(self, element_name=None, ignore_caller=True):
+    def get_all_commands(
+        self, element_name: Optional[str] = None, ignore_caller: bool = True
+    ) -> list[str]:
         """
         Gets the names of the commands of the specified element
             (all elements by default).
@@ -878,7 +895,7 @@ class Element:
                 )
         return command_list
 
-    def _command_add_init_metrics(self, name):
+    def _command_add_init_metrics(self, name: str) -> None:
         """
         Create the metrics for a new command. Puts the command's metric
         keys into its dictionary structure so they can be added to in a more
@@ -915,12 +932,12 @@ class Element:
 
     def command_add(
         self,
-        name,
-        handler,
-        timeout=RESPONSE_TIMEOUT,
-        serialization=None,
-        deserialize=None,
-    ):
+        name: str,
+        handler: Callable,
+        timeout: int = RESPONSE_TIMEOUT,
+        serialization: Optional[str] = None,
+        deserialize: Optional[bool] = None,
+    ) -> None:
         """
         Adds a command to the element for another element to call.
 
@@ -960,7 +977,7 @@ class Element:
         # Make the metric for the command
         self._command_add_init_metrics(name)
 
-    def healthcheck_set(self, handler):
+    def healthcheck_set(self, handler: Callable) -> None:
         """
         Sets a custom healthcheck callback
 
@@ -979,8 +996,11 @@ class Element:
         self.timeouts[HEALTHCHECK_COMMAND] = RESPONSE_TIMEOUT
 
     def wait_for_elements_healthy(
-        self, element_list, retry_interval=HEALTHCHECK_RETRY_INTERVAL, strict=False
-    ):
+        self,
+        element_list: list[str],
+        retry_interval: float = HEALTHCHECK_RETRY_INTERVAL,
+        strict: bool = False,
+    ) -> None:
         """
         Blocking call will wait until all elements in the element respond that
             they are healthy.
@@ -1028,8 +1048,12 @@ class Element:
             time.sleep(retry_interval)
 
     def command_loop(
-        self, n_procs=1, block=True, read_block_ms=1000, join_timeout=None
-    ):
+        self,
+        n_procs: int = 1,
+        block: bool = True,
+        read_block_ms: int = 1000,
+        join_timeout: Optional[int] = None,
+    ) -> None:
         """Main command execution event loop
 
         For each worker process, performs the following event loop:
@@ -1091,14 +1115,14 @@ class Element:
         if block:
             self._command_loop_join(join_timeout=join_timeout)
 
-    def _increment_command_group_counter(self, _pipe):
+    def _increment_command_group_counter(self, _pipe: Pipeline) -> Any:
         """Incremeents reference counter for element stream collection"""
         _pipe.incr(self._make_consumer_group_counter(self.name))
         result = _pipe.execute()[-1]
         self.logger.debug(f"incrementing element {self.name} {result}")
         return result
 
-    def _decrement_command_group_counter(self, _pipe):
+    def _decrement_command_group_counter(self, _pipe: Pipeline) -> Any:
         """Decrements reference counter for element stream collection"""
         _pipe.decr(self._make_consumer_group_counter(self.name))
         result = _pipe.execute()[-1]
@@ -1106,7 +1130,7 @@ class Element:
             self._clean_up_streams()
         return result
 
-    def _command_loop_init_metrics(self, worker_num):
+    def _command_loop_init_metrics(self, worker_num: int) -> None:
         """
         All of the metric creation calls for the command loop.
 
@@ -1239,7 +1263,9 @@ class Element:
             agg_types=["SUM"],
         )
 
-    def _command_loop(self, shutdown_event, worker_num, read_block_ms=1000):
+    def _command_loop(
+        self, shutdown_event, worker_num: int, read_block_ms: int = 1000
+    ) -> None:
         client_name = f"{self.name}-command-loop-{worker_num}"
         if hasattr(self, "_host"):
             _rclient = redis.StrictRedis(
@@ -1532,18 +1558,20 @@ class Element:
                     pipeline=pipeline,
                 )
 
-    def _command_loop_join(self, join_timeout=10.0):
+    def _command_loop_join(self, join_timeout: float = 10.0) -> None:
         """Waits for all threads from command loop to be finished"""
         for p in self.processes:
             p.join(join_timeout)
 
-    def command_loop_shutdown(self, block=False, join_timeout=10.0):
+    def command_loop_shutdown(
+        self, block: bool = False, join_timeout: float = 10.0
+    ) -> None:
         """Triggers graceful exit of command loop"""
         self._command_loop_shutdown.set()
         if block:
             self._command_loop_join(join_timeout=join_timeout)
 
-    def _command_send_init_metrics(self, element_name, cmd_name):
+    def _command_send_init_metrics(self, element_name: str, cmd_name: str) -> None:
         """
         Create all of the metrics for a command send call
 
@@ -1603,15 +1631,15 @@ class Element:
 
     def command_send(
         self,
-        element_name,
-        cmd_name,
+        element_name: str,
+        cmd_name: str,
         data="",
-        block=True,
-        ack_timeout=ACK_TIMEOUT,
-        serialization=None,
-        serialize=None,
-        deserialize=None,
-    ):
+        block: bool = True,
+        ack_timeout: int = ACK_TIMEOUT,
+        serialization: Optional[str] = None,
+        serialize: Optional[bool] = None,
+        deserialize: Optional[bool] = None,
+    ) -> dict:
         """
         Sends command to element and waits for acknowledge.
         When acknowledge is received, waits for timeout from acknowledge or
@@ -1854,13 +1882,13 @@ class Element:
 
     def entry_read_loop(
         self,
-        stream_handlers,
-        n_loops=None,
-        timeout=MAX_BLOCK,
-        serialization=None,
-        force_serialization=False,
-        deserialize=None,
-    ):
+        stream_handlers: StreamHandler,
+        n_loops: Optional[int] = None,
+        timeout: int = MAX_BLOCK,
+        serialization: Optional[str] = None,
+        force_serialization: bool = False,
+        deserialize: Optional[bool] = None,
+    ) -> None:
         """
         Listens to streams and pass any received entry to corresponding handler.
 
@@ -1910,7 +1938,7 @@ class Element:
                     entry["id"] = uid.decode()
                     stream_handler_map[stream.decode()](entry)
 
-    def _entry_read_n_init_metrics(self, element_name, stream_name):
+    def _entry_read_n_init_metrics(self, element_name: str, stream_name: str) -> None:
         """
         Initialize metrics for reading from an element's stream
 
@@ -1958,13 +1986,13 @@ class Element:
 
     def entry_read_n(
         self,
-        element_name,
-        stream_name,
-        n,
-        serialization=None,
-        force_serialization=False,
-        deserialize=None,
-    ):
+        element_name: str,
+        stream_name: str,
+        n: int,
+        serialization: Optional[str] = None,
+        force_serialization: bool = False,
+        deserialize: Optional[bool] = None,
+    ) -> list[dict]:
         """
         Gets the n most recent entries from the specified stream.
 
@@ -2030,7 +2058,9 @@ class Element:
 
         return entries
 
-    def _entry_read_since_init_metrics(self, element_name, stream_name):
+    def _entry_read_since_init_metrics(
+        self, element_name: str, stream_name: str
+    ) -> None:
         """
         Initialize metrics for reading from an element's stream
 
@@ -2078,15 +2108,15 @@ class Element:
 
     def entry_read_since(
         self,
-        element_name,
-        stream_name,
-        last_id="$",
-        n=None,
-        block=None,
-        serialization=None,
-        force_serialization=False,
-        deserialize=None,
-    ):
+        element_name: str,
+        stream_name: str,
+        last_id: str = "$",
+        n: Optional[int] = None,
+        block: Optional[int] = None,
+        serialization: Optional[str] = None,
+        force_serialization: bool = False,
+        deserialize: Optional[bool] = None,
+    ) -> list[dict]:
         """
         Read entries from a stream since the last_id.
 
@@ -2161,7 +2191,7 @@ class Element:
 
         return entries
 
-    def _entry_write_init_metrics(self, stream_name):
+    def _entry_write_init_metrics(self, stream_name: str) -> None:
         """
         Initialize metrics for writing to a stream
 
@@ -2192,12 +2222,12 @@ class Element:
 
     def entry_write(
         self,
-        stream_name,
-        field_data_map,
-        maxlen=STREAM_LEN,
-        serialization=None,
-        serialize=None,
-    ):
+        stream_name: str,
+        field_data_map: dict,
+        maxlen: int = STREAM_LEN,
+        serialization: Optional[str] = None,
+        serialize: Optional[bool] = None,
+    ) -> str:
         """
         Creates element's stream if it does not exist.
         Adds the fields and data to a Entry and puts it in the element's stream.
@@ -2272,7 +2302,14 @@ class Element:
 
         return ret[0].decode()
 
-    def log(self, level, msg, stdout=True, _pipe=None, redis=False):
+    def log(
+        self,
+        level: LogLevel,
+        msg: str,
+        stdout: bool = True,
+        _pipe: Pipeline = None,
+        redis: bool = False,
+    ) -> None:
         """
         Forwards calls to self.logger
         Args:
@@ -2291,7 +2328,7 @@ class Element:
             numeric_level = getattr(logging, LOG_DEFAULT_LEVEL)
         self.logger.log(numeric_level, msg)
 
-    def _parameter_init_metrics(self, key):
+    def _parameter_init_metrics(self, key: str) -> None:
         """
         Initialize parameter write metrics
         """
@@ -2343,15 +2380,20 @@ class Element:
             agg_types=["AVG", "MIN", "MAX", "COUNT"],
         )
 
-    def _make_parameter_key(self, key):
+    def _make_parameter_key(self, key: str) -> str:
         """
         Prefixes requested key under parameter namespace.
         """
         return f"parameter:{key}"
 
     def parameter_write(
-        self, key, data, override=True, serialization=None, timeout_ms=0
-    ):
+        self,
+        key: str,
+        data: dict,
+        override: bool = True,
+        serialization: Optional[str] = None,
+        timeout_ms: int = 0,
+    ) -> list[str]:
         """
         Creates a Redis hash store, prefixed under the "parameter:" namespace
         with user specified key. Each field in the data dictionary will be
@@ -2478,7 +2520,7 @@ class Element:
         # Return list of all fields written to
         return fields
 
-    def parameter_get_override(self, key):
+    def parameter_get_override(self, key: str) -> str:
         """
         Return parameter's override setting
 
@@ -2501,8 +2543,12 @@ class Element:
         return override.decode()
 
     def parameter_read(
-        self, key, fields=None, serialization=None, force_serialization=False
-    ):
+        self,
+        key: str,
+        fields: Optional[str] = None,
+        serialization: Optional[str] = None,
+        force_serialization: bool = False,
+    ) -> dict:
         """
         Gets a parameter from the atom system. Reads the key from redis and
         returns the data, performing a serialize/deserialize operation on each
@@ -2579,7 +2625,7 @@ class Element:
 
         return return_data if return_data else None
 
-    def parameter_delete(self, key):
+    def parameter_delete(self, key: str) -> bool:
         """
         Deletes a parameter and cleans up its memory
 
@@ -2604,7 +2650,7 @@ class Element:
 
         return success
 
-    def parameter_update_timeout_ms(self, key, timeout_ms):
+    def parameter_update_timeout_ms(self, key: str, timeout_ms: int) -> None:
         """
         Updates the timeout for an existing parameter. This might want to
         be done in case we don't want the parameter to live forever.
@@ -2619,7 +2665,7 @@ class Element:
         """
         self._redis_key_update_timeout_ms(self._make_parameter_key(key), timeout_ms)
 
-    def parameter_get_timeout_ms(self, key):
+    def parameter_get_timeout_ms(self, key: str):
         """
         Get the current amount of ms left on the parameter. Mainly useful
         for debug. Returns -1 if no timeout, else the timeout in ms.
@@ -2630,7 +2676,7 @@ class Element:
         """
         return self._redis_key_get_timeout_ms(self._make_parameter_key(key))
 
-    def _reference_create_init_metrics(self):
+    def _reference_create_init_metrics(self) -> None:
         """
         Initialize reference create metrics
         """
@@ -2655,8 +2701,13 @@ class Element:
         )
 
     def reference_create(
-        self, *data, keys=None, serialization=None, serialize=None, timeout_ms=10000
-    ):
+        self,
+        *data,
+        keys=None,
+        serialization: Optional[str] = None,
+        serialize: Optional[bool] = None,
+        timeout_ms: int = 10000,
+    ) -> list[str]:
         """
         Creates one or more expiring references (similar to a pointer) in the
         atom system. This will typically be used when we've gotten a piece of
@@ -2737,7 +2788,9 @@ class Element:
         # Return the key that was generated for the reference
         return ref_ids
 
-    def _reference_create_from_stream_init_metrics(self, element, stream):
+    def _reference_create_from_stream_init_metrics(
+        self, element: str, stream: str
+    ) -> None:
         """
         Initialize the metrics for creating a reference from a stream
 
@@ -2764,8 +2817,8 @@ class Element:
         )
 
     def reference_create_from_stream(
-        self, element, stream, stream_id="", timeout_ms=10000
-    ):
+        self, element: str, stream: str, stream_id: str = "", timeout_ms: int = 10000
+    ) -> dict:
         """
         Creates an expiring reference (similar to a pointer) in the atom system.
         This API will take an element and a stream and, depending on the value
@@ -2840,7 +2893,7 @@ class Element:
 
         return key_dict
 
-    def _reference_get_init_metrics(self):
+    def _reference_get_init_metrics(self) -> None:
         """
         Initialize metrics for getting references
         """
@@ -2865,8 +2918,12 @@ class Element:
         )
 
     def reference_get(
-        self, *keys, serialization=None, force_serialization=False, deserialize=None
-    ):
+        self,
+        *keys,
+        serialization: Optional[str] = None,
+        force_serialization: bool = False,
+        deserialize: Optional[bool] = None,
+    ) -> list:
         """
         Gets one or more reference from the atom system. Reads the key(s) from
         redis and returns the data, performing a serialize/deserialize operation
@@ -2947,7 +3004,7 @@ class Element:
 
         return deserialized_data
 
-    def _redis_key_delete(self, *keys):
+    def _redis_key_delete(self, *keys) -> tuple[bool, list[str]]:
         """
         Deletes one or more Redis keys and cleans up their memory
 
@@ -2979,7 +3036,7 @@ class Element:
 
         return success, failed
 
-    def _reference_delete_init_metrics(self):
+    def _reference_delete_init_metrics(self) -> None:
         """
         Initialize metrics for getting references
         """
@@ -3004,7 +3061,7 @@ class Element:
             agg_types=["SUM"],
         )
 
-    def reference_delete(self, *keys):
+    def reference_delete(self, *keys) -> tuple[bool, list[str]]:
         """
         Deletes one or more references from Atom
 
@@ -3030,7 +3087,7 @@ class Element:
 
         return success, failed
 
-    def _redis_key_update_timeout_ms(self, key, timeout_ms):
+    def _redis_key_update_timeout_ms(self, key: str, timeout_ms: int) -> None:
         """
         Updates the timeout for an existing redis key. This might want to
         be done as we won't know exactly how long we'll need the key for
@@ -3063,13 +3120,13 @@ class Element:
         if data[0] != 1:
             raise KeyError(f"Key {key} not in redis")
 
-    def reference_update_timeout_ms(self, key, timeout_ms):
+    def reference_update_timeout_ms(self, key: str, timeout_ms: int) -> None:
         """
         Updates the timeout for an existing reference
         """
         return self._redis_key_update_timeout_ms(key, timeout_ms)
 
-    def _redis_key_get_timeout_ms(self, key):
+    def _redis_key_get_timeout_ms(self, key: str) -> int:
         """
         Get the current amount of ms left on the key. Mainly useful
         for debug. Returns -1 if no timeout, else the timeout in ms.
@@ -3091,19 +3148,19 @@ class Element:
 
         return data[0]
 
-    def reference_get_timeout_ms(self, key):
+    def reference_get_timeout_ms(self, key: str) -> int:
         """
         Return amount of timeout left on reference
         """
         return self._redis_key_get_timeout_ms(key)
 
-    def _make_counter_key(self, key):
+    def _make_counter_key(self, key: str) -> str:
         """
         Prefixes requested key under counter namespace.
         """
         return f"counter:{key}"
 
-    def _counter_init_metrics(self, key):
+    def _counter_init_metrics(self, key: str) -> None:
         """
         Initialize the metrics for using a counter
         """
@@ -3152,7 +3209,7 @@ class Element:
             agg_types=["AVG", "MIN", "MAX", "SUM"],
         )
 
-    def counter_set(self, key, value, timeout_ms=0):
+    def counter_set(self, key: str, value: int, timeout_ms: int = 0) -> int:
         """
         Set the value for a shared, atomic counter directly using SET
 
@@ -3211,7 +3268,7 @@ class Element:
 
         return value
 
-    def counter_update(self, key, value, timeout_ms=0):
+    def counter_update(self, key: str, value: int, timeout_ms: int = 0) -> int:
         """
         Increments the counter at key by the integer value specified. If
         value is positive, the counter will atomically increment, if negative
@@ -3276,7 +3333,7 @@ class Element:
 
             return value
 
-    def counter_get(self, key):
+    def counter_get(self, key: str) -> Optional[int]:
         """
         Return the value of a shared counter. Returns None if the counter
             does not exist
@@ -3315,7 +3372,7 @@ class Element:
             else:
                 return None
 
-    def counter_delete(self, key):
+    def counter_delete(self, key: str) -> bool:
         """
         Deletes a shared counter
 
@@ -3340,13 +3397,13 @@ class Element:
 
         return success
 
-    def _make_sorted_set_key(self, key):
+    def _make_sorted_set_key(self, key: str) -> str:
         """
         Prefixes requested key under sorted set namespace.
         """
         return f"sorted_set:{key}"
 
-    def _sorted_set_init_metrics(self, key):
+    def _sorted_set_init_metrics(self, key: str) -> None:
         """
         Initialize the metrics for using a sorted set
         """
@@ -3427,7 +3484,7 @@ class Element:
             agg_types=["AVG", "MIN", "MAX"],
         )
 
-    def sorted_set_add(self, set_key, member, value):
+    def sorted_set_add(self, set_key: str, member: str, value: float) -> int:
         """
         Set the value for a shared, atomic counter directly using SET
 
@@ -3478,7 +3535,7 @@ class Element:
 
         return cardinality
 
-    def sorted_set_size(self, set_key):
+    def sorted_set_size(self, set_key: str) -> int:
         """
         Get the cardinality/size of a sorted set
 
@@ -3520,7 +3577,13 @@ class Element:
 
         return cardinality
 
-    def sorted_set_pop(self, set_key, maximum=False, block=False, timeout=0):
+    def sorted_set_pop(
+        self,
+        set_key: str,
+        maximum: bool = False,
+        block: bool = False,
+        timeout: float = 0,
+    ):
         """
         Pop a value from a sorted set. Minium or maximum (min by default)
 
@@ -3596,7 +3659,7 @@ class Element:
 
         return data, cardinality
 
-    def sorted_set_pop_n(self, set_key, n, maximum=False):
+    def sorted_set_pop_n(self, set_key: str, n: int, maximum: bool = False):
         """
         Pop at most n values from a sorted set. Items are popped and returned
             in prio order (Minium or maximum (min by default)). Done via a
@@ -3655,7 +3718,14 @@ class Element:
 
         return response[0], cardinality
 
-    def sorted_set_range(self, set_key, start, end, maximum=False, withvalues=True):
+    def sorted_set_range(
+        self,
+        set_key: str,
+        start: int,
+        end: int,
+        maximum: bool = False,
+        withvalues: bool = True,
+    ):
         """
         Read a range of the sorted set
 
@@ -3703,7 +3773,7 @@ class Element:
 
         return response[0]
 
-    def sorted_set_read(self, set_key, member):
+    def sorted_set_read(self, set_key: str, member: str):
         """
         Read the value of a member from a sorted set
 
@@ -3744,7 +3814,7 @@ class Element:
 
         return response[0]
 
-    def sorted_set_remove(self, set_key, member):
+    def sorted_set_remove(self, set_key: str, member: str) -> None:
         """
         Remove a member from a sorted set
 
@@ -3790,7 +3860,7 @@ class Element:
                 pipeline=metrics_pipeline,
             )
 
-    def sorted_set_delete(self, set_key):
+    def sorted_set_delete(self, set_key: str) -> None:
         """
         Delete a sorted set entirely
 
@@ -3830,7 +3900,7 @@ class Element:
                 self._sorted_set_metrics[set_key]["card"], 0, pipeline=metrics_pipeline
             )
 
-    def metrics_get_pipeline(self):
+    def metrics_get_pipeline(self) -> Optional[Pipeline]:
         """
         Get a pipeline for use in metrics.
 
@@ -3850,7 +3920,9 @@ class Element:
 
         return pipeline
 
-    def metrics_write_pipeline(self, pipeline, error_ok=None):
+    def metrics_write_pipeline(
+        self, pipeline: Pipeline, error_ok: Optional[str] = None
+    ) -> Optional[list]:
         """
         Release (and perhaps execute) a pipeline that was used for a metrics
         call. If execute is TRUE we will execute the pipeline and return
@@ -3892,14 +3964,14 @@ class Element:
 
     def metrics_create_custom(
         self,
-        level,
-        key,
-        retention=METRICS_DEFAULT_RETENTION,
-        labels=None,
-        rules=None,
-        update=True,
-        duplicate_policy="last",
-    ):
+        level: MetricsLevel,
+        key: str,
+        retention: int = METRICS_DEFAULT_RETENTION,
+        labels: Optional[dict] = None,
+        rules: Optional[dict] = None,
+        update: bool = True,
+        duplicate_policy: Literal["block", "first", "last", "min", "max"] = "last",
+    ) -> Optional[str]:
         """
         Create a metric at the given key with retention and labels. This is a
         direct interface to the redis time series API. It's generally not
@@ -3910,8 +3982,8 @@ class Element:
         writes out to the metrics redis.
 
         Args:
-            key (str): Key to use for the metric
             level (MetricsLevel): Severity level of the metric
+            key (str): Key to use for the metric
             retention (int, optional): How long to keep data for the metric,
                 in milliseconds. Default 60000ms == 1 minute. Be careful with
                 this, it will grow unbounded if set to 0.
@@ -4080,15 +4152,15 @@ class Element:
 
     def metrics_create(
         self,
-        level,
-        m_type,
+        level: MetricsLevel,
+        m_type: str,
         *m_subtypes,
-        retention=METRICS_DEFAULT_RETENTION,
-        labels=None,
-        agg_timing=METRICS_DEFAULT_AGG_TIMING,
-        agg_types=None,
-        duplicate_policy="last",
-    ):
+        retention: int = METRICS_DEFAULT_RETENTION,
+        labels: Optional[dict] = None,
+        agg_timing: list[tuple[int, int]] = METRICS_DEFAULT_AGG_TIMING,
+        agg_types: Optional[list[str]] = None,
+        duplicate_policy: Literal["block", "first", "last", "min", "max"] = "last",
+    ) -> bool:
         """
         Create a metric of the given type and subtypes. All labels you need
         will be auto-generated, though more can be passed. Aggregation will
@@ -4184,7 +4256,14 @@ class Element:
             duplicate_policy=duplicate_policy,
         )
 
-    def metrics_log(self, stream, key, data, pipeline=None, maxlen=100):
+    def metrics_log(
+        self,
+        stream: str,
+        key: str,
+        data,
+        pipeline: Optional[Pipeline] = None,
+        maxlen: int = 100,
+    ) -> Optional[list]:
         """
         Logs to a metric/debug stream that can be viewed in Grafana
         """
@@ -4214,13 +4293,13 @@ class Element:
 
     def metrics_add(
         self,
-        key,
+        key: str,
         val,
         timestamp=None,
-        pipeline=None,
-        enforce_exists=True,
-        retention=86400000,
-        labels=None,
+        pipeline: Optional[Pipeline] = None,
+        enforce_exists: bool = True,
+        retention: int = 86400000,
+        labels: Optional[dict] = None,
     ):
         """
         Adds a metric at the given key with the given value. Timestamp
@@ -4290,14 +4369,14 @@ class Element:
 
     def metrics_add_type(
         self,
-        level,
-        value,
-        m_type,
+        level: MetricsLevel,
+        value: Union[int, float],
+        m_type: str,
         *m_subtypes,
         timestamp=None,
-        pipeline=None,
-        retention=86400000,
-        labels=None,
+        pipeline: Optional[Pipeline] = None,
+        retention: int = 86400000,
+        labels: Optional[dict] = None,
     ):
         """
         Adds a metric at the given key with the given value. Timestamp
@@ -4306,9 +4385,9 @@ class Element:
 
         Args:
             level (MetricsLevel): Severity level of the metric
+            val (int/float): Value to be adding to the time series
             m_type (str): Metric's identifying type
             m_subtypes (str): Metric's identifying subtypes
-            val (int/float): Value to be adding to the time series
             timestamp (None/str/int, optional): Timestamp to use for the value
                 in the time series. Leave at default to use the redis server's
                 built-in timestamp. Set to None to have this function take the
@@ -4360,7 +4439,7 @@ class Element:
             enforce_exists=False,  # Not having called metrics_create
         )
 
-    def _metrics_get_timing_key(self, key):
+    def _metrics_get_timing_key(self, key: str) -> str:
         """
         Get a key to be used in the timing lookup dict
 
@@ -4372,7 +4451,7 @@ class Element:
         """
         return f"{threading.get_ident()}:{key}"
 
-    def metrics_timing_start(self, key):
+    def metrics_timing_start(self, key: str) -> None:
         """
         Simple helper function to do the keeping-track-of-time for
         timing-based metrics.
@@ -4384,7 +4463,9 @@ class Element:
             self._metrics_get_timing_key(key)
         ] = time.monotonic()
 
-    def metrics_timing_end(self, key, pipeline=None, strict=False):
+    def metrics_timing_end(
+        self, key: str, pipeline: Optional[Pipeline] = None, strict: bool = False
+    ) -> None:
         """
         Simple helper function to finish a time that was being kept
         track of and write out the metric
