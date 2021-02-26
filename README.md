@@ -131,6 +131,32 @@ docker run -e BLACK_EXCLUDE="" -e FLAKE8_EXCLUDE="" --mount src=$(pwd),target=/c
 
 After running this, check the return code with `echo $?` to see if the checks passed. If the return code is 0, then the checks passed, if nonzero then there were formatting inconsistencies. The logs will also be indicative.
 
+To check your code using a type checker:
+```
+docker run -e BLACK_EXCLUDE="" -e FLAKE8_EXCLUDE="" -e CHECK_PYRIGHT="y" \
+  --mount src=$(pwd),target=/code,type=bind \
+  --mount src=<virtualenv_dir>,target=/.venvs,type=bind,readonly \
+  elementary/formatter .
+```
+
+This runs the pyright type checker. A file named `pyrightconfig.json` must exist
+in the current directory (example below). Replace `<virtualenv_dir>` in the
+docker command with the path to a directory containing one or more
+subdirectories, each of which contains a virtual environment. This enables
+pyright to discover packages while type checking. Check the [pyright
+documentation](https://github.com/microsoft/pyright/blob/master/docs/configuration.md)
+for configuration details.
+```json
+{
+    "exclude": [
+        "**/__pycache__",
+    ],
+    "venvPath": "/.venvs",
+    "pythonVersion": "3.7",
+    "pythonPlatform": "Linux"
+}
+```
+
 To reformat your code:
 ```
 docker run -e DO_FORMAT=y -e BLACK_EXCLUDE="" -e FLAKE8_EXCLUDE="" --mount src=$(pwd),target=/code,type=bind elementaryrobotics/formatter
@@ -145,6 +171,8 @@ The formatter exposes the following command-line options which are used in the [
 | `DO_FORMAT` | "" | If non-empty, i.e. not "", run the auto-formatter before running the formatting check. Default is to not run the auto-formatter |
 | `FORMAT_BLACK` | "y" | Use Black as the auto-formatter of choice. This is default, but we may add other auto-formatters in the future. Set to empty to not use black. |
 | `DO_CHECK` | "y" | If non-empty, i.e. not "", run the formatting/linting check automatically. This is the default. |
+| `CHECK_ISORT` | "y" | If non-empty, i.e. not "", run the isort linting check automatically. This is the default. Checks for incorrectly sorted and/or formatted imports. |
+| `CHECK_PYRIGHT` | "" | If non-empty, i.e. not "", run the pyright type checker automatically. Off by default. |
 | `DO_HANG` | "" | If non-empty, instead of returning when finished, hang the container. This is nice if you want to then shell in to the container and play around with the formatter, but otherwise not that useful |
 
 
