@@ -25,12 +25,19 @@ fi
 # If we should check
 if [[ ! -z ${DO_CHECK} ]]; then
 
-    # Do an isort first
-    cd $CODE_DIR && isort --profile black --check ${ISORT_EXCLUDE} . || exit 1
+    # If we're using isort, do an isort first
+    if [[ ! -z ${CHECK_ISORT} ]]; then
+        cd $CODE_DIR && isort --profile black --check ${ISORT_EXCLUDE} . || exit 1
+    fi
 
     # If we're using black
     if [[ ! -z ${FORMAT_BLACK} ]]; then
         /usr/local/bin/black --check --exclude="${BLACK_EXCLUDE}" ${CODE_DIR} || exit 1
+    fi
+
+    # If we're using pyright
+    if [[ ! -z ${CHECK_PYRIGHT} ]]; then
+        cd $CODE_DIR && /usr/bin/pyright -p ./pyrightconfig.json ${CODE_DIR} || exit 1
     fi
 
     # Always run flake8

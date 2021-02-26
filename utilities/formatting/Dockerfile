@@ -1,11 +1,12 @@
-FROM alpine/flake8:3.7.0
+FROM alpine/flake8:3.8.4
 
 ADD ./requirements.txt .
 
 # Need to install build tools and auto-formatters
-RUN apk add git openssh build-base && \
-    pip3 install --upgrade pip && \
-    pip3 install -r requirements.txt
+RUN apk add git openssh build-base npm \
+    && pip3 install --upgrade pip \
+    && pip3 install -r requirements.txt \
+    && npm install -g pyright
 
 # Add in the .flake8 spec
 ADD ./.flake8 /usr/local/lib/.flake8
@@ -31,6 +32,8 @@ ENV FORMAT_BLACK="y"
 # Do check automatically. Set to something empty
 #   to turn off checking
 ENV DO_CHECK="y"
+ENV CHECK_ISORT="y"
+ENV CHECK_PYRIGHT=""
 
 # Don't hang automatically. This is useful for dev
 #   purposes but shouldn't be turned on in prod
