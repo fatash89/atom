@@ -15,7 +15,9 @@ ARG PYARROW_EXTRA_CMAKE_ARGS=""
 # System-level installs
 #
 
-RUN apt-get update -y \
+RUN apt-get -y install software-properties-common && apt-get update -y
+
+RUN add-apt-repository universe \
  && apt-get install -y --no-install-recommends \
       apt-utils \
       git \
@@ -23,10 +25,9 @@ RUN apt-get update -y \
       libtool \
       cmake \
       build-essential \
-      python3-minimal \
-      python3-pip \
-      python3-venv \
-      python3-dev \
+      python3.7-minimal \
+      python3.7-venv \
+      python3.7-dev \
       flex \
       bison \
       curl \
