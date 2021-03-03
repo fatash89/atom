@@ -15,9 +15,10 @@ ARG PYARROW_EXTRA_CMAKE_ARGS=""
 # System-level installs
 #
 
-RUN apt-get -y install software-properties-common && apt-get update -y
+RUN apt-get update && apt-get -y install software-properties-common
 
 RUN add-apt-repository universe \
+ && apt-get update \
  && apt-get install -y --no-install-recommends \
       apt-utils \
       git \
@@ -25,14 +26,22 @@ RUN add-apt-repository universe \
       libtool \
       cmake \
       build-essential \
-      python3.7-minimal \
-      python3.7-venv \
+      python3.7 \
       python3.7-dev \
+      python3.7-venv \
+      python3-pip \
       flex \
       bison \
       curl \
-      pkg-config \
- && pip3 install --no-cache-dir --upgrade pip setuptools
+      pkg-config
+
+# Set Python3.7 as the default if it's not already
+RUN ln -sf /usr/bin/python3.7 /usr/bin/python3
+
+#
+# Install pip
+#
+RUN pip3 install --no-cache-dir --upgrade pip setuptools
 
 #
 # C/C++ deps
