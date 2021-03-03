@@ -108,13 +108,18 @@ ENV ATOM_METRICS_SOCKET "/shared/metrics.sock"
 ENV ATOM_LOG_DIR "/var/log/atom/"
 ENV ATOM_LOG_FILE_SIZE 2000
 
+# Pick up the universe repo to get python3.7 for some builds
+RUN apt-get update && apt-get -y install software-properties-common && add-apt-repository universe
+
 # Install python
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends apt-utils \
-                                               python3-minimal \
+                                               python3.7-minimal \
                                                python3-pip \
                                                libatomic1
 
+# Set Python3.7 as the default if it's not already
+RUN ln -sf /usr/bin/python3.7 /usr/bin/python3
 
 # Copy contents of python virtualenv and activate
 COPY --from=atom-source /opt/venv /opt/venv
