@@ -214,7 +214,7 @@ RUN apt-get update \
 RUN apt-get install -y --no-install-recommends valgrind
 
 # Install pytest
-RUN pip3 install --no-cache-dir pytest
+RUN pip3 install --no-cache-dir pytest==6.2.2
 
 # Copy source code
 COPY ./languages/c/ /atom/languages/c
