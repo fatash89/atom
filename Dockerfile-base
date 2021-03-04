@@ -108,11 +108,6 @@ RUN mkdir -p /atom/third-party/apache-arrow/cpp/build \
 RUN cd /atom/third-party/apache-arrow/python \
   && ARROW_HOME=/usr/local SETUPTOOLS_SCM_PRETEND_VERSION="0.17.0" python3 setup.py build_ext -j 8 --build-type=release --extra-cmake-args=${PYARROW_EXTRA_CMAKE_ARGS} install
 
-# Redis-py
-ADD ./languages/python/third-party/redis-py /atom/languages/python/third-party/redis-py
-RUN cd /atom/languages/python/third-party/redis-py \
- && python3 setup.py install
-
 #
 # Redis itself. Need this in the atom image s.t. we have redis-cli in all of
 # the atom containers for inspecting redis. We will also use this to copy
