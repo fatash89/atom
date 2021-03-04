@@ -24,9 +24,8 @@ RUN cd /atom/third-party/redis && make -j8 && make PREFIX=/usr/local install
 #
 ADD ./third-party/RedisTimeSeries /atom/third-party/RedisTimeSeries
 WORKDIR /atom/third-party/RedisTimeSeries
-RUN ./deps/readies/bin/getpy2
-RUN ./system-setup.py
-RUN make build
+RUN python3 system-setup.py
+RUN make build MK.pyver=3
 
 #
 # C client
@@ -108,12 +107,22 @@ ENV ATOM_METRICS_SOCKET "/shared/metrics.sock"
 ENV ATOM_LOG_DIR "/var/log/atom/"
 ENV ATOM_LOG_FILE_SIZE 2000
 
+# Pick up the universe repo to get python3.7 for some builds. This is not
+#   necessary on debian but necessary on ubuntu builds
+RUN apt-get update && apt-get -y install software-properties-common
+RUN add-apt-repository universe || exit 0
+
 # Install python
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends apt-utils \
-                                               python3-minimal \
+                                               curl \
+                                               python3.7 \
+                                               python3.7-venv \
                                                python3-pip \
                                                libatomic1
+
+# Set Python3.7 as the default if it's not already
+RUN ln -sf /usr/bin/python3.7 /usr/bin/python3
 
 
 # Copy contents of python virtualenv and activate
@@ -208,7 +217,8 @@ RUN apt-get update \
 RUN apt-get install -y --no-install-recommends valgrind
 
 # Install pytest
-RUN pip3 install --no-cache-dir pytest
+ADD ./languages/python/requirements-test.txt .
+RUN pip3 install --no-cache-dir -r requirements-test.txt
 
 # Copy source code
 COPY ./languages/c/ /atom/languages/c
