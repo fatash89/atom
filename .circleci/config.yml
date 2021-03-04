@@ -1202,6 +1202,7 @@ workflows:
                 - /.*-build-base-atom/
                 - /.*-build-base-opencv/
                 - /.*-build-base-opencv-amd64/
+                - /.*-build-base-<< matrix.platform >>/
 
       - build-base-add:
           << : *build_atom_base_add_shared
@@ -1220,6 +1221,7 @@ workflows:
                 - /.*-build-base-all/
                 - /.*-build-base-opencv/
                 - /.*-build-base-opencv-amd64/
+                - /.*-build-base-<< matrix.platform >>/
 
       #
       # Cuda AMD64 base and variants
@@ -1239,6 +1241,7 @@ workflows:
                 - /.*-build-base-all/
                 - /.*-build-base-cuda/
                 - /.*-build-base-opengl-cuda/
+                - /.*-build-base-<< matrix.platform >>/
 
       - build-base-add:
           << : *build_atom_base_add_shared
@@ -1262,6 +1265,7 @@ workflows:
               only:
                 - /.*-build-base-all/
                 - /.*-build-base-opengl-cuda/
+                - /.*-build-base-<< matrix.platform >>/
 
       #
       # OpenGL AMD64 base and variants
@@ -1281,6 +1285,7 @@ workflows:
                 - /.*-build-base-all/
                 - /.*-build-base-opengl/
                 - /.*-build-base-opengl-vnc/
+                - /.*-build-base-<< matrix.platform >>/
 
       - build-base-add:
           << : *build_atom_base_add_shared
@@ -1297,6 +1302,7 @@ workflows:
               only:
                 - /.*-build-base-all/
                 - /.*-build-base-opengl-vnc/
+                - /.*-build-base-<< matrix.platform >>/
 
       #
       # Stock AARCH64 base + variants
@@ -1318,6 +1324,7 @@ workflows:
                 - /.*-build-base-aarch64/
                 - /.*-build-base-opencv/
                 - /.*-build-base-opencv-aarch64/
+                - /.*-build-base-<< matrix.platform >>/
 
       - build-base-add:
           << : *build_atom_base_add_shared
@@ -1337,6 +1344,7 @@ workflows:
                 - /.*-build-base-all/
                 - /.*-build-base-opencv/
                 - /.*-build-base-opencv-aarch64/
+                - /.*-build-base-<< matrix.platform >>/
 
 
       # Deploy base images. Don't need branch filters since they depend
