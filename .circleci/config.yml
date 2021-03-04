@@ -288,6 +288,9 @@ commands:
         default: true
     steps:
       - run:
+          name: Python version
+          command: docker exec -it -w /atom/languages/python/tests << parameters.container >> python -V 2>&1 | grep "3.7"
+      - run:
           name: Python tests
           command: docker exec -it -w /atom/languages/python/tests << parameters.container >> pytest -vv --durations=0 --capture=tee-sys
       - run:
