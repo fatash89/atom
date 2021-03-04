@@ -206,13 +206,13 @@ aliases:
 
 
   # Base tags in use for the various builds
-  - &base_build_atom_stock_amd64_tag "base-1067-stock-amd64"
-  - &base_build_atom_opencv_amd64_tag "base-1067-opencv-amd64"
-  - &base_build_atom_opengl_amd64_tag "base-1067-opengl-amd64"
-  - &base_build_atom_opengl_vnc_amd64_tag "base-1067-opengl-vnc-amd64"
-  - &base_build_atom_cuda_amd64_tag "base-1067-cuda-amd64"
-  - &base_build_atom_opengl_cuda_amd64_tag "base-1067-opengl-cuda-amd64"
-  - &base_build_atom_opengl_cuda_vnc_amd64_tag "base-1067-opengl-cuda-vnc-amd64"
+  - &base_build_atom_stock_amd64_tag "base-1952-stock-amd64"
+  - &base_build_atom_opencv_amd64_tag "base-1952-opencv-amd64"
+  - &base_build_atom_opengl_amd64_tag "base-1952-opengl-amd64"
+  - &base_build_atom_opengl_vnc_amd64_tag "base-1952-opengl-vnc-amd64"
+  - &base_build_atom_cuda_amd64_tag "base-1952-cuda-amd64"
+  - &base_build_atom_opengl_cuda_amd64_tag "base-1952-opengl-cuda-amd64"
+  - &base_build_atom_opengl_cuda_vnc_amd64_tag "base-1952-opengl-cuda-vnc-amd64"
   - &base_build_atom_stock_aarch64_tag "base-1067-stock-aarch64"
   - &base_build_atom_opencv_aarch64_tag "base-1067-opencv-aarch64"
   - &base_build_tags
