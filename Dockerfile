@@ -107,8 +107,10 @@ ENV ATOM_METRICS_SOCKET "/shared/metrics.sock"
 ENV ATOM_LOG_DIR "/var/log/atom/"
 ENV ATOM_LOG_FILE_SIZE 2000
 
-# Pick up the universe repo to get python3.7 for some builds
-RUN apt-get update && apt-get -y install software-properties-common && add-apt-repository universe
+# Pick up the universe repo to get python3.7 for some builds. This is not
+#   necessary on debian but necessary on ubuntu builds
+RUN apt-get update && apt-get -y install software-properties-common
+RUN add-apt-repository universe || exit 0
 
 # Install python
 RUN apt-get update -y \
