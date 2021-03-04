@@ -40,9 +40,7 @@ RUN apt-get update \
 # Set Python3.7 as the default if it's not already
 RUN ln -sf /usr/bin/python3.7 /usr/bin/python3
 
-#
-# Install pip
-#
+# Install setuptools
 RUN pip3 install --no-cache-dir --upgrade pip setuptools
 
 #

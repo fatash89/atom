@@ -115,12 +115,15 @@ RUN add-apt-repository universe || exit 0
 # Install python
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends apt-utils \
-                                               python3.7-minimal \
+                                               curl \
+                                               python3.7 \
+                                               python3.7-venv \
                                                python3-pip \
                                                libatomic1
 
 # Set Python3.7 as the default if it's not already
 RUN ln -sf /usr/bin/python3.7 /usr/bin/python3
+
 
 # Copy contents of python virtualenv and activate
 COPY --from=atom-source /opt/venv /opt/venv
@@ -214,7 +217,8 @@ RUN apt-get update \
 RUN apt-get install -y --no-install-recommends valgrind
 
 # Install pytest
-RUN pip3 install --no-cache-dir pytest==6.2.2
+ADD ./languages/python/requirements-test.txt .
+RUN pip3 install --no-cache-dir -r requirements-test.txt
 
 # Copy source code
 COPY ./languages/c/ /atom/languages/c
