@@ -24,9 +24,8 @@ RUN cd /atom/third-party/redis && make -j8 && make PREFIX=/usr/local install
 #
 ADD ./third-party/RedisTimeSeries /atom/third-party/RedisTimeSeries
 WORKDIR /atom/third-party/RedisTimeSeries
-RUN ./deps/readies/bin/getpy2
-RUN ./system-setup.py
-RUN make build
+RUN python3 system-setup.py
+RUN make build MK.pyver=3
 
 #
 # C client
