@@ -34,7 +34,7 @@ RUN make build MK.pyver=3
 # Build the C library
 ADD ./languages/c /atom/languages/c
 RUN cd /atom/languages/c \
- && make clean && make -j8 && make install
+   && make clean && make -j8 && make install
 
 #
 # C++ client
@@ -43,7 +43,7 @@ RUN cd /atom/languages/c \
 # Build and install the c++ library
 ADD ./languages/cpp /atom/languages/cpp
 RUN cd /atom/languages/cpp \
- && make clean && make -j8 && make install
+   && make clean && make -j8 && make install
 
 #
 # Python client
@@ -59,7 +59,7 @@ RUN pip3 install --no-cache-dir -r /atom/languages/python/requirements.txt
 ADD ./lua-scripts /atom/lua-scripts
 ADD ./languages/python /atom/languages/python
 RUN cd /atom/languages/python \
- && python3 setup.py install
+   && python3 setup.py install
 
 #
 # Command-line utility
@@ -69,7 +69,7 @@ ADD ./utilities/atom-cli/requirements.txt /atom/utilities/atom-cli/requirements.
 RUN pip3 install --no-cache-dir -r /atom/utilities/atom-cli/requirements.txt
 ADD ./utilities/atom-cli /atom/utilities/atom-cli
 RUN cp /atom/utilities/atom-cli/atom-cli.py /usr/local/bin/atom-cli \
- && chmod +x /usr/local/bin/atom-cli
+   && chmod +x /usr/local/bin/atom-cli
 
 
 #
@@ -114,12 +114,12 @@ RUN add-apt-repository universe || exit 0
 
 # Install python
 RUN apt-get update -y \
- && apt-get install -y --no-install-recommends apt-utils \
-                                               curl \
-                                               python3.7 \
-                                               python3.7-venv \
-                                               python3-pip \
-                                               libatomic1
+   && apt-get install -y --no-install-recommends apt-utils \
+   curl \
+   python3.7 \
+   python3.7-venv \
+   python3-pip \
+   libatomic1
 
 # Set Python3.7 as the default if it's not already
 RUN ln -sf /usr/bin/python3.7 /usr/bin/python3
@@ -203,15 +203,15 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 # Install googletest
 RUN apt-get update \
- && apt-get install -y --no-install-recommends \
-    libgtest-dev \
-    cmake \
-    build-essential \
-    python3-pip \
- && cd /usr/src/gtest \
- && cmake CMakeLists.txt \
- && make -j8 \
- && cp *.a /usr/lib
+   && apt-get install -y --no-install-recommends \
+   libgtest-dev \
+   cmake \
+   build-essential \
+   python3-pip \
+   && cd /usr/src/gtest \
+   && cmake CMakeLists.txt \
+   && make -j8 \
+   && cp *.a /usr/lib
 
 # Install valgrind
 RUN apt-get install -y --no-install-recommends valgrind
@@ -219,6 +219,12 @@ RUN apt-get install -y --no-install-recommends valgrind
 # Install pytest
 ADD ./languages/python/requirements-test.txt .
 RUN pip3 install --no-cache-dir -r requirements-test.txt
+
+# Install pyright
+RUN apt install -y curl
+RUN curl -sL https://deb.nodesource.com/setup_12.x | bash -
+RUN apt install -y nodejs && npm install -g pyright
+
 
 # Copy source code
 COPY ./languages/c/ /atom/languages/c

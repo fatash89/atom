@@ -74,6 +74,7 @@ from atom.messages import (
 )
 from redis.client import Pipeline
 from redistimeseries.client import Client as RedisTimeSeries
+from redistimeseries.client import Pipeline as RedisTimeSeriesPipeline
 from typing_extensions import Literal
 
 # Need to figure out how we're connecting to the Nucleus
@@ -193,31 +194,31 @@ class Element:
 
         self.name = name
         self.host = uname().nodename
-        self.handler_map = {}
-        self.timeouts = {}
+        self.handler_map: dict[str, Any] = {}
+        self.timeouts: dict[str, int] = {}
         self._redis_connection_timeout = float(conn_timeout_ms / 1000.0)
         self._redis_data_timeout = float(data_timeout_ms / 1000.0)
         assert (
             self._redis_connection_timeout > 0
         ), "timeout must be positive and non-zero"
-        self.streams = set()
-        self._rclient = None
+        self.streams: set[str] = set()
+        self._rclient: Optional[redis.StrictRedis] = None
         self._command_loop_shutdown = multiprocessing.Event()
-        self._rpipeline_pool = Queue()
-        self._mpipeline_pool = LifoQueue()
+        self._rpipeline_pool: "Queue[Pipeline]" = Queue()
+        self._mpipeline_pool: "LifoQueue[RedisTimeSeriesPipeline]" = LifoQueue()
         self._timed_out = False
         self._pid = os.getpid()
         self._cleaned_up = False
-        self.processes = []
+        self.processes: list[Process] = []
         self._redis_connected = False
 
         #
         # Set up metrics
         #
-        self._metrics = set()
+        self._metrics: set[str] = set()
         self._metrics_add_type_keys = set()
         self._metrics_enabled = False
-        self._active_timing_metrics = {}
+        self._active_timing_metrics: dict[str, float] = {}
         self._command_metrics = defaultdict(lambda: {})
         self._command_loop_metrics = defaultdict(lambda: {})
         self._command_send_metrics = defaultdict(lambda: defaultdict(lambda: None))
@@ -227,17 +228,19 @@ class Element:
         self._parameter_metrics = defaultdict(lambda: {})
         self._counter_metrics = defaultdict(lambda: {})
         self._sorted_set_metrics = defaultdict(lambda: {})
-        self._reference_create_metrics = None
+        self._reference_create_metrics: dict[str, str] = {}
         self._reference_create_from_stream_metrics = defaultdict(
             lambda: defaultdict(lambda: None)
         )
-        self._reference_get_metrics = None
-        self._reference_delete_metrics = None
+        self._reference_get_metrics: dict[str, str] = {}
+        self._reference_delete_metrics: dict[str, str] = {}
 
         #
         # Set up metrics logging levels
         #
-        self._metrics_level = MetricsLevel[os.getenv("ATOM_METRICS_LEVEL", "TIMING")]
+        self._metrics_level: MetricsLevel = MetricsLevel[
+            os.getenv("ATOM_METRICS_LEVEL", "TIMING")
+        ]
         self._metrics_use_aggregation = (
             os.getenv("ATOM_METRICS_USE_AGGREGATION", "FALSE") == "TRUE"
         )
@@ -270,6 +273,7 @@ class Element:
             loglevel = LOG_DEFAULT_LEVEL
         self.logger.setLevel(loglevel)
 
+        self._mclient: RedisTimeSeries
         # For now, only enable metrics if turned on in an environment flag
         if os.getenv("ATOM_USE_METRICS", "FALSE") == "TRUE":
 
@@ -746,7 +750,7 @@ class Element:
         data: dict,
         user_serialization: Optional[str],
         force_serialization: bool,
-        deserialize: Optional[str] = None,
+        deserialize: Optional[bool] = None,
     ) -> Optional[str]:
         """
         Helper function to make a unified serialization decision based off of
@@ -1052,7 +1056,7 @@ class Element:
         n_procs: int = 1,
         block: bool = True,
         read_block_ms: int = 1000,
-        join_timeout: Optional[int] = None,
+        join_timeout: Optional[float] = None,
     ) -> None:
         """Main command execution event loop
 
@@ -1070,7 +1074,7 @@ class Element:
                 from the function
             read_block_ms (integer, optional): Number of milliseconds to block
                 for during a stream read insde of a command loop.
-            join_timeout (integer, optional): If block=True, how long to wait
+            join_timeout (float, optional): If block=True, how long to wait
                 while joining threads at the end of the command loop before
                 raising an exception
         """
@@ -1558,7 +1562,7 @@ class Element:
                     pipeline=pipeline,
                 )
 
-    def _command_loop_join(self, join_timeout: float = 10.0) -> None:
+    def _command_loop_join(self, join_timeout: Optional[float] = 10.0) -> None:
         """Waits for all threads from command loop to be finished"""
         for p in self.processes:
             p.join(join_timeout)
@@ -1882,7 +1886,7 @@ class Element:
 
     def entry_read_loop(
         self,
-        stream_handlers: StreamHandler,
+        stream_handlers: Sequence[StreamHandler],
         n_loops: Optional[int] = None,
         timeout: int = MAX_BLOCK,
         serialization: Optional[str] = None,
@@ -1909,9 +1913,9 @@ class Element:
         """
         if n_loops is None:
             # Create an infinite loop
-            n_loops = iter(int, 1)
+            loop_iter = iter(int, 1)
         else:
-            n_loops = range(n_loops)
+            loop_iter = range(n_loops)
 
         streams = {}
         stream_handler_map = {}
@@ -1923,7 +1927,7 @@ class Element:
             )
             streams[stream_id] = self._get_redis_timestamp()
             stream_handler_map[stream_id] = stream_handler.handler
-        for _ in n_loops:
+        for _ in loop_iter:
             stream_entries = self._rclient.xread(streams, block=timeout)
             if not stream_entries:
                 return
@@ -2490,8 +2494,8 @@ class Element:
 
             # Add override field if existing override isn't false
             if existing_override != "false":
-                override = "true" if override is True else "false"
-                _pipe.hset(redis_key, OVERRIDE_PARAM_FIELD, override)
+                override_str = "true" if override is True else "false"
+                _pipe.hset(redis_key, OVERRIDE_PARAM_FIELD, override_str)
             elif override is True:
                 self.logger.warning("Cannot override existing false override value")
 
@@ -2548,7 +2552,7 @@ class Element:
         fields: Optional[str] = None,
         serialization: Optional[str] = None,
         force_serialization: bool = False,
-    ) -> dict:
+    ) -> Optional[dict[bytes, Any]]:
         """
         Gets a parameter from the atom system. Reads the key from redis and
         returns the data, performing a serialize/deserialize operation on each
@@ -2578,7 +2582,7 @@ class Element:
             self.metrics_timing_start(self._parameter_metrics[key]["read_data"])
             _pipe = self._rpipeline_pool.get()
             _pipe.hgetall(redis_key)
-            data = _pipe.execute()[0]
+            data: dict[bytes, Any] = _pipe.execute()[0]
             _pipe = self._release_pipeline(_pipe)
             self.metrics_timing_end(
                 self._parameter_metrics[key]["read_data"], pipeline=pipeline
@@ -2616,9 +2620,10 @@ class Element:
             )
 
         if fields:
-            fields = [fields] if type(fields) != list else fields
+            fields_list = [fields] if type(fields) != list else fields
             return_data = {
-                field.encode(): deserialized_data[field.encode()] for field in fields
+                field.encode(): deserialized_data[field.encode()]
+                for field in fields_list
             }
         else:
             return_data = deserialized_data
@@ -2703,7 +2708,7 @@ class Element:
     def reference_create(
         self,
         *data,
-        keys=None,
+        keys: list[str] = [],
         serialization: Optional[str] = None,
         serialize: Optional[bool] = None,
         timeout_ms: int = 10000,
@@ -2737,8 +2742,9 @@ class Element:
         ref_ids = []
 
         # Make user keys into list and compare the number to data
-        keys = [None] * len(data) if keys is None else keys
-        keys = [keys] if type(keys) is not list else keys
+        if not keys:
+            keys = [""] * len(data)
+        keys = [keys] if type(keys) is str else keys
         if len(data) != len(keys):
             raise Exception("Different number of objects and keys requested")
 
@@ -3900,7 +3906,7 @@ class Element:
                 self._sorted_set_metrics[set_key]["card"], 0, pipeline=metrics_pipeline
             )
 
-    def metrics_get_pipeline(self) -> Optional[Pipeline]:
+    def metrics_get_pipeline(self) -> RedisTimeSeriesPipeline:
         """
         Get a pipeline for use in metrics.
 
@@ -3921,7 +3927,7 @@ class Element:
         return pipeline
 
     def metrics_write_pipeline(
-        self, pipeline: Pipeline, error_ok: Optional[str] = None
+        self, pipeline: RedisTimeSeriesPipeline, error_ok: Optional[str] = None
     ) -> Optional[list]:
         """
         Release (and perhaps execute) a pipeline that was used for a metrics
@@ -3971,7 +3977,7 @@ class Element:
         rules: Optional[dict] = None,
         update: bool = True,
         duplicate_policy: Literal["block", "first", "last", "min", "max"] = "last",
-    ) -> Optional[str]:
+    ) -> str:
         """
         Create a metric at the given key with retention and labels. This is a
         direct interface to the redis time series API. It's generally not
@@ -4023,7 +4029,7 @@ class Element:
         """
 
         if not self._metrics_enabled:
-            return None
+            return ""
 
         # If we don't have labels, make the default empty
         if labels is None:
@@ -4078,7 +4084,7 @@ class Element:
 
             # If we shouldn't be updating return out
             if not update:
-                return None
+                return ""
 
             # Update the retention milliseconds and labels
             self._mclient.alter(
@@ -4160,7 +4166,7 @@ class Element:
         agg_timing: list[tuple[int, int]] = METRICS_DEFAULT_AGG_TIMING,
         agg_types: Optional[list[str]] = None,
         duplicate_policy: Literal["block", "first", "last", "min", "max"] = "last",
-    ) -> bool:
+    ) -> str:
         """
         Create a metric of the given type and subtypes. All labels you need
         will be auto-generated, though more can be passed. Aggregation will
@@ -4209,11 +4215,13 @@ class Element:
                         existing value
 
         Return:
-            boolean, true on success
+            key (str): The key used. Can then be passed to metrics timing
+                and/or metrics add custom without having to go through the whole
+                type/subtype rigamarole.
         """
 
         if not self._metrics_enabled:
-            return None
+            return ""
 
         # If we don't have labels, make the default empty
         if labels is None:
@@ -4261,7 +4269,7 @@ class Element:
         stream: str,
         key: str,
         data,
-        pipeline: Optional[Pipeline] = None,
+        pipeline: Optional[RedisTimeSeriesPipeline] = None,
         maxlen: int = 100,
     ) -> Optional[list]:
         """
@@ -4296,7 +4304,7 @@ class Element:
         key: str,
         val,
         timestamp=None,
-        pipeline: Optional[Pipeline] = None,
+        pipeline: Optional[RedisTimeSeriesPipeline] = None,
         enforce_exists: bool = True,
         retention: int = 86400000,
         labels: Optional[dict] = None,
@@ -4374,7 +4382,7 @@ class Element:
         m_type: str,
         *m_subtypes,
         timestamp=None,
-        pipeline: Optional[Pipeline] = None,
+        pipeline: Optional[RedisTimeSeriesPipeline] = None,
         retention: int = 86400000,
         labels: Optional[dict] = None,
     ):
@@ -4464,7 +4472,10 @@ class Element:
         ] = time.monotonic()
 
     def metrics_timing_end(
-        self, key: str, pipeline: Optional[Pipeline] = None, strict: bool = False
+        self,
+        key: str,
+        pipeline: Optional[RedisTimeSeriesPipeline] = None,
+        strict: bool = False,
     ) -> None:
         """
         Simple helper function to finish a time that was being kept
