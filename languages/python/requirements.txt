@@ -13,3 +13,4 @@ redistimeseries==0.8.0
 rmtest==0.7.0
 six==1.15.0
 wcwidth==0.2.5
+typing_extensions==3.7.4.3
