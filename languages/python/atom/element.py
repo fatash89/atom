@@ -15,7 +15,7 @@ from os import uname
 from queue import Empty as QueueEmpty
 from queue import LifoQueue, Queue
 from traceback import format_exc
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Optional, Sequence, Union
 
 import redis
 from redis.client import Pipeline
@@ -1387,7 +1387,7 @@ class Element:
                 if not caller:
                     self.logger.error("No caller name present in command!")
                     self.metrics_add(
-                        (f"atom:command_loop:worker{worker_num}:no_caller", 1)
+                        f"atom:command_loop:worker{worker_num}:no_caller", 1
                     )
                     continue
 
@@ -1844,12 +1844,7 @@ class Element:
                             )
                         except TypeError:
                             self.logger.warning("Could not deserialize response.")
-                            self.metrics_add(
-                                (
-                                    f"atom:command_send:error:{element_name}:{cmd_name}",
-                                    1,
-                                )
-                            )
+                            self.metrics_add(f"atom:command_send:error:{element_name}:{cmd_name}", 1)
 
                         self.metrics_timing_end(
                             self._command_send_metrics[element_name][cmd_name][
