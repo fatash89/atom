@@ -17,13 +17,8 @@ from queue import LifoQueue, Queue
 from traceback import format_exc
 from typing import Any, Callable, Optional, Sequence, Union
 
-import redis
-from redis.client import Pipeline
-from redistimeseries.client import Client as RedisTimeSeries
-from redistimeseries.client import Pipeline as RedisTimeSeriesPipeline
-from typing_extensions import Literal
-
 import atom.serialization as ser
+import redis
 from atom.config import (
     ACK_TIMEOUT,
     ATOM_CALLBACK_FAILED,
@@ -77,6 +72,10 @@ from atom.messages import (
     StreamHandler,
     format_redis_py,
 )
+from redis.client import Pipeline
+from redistimeseries.client import Client as RedisTimeSeries
+from redistimeseries.client import Pipeline as RedisTimeSeriesPipeline
+from typing_extensions import Literal
 
 # Need to figure out how we're connecting to the Nucleus
 #   Default to local sockets at the default address
@@ -1844,7 +1843,9 @@ class Element:
                             )
                         except TypeError:
                             self.logger.warning("Could not deserialize response.")
-                            self.metrics_add(f"atom:command_send:error:{element_name}:{cmd_name}", 1)
+                            self.metrics_add(
+                                f"atom:command_send:error:{element_name}:{cmd_name}", 1
+                            )
 
                         self.metrics_timing_end(
                             self._command_send_metrics[element_name][cmd_name][
