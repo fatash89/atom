@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Optional, Union, overload
+
+from typing_extensions import Literal
 
 import atom.serialization as ser
 
@@ -10,7 +12,17 @@ RES_RESERVED_KEYS = ("data", "err_code", "err_str", "element", "cmd", "cmd_id", 
 ENTRY_RESERVED_KEYS = "ser"
 
 
-def format_redis_py(data):
+@overload
+def format_redis_py(data: None) -> Literal[""]:
+    ...
+
+
+@overload
+def format_redis_py(data: dict[Any, Any]) -> dict[Any, Any]:
+    ...
+
+
+def format_redis_py(data: Any) -> Any:
     if data is None:
         return ""
     if type(data) is dict:

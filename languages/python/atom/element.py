@@ -17,8 +17,13 @@ from queue import LifoQueue, Queue
 from traceback import format_exc
 from typing import Any, Callable, Optional, Sequence, Union
 
-import atom.serialization as ser
 import redis
+from redis.client import Pipeline
+from redistimeseries.client import Client as RedisTimeSeries
+from redistimeseries.client import Pipeline as RedisTimeSeriesPipeline
+from typing_extensions import Literal
+
+import atom.serialization as ser
 from atom.config import (
     ACK_TIMEOUT,
     ATOM_CALLBACK_FAILED,
@@ -72,10 +77,6 @@ from atom.messages import (
     StreamHandler,
     format_redis_py,
 )
-from redis.client import Pipeline
-from redistimeseries.client import Client as RedisTimeSeries
-from redistimeseries.client import Pipeline as RedisTimeSeriesPipeline
-from typing_extensions import Literal
 
 # Need to figure out how we're connecting to the Nucleus
 #   Default to local sockets at the default address
@@ -221,19 +222,25 @@ class Element:
         self._active_timing_metrics: dict[str, float] = {}
         self._command_metrics = defaultdict(lambda: {})
         self._command_loop_metrics = defaultdict(lambda: {})
-        self._command_send_metrics = defaultdict(lambda: defaultdict(lambda: None))
-        self._entry_read_n_metrics = defaultdict(lambda: defaultdict(lambda: None))
-        self._entry_read_since_metrics = defaultdict(lambda: defaultdict(lambda: None))
-        self._entry_write_metrics = defaultdict(lambda: None)
+        self._command_send_metrics: dict[str, dict[str, Optional[Any]]] = defaultdict(
+            lambda: defaultdict(lambda: None)
+        )
+        self._entry_read_n_metrics: dict[str, dict[str, Optional[Any]]] = defaultdict(
+            lambda: defaultdict(lambda: None)
+        )
+        self._entry_read_since_metrics: dict[
+            str, dict[str, Optional[Any]]
+        ] = defaultdict(lambda: defaultdict(lambda: None))
+        self._entry_write_metrics: dict[str, Optional[Any]] = defaultdict(lambda: None)
         self._parameter_metrics = defaultdict(lambda: {})
         self._counter_metrics = defaultdict(lambda: {})
         self._sorted_set_metrics = defaultdict(lambda: {})
-        self._reference_create_metrics: dict[str, str] = None
-        self._reference_create_from_stream_metrics = defaultdict(
-            lambda: defaultdict(lambda: None)
-        )
-        self._reference_get_metrics: dict[str, str] = None
-        self._reference_delete_metrics: dict[str, str] = None
+        self._reference_create_metrics: dict[str, Optional[str]] = {}
+        self._reference_create_from_stream_metrics: dict[
+            str, dict[str, Optional[Any]]
+        ] = defaultdict(lambda: defaultdict(lambda: None))
+        self._reference_get_metrics: dict[str, Optional[str]] = {}
+        self._reference_delete_metrics: dict[str, Optional[str]] = {}
 
         #
         # Set up metrics logging levels
@@ -2705,7 +2712,7 @@ class Element:
     def reference_create(
         self,
         *data,
-        keys=None,
+        keys: Union[list[str], str, None] = None,
         serialization: Optional[str] = None,
         serialize: Optional[bool] = None,
         timeout_ms: int = 10000,
@@ -2739,9 +2746,18 @@ class Element:
         ref_ids = []
 
         # Make user keys into list and compare the number to data
-        keys = [None] * len(data) if keys is None else keys
-        keys = [keys] if type(keys) is not list else keys
-        if len(data) != len(keys):
+        if keys is None:
+            keys_list = [None] * len(data)
+        elif type(keys) is not list and type(keys) is str:
+            keys_list = [keys]
+        elif type(keys) is list and all(isinstance(k, str) for k in keys):
+            keys_list = keys
+        else:
+            raise TypeError(
+                "Invalid type of keys argument. Must be None, a list of strings, or a scalar string."
+            )
+
+        if len(data) != len(keys_list):
             raise Exception("Different number of objects and keys requested")
 
         # Initialize metrics
@@ -2760,7 +2776,7 @@ class Element:
             self.metrics_timing_start(self._reference_create_metrics["serialize"])
             for i, datum in enumerate(data):
                 # Get the full key name for the reference to use in redis
-                key = self._make_reference_id(keys[i])
+                key = self._make_reference_id(keys_list[i])
 
                 # Now, we can go ahead and do the SET in redis for the key
                 # Expire as set by the user
@@ -3902,7 +3918,7 @@ class Element:
                 self._sorted_set_metrics[set_key]["card"], 0, pipeline=metrics_pipeline
             )
 
-    def metrics_get_pipeline(self) -> RedisTimeSeriesPipeline:
+    def metrics_get_pipeline(self) -> Optional[RedisTimeSeriesPipeline]:
         """
         Get a pipeline for use in metrics.
 
@@ -3923,8 +3939,10 @@ class Element:
         return pipeline
 
     def metrics_write_pipeline(
-        self, pipeline: RedisTimeSeriesPipeline, error_ok: Optional[str] = None
-    ) -> Optional[list]:
+        self,
+        pipeline: Optional[RedisTimeSeriesPipeline],
+        error_ok: Optional[str] = None,
+    ) -> Optional[list[Any]]:
         """
         Release (and perhaps execute) a pipeline that was used for a metrics
         call. If execute is TRUE we will execute the pipeline and return
@@ -3939,7 +3957,7 @@ class Element:
             prev_len: previous length of the pipeline before we got it (return
                 value 1 of metrics_get_pipeline)
         """
-        if not self._metrics_enabled:
+        if not self._metrics_enabled or pipeline is None:
             return None
 
         data = None
@@ -3973,7 +3991,7 @@ class Element:
         rules: Optional[dict] = None,
         update: bool = True,
         duplicate_policy: Literal["block", "first", "last", "min", "max"] = "last",
-    ) -> str:
+    ) -> Optional[str]:
         """
         Create a metric at the given key with retention and labels. This is a
         direct interface to the redis time series API. It's generally not
@@ -4162,7 +4180,7 @@ class Element:
         agg_timing: list[tuple[int, int]] = METRICS_DEFAULT_AGG_TIMING,
         agg_types: Optional[list[str]] = None,
         duplicate_policy: Literal["block", "first", "last", "min", "max"] = "last",
-    ) -> str:
+    ) -> Optional[str]:
         """
         Create a metric of the given type and subtypes. All labels you need
         will be auto-generated, though more can be passed. Aggregation will
@@ -4297,14 +4315,14 @@ class Element:
 
     def metrics_add(
         self,
-        key: str,
+        key: Optional[str],
         val,
         timestamp=None,
         pipeline: Optional[RedisTimeSeriesPipeline] = None,
         enforce_exists: bool = True,
         retention: int = 86400000,
         labels: Optional[dict] = None,
-    ):
+    ) -> Optional[list[Any]]:
         """
         Adds a metric at the given key with the given value. Timestamp
             can be set if desired, leaving at the default of '*' will result
@@ -4443,7 +4461,7 @@ class Element:
             enforce_exists=False,  # Not having called metrics_create
         )
 
-    def _metrics_get_timing_key(self, key: str) -> str:
+    def _metrics_get_timing_key(self, key: Optional[str]) -> str:
         """
         Get a key to be used in the timing lookup dict
 
@@ -4455,7 +4473,7 @@ class Element:
         """
         return f"{threading.get_ident()}:{key}"
 
-    def metrics_timing_start(self, key: str) -> None:
+    def metrics_timing_start(self, key: Optional[str]) -> None:
         """
         Simple helper function to do the keeping-track-of-time for
         timing-based metrics.
@@ -4469,7 +4487,7 @@ class Element:
 
     def metrics_timing_end(
         self,
-        key: str,
+        key: Optional[str],
         pipeline: Optional[RedisTimeSeriesPipeline] = None,
         strict: bool = False,
     ) -> None:

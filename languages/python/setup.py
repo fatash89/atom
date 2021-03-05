@@ -1,4 +1,5 @@
 import setuptools
+
 import version
 
 try:
