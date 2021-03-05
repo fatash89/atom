@@ -275,7 +275,7 @@ aliases:
 version: 2.1
 
 orbs:
-  atom:  elementaryrobotics/atom@0.1.9
+  atom:  elementaryrobotics/atom@dev:upgrade-docker
 
 commands:
 
