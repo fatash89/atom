@@ -17,8 +17,13 @@ from queue import LifoQueue, Queue
 from traceback import format_exc
 from typing import Any, Callable, Optional, Union
 
-import atom.serialization as ser
 import redis
+from redis.client import Pipeline
+from redistimeseries.client import Client as RedisTimeSeries
+from redistimeseries.client import Pipeline as RedisTimeSeriesPipeline
+from typing_extensions import Literal
+
+import atom.serialization as ser
 from atom.config import (
     ACK_TIMEOUT,
     ATOM_CALLBACK_FAILED,
@@ -72,10 +77,6 @@ from atom.messages import (
     StreamHandler,
     format_redis_py,
 )
-from redis.client import Pipeline
-from redistimeseries.client import Client as RedisTimeSeries
-from redistimeseries.client import Pipeline as RedisTimeSeriesPipeline
-from typing_extensions import Literal
 
 # Need to figure out how we're connecting to the Nucleus
 #   Default to local sockets at the default address
@@ -228,12 +229,12 @@ class Element:
         self._parameter_metrics = defaultdict(lambda: {})
         self._counter_metrics = defaultdict(lambda: {})
         self._sorted_set_metrics = defaultdict(lambda: {})
-        self._reference_create_metrics: dict[str, str] = {}
+        self._reference_create_metrics: dict[str, str] = None
         self._reference_create_from_stream_metrics = defaultdict(
             lambda: defaultdict(lambda: None)
         )
-        self._reference_get_metrics: dict[str, str] = {}
-        self._reference_delete_metrics: dict[str, str] = {}
+        self._reference_get_metrics: dict[str, str] = None
+        self._reference_delete_metrics: dict[str, str] = None
 
         #
         # Set up metrics logging levels
@@ -2708,7 +2709,7 @@ class Element:
     def reference_create(
         self,
         *data,
-        keys: list[str] = [],
+        keys=None,
         serialization: Optional[str] = None,
         serialize: Optional[bool] = None,
         timeout_ms: int = 10000,
@@ -2742,9 +2743,8 @@ class Element:
         ref_ids = []
 
         # Make user keys into list and compare the number to data
-        if not keys:
-            keys = [""] * len(data)
-        keys = [keys] if type(keys) is str else keys
+        keys = [None] * len(data) if keys is None else keys
+        keys = [keys] if type(keys) is not list else keys
         if len(data) != len(keys):
             raise Exception("Different number of objects and keys requested")
 
@@ -4029,7 +4029,7 @@ class Element:
         """
 
         if not self._metrics_enabled:
-            return ""
+            return None
 
         # If we don't have labels, make the default empty
         if labels is None:
@@ -4084,7 +4084,7 @@ class Element:
 
             # If we shouldn't be updating return out
             if not update:
-                return ""
+                return None
 
             # Update the retention milliseconds and labels
             self._mclient.alter(
@@ -4221,7 +4221,7 @@ class Element:
         """
 
         if not self._metrics_enabled:
-            return ""
+            return None
 
         # If we don't have labels, make the default empty
         if labels is None:
