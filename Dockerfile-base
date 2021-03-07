@@ -15,7 +15,12 @@ ARG PYARROW_EXTRA_CMAKE_ARGS=""
 # System-level installs
 #
 
-RUN apt-get update -y \
+# If we're on an ubuntu-based build, need to add the universe repository.
+#   On debian:buster this will error out which is OK
+RUN apt-get update && apt-get -y install software-properties-common
+RUN add-apt-repository universe || exit 0
+
+RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       apt-utils \
       git \
@@ -23,15 +28,20 @@ RUN apt-get update -y \
       libtool \
       cmake \
       build-essential \
-      python3-minimal \
+      python3.7 \
+      python3.7-dev \
+      python3.7-venv \
       python3-pip \
-      python3-venv \
-      python3-dev \
       flex \
       bison \
       curl \
-      pkg-config \
- && pip3 install --no-cache-dir --upgrade pip setuptools
+      pkg-config
+
+# Set Python3.7 as the default if it's not already
+RUN ln -sf /usr/bin/python3.7 /usr/bin/python3
+
+# Install setuptools
+RUN pip3 install --no-cache-dir --upgrade pip setuptools
 
 #
 # C/C++ deps
@@ -97,11 +107,6 @@ RUN mkdir -p /atom/third-party/apache-arrow/cpp/build \
   && make install
 RUN cd /atom/third-party/apache-arrow/python \
   && ARROW_HOME=/usr/local SETUPTOOLS_SCM_PRETEND_VERSION="0.17.0" python3 setup.py build_ext -j 8 --build-type=release --extra-cmake-args=${PYARROW_EXTRA_CMAKE_ARGS} install
-
-# Redis-py
-ADD ./languages/python/third-party/redis-py /atom/languages/python/third-party/redis-py
-RUN cd /atom/languages/python/third-party/redis-py \
- && python3 setup.py install
 
 #
 # Redis itself. Need this in the atom image s.t. we have redis-cli in all of

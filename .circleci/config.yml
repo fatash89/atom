@@ -206,13 +206,13 @@ aliases:
 
 
   # Base tags in use for the various builds
-  - &base_build_atom_stock_amd64_tag "base-1067-stock-amd64"
-  - &base_build_atom_opencv_amd64_tag "base-1067-opencv-amd64"
-  - &base_build_atom_opengl_amd64_tag "base-1067-opengl-amd64"
-  - &base_build_atom_opengl_vnc_amd64_tag "base-1067-opengl-vnc-amd64"
-  - &base_build_atom_cuda_amd64_tag "base-1067-cuda-amd64"
-  - &base_build_atom_opengl_cuda_amd64_tag "base-1067-opengl-cuda-amd64"
-  - &base_build_atom_opengl_cuda_vnc_amd64_tag "base-1067-opengl-cuda-vnc-amd64"
+  - &base_build_atom_stock_amd64_tag "base-1952-stock-amd64"
+  - &base_build_atom_opencv_amd64_tag "base-1952-opencv-amd64"
+  - &base_build_atom_opengl_amd64_tag "base-1952-opengl-amd64"
+  - &base_build_atom_opengl_vnc_amd64_tag "base-1952-opengl-vnc-amd64"
+  - &base_build_atom_cuda_amd64_tag "base-1952-cuda-amd64"
+  - &base_build_atom_opengl_cuda_amd64_tag "base-1952-opengl-cuda-amd64"
+  - &base_build_atom_opengl_cuda_vnc_amd64_tag "base-1952-opengl-cuda-vnc-amd64"
   - &base_build_atom_stock_aarch64_tag "base-1067-stock-aarch64"
   - &base_build_atom_opencv_aarch64_tag "base-1067-opencv-aarch64"
   - &base_build_tags
@@ -275,7 +275,7 @@ aliases:
 version: 2.1
 
 orbs:
-  atom:  elementaryrobotics/atom@0.1.9
+  atom:  elementaryrobotics/atom@0.1.12
 
 commands:
 
@@ -287,6 +287,9 @@ commands:
         type: boolean
         default: true
     steps:
+      - run:
+          name: Python version
+          command: docker exec -it -w /atom/languages/python/tests << parameters.container >> python -V 2>&1 | grep "3.7"
       - run:
           name: Python tests
           command: docker exec -it -w /atom/languages/python/tests << parameters.container >> pytest -vv --durations=0 --capture=tee-sys
@@ -1202,6 +1205,7 @@ workflows:
                 - /.*-build-base-atom/
                 - /.*-build-base-opencv/
                 - /.*-build-base-opencv-amd64/
+                - /.*-build-base-<< matrix.platform >>/
 
       - build-base-add:
           << : *build_atom_base_add_shared
@@ -1220,6 +1224,7 @@ workflows:
                 - /.*-build-base-all/
                 - /.*-build-base-opencv/
                 - /.*-build-base-opencv-amd64/
+                - /.*-build-base-<< matrix.platform >>/
 
       #
       # Cuda AMD64 base and variants
@@ -1239,6 +1244,7 @@ workflows:
                 - /.*-build-base-all/
                 - /.*-build-base-cuda/
                 - /.*-build-base-opengl-cuda/
+                - /.*-build-base-<< matrix.platform >>/
 
       - build-base-add:
           << : *build_atom_base_add_shared
@@ -1262,6 +1268,7 @@ workflows:
               only:
                 - /.*-build-base-all/
                 - /.*-build-base-opengl-cuda/
+                - /.*-build-base-<< matrix.platform >>/
 
       #
       # OpenGL AMD64 base and variants
@@ -1281,6 +1288,7 @@ workflows:
                 - /.*-build-base-all/
                 - /.*-build-base-opengl/
                 - /.*-build-base-opengl-vnc/
+                - /.*-build-base-<< matrix.platform >>/
 
       - build-base-add:
           << : *build_atom_base_add_shared
@@ -1297,6 +1305,7 @@ workflows:
               only:
                 - /.*-build-base-all/
                 - /.*-build-base-opengl-vnc/
+                - /.*-build-base-<< matrix.platform >>/
 
       #
       # Stock AARCH64 base + variants
@@ -1318,6 +1327,7 @@ workflows:
                 - /.*-build-base-aarch64/
                 - /.*-build-base-opencv/
                 - /.*-build-base-opencv-aarch64/
+                - /.*-build-base-<< matrix.platform >>/
 
       - build-base-add:
           << : *build_atom_base_add_shared
@@ -1337,6 +1347,7 @@ workflows:
                 - /.*-build-base-all/
                 - /.*-build-base-opencv/
                 - /.*-build-base-opencv-aarch64/
+                - /.*-build-base-<< matrix.platform >>/
 
 
       # Deploy base images. Don't need branch filters since they depend

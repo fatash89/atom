@@ -2204,7 +2204,7 @@ class TestAtom:
         # Make sure the timestamp gets set at the flush and
         #   not the add
         assert (int(1000 * add_time) - data[0]) <= 1000
-        assert (int(1000 * flush_time) - data[0]) >= 2000
+        assert (int(1000 * flush_time) - data[0]) >= 1900
 
     def test_metrics_remote(self, caller, metrics):
         my_elem = Element(

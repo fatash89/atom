@@ -125,6 +125,17 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 
 ### Release Notes
 
+#### [v0.1.12](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.1.12)
+
+##### New Features
+
+- Upgrades `build-ubuntu` machine to `ubuntu-2004:202101-01`. This brings in Docker v20.10.2 and Docker Compose v1.28.2. The goal is to mitigate a bug in previous versions which caused files/layers to be missing from the final step in a Dockerfile.
+- Minor internal build stability improvement. Might reduce job failures due to `buildx` not running properly.
+
+##### Upgrade Steps
+
+- No action needed.
+
 #### [v0.1.11](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.1.11)
 
 ##### New Features
@@ -146,7 +157,6 @@ Labels can be seen using `docker image inspect` on any image.
 ##### Upgrade Steps
 
 - Upgrade to new orb only, no other action required
-
 
 #### [v0.1.10](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.1.10)
 
