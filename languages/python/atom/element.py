@@ -78,6 +78,8 @@ from atom.messages import (
     format_redis_py,
 )
 
+DuplicatePolicy = Literal["block", "first", "last", "min", "max"]
+
 # Need to figure out how we're connecting to the Nucleus
 #   Default to local sockets at the default address
 ATOM_NUCLEUS_HOST = os.getenv("ATOM_NUCLEUS_HOST", None)
@@ -691,7 +693,9 @@ class Element:
             decoded_entry[k_str] = entry[k]
         return decoded_entry
 
-    def _deserialize_entry(self, entry: dict, method: Optional[str] = None) -> dict:
+    def _deserialize_entry(
+        self, entry: dict, method: Optional[ser.SerializationMethod] = None
+    ) -> dict:
         """
         Deserializes the binary data of the entry.
 
@@ -713,7 +717,7 @@ class Element:
     def _check_element_version(
         self,
         element_name: str,
-        supported_language_set: Optional[set] = None,
+        supported_language_set: Optional[set[str]] = None,
         supported_min_version: Optional[float] = None,
     ) -> bool:
         """
@@ -755,10 +759,10 @@ class Element:
     def _get_serialization_method(
         self,
         data: dict,
-        user_serialization: Optional[str],
+        user_serialization: Optional[ser.SerializationMethod],
         force_serialization: bool,
         deserialize: Optional[bool] = None,
-    ) -> Optional[str]:
+    ) -> Optional[ser.SerializationMethod]:
         """
         Helper function to make a unified serialization decision based off of
         common user arguments. The serialization method returned will
@@ -946,7 +950,7 @@ class Element:
         name: str,
         handler: Callable,
         timeout: int = RESPONSE_TIMEOUT,
-        serialization: Optional[str] = None,
+        serialization: Optional[ser.SerializationMethod] = None,
         deserialize: Optional[bool] = None,
     ) -> None:
         """
@@ -1647,7 +1651,7 @@ class Element:
         data="",
         block: bool = True,
         ack_timeout: int = ACK_TIMEOUT,
-        serialization: Optional[str] = None,
+        serialization: Optional[ser.SerializationMethod] = None,
         serialize: Optional[bool] = None,
         deserialize: Optional[bool] = None,
     ) -> dict:
@@ -1893,7 +1897,7 @@ class Element:
         stream_handlers: Sequence[StreamHandler],
         n_loops: Optional[int] = None,
         timeout: int = MAX_BLOCK,
-        serialization: Optional[str] = None,
+        serialization: Optional[ser.SerializationMethod] = None,
         force_serialization: bool = False,
         deserialize: Optional[bool] = None,
     ) -> None:
@@ -1997,7 +2001,7 @@ class Element:
         element_name: str,
         stream_name: str,
         n: int,
-        serialization: Optional[str] = None,
+        serialization: Optional[ser.SerializationMethod] = None,
         force_serialization: bool = False,
         deserialize: Optional[bool] = None,
     ) -> list[dict]:
@@ -2121,7 +2125,7 @@ class Element:
         last_id: str = "$",
         n: Optional[int] = None,
         block: Optional[int] = None,
-        serialization: Optional[str] = None,
+        serialization: Optional[ser.SerializationMethod] = None,
         force_serialization: bool = False,
         deserialize: Optional[bool] = None,
     ) -> list[dict]:
@@ -2233,7 +2237,7 @@ class Element:
         stream_name: str,
         field_data_map: dict,
         maxlen: int = STREAM_LEN,
-        serialization: Optional[str] = None,
+        serialization: Optional[ser.SerializationMethod] = None,
         serialize: Optional[bool] = None,
     ) -> str:
         """
@@ -2399,7 +2403,7 @@ class Element:
         key: str,
         data: dict,
         override: bool = True,
-        serialization: Optional[str] = None,
+        serialization: Optional[ser.SerializationMethod] = None,
         timeout_ms: int = 0,
     ) -> list[str]:
         """
@@ -2554,7 +2558,7 @@ class Element:
         self,
         key: str,
         fields: Optional[str] = None,
-        serialization: Optional[str] = None,
+        serialization: Optional[ser.SerializationMethod] = None,
         force_serialization: bool = False,
     ) -> Optional[dict[bytes, Any]]:
         """
@@ -2713,7 +2717,7 @@ class Element:
         self,
         *data,
         keys: Union[list[str], str, None] = None,
-        serialization: Optional[str] = None,
+        serialization: Optional[ser.SerializationMethod] = None,
         serialize: Optional[bool] = None,
         timeout_ms: int = 10000,
     ) -> list[str]:
@@ -2938,7 +2942,7 @@ class Element:
     def reference_get(
         self,
         *keys,
-        serialization: Optional[str] = None,
+        serialization: Optional[ser.SerializationMethod] = None,
         force_serialization: bool = False,
         deserialize: Optional[bool] = None,
     ) -> list:
@@ -3990,7 +3994,7 @@ class Element:
         labels: Optional[dict] = None,
         rules: Optional[dict] = None,
         update: bool = True,
-        duplicate_policy: Literal["block", "first", "last", "min", "max"] = "last",
+        duplicate_policy: DuplicatePolicy = "last",
     ) -> Optional[str]:
         """
         Create a metric at the given key with retention and labels. This is a
@@ -4179,7 +4183,7 @@ class Element:
         labels: Optional[dict] = None,
         agg_timing: list[tuple[int, int]] = METRICS_DEFAULT_AGG_TIMING,
         agg_types: Optional[list[str]] = None,
-        duplicate_policy: Literal["block", "first", "last", "min", "max"] = "last",
+        duplicate_policy: DuplicatePolicy = "last",
     ) -> Optional[str]:
         """
         Create a metric of the given type and subtypes. All labels you need

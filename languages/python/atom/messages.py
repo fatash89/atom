@@ -63,7 +63,7 @@ class Response:
         data="",
         err_code: int = 0,
         err_str: str = "",
-        serialization: Optional[str] = None,
+        serialization: Optional[ser.SerializationMethod] = None,
         serialize: Optional[bool] = None,
     ):
         """

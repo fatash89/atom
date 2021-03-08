@@ -7,6 +7,9 @@ from typing import Optional
 import numpy as np
 import pyarrow as pa
 from msgpack import packb, unpackb
+from typing_extensions import Literal
+
+SerializationMethod = Literal["msgpack", "arrow", "none"]
 
 
 class GenericSerializationMethod:
@@ -113,7 +116,7 @@ def is_valid_serialization(method: Optional[str]) -> bool:
     return (method in Serializations.__members__) or (method is None)
 
 
-def serialize(data, method: Optional[str] = "none"):
+def serialize(data, method: Optional[SerializationMethod] = "none"):
     """
     Serializes data using the requested method, defaulting to "none".
 
@@ -138,7 +141,7 @@ def serialize(data, method: Optional[str] = "none"):
     return Serializations[method].value.serialize(data)
 
 
-def deserialize(data, method: Optional[str] = "msgpack"):
+def deserialize(data, method: Optional[SerializationMethod] = "msgpack"):
     """
     Deserializes data using the requested method, defaulting to "none".
 
