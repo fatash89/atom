@@ -8,7 +8,8 @@ psutil==5.8.0
 pyarrow==0.17.0
 pyfiglet==0.7.6
 redis==3.5.3
-redistimeseries==0.8.0
+redistimeseries==1.4.3
 rmtest==0.7.0
 six==1.15.0
 wcwidth==0.2.5
+typing_extensions==3.7.4.3
