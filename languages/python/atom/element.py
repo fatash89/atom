@@ -623,8 +623,8 @@ class Element:
         return key_str
 
     def _metrics_add_default_labels(
-        self, labels: dict, level, m_type: str, *m_subtypes
-    ) -> dict:
+        self, labels: dict[str, str], level, m_type: str, *m_subtypes
+    ) -> dict[str, str]:
         """
         Adds the default labels that come from atom. Default labels will
         be things such as the element, perhaps host, type and all subtypes
@@ -687,7 +687,7 @@ class Element:
         timestamp = str(secs) + str(msecs).zfill(6)[:3]
         return timestamp
 
-    def _decode_entry(self, entry: dict) -> dict:
+    def _decode_entry(self, entry: dict[str, Any]) -> dict[str, Any]:
         """
         Decodes the binary keys of an entry
 
@@ -706,8 +706,8 @@ class Element:
         return decoded_entry
 
     def _deserialize_entry(
-        self, entry: dict, method: Optional[ser.SerializationMethod] = None
-    ) -> dict:
+        self, entry: dict[str, Any], method: Optional[ser.SerializationMethod] = None
+    ) -> dict[str, Any]:
         """
         Deserializes the binary data of the entry.
 
@@ -770,7 +770,7 @@ class Element:
 
     def _get_serialization_method(
         self,
-        data: dict,
+        data: dict[str, Any],
         user_serialization: Optional[ser.SerializationMethod],
         force_serialization: bool,
         deserialize: Optional[bool] = None,
@@ -2247,7 +2247,7 @@ class Element:
     def entry_write(
         self,
         stream_name: str,
-        field_data_map: dict,
+        field_data_map: dict[str, Any],
         maxlen: int = STREAM_LEN,
         serialization: Optional[ser.SerializationMethod] = None,
         serialize: Optional[bool] = None,
@@ -2413,7 +2413,7 @@ class Element:
     def parameter_write(
         self,
         key: str,
-        data: dict,
+        data: dict[str, Any],
         override: bool = True,
         serialization: Optional[ser.SerializationMethod] = None,
         timeout_ms: int = 0,
