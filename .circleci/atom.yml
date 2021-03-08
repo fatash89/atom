@@ -187,24 +187,17 @@ aliases:
 #
 executors:
 
-  # Machine used to build docker containers using the
-  # CircleCI classic image
-  build-classic:
-    machine:
-      enabled: true
-      image: circleci/classic:201808-01
-    environment:
-      DOCKER_CLI_EXPERIMENTAL: enabled
-    resource_class: medium
-
-  # Ubuntu 16.04 machine used to build some images
-  # comes with Docker 19.03.8 and docker-compose 1.25.5
+  # Ubuntu Machine used to build some images
+  # Docker v20.10.2, Docker Compose v1.28.2,
   # This is useful since `buildx`, which is required in order
-  # to cross-compile images, comes standard in Docker 19.03
+  # to cross-compile images, comes standard in Docker 19.03. There are
+  # some buildx bugs that caused layers/files to be dropped that might be
+  # resolved in 20.10.0, so we should ensure we're running a version
+  # newer than this.
   build-ubuntu:
     machine:
       enabled: true
-      image: ubuntu-1604:202004-01
+      image: ubuntu-2004:202101-01
     environment:
       DOCKER_CLI_EXPERIMENTAL: enabled
     resource_class: medium
@@ -469,6 +462,11 @@ commands:
       << : *build_buildx_additional_args
     steps:
       - enable_buildx
+
+      # Starts up the buildx engine and prints out some info about it
+      - run:
+          name: Start up buildx and inspect
+          command: docker buildx inspect --bootstrap
 
       # Run the actual build. Due to a bug in the buildx cache pushing
       # in that it's failing intermittently we don't set the

@@ -30,7 +30,6 @@ from atom.config import (
     VERSION,
     VERSION_COMMAND,
 )
-from atom.contracts import BinaryProperty, EmptyContract, RawContract
 from atom.element import ElementConnectionTimeoutError
 from atom.messages import Response, StreamHandler
 
@@ -1063,25 +1062,6 @@ class TestAtom:
     #     logs = logs[-8:]
     #     for i in range(8):
     #         assert logs[i][1][b"msg"].decode() == f"severity {i}"
-
-    def test_contracts(self):
-        class RawContractTest(RawContract):
-            data = BinaryProperty(required=True)
-
-        class EmptyContractTest(EmptyContract):
-            pass
-
-        test_raw = RawContractTest(data=b"test_binary")
-        assert test_raw.to_data() == b"test_binary"
-
-        test_raw = RawContractTest(b"test_binary")
-        assert test_raw.to_data() == b"test_binary"
-
-        test_raw = RawContractTest("test_binary")
-        assert test_raw.to_data() == b"test_binary"
-
-        test_empty = EmptyContractTest()
-        assert test_empty.to_data() == ""
 
     def test_parameter_write(self, caller):
         caller, caller_name = caller

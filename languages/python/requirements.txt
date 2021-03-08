@@ -1,6 +1,5 @@
 Cython==0.29.16
 hiredis==1.1.0
-lazycontract==0.9.6
 msgpack==0.6.2
 numpy==1.18.3
 pkg-resources==0.0.0
