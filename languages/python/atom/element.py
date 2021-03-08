@@ -17,13 +17,8 @@ from queue import LifoQueue, Queue
 from traceback import format_exc
 from typing import Any, Callable, Optional, Sequence, Union
 
-import redis
-from redis.client import Pipeline
-from redistimeseries.client import Client as RedisTimeSeries
-from redistimeseries.client import Pipeline as RedisTimeSeriesPipeline
-from typing_extensions import Literal
-
 import atom.serialization as ser
+import redis
 from atom.config import (
     ACK_TIMEOUT,
     ATOM_CALLBACK_FAILED,
@@ -77,8 +72,25 @@ from atom.messages import (
     StreamHandler,
     format_redis_py,
 )
+from redis.client import Pipeline
+from redistimeseries.client import Client as RedisTimeSeries
+from redistimeseries.client import Pipeline as RedisTimeSeriesPipeline
+from typing_extensions import Literal, TypedDict
 
 DuplicatePolicy = Literal["block", "first", "last", "min", "max"]
+
+
+class HandlerDict(TypedDict, total=False):
+    """
+    Using total=False so that `deserialize` is accepted as an optional key (but
+        not required) to check for deprecated legacy logic in
+        Element._get_serialization_method.
+    """
+
+    handler: Callable
+    serialization: Optional[ser.SerializationMethod]
+    deserialize: Optional[ser.SerializationMethod]
+
 
 # Need to figure out how we're connecting to the Nucleus
 #   Default to local sockets at the default address
@@ -197,7 +209,7 @@ class Element:
 
         self.name = name
         self.host = uname().nodename
-        self.handler_map: dict[str, Any] = {}
+        self.handler_map: dict[str, HandlerDict] = {}
         self.timeouts: dict[str, int] = {}
         self._redis_connection_timeout = float(conn_timeout_ms / 1000.0)
         self._redis_data_timeout = float(data_timeout_ms / 1000.0)

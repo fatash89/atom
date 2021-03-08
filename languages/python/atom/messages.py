@@ -3,9 +3,8 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, Callable, Optional, Union, overload
 
-from typing_extensions import Literal
-
 import atom.serialization as ser
+from typing_extensions import Literal
 
 CMD_RESERVED_KEYS = ("data", "cmd", "element", "ser")
 RES_RESERVED_KEYS = ("data", "err_code", "err_str", "element", "cmd", "cmd_id", "ser")

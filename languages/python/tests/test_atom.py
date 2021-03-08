@@ -9,9 +9,6 @@ from threading import Thread
 import numpy as np
 import pytest
 import redis
-from msgpack import unpackb
-from redistimeseries.client import Client as RedisTimeSeries
-
 from atom import AtomError, Element, MetricsLevel, SetEmptyError
 from atom.config import (
     ATOM_CALLBACK_FAILED,
@@ -32,6 +29,8 @@ from atom.config import (
 )
 from atom.element import ElementConnectionTimeoutError
 from atom.messages import Response, StreamHandler
+from msgpack import unpackb
+from redistimeseries.client import Client as RedisTimeSeries
 
 pytest.caller_incrementor = 0
 pytest.responder_incrementor = 0
