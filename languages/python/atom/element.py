@@ -3518,7 +3518,9 @@ class Element:
             agg_types=["AVG", "MIN", "MAX"],
         )
 
-    def sorted_set_add(self, set_key: str, member: str, value: float) -> int:
+    def sorted_set_add(
+        self, set_key: str, member: Union[str, bytes], value: float
+    ) -> int:
         """
         Set the value for a shared, atomic counter directly using SET
 
