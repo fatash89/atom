@@ -9,7 +9,7 @@ services:
       dockerfile: Dockerfile
       target: nucleus
       args:
-        BASE_IMAGE: elementaryrobotics/atom:v2.4.0-base-stock-amd64
+        BASE_IMAGE: elementaryrobotics/atom:v2.5.1-base-stock-amd64
     volumes:
       - type: volume
         source: shared
@@ -59,7 +59,7 @@ services:
       dockerfile: Dockerfile
       target: test
       args:
-        BASE_IMAGE: elementaryrobotics/atom:v2.4.0-base-opencv-amd64
+        BASE_IMAGE: elementaryrobotics/atom:v2.5.1-base-opencv-amd64
     volumes:
       - type: volume
         source: shared
