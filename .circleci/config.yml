@@ -81,6 +81,9 @@ aliases:
       test_valgrind:
         type: boolean
         default: true
+      executor:
+        type: executor
+        default: atom/build-ubuntu
 
   # Typical mapping of params for building atom.
   #   NOTE: you will always need to specify:
@@ -275,7 +278,7 @@ aliases:
 version: 2.1
 
 orbs:
-  atom:  elementaryrobotics/atom@0.1.12
+  atom:  elementaryrobotics/atom@0.2.0
 
 commands:
 
@@ -536,7 +539,7 @@ jobs:
       production_image:
         type: string
         default: debian:buster-slim
-    executor: atom/build-ubuntu
+    executor: << parameters.executor >>
     steps:
       - build_shared_init
       - build_atom_with_nucleus_variant:
@@ -550,7 +553,7 @@ jobs:
       production_image:
         type: string
         default: debian:buster-slim
-    executor: atom/build-ubuntu
+    executor: << parameters.executor >>
     steps:
       - build_shared_init
       - build_atom_variant:
@@ -562,7 +565,7 @@ jobs:
   build-base:
     parameters:
       << : *build_atom_variant_shared_params
-    executor: atom/build-ubuntu
+    executor: << parameters.executor >>
     resource_class: medium
     steps:
       - build_shared_init
@@ -578,7 +581,7 @@ jobs:
         type: string
       previous:
         type: string
-    executor: atom/build-ubuntu
+    executor: << parameters.executor >>
     resource_class: large
     steps:
       - build_shared_init
@@ -654,7 +657,7 @@ workflows:
       #     - opengl-cuda-vnc
       #   AARCH64
       #     - stock
-      #
+      #     - opencv
 
       #
       # AMD64 / Intel
@@ -777,6 +780,7 @@ workflows:
             parameters:
               variant: [ stock ]
               platform: [ aarch64 ]
+              executor: [ atom/build-ubuntu-arm ]
           base_tag: *base_build_atom_stock_aarch64_tag
           production_image: debian:buster-slim
           test_valgrind: false
@@ -795,6 +799,7 @@ workflows:
             parameters:
               variant: [ opencv ]
               platform: [ aarch64 ]
+              executor: [ atom/build-ubuntu-arm ]
           base_tag: *base_build_atom_opencv_aarch64_tag
           production_image: debian:buster-slim
           test_valgrind: false
@@ -966,6 +971,7 @@ workflows:
       #     matrix:
       #       parameters:
       #         platform: [ aarch64 ]
+      #         executor: [ atom/build-ubuntu-arm ]
       #     working_directory: metrics
       #     image_name: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
       #     image_tag: build-<< pipeline.number >>

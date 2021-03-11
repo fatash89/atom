@@ -125,6 +125,65 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 
 ### Release Notes
 
+#### [v0.2.0](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.2.0)
+
+##### New Features
+
+- Adds in the ability to build ARM with CircleCI's new ARM linux executors. This speeds up ARM builds by roughly 10x as they're no longer done in QEMU/simulation.
+
+##### Upgrade Steps
+
+In previous versions, to build ARM, one would set up a job in a .circleci file similar to:
+
+```
+  - atom/build_buildx:
+      name: "build-<< matrix.platform >>-<< matrix.stage >>"
+      matrix:
+        parameters:
+          platform: [ amd64, aarch64 ]
+      image_name: << pipeline.parameters.dockerhub_repo >>
+      image_tag: build-<< pipeline.number >>-<< matrix.stage >>
+      cache_repo: << pipeline.parameters.dockerhub_repo >>
+      cache_tag: build-cache
+      build_args: --build-arg ATOM_IMAGE=<< pipeline.parameters.atom_repo >>:<< pipeline.parameters.atom_version >>-<< pipeline.parameters.atom_variant >>-<< matrix.platform >>
+      filters:
+        tags:
+          only: /.*/
+```
+
+Now, we need to change the `matrix` section to include information about the `executor`. In order
+to minimize disruption, we require both the `executor` and `platform` information, even
+though they're technically redundant. This can be improved in a future release. We need to then
+have our build jobs look like
+
+```
+  - atom/build_buildx:
+      name: "build-<< matrix.platform >>-<< matrix.stage >>"
+      matrix:
+        parameters:
+          platform: [ amd64, aarch64 ]
+          executor: [ atom/build-ubuntu, atom/build-ubuntu-arm]
+          exclude:
+            - platform: amd64
+              executor: atom/build-ubuntu-arm
+            - platform: aarch64
+              executor: atom/build-ubuntu
+      image_name: << pipeline.parameters.dockerhub_repo >>
+      image_tag: build-<< pipeline.number >>-<< matrix.stage >>
+      cache_repo: << pipeline.parameters.dockerhub_repo >>
+      cache_tag: build-cache
+      build_args: --build-arg ATOM_IMAGE=<< pipeline.parameters.atom_repo >>:<< pipeline.parameters.atom_version >>-<< pipeline.parameters.atom_variant >>-<< matrix.platform >>
+      filters:
+        tags:
+          only: /.*/
+```
+
+The exclude section is necessary so that we get exactly two build jobs, one for
+`amd64` with `atom/build-ubuntu` and one for `aarch64` with `atom/build-ubuntu-arm`.
+
+This only needs to be done on `build_buildx` jobs, the deploys can all be done on Intel without
+any performance hit and without issue.
+
 #### [v0.1.12](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.1.12)
 
 ##### New Features
