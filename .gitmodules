@@ -19,9 +19,6 @@
 [submodule "languages/c/third-party/msgpack-c/msgpack-c"]
 	path = languages/c/third-party/msgpack-c/msgpack-c
 	url = https://github.com/msgpack/msgpack-c.git
-[submodule "languages/python/third-party/redis-py"]
-	path = languages/python/third-party/redis-py
-	url = git@github.com:andymccurdy/redis-py.git
 [submodule "third-party/OpenBLAS"]
 	path = third-party/OpenBLAS
 	url = git@github.com:xianyi/OpenBLAS.git
@@ -40,6 +37,3 @@
 [submodule "metrics/grafana-redis-datasource"]
 	path = metrics/grafana-redis-datasource
 	url = https://github.com/RedisTimeSeries/grafana-redis-datasource
-[submodule "third-party/redistimeseries-py"]
-	path = third-party/redistimeseries-py
-	url = https://github.com/RedisTimeSeries/redistimeseries-py
