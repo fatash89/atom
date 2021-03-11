@@ -56,7 +56,7 @@ RUN pip3 install --no-cache-dir -r /atom/languages/python/requirements.txt
 ADD ./lua-scripts /atom/lua-scripts
 ADD ./languages/python /atom/languages/python
 RUN cd /atom/languages/python \
-   && python3 setup.py install
+   && python3 setup_local.py install
 
 #
 # Command-line utility

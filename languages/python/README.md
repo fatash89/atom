@@ -7,7 +7,7 @@
 pip install -r requirements.txt
 ```
 ```
-python setup.py install
+python setup_local.py install
 ```
 
 ### Testing

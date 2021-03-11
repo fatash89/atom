@@ -74,7 +74,7 @@ ENV LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
 # Cython
 ADD ./languages/python/third-party/cython /atom/languages/python/third-party/cython
 WORKDIR /atom/languages/python/third-party/cython
-RUN python3 setup.py build -j8 install
+RUN python3 setup_local.py build -j8 install
 
 # OpenBLAS
 ADD ./third-party/OpenBLAS /atom/third-party/OpenBLAS
@@ -86,7 +86,7 @@ RUN cd /atom/third-party/OpenBLAS \
 ADD ./languages/python/third-party/numpy /atom/languages/python/third-party/numpy
 ADD ./languages/python/third-party/numpy.site.cfg /atom/languages/python/third-party/numpy/site.cfg
 WORKDIR /atom/languages/python/third-party/numpy
-RUN python3 setup.py build -j8 install
+RUN python3 setup_local.py build -j8 install
 
 # Pyarrow
 ADD ./third-party/apache-arrow /atom/third-party/apache-arrow
@@ -106,7 +106,7 @@ RUN mkdir -p /atom/third-party/apache-arrow/cpp/build \
   && make -j8 \
   && make install
 RUN cd /atom/third-party/apache-arrow/python \
-  && ARROW_HOME=/usr/local SETUPTOOLS_SCM_PRETEND_VERSION="0.17.0" python3 setup.py build_ext -j 8 --build-type=release --extra-cmake-args=${PYARROW_EXTRA_CMAKE_ARGS} install
+  && ARROW_HOME=/usr/local SETUPTOOLS_SCM_PRETEND_VERSION="0.17.0" python3 setup_local.py build_ext -j 8 --build-type=release --extra-cmake-args=${PYARROW_EXTRA_CMAKE_ARGS} install
 
 #
 # Redis itself. Need this in the atom image s.t. we have redis-cli in all of

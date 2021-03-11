@@ -1,12 +1,12 @@
+# Used to upload package to PyPI
+# TODO: discuss what we should put in install_requires
 import setuptools
 
-
-# TODO: discuss what we should put in install_requires
 
 setuptools.setup(
     name="elementary-atom",
     packages=["atom"],
-    version="0.0.1",
+    version="2.5.1",
     include_package_data=True,
     keywords="elementary robotics atom redis rts",
     url="https://github.com/elementary-robotics/atom",
