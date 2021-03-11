@@ -41,6 +41,9 @@ aliases:
       use_git_lfs:
         type: boolean
         default: false
+      executor:
+        type: executor
+        default: build-ubuntu
 
   # Mapping to pass build args through without modification
   - &build_basic_args_mapping
@@ -125,6 +128,9 @@ aliases:
       use_git_lfs:
         type: boolean
         default: false
+      executor:
+        type: executor
+        default: build-ubuntu
 
   - &test_shared_args_mapping
       platform: << parameters.platform >>
@@ -194,6 +200,7 @@ executors:
   # some buildx bugs that caused layers/files to be dropped that might be
   # resolved in 20.10.0, so we should ensure we're running a version
   # newer than this.
+
   build-ubuntu:
     machine:
       enabled: true
@@ -201,6 +208,30 @@ executors:
     environment:
       DOCKER_CLI_EXPERIMENTAL: enabled
     resource_class: medium
+
+  build-ubuntu-large:
+    machine:
+      enabled: true
+      image: ubuntu-2004:202101-01
+    environment:
+      DOCKER_CLI_EXPERIMENTAL: enabled
+    resource_class: large
+
+  build-ubuntu-arm:
+    machine:
+      enabled: true
+      image: ubuntu-2004:202101-01
+    environment:
+      DOCKER_CLI_EXPERIMENTAL: enabled
+    resource_class: arm.medium
+
+  build-ubuntu-arm-large:
+    machine:
+      enabled: true
+      image: ubuntu-2004:202101-01
+    environment:
+      DOCKER_CLI_EXPERIMENTAL: enabled
+    resource_class: arm.large
 
   # Docker-in-docker. Need to call setup_remote_docker
   # before using. Useful when you don't need a bunch of
@@ -574,68 +605,27 @@ jobs:
           command: CODE_DIR=/root/project FLAKE8_EXCLUDE=<< parameters.flake8_exclude>> BLACK_EXCLUDE=<< parameters.black_exclude >> FORMAT_BLACK=<< parameters.use_black >> /usr/local/bin/run.sh
 
   build:
-    executor: build-ubuntu
     parameters:
       << : *build_basic_args
-    steps:
-      - build_shared:
-          << : *build_basic_args_mapping
-
-  build_large:
-    executor: build-ubuntu
-    resource_class: large
-    parameters:
-      << : *build_basic_args
-    steps:
-      - build_shared:
-          << : *build_basic_args_mapping
-
-  build_xlarge:
-    executor: build-ubuntu
-    resource_class: xlarge
-    parameters:
-      << : *build_basic_args
+    executor: << parameters.executor >>
     steps:
       - build_shared:
           << : *build_basic_args_mapping
 
   build_buildx:
-    executor: build-ubuntu
     parameters:
       << : *build_basic_args
       << : *build_buildx_additional_args
+    executor: << parameters.executor >>
     steps:
       - build_buildx_shared:
           << : *build_basic_args_mapping
           << : *build_buildx_additional_args_mapping
 
-  build_buildx_large:
-    executor: build-ubuntu
-    resource_class: large
-    parameters:
-      << : *build_basic_args
-      << : *build_buildx_additional_args
-    steps:
-      - build_buildx_shared:
-          << : *build_basic_args_mapping
-          << : *build_buildx_additional_args_mapping
-
-  build_buildx_xlarge:
-    executor: build-ubuntu
-    resource_class: xlarge
-    parameters:
-      << : *build_basic_args
-      << : *build_buildx_additional_args
-    steps:
-      - build_buildx_shared:
-          << : *build_basic_args_mapping
-          << : *build_buildx_additional_args_mapping
-
-  # Run Tests
   test:
-    executor: build-ubuntu
     parameters:
       << : *test_shared_args
+    executor: << parameters.executor >>
     steps:
       - when:
           condition: << parameters.use_git_lfs >>
