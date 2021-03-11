@@ -333,18 +333,10 @@ commands:
             docker push registry.heroku.com/${HEROKU_APP_NAME}/web
             heroku container:release -a << pipeline.parameters.heroku_app_name >> web
 
-  set_atom_version:
-    steps:
-      - run:
-          name: Add atom version to config file
-          command: |
-            python3 languages/python/version.py
-
   build_shared_init:
     steps:
       - checkout
       - atom/update_submodules
-      - set_atom_version
       - atom/docker_login
 
   test_atom_variant:
