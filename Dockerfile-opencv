@@ -50,7 +50,7 @@ RUN mkdir -p build && cd build && cmake \
 # Install Pillow (PIL) as that's also used frequently with opencv
 COPY ./languages/python/third-party/Pillow /atom/languages/python/third-party/Pillow
 WORKDIR /atom/languages/python/third-party/Pillow
-RUN MAX_CONCURRENCY=8 python3 setup_local.py install
+RUN MAX_CONCURRENCY=8 python3 setup.py install
 
 RUN ldd /usr/local/lib/libopencv* | grep "=> /" | awk '{print $3}' | sort -u > /tmp/required_libs.txt
 

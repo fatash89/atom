@@ -1,8 +1,7 @@
-# Used to upload package to PyPI
-# TODO: discuss what we should put in install_requires
 import setuptools
 
-
+# Used to upload package to PyPI
+# TODO: discuss what we should put in install_requires
 setuptools.setup(
     name="elementary-atom",
     packages=["atom"],
