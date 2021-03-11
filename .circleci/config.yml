@@ -278,7 +278,7 @@ aliases:
 version: 2.1
 
 orbs:
-  atom:  elementaryrobotics/atom@dev:arm
+  atom:  elementaryrobotics/atom@0.2.0
 
 commands:
 
@@ -783,7 +783,6 @@ workflows:
               executor: [ atom/build-ubuntu-arm ]
           base_tag: *base_build_atom_stock_aarch64_tag
           production_image: debian:buster-slim
-          build_args: --no-cache
           test_valgrind: false
           filters:
             tags:
@@ -803,7 +802,6 @@ workflows:
               executor: [ atom/build-ubuntu-arm ]
           base_tag: *base_build_atom_opencv_aarch64_tag
           production_image: debian:buster-slim
-          build_args: --no-cache
           test_valgrind: false
           requires:
             - build-atom-stock-aarch64
@@ -979,7 +977,7 @@ workflows:
       #     image_tag: build-<< pipeline.number >>
       #     cache_repo: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
       #     cache_tag: cache
-      #     build_args: "--build-arg NODE_ARCH=arm64 --no-cache"
+      #     build_args: "--build-arg NODE_ARCH=arm64"
       #     filters:
       #       tags:
       #         only: /.*/
