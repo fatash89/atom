@@ -4316,6 +4316,9 @@ class Element:
         else:
             _pipe = pipeline
 
+        if _pipe is None:
+            return None
+
         # We want to log to the debug stream in the metrics
         #   redis about the parameter change. This will make it show up
         #   in the dashboards so we can see what the current/previous
@@ -4389,6 +4392,9 @@ class Element:
             _pipe = self.metrics_get_pipeline()
         else:
             _pipe = pipeline
+
+        if _pipe is None:
+            return None
 
         # Update the timestamp
         if timestamp is None or pipeline is not None:
