@@ -80,15 +80,22 @@ from typing_extensions import Literal, TypedDict
 DuplicatePolicy = Literal["block", "first", "last", "min", "max"]
 
 
-class HandlerDict(TypedDict, total=False):
+class HandlerDictBase(TypedDict):
+    """
+    handler and serialization are required keys
+    """
+
+    handler: Callable
+    serialization: Optional[ser.SerializationMethod]
+
+
+class HandlerDict(HandlerDictBase, total=False):
     """
     Using total=False so that `deserialize` is accepted as an optional key (but
         not required) to check for deprecated legacy logic in
         Element._get_serialization_method.
     """
 
-    handler: Callable
-    serialization: Optional[ser.SerializationMethod]
     deserialize: Optional[ser.SerializationMethod]
 
 
@@ -1451,12 +1458,12 @@ class Element:
                     )
 
                     if cmd_name not in RESERVED_COMMANDS:
-                        if (
-                            "deserialize" in self.handler_map[cmd_name]
-                        ):  # check for deprecated legacy mode
+                        if "deserialize" in self.handler_map[cmd_name]:
+                            # Check for deprecated legacy mode. Conditional
+                            # prevents runtime error that pyright raises.
                             serialization = (
                                 "msgpack"
-                                if self.handler_map[cmd_name]["deserialize"]
+                                if self.handler_map[cmd_name]["deserialize"]  # type: ignore
                                 else None
                             )
                         else:

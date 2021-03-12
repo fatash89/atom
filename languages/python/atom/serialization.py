@@ -6,7 +6,7 @@ from typing import Optional
 
 import numpy as np
 import pyarrow as pa
-from msgpack import packb, unpackb
+from msgpack import packb, unpackb  # type: ignore
 from typing_extensions import Literal
 
 SerializationMethod = Literal["msgpack", "arrow", "none"]
