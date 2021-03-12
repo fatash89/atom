@@ -5,7 +5,7 @@ import setuptools
 setuptools.setup(
     name="elementary-atom",
     packages=["atom"],
-    version="2.5.1",
+    version="2.5.2",
     include_package_data=True,
     keywords="elementary robotics atom redis rts",
     url="https://github.com/elementary-robotics/atom",

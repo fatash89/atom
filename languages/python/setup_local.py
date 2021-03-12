@@ -4,6 +4,6 @@ import setuptools
 setuptools.setup(
     name="atom",
     packages=["atom"],
-    version="2.5.1",
+    version="2.5.2",
     include_package_data=True,
 )

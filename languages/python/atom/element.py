@@ -78,6 +78,7 @@ from redistimeseries.client import Pipeline as RedisTimeSeriesPipeline
 from typing_extensions import Literal, TypedDict
 
 DuplicatePolicy = Literal["block", "first", "last", "min", "max"]
+CommandHandler = Callable[..., Response]
 
 
 class HandlerDict(TypedDict, total=False):
@@ -87,7 +88,7 @@ class HandlerDict(TypedDict, total=False):
         Element._get_serialization_method.
     """
 
-    handler: Callable
+    handler: CommandHandler
     serialization: Optional[ser.SerializationMethod]
     deserialize: Optional[ser.SerializationMethod]
 
@@ -217,7 +218,7 @@ class Element:
             self._redis_connection_timeout > 0
         ), "timeout must be positive and non-zero"
         self.streams: set[str] = set()
-        self._rclient: Optional[redis.StrictRedis] = None
+        self._rclient: redis.StrictRedis
         self._command_loop_shutdown = multiprocessing.Event()
         self._rpipeline_pool: "Queue[Pipeline]" = Queue()
         self._mpipeline_pool: "LifoQueue[RedisTimeSeriesPipeline]" = LifoQueue()
@@ -960,7 +961,7 @@ class Element:
     def command_add(
         self,
         name: str,
-        handler: Callable,
+        handler: CommandHandler,
         timeout: int = RESPONSE_TIMEOUT,
         serialization: Optional[ser.SerializationMethod] = None,
         deserialize: Optional[bool] = None,
@@ -1004,7 +1005,7 @@ class Element:
         # Make the metric for the command
         self._command_add_init_metrics(name)
 
-    def healthcheck_set(self, handler: Callable) -> None:
+    def healthcheck_set(self, handler: CommandHandler) -> None:
         """
         Sets a custom healthcheck callback
 

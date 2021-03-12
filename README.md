@@ -160,7 +160,7 @@ Update the version manually in the following files:
 
 __All of the following should be done on the host, not in the Docker container__.
 
-We use `twine` to package Atom so upload it to PyPI. Make sure you have `twine` installed on your host: `pip install twine`.
+We use `twine` to package Atom to upload it to PyPI. Make sure you have `twine` installed on your host: `pip install twine`.
 
 First `cd languages/python`. If you have a `dist` folder in there from a previous install, remove its contents with `rm dist/*`.
 
