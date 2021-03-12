@@ -1,1 +1,2 @@
 include atom/stream_reference.lua
+include README.md
