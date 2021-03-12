@@ -44,7 +44,7 @@ class MetricsHelper(object):
     Helper class for making metrics
     """
 
-    def _set_metric_info(self, m_type: str, *m_subtypes) -> None:
+    def _set_metric_info(self, m_type: str, *m_subtypes: str) -> None:
         """
         Set the metric info for this class. Takes a type and a variadic list
         of subtypes and strings them into a key we'll use as a high-level
