@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import pickle
 import time
 from enum import Enum, auto
 from multiprocessing import Queue
 from queue import Empty as QueueEmpty
+from typing import Generic, Optional, TypeVar
 
 from atom import AtomError, LogLevel
 from atom.config import (
@@ -12,6 +15,7 @@ from atom.config import (
     METRICS_PRIO_QUEUE_GET_PRIO,
     METRICS_PRIO_QUEUE_PRUNE_PRIO,
     METRICS_PRIO_QUEUE_PUT_PRIO,
+    METRICS_PRIO_QUEUE_SIZE,
     METRICS_PRIO_QUEUE_TYPE,
     METRICS_QUEUE_GET,
     METRICS_QUEUE_GET_DATA,
@@ -22,8 +26,10 @@ from atom.config import (
     METRICS_QUEUE_TYPE,
     PRIO_QUEUE_DEFAULT_MAX_LEN,
 )
-from atom.element import MetricsPipeline, SetEmptyError
+from atom.element import Element, MetricsPipeline, SetEmptyError
 from atom.metrics import MetricsHelper, MetricsTimingCall
+
+T = TypeVar("T")
 
 
 class AtomQueueTypes(Enum):
@@ -37,7 +43,9 @@ class AtomQueue(MetricsHelper):
     the wheel on most things, including metrics
     """
 
-    def _init_shared_metrics(self, element, metric_type, *metric_subtypes):
+    def _init_shared_metrics(
+        self, element: Element, metric_type: str, *metric_subtypes: str
+    ) -> None:
         """
         Initialize metrics for this queue. We will do this using the custom
         API from Atom s.t. we don't have the metrics namespaced on the element
@@ -45,9 +53,9 @@ class AtomQueue(MetricsHelper):
         metrics s.t. it shows up in one place in the dashboards
 
         Args:
-            metric_type (string): Metric type to use for the queue
             element (Atom Element): Element to use to communicate with the
                 metrics redis. Can be any valid element.
+            metric_type (string): Metric type to use for the queue
             metric_subtypes (list of str): List of subtypes for the queue
         """
 
@@ -63,7 +71,7 @@ class AtomQueue(MetricsHelper):
         self._create_metric(element, METRICS_QUEUE_GET_EMPTY)
 
 
-class AtomPrioQueue(AtomQueue):
+class AtomPrioQueue(AtomQueue, Generic[T]):
     """
     Multi-process priority queue with auto-self-pruning and metrics integrations
 
@@ -81,11 +89,11 @@ class AtomPrioQueue(AtomQueue):
 
     def __init__(
         self,
-        name,
-        element,
-        max_highest_prio=False,
-        max_len=PRIO_QUEUE_DEFAULT_MAX_LEN,
-        metrics_type=METRICS_PRIO_QUEUE_TYPE,
+        name: str,
+        element: Element,
+        max_highest_prio: bool = False,
+        max_len: int = PRIO_QUEUE_DEFAULT_MAX_LEN,
+        metrics_type: str = METRICS_PRIO_QUEUE_TYPE,
     ):
         """
         Constructor.
@@ -121,7 +129,9 @@ class AtomPrioQueue(AtomQueue):
         # Initialize the metrics we'll use to track the queue
         self._init_metrics(element, METRICS_QUEUE_TYPE, metrics_type, self.name)
 
-    def _init_metrics(self, element, metric_type, *metric_subtypes):
+    def _init_metrics(
+        self, element: Element, metric_type: str, *metric_subtypes: str
+    ) -> None:
         """
         Initialize metrics for this queue. We will do this using the custom
         API from Atom s.t. we don't have the metrics namespaced on the element
@@ -129,9 +139,9 @@ class AtomPrioQueue(AtomQueue):
         metrics s.t. it shows up in one place in the dashboards
 
         Args:
-            metric_type (string): Metric type to use for the queue
             element (Atom Element): Element to use to communicate with the
                 metrics redis. Can be any valid element.
+            metric_type (string): Metric type to use for the queue
             metric_subtypes (list of str): List of subtypes for the queue
         """
 
@@ -140,11 +150,14 @@ class AtomPrioQueue(AtomQueue):
 
         # Make our additional metrics
         self._create_metric(element, METRICS_PRIO_QUEUE_GET_N)
+        self._create_metric(element, METRICS_PRIO_QUEUE_SIZE)
         self._create_metric(element, METRICS_PRIO_QUEUE_GET_PRIO)
         self._create_metric(element, METRICS_PRIO_QUEUE_PUT_PRIO)
         self._create_metric(element, METRICS_PRIO_QUEUE_PRUNE_PRIO)
 
-    def prune(self, element, q_size=None, pipeline=None, invert=False):
+    def prune(
+        self, element: Element, q_size: int = None, pipeline=None, invert: bool = False
+    ) -> tuple[list[T], int]:
         """
         Prune to max length
 
@@ -189,7 +202,14 @@ class AtomPrioQueue(AtomQueue):
 
         return pruned, q_size
 
-    def put(self, item, prio, element, prune=True, invert=False):
+    def put(
+        self,
+        item: T,
+        prio: float,
+        element: Element,
+        prune: bool = True,
+        invert: bool = False,
+    ) -> tuple[int, list[T]]:
         """
         Put an item onto the queue
 
@@ -247,7 +267,9 @@ class AtomPrioQueue(AtomQueue):
 
         return q_size, pruned
 
-    def get(self, element, block=True, timeout=0):
+    def get(
+        self, element: Element, block: bool = True, timeout: float = 0
+    ) -> Optional[T]:
         """
         Get a piece of data from a queue. Default will block until data
         is available. Pass timeout (in seconds) to have it return early
@@ -308,16 +330,16 @@ class AtomPrioQueue(AtomQueue):
 
         return item
 
-    def get_n(self, element, n, max_n=False):
+    def get_n(self, element: Element, n: int, max_n: bool = False) -> list[T]:
         """
         Return up to N items from the priority queue, in priority order. No
         ability to block, if you need blocking you should use the get() API.
 
         Args:
             element (Atom Element): Element used to communicate with metrics
-            n (integer): Maximum number of items to return from the priority
+            n (int): Maximum number of items to return from the priority
                 queue.
-            max_n (boolean): If true will return up to the queue's max amount
+            max_n (bool): If true will return up to the queue's max amount
                 of items
 
         Return:
@@ -375,7 +397,31 @@ class AtomPrioQueue(AtomQueue):
 
         return ret_items
 
-    def finish(self, element):
+    def size(self, element: Element) -> int:
+        """
+        Get the size of the queue
+
+        Args:
+            element (Atom Element): Element used to communicate with metrics
+
+        Return:
+            integer size of the queue, -1 on error
+        """
+        with MetricsPipeline(element) as metrics_pipeline:
+
+            with MetricsTimingCall(
+                self, element, METRICS_PRIO_QUEUE_SIZE, pipeline=metrics_pipeline
+            ):
+
+                # Do the get
+                try:
+                    size = element.sorted_set_size(self.sorted_set_key)
+                except AtomError:
+                    size = -1
+
+        return size
+
+    def finish(self, element: Element) -> None:
         """
         Call when done using the queue. This will ensure that your process/
         thread can shut down properly. Nothing to do for the prio queue type
@@ -389,7 +435,7 @@ class AtomPrioQueue(AtomQueue):
             pass
 
 
-class AtomFIFOQueue(AtomPrioQueue):
+class AtomFIFOQueue(AtomPrioQueue[T]):
     """
     FIFO queue buit atop the prio queue using time as priority. Might be more
     reliable in terms of in-time ordering when being fed by multiple
@@ -399,11 +445,11 @@ class AtomFIFOQueue(AtomPrioQueue):
 
     def __init__(
         self,
-        name,
-        element,
-        max_highest_prio=False,
-        max_len=PRIO_QUEUE_DEFAULT_MAX_LEN,
-        metrics_type=METRICS_FIFO_QUEUE_TYPE,
+        name: str,
+        element: Element,
+        max_highest_prio: bool = False,
+        max_len: int = PRIO_QUEUE_DEFAULT_MAX_LEN,
+        metrics_type: str = METRICS_FIFO_QUEUE_TYPE,
     ):
         """
         Constructor.
@@ -429,7 +475,9 @@ class AtomFIFOQueue(AtomPrioQueue):
             metrics_type=metrics_type,
         )
 
-    def prune(self, element, q_size=None, pipeline=None, invert=False):
+    def prune(
+        self, element: Element, q_size: int = None, pipeline=None, invert: bool = False
+    ) -> tuple[list[T], int]:
         """
         Prune to max length. We want to invert the pruning logic
         of the typical prio queue, since typically the prio will prune
@@ -452,26 +500,31 @@ class AtomFIFOQueue(AtomPrioQueue):
             element, q_size=q_size, pipeline=pipeline, invert=not invert
         )
 
-    def put(self, item, element, timestamp=None, prune=True, invert=False):
+    def put(
+        self,
+        item: T,
+        element: Element,
+        timestamp: float = None,
+        prune: bool = True,
+        invert: bool = False,
+    ) -> tuple[int, list[T]]:
         """
         Put an item onto the queue
 
         Args:
             item (N/A): Thing to be put onto the queue. MUST be pickleable
                 as we will attempt to pickle it.
-            prio (float): Floating-point priority to put the item into the queue
-                with.
             element (Atom Element): Element to use to communicate with
                 metrics.
+            timestamp (float): Timestamp to use for the FIFO ordering. If
+                None will use time.monotonic(), else will use the passed value.
+                This allows us to add slightly-out-of order based on scheduling
+                and still get FIFO behavior.
             prune (bool): If True, do pruning on this put action. If false,
                 will skip the pruning. Not recommended to do this unless
                 there's a really heavy cleanup action for the pruned
                 items which cannot be done from the put() side such as in
                 StreamHandler
-            timestamp (float): Timestamp to use for the FIFO ordering. If
-                None will use time.monotonic(), else will use the passed value.
-                This allows us to add slightly-out-of order based on scheduling
-                and still get FIFO behavior.
 
         Return:
             (Current queue size, list of pruned elements)
@@ -485,7 +538,7 @@ class AtomFIFOQueue(AtomPrioQueue):
         )
 
 
-class AtomFIFOMultiprocessingQueue(AtomQueue):
+class AtomFIFOMultiprocessingQueue(AtomQueue, Generic[T]):
     """
     Multi-process FIFO queue with auto-self-pruning and metrics integrations.
 
@@ -502,7 +555,9 @@ class AtomFIFOMultiprocessingQueue(AtomQueue):
     clean, slowing down puts temporarily to perhaps allow gets to catch up)
     """
 
-    def __init__(self, name, element, max_len=FIFO_QUEUE_DEFAULT_MAX_LEN):
+    def __init__(
+        self, name: str, element: Element, max_len: int = FIFO_QUEUE_DEFAULT_MAX_LEN
+    ):
         """
         Constructor.
 
@@ -525,10 +580,10 @@ class AtomFIFOMultiprocessingQueue(AtomQueue):
 
         # Initialize the metrics we'll use to track the queue
         self._init_metrics(
-            element, METRICS_QUEUE_TYPE, METRICS_FIFO_QUEUE_TYPE, self.name
+            element, f"{METRICS_QUEUE_TYPE}:{METRICS_FIFO_QUEUE_TYPE}:{self.name}"
         )
 
-    def _init_metrics(self, element, metric_type):
+    def _init_metrics(self, element: Element, metric_type: str) -> None:
         """
         Initialize metrics for this queue. We will do this using the custom
         API from Atom s.t. we don't have the metrics namespaced on the element
@@ -536,23 +591,25 @@ class AtomFIFOMultiprocessingQueue(AtomQueue):
         metrics s.t. it shows up in one place in the dashboards
 
         Args:
-            metric_type (string): Metric type to use for the queue
             element (Atom Element): Element to use to communicate with the
                 metrics redis. Can be any valid element.
+            metric_type (string): Metric type to use for the queue
         """
 
         # Just use the standard shared metrics from AtomQueue. Nothing
         #   fancy here
         self._init_shared_metrics(element, metric_type)
 
-    def prune(self, element, q_size=None):
+    def prune(
+        self, element: Element, q_size: Optional[int] = None
+    ) -> tuple[list[T], int]:
         """
         Prune to max length
 
         Args:
-            q_size (int): Current size of the queue
             element (Atom Element): Element to use to communicate with
                 metrics.
+            q_size (int): Current size of the queue
 
         Return:
             List of items pruned
@@ -586,7 +643,7 @@ class AtomFIFOMultiprocessingQueue(AtomQueue):
 
         return pruned, q_size
 
-    def put(self, item, element, prune=True):
+    def put(self, item: T, element: Element, prune: bool = True) -> tuple[int, list[T]]:
         """
         Put an item onto the queue
 
@@ -632,7 +689,9 @@ class AtomFIFOMultiprocessingQueue(AtomQueue):
 
         return q_size, pruned
 
-    def get(self, element, block=True, timeout=None):
+    def get(
+        self, element: Element, block: bool = True, timeout: Optional[int] = None
+    ) -> Optional[T]:
         """
         Get a piece of data from a queue. Default will block until data
         is available. Pass timeout (in seconds) to have it return early
@@ -677,7 +736,7 @@ class AtomFIFOMultiprocessingQueue(AtomQueue):
 
         return item
 
-    def finish(self, element):
+    def finish(self, element: Element) -> None:
         """
         Call when done using the queue. This will ensure that your process/
         thread can shut down properly. We will close the queue and cancel the

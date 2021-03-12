@@ -71,6 +71,7 @@ METRICS_QUEUE_GET_EMPTY = "get_empty"
 
 # Prio queue only metrics strings
 METRICS_PRIO_QUEUE_GET_N = "get_n"
+METRICS_PRIO_QUEUE_SIZE = "size_prio"
 METRICS_PRIO_QUEUE_GET_PRIO = "get_prio"
 METRICS_PRIO_QUEUE_PUT_PRIO = "put_prio"
 METRICS_PRIO_QUEUE_PRUNE_PRIO = "prune_prio"

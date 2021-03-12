@@ -298,8 +298,7 @@ commands:
           command: docker exec -it << parameters.container >> pyright /atom/languages/python/atom
       - run:
           name: Python tests
-          command: docker exec -it -w /atom/languages/python << parameters.container >> pytest -vv --maxfail=1
-          no_output_timeout: 10m
+          command: docker exec -it -w /atom/languages/python/tests << parameters.container >> pytest -vv --durations=0 --capture=tee-sys
       - run:
           name: C tests
           command:  docker exec -it -w /atom/languages/c << parameters.container >> make test

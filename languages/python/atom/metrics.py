@@ -1,4 +1,5 @@
 import time
+from typing import Optional, cast
 
 from atom.config import (
     METRICS_LEVEL_LABEL,
@@ -6,6 +7,9 @@ from atom.config import (
     METRICS_TYPE_LABEL,
     MetricsLevel,
 )
+from atom.element import Element
+from redis.client import Pipeline
+from redistimeseries.client import Pipeline as RedisTimeSeriesPipeline
 
 
 class MetricsTimingCall(object):
@@ -13,7 +17,13 @@ class MetricsTimingCall(object):
     Wrapper for making metrics timing calls
     """
 
-    def __init__(self, helper_instance, element, metric_key, pipeline=None):
+    def __init__(
+        self,
+        helper_instance,
+        element: Element,
+        metric_key: str,
+        pipeline: Pipeline = None,
+    ):
         self.helper_instance = helper_instance
         self.element = element
         self.metric_key = metric_key
@@ -34,7 +44,7 @@ class MetricsHelper(object):
     Helper class for making metrics
     """
 
-    def _set_metric_info(self, m_type, *m_subtypes):
+    def _set_metric_info(self, m_type: str, *m_subtypes) -> None:
         """
         Set the metric info for this class. Takes a type and a variadic list
         of subtypes and strings them into a key we'll use as a high-level
@@ -59,7 +69,7 @@ class MetricsHelper(object):
         # Make the metrics keys
         self._metrics_keys = {}
 
-    def _make_metric_key(self, descriptor):
+    def _make_metric_key(self, descriptor: str) -> str:
         """
         Return a fully specified metrics key
 
@@ -68,7 +78,12 @@ class MetricsHelper(object):
         """
         return f"{self._metrics_key_str}:{descriptor}"
 
-    def _create_metric(self, element, descriptor, metric_level=MetricsLevel.INFO):
+    def _create_metric(
+        self,
+        element: Element,
+        descriptor: str,
+        metric_level: MetricsLevel = MetricsLevel.INFO,
+    ) -> None:
         """
         Create a metric and return the key for it
 
@@ -98,7 +113,9 @@ class MetricsHelper(object):
         # Add the key into our metrics keys
         self._metrics_keys[descriptor] = metric_key
 
-    def _log_metric(self, element, descriptor, value, pipeline=None):
+    def _log_metric(
+        self, element: Element, descriptor: str, value: float, pipeline: Pipeline = None
+    ) -> None:
         """
         Log a metric for a descriptor
 
@@ -117,10 +134,18 @@ class MetricsHelper(object):
         # Known bug in RTS when logging 0, ignore for now
         if value != 0:
             element.metrics_add(
-                self._metrics_keys[descriptor], value, pipeline=pipeline
+                self._metrics_keys[descriptor],
+                value,
+                pipeline=cast(Optional[RedisTimeSeriesPipeline], pipeline),
             )
 
-    def _log_metric_timing(self, element, descriptor, start_time, pipeline=None):
+    def _log_metric_timing(
+        self,
+        element: Element,
+        descriptor: str,
+        start_time: float,
+        pipeline: Pipeline = None,
+    ) -> None:
         """
         Log a timing metric for a descriptor. Should be given a start time
         calculated with time.monotonic()
