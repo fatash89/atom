@@ -78,18 +78,19 @@ from redistimeseries.client import Pipeline as RedisTimeSeriesPipeline
 from typing_extensions import Literal, TypedDict
 
 DuplicatePolicy = Literal["block", "first", "last", "min", "max"]
+CommandHandler = Callable[..., Response]
 
 
-class HandlerDictBase(TypedDict):
+class CommandHandlerMapBase(TypedDict):
     """
     handler and serialization are required keys
     """
 
-    handler: Callable
+    handler: CommandHandler
     serialization: Optional[ser.SerializationMethod]
 
 
-class HandlerDict(HandlerDictBase, total=False):
+class CommandHandlerMap(CommandHandlerMapBase, total=False):
     """
     Using total=False so that `deserialize` is accepted as an optional key (but
         not required) to check for deprecated legacy logic in
@@ -216,7 +217,7 @@ class Element:
 
         self.name = name
         self.host = uname().nodename
-        self.handler_map: dict[str, HandlerDict] = {}
+        self.handler_map: dict[str, CommandHandlerMap] = {}
         self.timeouts: dict[str, int] = {}
         self._redis_connection_timeout = float(conn_timeout_ms / 1000.0)
         self._redis_data_timeout = float(data_timeout_ms / 1000.0)
@@ -224,7 +225,7 @@ class Element:
             self._redis_connection_timeout > 0
         ), "timeout must be positive and non-zero"
         self.streams: set[str] = set()
-        self._rclient: Optional[redis.StrictRedis] = None
+        self._rclient: redis.StrictRedis
         self._command_loop_shutdown = multiprocessing.Event()
         self._rpipeline_pool: "Queue[Pipeline]" = Queue()
         self._mpipeline_pool: "LifoQueue[RedisTimeSeriesPipeline]" = LifoQueue()
@@ -967,7 +968,7 @@ class Element:
     def command_add(
         self,
         name: str,
-        handler: Callable,
+        handler: CommandHandler,
         timeout: int = RESPONSE_TIMEOUT,
         serialization: Optional[ser.SerializationMethod] = None,
         deserialize: Optional[bool] = None,
@@ -1011,7 +1012,7 @@ class Element:
         # Make the metric for the command
         self._command_add_init_metrics(name)
 
-    def healthcheck_set(self, handler: Callable) -> None:
+    def healthcheck_set(self, handler: CommandHandler) -> None:
         """
         Sets a custom healthcheck callback
 
@@ -4322,6 +4323,9 @@ class Element:
         else:
             _pipe = pipeline
 
+        if _pipe is None:
+            return None
+
         # We want to log to the debug stream in the metrics
         #   redis about the parameter change. This will make it show up
         #   in the dashboards so we can see what the current/previous
@@ -4395,6 +4399,9 @@ class Element:
             _pipe = self.metrics_get_pipeline()
         else:
             _pipe = pipeline
+
+        if _pipe is None:
+            return None
 
         # Update the timestamp
         if timestamp is None or pipeline is not None:

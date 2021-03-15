@@ -147,7 +147,26 @@ The formatter exposes the following command-line options which are used in the [
 | `DO_CHECK` | "y" | If non-empty, i.e. not "", run the formatting/linting check automatically. This is the default. |
 | `DO_HANG` | "" | If non-empty, instead of returning when finished, hang the container. This is nice if you want to then shell in to the container and play around with the formatter, but otherwise not that useful |
 
+##### Bumping version
 
+Update the version manually in the following files:
+
+- `languages/python/setup.py`
+- `languages/python/setup_local.py`
+- `languages/python/atom/config.py`
+- `docker-compose-dev.yml`
+
+##### Publishing on PyPI
+
+__All of the following should be done on the host, not in the Docker container__.
+
+We use `twine` to package Atom to upload it to PyPI. Make sure you have `twine` installed on your host: `pip install twine`.
+
+First `cd languages/python`. If you have a `dist` folder in there from a previous install, remove its contents with `rm dist/*`.
+
+Then `python setup.py sdist && twine upload -r pypi dist/*`.
+
+You'll need a username/password to upload the package to PyPI; get these from Dan/Kyle.
 
 #### C
 
@@ -179,16 +198,6 @@ This will pull all of the proper dependencies.
 If you'd prefer to develop by building the atom Docker containers, this
 can be done fairly easily as well by using the [`docker-compose-dev.yml`](docker-compose-dev.yml)
 compose file.
-
-Before building atom you'll need to set the proper library
-version flag. This needs to be done outside of the Dockerfile since the .git repo used to generate the version is not copied into the Docker container.
-
-From the top level of this directory, run
-```
-python3 languages/python/version.py
-```
-
-Once this has been done, you can rebuild the Dockerfile.
 
 #### Default Build
 

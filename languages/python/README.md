@@ -1,5 +1,5 @@
 ### Requirements
-- Python 3.6+
+- Python 3.7+
 - Redis
 
 ### Setup
@@ -7,7 +7,7 @@
 pip install -r requirements.txt
 ```
 ```
-python setup.py install
+python setup_local.py install
 ```
 
 ### Testing

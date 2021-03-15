@@ -113,4 +113,4 @@ class MetricsLevel(Enum):
 LOG_DEFAULT_FILE_SIZE = 2000
 LOG_DEFAULT_LEVEL = "INFO"
 
-VERSION = "2.0.0"
+VERSION = "2.5.2"
