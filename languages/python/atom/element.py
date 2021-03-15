@@ -81,15 +81,22 @@ DuplicatePolicy = Literal["block", "first", "last", "min", "max"]
 CommandHandler = Callable[..., Response]
 
 
-class HandlerDict(TypedDict, total=False):
+class CommandHandlerMapBase(TypedDict):
+    """
+    handler and serialization are required keys
+    """
+
+    handler: CommandHandler
+    serialization: Optional[ser.SerializationMethod]
+
+
+class CommandHandlerMap(CommandHandlerMapBase, total=False):
     """
     Using total=False so that `deserialize` is accepted as an optional key (but
         not required) to check for deprecated legacy logic in
         Element._get_serialization_method.
     """
 
-    handler: CommandHandler
-    serialization: Optional[ser.SerializationMethod]
     deserialize: Optional[ser.SerializationMethod]
 
 
@@ -210,7 +217,7 @@ class Element:
 
         self.name = name
         self.host = uname().nodename
-        self.handler_map: dict[str, HandlerDict] = {}
+        self.handler_map: dict[str, CommandHandlerMap] = {}
         self.timeouts: dict[str, int] = {}
         self._redis_connection_timeout = float(conn_timeout_ms / 1000.0)
         self._redis_data_timeout = float(data_timeout_ms / 1000.0)
@@ -1452,12 +1459,12 @@ class Element:
                     )
 
                     if cmd_name not in RESERVED_COMMANDS:
-                        if (
-                            "deserialize" in self.handler_map[cmd_name]
-                        ):  # check for deprecated legacy mode
+                        if "deserialize" in self.handler_map[cmd_name]:
+                            # Check for deprecated legacy mode. Conditional
+                            # prevents runtime error that pyright raises.
                             serialization = (
                                 "msgpack"
-                                if self.handler_map[cmd_name]["deserialize"]
+                                if self.handler_map[cmd_name]["deserialize"]  # type: ignore
                                 else None
                             )
                         else:

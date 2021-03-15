@@ -31,6 +31,7 @@ services:
     environment:
       - "METRICS_MONITOR_PROCFS=/host/proc"
       - "ATOM_USE_METRICS=TRUE"
+      - "NUCLEUS_METRICS_MONITOR=FALSE"
     privileged: true
 
   metrics:
