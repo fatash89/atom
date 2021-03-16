@@ -468,3 +468,163 @@ class TestQueue(object):
             assert item == max_len - i - 1
 
         self._finish_and_check_q(nucleus_redis, element, test_q, AtomQueueTypes.FIFO)
+
+    @pytest.mark.parametrize("n", [1, 2, 3, 4])
+    @pytest.mark.parametrize("max_highest_prio", [False, True])
+    @pytest.mark.parametrize("queue_type", QUEUE_TYPES)
+    def test_queue_put_peek(
+        self, nucleus_redis, element, queue_type, n, max_highest_prio
+    ):
+        """
+        Test reading items from a partially-filled queue (without pruning) does
+        not consume items. Test that the returned items contain the correct
+        number of items:
+            - n < num_items  -> n
+            - n == num_items -> n or num_items (they're equal)
+            - n > num_items  -> num_items
+            - n > max_len    -> num_items
+
+        Also test that the returned items are in correct fifo/priority order.
+        """
+        # Construct a queue with fewer items than its capacity to avoid pruning
+        max_len = 3
+        num_items = 2
+        test_q = QUEUE_CLASSES[queue_type](
+            "some_queue", element, max_len=max_len, max_highest_prio=max_highest_prio
+        )
+
+        # Define expected values based on maximum priority mode
+        if max_highest_prio and queue_type == AtomQueueTypes.PRIO:
+            range_items_expected = reversed(range(num_items))
+        else:
+            range_items_expected = range(num_items)
+
+        q_size_expected = min(num_items, max_len)
+        peek_len_expected = min(n, q_size_expected)
+        items = [i for i in range_items_expected]
+        peek_item_expected = items[:peek_len_expected]
+
+        # If a prio queue, need to pass a prio as well.
+        for i in range(num_items):
+            if queue_type == AtomQueueTypes.PRIO:
+                test_q.put(i, i, element)
+            else:
+                test_q.put(i, element)
+
+        assert test_q.size(element) == q_size_expected
+
+        # Check that peek returns the correct items and does not consume items
+        # from the queue
+        peek_item = test_q.peek_n(element, n)
+        assert len(peek_item) == peek_len_expected
+        assert peek_item == peek_item_expected
+        assert test_q.size(element) == q_size_expected
+
+        self._finish_and_check_q(nucleus_redis, element, test_q, queue_type)
+
+    @pytest.mark.parametrize("n", [1, 2, 3, 4])
+    @pytest.mark.parametrize("max_highest_prio", [False, True])
+    @pytest.mark.parametrize("queue_type", QUEUE_TYPES)
+    def test_queue_put_peek_pruning(
+        self, nucleus_redis, element, queue_type, n, max_highest_prio
+    ):
+        """
+        Test reading items from a full queue (with pruning) does not consume
+        items. Test that the returned items contain the correct number of items:
+            - n < num_items  -> n
+            - n == num_items -> n or num_items (they're equal)
+            - n > num_items  -> num_items
+            - n > max_len    -> num_items
+
+        Also test that the returned items are in correct FIFO/PRIO order.
+
+        Note: Tests that FIFO queue correctly ignores max_highest_prio argument.
+        """
+        # Construct a full queue with pruning by adding more elements than the
+        # queue's capacity
+        max_len = 3
+        num_items = 4
+        num_pruned = num_items - max_len
+        test_q = QUEUE_CLASSES[queue_type](
+            "some_queue", element, max_len=max_len, max_highest_prio=max_highest_prio
+        )
+
+        # FIFO should ignore priority (equivalent to max_highest_prio=False)
+        if queue_type == AtomQueueTypes.FIFO:
+            range_items_expected = range(num_pruned, num_items)
+        elif max_highest_prio:
+            range_items_expected = reversed(range(num_pruned, num_items))
+        else:
+            range_items_expected = range(num_items - num_pruned)
+
+        q_size_expected = min(num_items, max_len)
+        peek_len_expected = min(n, q_size_expected)
+        items = [i for i in range_items_expected]
+        peek_item_expected = items[:peek_len_expected]
+
+        # If a prio queue, need to pass a prio as well.
+        for i in range(num_items):
+            if queue_type == AtomQueueTypes.PRIO:
+                test_q.put(i, i, element)
+            else:
+                test_q.put(i, element)
+
+        assert test_q.size(element) == q_size_expected
+
+        # Check that peek returns the correct items and does not consume items
+        # from the queue
+        peek_item = test_q.peek_n(element, n)
+        assert len(peek_item) == peek_len_expected
+        assert peek_item == peek_item_expected
+        assert test_q.size(element) == q_size_expected
+
+        self._finish_and_check_q(nucleus_redis, element, test_q, queue_type)
+
+    @pytest.mark.parametrize("n", [-1, 0])
+    @pytest.mark.parametrize("max_highest_prio", [False, True])
+    @pytest.mark.parametrize("queue_type", QUEUE_TYPES)
+    def test_queue_put_peek_zero_or_negative(
+        self, nucleus_redis, element, queue_type, n, max_highest_prio
+    ):
+        """
+        Test reading zero or negative number of items from a non-empty queue
+        does not consume items and returns an empty list (zero items).
+        """
+        max_len = 3
+        num_items = max_len
+        test_q = QUEUE_CLASSES[queue_type](
+            "some_queue", element, max_len=max_len, max_highest_prio=max_highest_prio
+        )
+
+        # If a prio queue, need to pass a prio as well.
+        for i in range(num_items):
+            if queue_type == AtomQueueTypes.PRIO:
+                test_q.put(i, i, element)
+            else:
+                test_q.put(i, element)
+
+        assert test_q.size(element) == num_items
+
+        # Check that peek returns the correct items and does not consume items
+        # from the queue
+        peek_item = test_q.peek_n(element, n)
+        assert len(peek_item) == 0
+        assert peek_item == []
+        assert test_q.size(element) == num_items
+
+        self._finish_and_check_q(nucleus_redis, element, test_q, queue_type)
+
+    @pytest.mark.parametrize("queue_type", QUEUE_TYPES)
+    def test_queue_peek_empty(self, nucleus_redis, element, queue_type):
+        """
+        Test reading items from an empty queue returns an empty list and does
+        not raise an error.
+        """
+        test_q = QUEUE_CLASSES[queue_type]("some_queue", element, max_len=1)
+        assert test_q.size(element) == 0
+
+        peek_item = test_q.peek_n(element, 1)
+        assert peek_item == []
+        assert test_q.size(element) == 0
+
+        self._finish_and_check_q(nucleus_redis, element, test_q, queue_type)

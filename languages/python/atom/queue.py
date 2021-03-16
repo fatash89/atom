@@ -20,6 +20,7 @@ from atom.config import (
     METRICS_QUEUE_GET,
     METRICS_QUEUE_GET_DATA,
     METRICS_QUEUE_GET_EMPTY,
+    METRICS_QUEUE_PEEK_N,
     METRICS_QUEUE_PRUNED,
     METRICS_QUEUE_PUT,
     METRICS_QUEUE_SIZE,
@@ -28,6 +29,7 @@ from atom.config import (
 )
 from atom.element import Element, MetricsPipeline, SetEmptyError
 from atom.metrics import MetricsHelper, MetricsTimingCall
+from typing_extensions import Literal
 
 T = TypeVar("T")
 
@@ -66,6 +68,7 @@ class AtomQueue(MetricsHelper):
         self._create_metric(element, METRICS_QUEUE_SIZE)
         self._create_metric(element, METRICS_QUEUE_PUT)
         self._create_metric(element, METRICS_QUEUE_GET)
+        self._create_metric(element, METRICS_QUEUE_PEEK_N)
         self._create_metric(element, METRICS_QUEUE_PRUNED)
         self._create_metric(element, METRICS_QUEUE_GET_DATA)
         self._create_metric(element, METRICS_QUEUE_GET_EMPTY)
@@ -334,6 +337,7 @@ class AtomPrioQueue(AtomQueue, Generic[T]):
         """
         Return up to N items from the priority queue, in priority order. No
         ability to block, if you need blocking you should use the get() API.
+        Consumes elements from the queue.
 
         Args:
             element (Atom Element): Element used to communicate with metrics
@@ -397,6 +401,68 @@ class AtomPrioQueue(AtomQueue, Generic[T]):
 
         return ret_items
 
+    def peek_n(self, element: Element, n: int, max_n: bool = False) -> list[T]:
+        """
+        Read but do not consume up to N items from the priority queue,
+        in priority order.
+
+        Args:
+            element: Atom Element used to communicate with metrics
+            n: Maximum number of items to return from the priority queue.
+            max_n: If true will return up to the queue's max amount of items
+
+        Return:
+            List of items from queue, returned in prio order
+        """
+        if n <= 0:
+            return []
+
+        with MetricsPipeline(element) as metrics_pipeline:
+
+            with MetricsTimingCall(
+                self, element, METRICS_QUEUE_PEEK_N, pipeline=metrics_pipeline
+            ):
+
+                # Do the peek
+                try:
+                    items = element.sorted_set_range(
+                        self.sorted_set_key,
+                        0,
+                        n - 1 if not max_n else self.max_len,
+                        maximum=self.max_highest_prio,
+                    )
+                except AtomError:
+                    items = []
+
+            # If we got valid data from the queue, we want to
+            #   unpack it
+            ret_items = []
+            if items:
+
+                for item in items:
+
+                    # Unpack the item and unpickle the data
+                    data, prio = item
+                    ret_items.append(pickle.loads(data))
+
+                    # Note the priority of the item we got
+                    self._log_metric(
+                        element,
+                        METRICS_PRIO_QUEUE_GET_PRIO,
+                        prio,
+                        pipeline=metrics_pipeline,
+                    )
+
+                # Note how many data we got
+                self._log_metric(
+                    element,
+                    METRICS_QUEUE_GET_DATA,
+                    len(items),
+                    pipeline=metrics_pipeline,
+                )
+
+        return ret_items
+
     def size(self, element: Element) -> int:
         """
         Get the size of the queue
@@ -447,7 +513,7 @@ class AtomFIFOQueue(AtomPrioQueue[T]):
         self,
         name: str,
         element: Element,
-        max_highest_prio: bool = False,
+        max_highest_prio: Literal[False] = False,
         max_len: int = PRIO_QUEUE_DEFAULT_MAX_LEN,
         metrics_type: str = METRICS_FIFO_QUEUE_TYPE,
     ):
@@ -459,10 +525,11 @@ class AtomFIFOQueue(AtomPrioQueue[T]):
             element (Atom Element): Element to use to initialize metrics
                 for the queue. Can be any valid element, won't be remembered
                 or used again outside of this call.
-            max_highest_prio (boolean, optional). Default False. If False,
-                the minimum value in the queue is considered to be the highest
-                priority. If False, the maximum is considered to be the highest
-                priority. We can support either.
+            max_highest_prio: Ignored. Items are inserted into the queue using
+                monotonically increasing timestamps as priority s.t. the oldest
+                item can be removed first from the queue (i.e. FIFO). This
+                argument is kept to maintain a compatible interface with the
+                parent class but its value is silently ignored.
             max_len (int, optional): Maximum length of the queue. If this number
                 is exceeded in the qsize() call immediately after a put the
                 queue will be pruned to max length.
@@ -470,7 +537,7 @@ class AtomFIFOQueue(AtomPrioQueue[T]):
         super(AtomFIFOQueue, self).__init__(
             name,
             element,
-            max_highest_prio=max_highest_prio,
+            max_highest_prio=False,
             max_len=max_len,
             metrics_type=metrics_type,
         )
