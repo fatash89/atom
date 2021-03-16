@@ -29,6 +29,7 @@ from atom.config import (
 )
 from atom.element import Element, MetricsPipeline, SetEmptyError
 from atom.metrics import MetricsHelper, MetricsTimingCall
+from typing_extensions import Literal
 
 T = TypeVar("T")
 
@@ -512,7 +513,7 @@ class AtomFIFOQueue(AtomPrioQueue[T]):
         self,
         name: str,
         element: Element,
-        max_highest_prio: bool = False,
+        max_highest_prio: Literal[False] = False,
         max_len: int = PRIO_QUEUE_DEFAULT_MAX_LEN,
         metrics_type: str = METRICS_FIFO_QUEUE_TYPE,
     ):
@@ -524,10 +525,11 @@ class AtomFIFOQueue(AtomPrioQueue[T]):
             element (Atom Element): Element to use to initialize metrics
                 for the queue. Can be any valid element, won't be remembered
                 or used again outside of this call.
-            max_highest_prio (boolean, optional). Default False. If False,
-                the minimum value in the queue is considered to be the highest
-                priority. If False, the maximum is considered to be the highest
-                priority. We can support either.
+            max_highest_prio: Ignored. Items are inserted into the queue using
+                monotonically increasing timestamps as priority s.t. the oldest
+                item can be removed first from the queue (i.e. FIFO). This
+                argument is kept to maintain a compatible interface with the
+                parent class but its value is silently ignored.
             max_len (int, optional): Maximum length of the queue. If this number
                 is exceeded in the qsize() call immediately after a put the
                 queue will be pruned to max length.
@@ -535,7 +537,7 @@ class AtomFIFOQueue(AtomPrioQueue[T]):
         super(AtomFIFOQueue, self).__init__(
             name,
             element,
-            max_highest_prio=max_highest_prio,
+            max_highest_prio=False,
             max_len=max_len,
             metrics_type=metrics_type,
         )

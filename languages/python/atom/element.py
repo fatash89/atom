@@ -3800,9 +3800,10 @@ class Element:
             # Add to the sorted set
             self.metrics_timing_start(self._sorted_set_metrics[set_key]["range"])
 
-            redis_pipeline.zrange(
-                redis_key, start, end, desc=maximum, withscores=withvalues
-            )
+            if not maximum:
+                redis_pipeline.zrange(redis_key, start, end, withscores=withvalues)
+            else:
+                redis_pipeline.zrevrange(redis_key, start, end, withscores=withvalues)
             response = redis_pipeline.execute()
 
             self.metrics_timing_end(
