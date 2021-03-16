@@ -468,3 +468,54 @@ class TestQueue(object):
             assert item == max_len - i - 1
 
         self._finish_and_check_q(nucleus_redis, element, test_q, AtomQueueTypes.FIFO)
+
+    @pytest.mark.parametrize("n", [-1, 0, 1, 2, 3, 4])
+    @pytest.mark.parametrize("num_items", [2, 4])
+    @pytest.mark.parametrize("max_len", [3])
+    @pytest.mark.parametrize("queue_type", QUEUE_TYPES)
+    def test_queue_peek_nonempty(
+        self, nucleus_redis, element, queue_type, n, num_items, max_len
+    ):
+        """
+        Test reading items from a non-empty queue does not consume items. Test
+        that the returned list contains the following number of items:
+            - -1 items       -> 0 (empty list)
+            - 0 items        -> 0 (empty list)
+            - n < num_items  -> n
+            - n == num_items -> n or num_items (they're equal)
+            - n > num_items  -> num_items
+            - n > max_len    -> num_items
+        """
+        test_q = QUEUE_CLASSES[queue_type]("some_queue", element, max_len=max_len)
+        q_size_expected = min(num_items, max_len)
+        peek_expected_min = max(n, 0)
+        peek_expected_max = min(num_items, max_len)
+
+        # If a prio queue, need to pass a prio as well.
+        for i in range(num_items):
+            if queue_type == AtomQueueTypes.PRIO:
+                test_q.put(i, i, element)
+            else:
+                test_q.put(i, element)
+
+        assert test_q.size(element) == q_size_expected
+
+        peek_item = test_q.peek_n(element, n)
+        assert len(peek_item) == min(peek_expected_min, peek_expected_max)
+        assert test_q.size(element) == q_size_expected
+
+        self._finish_and_check_q(nucleus_redis, element, test_q, queue_type)
+
+    @pytest.mark.parametrize("queue_type", QUEUE_TYPES)
+    def test_queue_peek_empty(self, nucleus_redis, element, queue_type):
+        """
+        Test reading items from a non-empty queue returns an empty list.
+        """
+        test_q = QUEUE_CLASSES[queue_type]("some_queue", element, max_len=1)
+        assert test_q.size(element) == 0
+
+        peek_item = test_q.peek_n(element, 1)
+        assert peek_item == []
+        assert test_q.size(element) == 0
+
+        self._finish_and_check_q(nucleus_redis, element, test_q, queue_type)

@@ -20,6 +20,7 @@ from atom.config import (
     METRICS_QUEUE_GET,
     METRICS_QUEUE_GET_DATA,
     METRICS_QUEUE_GET_EMPTY,
+    METRICS_QUEUE_PEEK_N,
     METRICS_QUEUE_PRUNED,
     METRICS_QUEUE_PUT,
     METRICS_QUEUE_SIZE,
@@ -66,6 +67,7 @@ class AtomQueue(MetricsHelper):
         self._create_metric(element, METRICS_QUEUE_SIZE)
         self._create_metric(element, METRICS_QUEUE_PUT)
         self._create_metric(element, METRICS_QUEUE_GET)
+        self._create_metric(element, METRICS_QUEUE_PEEK_N)
         self._create_metric(element, METRICS_QUEUE_PRUNED)
         self._create_metric(element, METRICS_QUEUE_GET_DATA)
         self._create_metric(element, METRICS_QUEUE_GET_EMPTY)
@@ -334,6 +336,7 @@ class AtomPrioQueue(AtomQueue, Generic[T]):
         """
         Return up to N items from the priority queue, in priority order. No
         ability to block, if you need blocking you should use the get() API.
+        Consumes elements from the queue.
 
         Args:
             element (Atom Element): Element used to communicate with metrics
@@ -393,6 +396,68 @@ class AtomPrioQueue(AtomQueue, Generic[T]):
             else:
                 self._log_metric(
                     element, METRICS_QUEUE_GET_EMPTY, 1, pipeline=metrics_pipeline
+                )
+
+        return ret_items
+
+    def peek_n(self, element: Element, n: int, max_n: bool = False) -> list[T]:
+        """
+        Read but do not consume up to N items from the priority queue,
+        in priority order.
+
+        Args:
+            element: Atom Element used to communicate with metrics
+            n: Maximum number of items to return from the priority queue.
+            max_n: If true will return up to the queue's max amount of items
+
+        Return:
+            List of items from queue, returned in prio order
+        """
+        if n <= 0:
+            return []
+
+        with MetricsPipeline(element) as metrics_pipeline:
+
+            with MetricsTimingCall(
+                self, element, METRICS_QUEUE_PEEK_N, pipeline=metrics_pipeline
+            ):
+
+                # Do the peek
+                try:
+                    items = element.sorted_set_range(
+                        self.sorted_set_key,
+                        0,
+                        n - 1 if not max_n else self.max_len,
+                        maximum=self.max_highest_prio,
+                    )
+                except AtomError:
+                    items = []
+
+            # If we got valid data from the queue, we want to
+            #   unpack it
+            ret_items = []
+            if items:
+
+                for item in items:
+
+                    # Unpack the item and unpickle the data
+                    data, prio = item
+                    ret_items.append(pickle.loads(data))
+
+                    # Note the priority of the item we got
+                    self._log_metric(
+                        element,
+                        METRICS_PRIO_QUEUE_GET_PRIO,
+                        prio,
+                        pipeline=metrics_pipeline,
+                    )
+
+                # Note how many data we got
+                self._log_metric(
+                    element,
+                    METRICS_QUEUE_GET_DATA,
+                    len(items),
+                    pipeline=metrics_pipeline,
                 )
 
         return ret_items
