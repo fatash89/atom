@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Callable, Optional, Union, overload
+from typing import Any, Callable, Optional, Union, cast, overload
 
-import atom.serialization as ser
+import atom.serialization as atom_ser
 from typing_extensions import Literal
 
 CMD_RESERVED_KEYS = ("data", "cmd", "element", "ser")
@@ -57,12 +57,14 @@ class Cmd:
 
 
 class Response:
+    ser: atom_ser.SerializationMethod
+
     def __init__(
         self,
         data="",
         err_code: int = 0,
         err_str: str = "",
-        serialization: Optional[ser.SerializationMethod] = None,
+        serialization: Optional[atom_ser.SerializationMethod] = None,
         serialize: Optional[bool] = None,
     ):
         """
@@ -88,8 +90,12 @@ class Response:
         if serialize is not None:  # check for deprecated legacy mode
             serialization = "msgpack" if serialize else None
 
-        self.data = ser.serialize(data, method=serialization)
-        self.ser = str(serialization) if serialization is not None else "none"
+        self.data = atom_ser.serialize(data, method=serialization)
+        self.ser = (
+            cast(atom_ser.SerializationMethod, str(serialization))
+            if serialization is not None
+            else "none"
+        )
 
         self.err_code = err_code
         self.err_str = err_str

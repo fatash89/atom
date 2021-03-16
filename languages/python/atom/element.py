@@ -15,9 +15,9 @@ from os import uname
 from queue import Empty as QueueEmpty
 from queue import LifoQueue, Queue
 from traceback import format_exc
-from typing import Any, Callable, Optional, Sequence, Union
+from typing import Any, Callable, Optional, Sequence, Union, cast
 
-import atom.serialization as ser
+import atom.serialization as atom_ser
 import redis
 from atom.config import (
     ACK_TIMEOUT,
@@ -81,13 +81,24 @@ DuplicatePolicy = Literal["block", "first", "last", "min", "max"]
 CommandHandler = Callable[..., Response]
 
 
+class ResponseDict(TypedDict):
+    """
+    What we get from converting response object to dict with `vars`.
+    """
+
+    data: Any
+    err_code: int
+    err_str: str
+    ser: atom_ser.SerializationMethod
+
+
 class CommandHandlerMapBase(TypedDict):
     """
     handler and serialization are required keys
     """
 
     handler: CommandHandler
-    serialization: Optional[ser.SerializationMethod]
+    serialization: Optional[atom_ser.SerializationMethod]
 
 
 class CommandHandlerMap(CommandHandlerMapBase, total=False):
@@ -97,7 +108,7 @@ class CommandHandlerMap(CommandHandlerMapBase, total=False):
         Element._get_serialization_method.
     """
 
-    deserialize: Optional[ser.SerializationMethod]
+    deserialize: Optional[atom_ser.SerializationMethod]
 
 
 # Need to figure out how we're connecting to the Nucleus
@@ -112,6 +123,13 @@ ATOM_METRICS_SOCKET = os.getenv("ATOM_METRICS_SOCKET", DEFAULT_METRICS_SOCKET)
 # Get the log directory and log file size
 ATOM_LOG_DIR = os.getenv("ATOM_LOG_DIR", "")
 ATOM_LOG_FILE_SIZE = int(os.getenv("ATOM_LOG_FILE_SIZE", LOG_DEFAULT_FILE_SIZE))
+
+
+def get_response_dict(response: Response):
+    """
+    Same as `vars`, but ensures resulting dict has well-defined type.
+    """
+    return cast(ResponseDict, vars(response))
 
 
 class ElementConnectionTimeoutError(redis.exceptions.TimeoutError):
@@ -714,7 +732,9 @@ class Element:
         return decoded_entry
 
     def _deserialize_entry(
-        self, entry: dict[str, Any], method: Optional[ser.SerializationMethod] = None
+        self,
+        entry: dict[str, Any],
+        method: Optional[atom_ser.SerializationMethod] = None,
     ) -> dict[str, Any]:
         """
         Deserializes the binary data of the entry.
@@ -729,7 +749,7 @@ class Element:
         for k, v in entry.items():
             if type(v) is bytes:
                 try:
-                    entry[k] = ser.deserialize(v, method=method)
+                    entry[k] = atom_ser.deserialize(v, method=method)
                 except Exception:
                     pass
         return entry
@@ -779,10 +799,10 @@ class Element:
     def _get_serialization_method(
         self,
         data: dict[str, Any],
-        user_serialization: Optional[ser.SerializationMethod],
+        user_serialization: Optional[atom_ser.SerializationMethod],
         force_serialization: bool,
         deserialize: Optional[bool] = None,
-    ) -> Optional[ser.SerializationMethod]:
+    ) -> Optional[atom_ser.SerializationMethod]:
         """
         Helper function to make a unified serialization decision based off of
         common user arguments. The serialization method returned will
@@ -876,7 +896,7 @@ class Element:
         """
         return self._redis_scan_keys(self._make_stream_id(element_name, "*"))
 
-    def get_element_version(self, element_name: str) -> dict:
+    def get_element_version(self, element_name: str) -> ResponseDict:
         """
         Queries the version info for the given element name.
 
@@ -970,7 +990,7 @@ class Element:
         name: str,
         handler: CommandHandler,
         timeout: int = RESPONSE_TIMEOUT,
-        serialization: Optional[ser.SerializationMethod] = None,
+        serialization: Optional[atom_ser.SerializationMethod] = None,
         deserialize: Optional[bool] = None,
     ) -> None:
         """
@@ -999,10 +1019,10 @@ class Element:
         if deserialize is not None:  # check for deprecated legacy mode
             serialization = "msgpack" if deserialize else None
 
-        if not ser.is_valid_serialization(serialization):
+        if not atom_ser.is_valid_serialization(serialization):
             raise ValueError(
                 f'Invalid serialization method "{serialization}".'
-                "Must be one of {ser.Serializations.print_values()}."
+                "Must be one of {atom_ser.Serializations.print_values()}."
             )
 
         self.handler_map[name] = {"handler": handler, "serialization": serialization}
@@ -1469,7 +1489,7 @@ class Element:
                             )
                         else:
                             serialization = self.handler_map[cmd_name]["serialization"]
-                        data = ser.deserialize(data, method=serialization)
+                        data = atom_ser.deserialize(data, method=serialization)
                         try:
                             response = self.handler_map[cmd_name]["handler"](data)
 
@@ -1671,10 +1691,10 @@ class Element:
         data="",
         block: bool = True,
         ack_timeout: int = ACK_TIMEOUT,
-        serialization: Optional[ser.SerializationMethod] = None,
+        serialization: Optional[atom_ser.SerializationMethod] = None,
         serialize: Optional[bool] = None,
         deserialize: Optional[bool] = None,
-    ) -> dict:
+    ) -> ResponseDict:
         """
         Sends command to element and waits for acknowledge.
         When acknowledge is received, waits for timeout from acknowledge or
@@ -1720,7 +1740,9 @@ class Element:
             self.metrics_timing_start(
                 self._command_send_metrics[element_name][cmd_name]["serialize"]
             )
-            data = ser.serialize(data, method=serialization) if (data != "") else data
+            data = (
+                atom_ser.serialize(data, method=serialization) if (data != "") else data
+            )
             self.metrics_timing_end(
                 self._command_send_metrics[element_name][cmd_name]["serialize"],
                 pipeline=pipeline,
@@ -1758,7 +1780,7 @@ class Element:
                             1,
                             pipeline=pipeline,
                         )
-                        return vars(
+                        return get_response_dict(
                             Response(err_code=ATOM_COMMAND_NO_ACK, err_str=err_str)
                         )
                         break
@@ -1794,7 +1816,9 @@ class Element:
                     1,
                     pipeline=pipeline,
                 )
-                return vars(Response(err_code=ATOM_COMMAND_NO_ACK, err_str=err_str))
+                return get_response_dict(
+                    Response(err_code=ATOM_COMMAND_NO_ACK, err_str=err_str)
+                )
 
             # Receive response from element
             # You have no guarantee that the response from the xread is for your
@@ -1818,7 +1842,7 @@ class Element:
                         1,
                         pipeline=pipeline,
                     )
-                    return vars(
+                    return get_response_dict(
                         Response(err_code=ATOM_COMMAND_NO_RESPONSE, err_str=err_str)
                     )
 
@@ -1868,7 +1892,9 @@ class Element:
 
                         try:
                             response_data = (
-                                ser.deserialize(response_data, method=serialization)
+                                atom_ser.deserialize(
+                                    response_data, method=serialization
+                                )
                                 if (len(response_data) != 0)
                                 else response_data
                             )
@@ -1886,7 +1912,7 @@ class Element:
                         )
 
                         # Make the final response
-                        resp = vars(
+                        resp = get_response_dict(
                             Response(
                                 data=response_data, err_code=err_code, err_str=err_str
                             )
@@ -1910,14 +1936,16 @@ class Element:
                 pipeline=pipeline,
             )
 
-        return vars(Response(err_code=ATOM_COMMAND_NO_RESPONSE, err_str=err_str))
+        return get_response_dict(
+            Response(err_code=ATOM_COMMAND_NO_RESPONSE, err_str=err_str)
+        )
 
     def entry_read_loop(
         self,
         stream_handlers: Sequence[StreamHandler],
         n_loops: Optional[int] = None,
         timeout: int = MAX_BLOCK,
-        serialization: Optional[ser.SerializationMethod] = None,
+        serialization: Optional[atom_ser.SerializationMethod] = None,
         force_serialization: bool = False,
         deserialize: Optional[bool] = None,
     ) -> None:
@@ -2021,7 +2049,7 @@ class Element:
         element_name: str,
         stream_name: str,
         n: int,
-        serialization: Optional[ser.SerializationMethod] = None,
+        serialization: Optional[atom_ser.SerializationMethod] = None,
         force_serialization: bool = False,
         deserialize: Optional[bool] = None,
     ) -> list[dict]:
@@ -2145,7 +2173,7 @@ class Element:
         last_id: str = "$",
         n: Optional[int] = None,
         block: Optional[int] = None,
-        serialization: Optional[ser.SerializationMethod] = None,
+        serialization: Optional[atom_ser.SerializationMethod] = None,
         force_serialization: bool = False,
         deserialize: Optional[bool] = None,
     ) -> list[dict]:
@@ -2257,7 +2285,7 @@ class Element:
         stream_name: str,
         field_data_map: dict[str, Any],
         maxlen: int = STREAM_LEN,
-        serialization: Optional[ser.SerializationMethod] = None,
+        serialization: Optional[atom_ser.SerializationMethod] = None,
         serialize: Optional[bool] = None,
     ) -> str:
         """
@@ -2302,7 +2330,7 @@ class Element:
                     raise ValueError(
                         f'Invalid key "{k}": "{k}" is a reserved entry key'
                     )
-                ser_field_data_map[k] = ser.serialize(v, method=serialization)
+                ser_field_data_map[k] = atom_ser.serialize(v, method=serialization)
 
             ser_field_data_map["ser"] = (
                 str(serialization) if serialization is not None else "none"
@@ -2423,7 +2451,7 @@ class Element:
         key: str,
         data: dict[str, Any],
         override: bool = True,
-        serialization: Optional[ser.SerializationMethod] = None,
+        serialization: Optional[atom_ser.SerializationMethod] = None,
         timeout_ms: int = 0,
     ) -> list[str]:
         """
@@ -2508,7 +2536,7 @@ class Element:
             self.metrics_timing_start(self._parameter_metrics[key]["serialize"])
             for field, datum in data.items():
                 # Do the SET in redis for each field
-                serialized_datum = ser.serialize(datum, method=serialization)
+                serialized_datum = atom_ser.serialize(datum, method=serialization)
                 _pipe.hset(redis_key, field, serialized_datum)
                 fields.append(field)
 
@@ -2578,7 +2606,7 @@ class Element:
         self,
         key: str,
         fields: Optional[str] = None,
-        serialization: Optional[ser.SerializationMethod] = None,
+        serialization: Optional[atom_ser.SerializationMethod] = None,
         force_serialization: bool = False,
     ) -> Optional[dict[bytes, Any]]:
         """
@@ -2638,7 +2666,7 @@ class Element:
             for field, val in data.items():
                 if field.decode() not in RESERVED_PARAM_FIELDS:
                     deserialized_data[field] = (
-                        ser.deserialize(val, method=serialization)
+                        atom_ser.deserialize(val, method=serialization)
                         if val is not None
                         else None
                     )
@@ -2737,7 +2765,7 @@ class Element:
         self,
         *data,
         keys: Union[list[str], str, None] = None,
-        serialization: Optional[ser.SerializationMethod] = None,
+        serialization: Optional[atom_ser.SerializationMethod] = None,
         serialize: Optional[bool] = None,
         timeout_ms: int = 10000,
     ) -> list[str]:
@@ -2804,7 +2832,7 @@ class Element:
 
                 # Now, we can go ahead and do the SET in redis for the key
                 # Expire as set by the user
-                serialized_datum = ser.serialize(datum, method=serialization)
+                serialized_datum = atom_ser.serialize(datum, method=serialization)
                 key = (
                     key
                     + ":ser:"
@@ -2962,7 +2990,7 @@ class Element:
     def reference_get(
         self,
         *keys,
-        serialization: Optional[ser.SerializationMethod] = None,
+        serialization: Optional[atom_ser.SerializationMethod] = None,
         force_serialization: bool = False,
         deserialize: Optional[bool] = None,
     ) -> list:
@@ -3036,7 +3064,7 @@ class Element:
 
                 # Deserialize the data
                 deserialized_data.append(
-                    ser.deserialize(ref, method=serialization)
+                    atom_ser.deserialize(ref, method=serialization)
                     if ref is not None
                     else None
                 )
