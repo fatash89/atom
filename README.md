@@ -82,6 +82,8 @@ to be merged into `latest` without passing.
 
 #### Python
 
+To set up type checking and code completion in your text editor, [see the wiki](https://github.com/elementary-robotics/wiki/wiki/Python-Code-Completion-and-Type-Checking-in-Text-Editors).
+
 ##### Formatting for Atom
 
 Atom utilizes the following formatting guidelines:

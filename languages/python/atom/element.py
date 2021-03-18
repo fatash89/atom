@@ -15,7 +15,7 @@ from os import uname
 from queue import Empty as QueueEmpty
 from queue import LifoQueue, Queue
 from traceback import format_exc
-from typing import Any, Callable, Optional, Sequence, Union, cast
+from typing import Any, Callable, Dict, Optional, Sequence, Union, cast
 
 import atom.serialization as atom_ser
 import redis
@@ -110,6 +110,8 @@ class CommandHandlerMap(CommandHandlerMapBase, total=False):
 
     deserialize: Optional[atom_ser.SerializationMethod]
 
+
+MetricsDict = Dict[str, Optional[str]]
 
 # Need to figure out how we're connecting to the Nucleus
 #   Default to local sockets at the default address
@@ -262,22 +264,24 @@ class Element:
         self._active_timing_metrics: dict[str, float] = {}
         self._command_metrics = defaultdict(lambda: {})
         self._command_loop_metrics = defaultdict(lambda: {})
-        self._command_send_metrics: dict[str, dict[str, Optional[Any]]] = defaultdict(
-            lambda: defaultdict(lambda: None)
-        )
-        self._entry_read_n_metrics: dict[str, dict[str, Optional[Any]]] = defaultdict(
-            lambda: defaultdict(lambda: None)
-        )
-        self._entry_read_since_metrics: dict[
-            str, dict[str, Optional[Any]]
+        self._command_send_metrics: dict[
+            str, dict[str, Optional[MetricsDict]]
         ] = defaultdict(lambda: defaultdict(lambda: None))
-        self._entry_write_metrics: dict[str, Optional[Any]] = defaultdict(lambda: None)
+        self._entry_read_n_metrics: dict[
+            str, dict[str, Optional[MetricsDict]]
+        ] = defaultdict(lambda: defaultdict(lambda: None))
+        self._entry_read_since_metrics: dict[
+            str, dict[str, Optional[MetricsDict]]
+        ] = defaultdict(lambda: defaultdict(lambda: None))
+        self._entry_write_metrics: dict[str, Optional[MetricsDict]] = defaultdict(
+            lambda: None
+        )
         self._parameter_metrics = defaultdict(lambda: {})
         self._counter_metrics = defaultdict(lambda: {})
         self._sorted_set_metrics = defaultdict(lambda: {})
         self._reference_create_metrics: dict[str, Optional[str]] = {}
         self._reference_create_from_stream_metrics: dict[
-            str, dict[str, Optional[Any]]
+            str, dict[str, Optional[MetricsDict]]
         ] = defaultdict(lambda: defaultdict(lambda: None))
         self._reference_get_metrics: dict[str, Optional[str]] = {}
         self._reference_delete_metrics: dict[str, Optional[str]] = {}
@@ -1626,7 +1630,9 @@ class Element:
         if block:
             self._command_loop_join(join_timeout=join_timeout)
 
-    def _command_send_init_metrics(self, element_name: str, cmd_name: str) -> None:
+    def _command_send_init_metrics(
+        self, element_name: str, cmd_name: str
+    ) -> MetricsDict:
         """
         Create all of the metrics for a command send call
 
@@ -1636,16 +1642,14 @@ class Element:
         """
 
         # If we already have something non-None in there, return out
-        if self._command_send_metrics[element_name][cmd_name]:
-            return
+        current_metrics = self._command_send_metrics[element_name][cmd_name]
+        if current_metrics:
+            return current_metrics
 
         # Otherwise, we proceed and make the metrics and their dictionary
+        metrics: MetricsDict = {}
 
-        self._command_send_metrics[element_name][cmd_name] = {}
-
-        self._command_send_metrics[element_name][cmd_name][
-            "serialize"
-        ] = self.metrics_create(
+        metrics["serialize"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:command_send",
             "serialize",
@@ -1653,9 +1657,7 @@ class Element:
             cmd_name,
             agg_types=["AVG", "MIN", "MAX"],
         )
-        self._command_send_metrics[element_name][cmd_name][
-            "runtime"
-        ] = self.metrics_create(
+        metrics["runtime"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:command_send",
             "runtime",
@@ -1663,9 +1665,7 @@ class Element:
             cmd_name,
             agg_types=["AVG", "MIN", "MAX"],
         )
-        self._command_send_metrics[element_name][cmd_name][
-            "deserialize"
-        ] = self.metrics_create(
+        metrics["deserialize"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:command_send",
             "deserialize",
@@ -1673,9 +1673,7 @@ class Element:
             cmd_name,
             agg_types=["AVG", "MIN", "MAX"],
         )
-        self._command_send_metrics[element_name][cmd_name][
-            "error"
-        ] = self.metrics_create(
+        metrics["error"] = self.metrics_create(
             MetricsLevel.ERR,
             "atom:command_send",
             "error",
@@ -1683,6 +1681,8 @@ class Element:
             cmd_name,
             agg_types=["SUM"],
         )
+        self._command_send_metrics[element_name][cmd_name] = metrics
+        return metrics
 
     def command_send(
         self,
@@ -1728,7 +1728,7 @@ class Element:
         data = format_redis_py(data)
 
         # Initialize the metrics for sending this command
-        self._command_send_init_metrics(element_name, cmd_name)
+        metrics = self._command_send_init_metrics(element_name, cmd_name)
 
         # Get a metrics pipeline
         with MetricsPipeline(self) as pipeline:
@@ -1737,20 +1737,16 @@ class Element:
             if serialize is not None:  # check for deprecated legacy mode
                 serialization = "msgpack" if serialize else None
 
-            self.metrics_timing_start(
-                self._command_send_metrics[element_name][cmd_name]["serialize"]
-            )
+            self.metrics_timing_start(metrics["serialize"])
             data = (
                 atom_ser.serialize(data, method=serialization) if (data != "") else data
             )
             self.metrics_timing_end(
-                self._command_send_metrics[element_name][cmd_name]["serialize"],
+                metrics["serialize"],
                 pipeline=pipeline,
             )
 
-            self.metrics_timing_start(
-                self._command_send_metrics[element_name][cmd_name]["runtime"]
-            )
+            self.metrics_timing_start(metrics["runtime"])
             cmd = Cmd(self.name, cmd_name, data)
             _pipe = self._rpipeline_pool.get()
             _pipe.xadd(
@@ -1776,7 +1772,7 @@ class Element:
                         err_str = f"Did not receive acknowledge from {element_name}."
                         self.logger.error(err_str)
                         self.metrics_add(
-                            self._command_send_metrics[element_name][cmd_name]["error"],
+                            metrics["error"],
                             1,
                             pipeline=pipeline,
                         )
@@ -1812,7 +1808,7 @@ class Element:
                 err_str = f"Did not receive acknowledge from {element_name}."
                 self.logger.error(err_str)
                 self.metrics_add(
-                    self._command_send_metrics[element_name][cmd_name]["error"],
+                    metrics["error"],
                     1,
                     pipeline=pipeline,
                 )
@@ -1838,7 +1834,7 @@ class Element:
                     err_str = f"Did not receive response from {element_name}."
                     self.logger.error(err_str)
                     self.metrics_add(
-                        self._command_send_metrics[element_name][cmd_name]["error"],
+                        metrics["error"],
                         1,
                         pipeline=pipeline,
                     )
@@ -1860,16 +1856,10 @@ class Element:
                     ):
 
                         self.metrics_timing_end(
-                            self._command_send_metrics[element_name][cmd_name][
-                                "runtime"
-                            ],
+                            metrics["runtime"],
                             pipeline=pipeline,
                         )
-                        self.metrics_timing_start(
-                            self._command_send_metrics[element_name][cmd_name][
-                                "deserialize"
-                            ]
-                        )
+                        self.metrics_timing_start(metrics["deserialize"])
 
                         err_code = int(response[b"err_code"].decode())
                         err_str = (
@@ -1905,9 +1895,7 @@ class Element:
                             )
 
                         self.metrics_timing_end(
-                            self._command_send_metrics[element_name][cmd_name][
-                                "deserialize"
-                            ],
+                            metrics["deserialize"],
                             pipeline=pipeline,
                         )
 
@@ -1931,7 +1919,7 @@ class Element:
             err_str = f"Did not receive response from {element_name}."
             self.logger.error(err_str)
             self.metrics_add(
-                self._command_send_metrics[element_name][cmd_name]["error"],
+                metrics["error"],
                 1,
                 pipeline=pipeline,
             )
@@ -1998,7 +1986,9 @@ class Element:
                     entry["id"] = uid.decode()
                     stream_handler_map[stream.decode()](entry)
 
-    def _entry_read_n_init_metrics(self, element_name: str, stream_name: str) -> None:
+    def _entry_read_n_init_metrics(
+        self, element_name: str, stream_name: str
+    ) -> MetricsDict:
         """
         Initialize metrics for reading from an element's stream
 
@@ -2008,14 +1998,13 @@ class Element:
         """
 
         # If we've already initialized this, return
-        if self._entry_read_n_metrics[element_name][stream_name]:
-            return
+        current_metrics = self._entry_read_n_metrics[element_name][stream_name]
+        if current_metrics:
+            return current_metrics
 
-        self._entry_read_n_metrics[element_name][stream_name] = {}
+        metrics: MetricsDict = {}
 
-        self._entry_read_n_metrics[element_name][stream_name][
-            "data"
-        ] = self.metrics_create(
+        metrics["data"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:entry_read_n",
             "data",
@@ -2023,9 +2012,7 @@ class Element:
             stream_name,
             agg_types=["AVG", "MIN", "MAX"],
         )
-        self._entry_read_n_metrics[element_name][stream_name][
-            "deserialize"
-        ] = self.metrics_create(
+        metrics["deserialize"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:entry_read_n",
             "deserialize",
@@ -2033,9 +2020,7 @@ class Element:
             stream_name,
             agg_types=["AVG", "MIN", "MAX"],
         )
-        self._entry_read_n_metrics[element_name][stream_name][
-            "n"
-        ] = self.metrics_create(
+        metrics["n"] = self.metrics_create(
             MetricsLevel.INFO,
             "atom:entry_read_n",
             "n",
@@ -2043,6 +2028,8 @@ class Element:
             stream_name,
             agg_types=["SUM"],
         )
+        self._entry_read_n_metrics[element_name][stream_name] = metrics
+        return metrics
 
     def entry_read_n(
         self,
@@ -2074,7 +2061,7 @@ class Element:
         """
 
         # Initialize metrics
-        self._entry_read_n_init_metrics(element_name, stream_name)
+        metrics = self._entry_read_n_init_metrics(element_name, stream_name)
 
         # Get a metrics pipeline
         with MetricsPipeline(self) as pipeline:
@@ -2083,19 +2070,15 @@ class Element:
             stream_id = self._make_stream_id(element_name, stream_name)
 
             # Read data
-            self.metrics_timing_start(
-                self._entry_read_n_metrics[element_name][stream_name]["data"]
-            )
+            self.metrics_timing_start(metrics["data"])
             uid_entries = self._rclient.xrevrange(stream_id, count=n)
             self.metrics_timing_end(
-                self._entry_read_n_metrics[element_name][stream_name]["data"],
+                metrics["data"],
                 pipeline=pipeline,
             )
 
             # Deserialize
-            self.metrics_timing_start(
-                self._entry_read_n_metrics[element_name][stream_name]["deserialize"]
-            )
+            self.metrics_timing_start(metrics["deserialize"])
             for uid, entry in uid_entries:
                 entry = self._decode_entry(entry)
                 serialization = self._get_serialization_method(
@@ -2105,13 +2088,13 @@ class Element:
                 entry["id"] = uid.decode()
                 entries.append(entry)
             self.metrics_timing_end(
-                self._entry_read_n_metrics[element_name][stream_name]["deserialize"],
+                metrics["deserialize"],
                 pipeline=pipeline,
             )
 
             # Note we read entries
             self.metrics_add(
-                self._entry_read_n_metrics[element_name][stream_name]["n"],
+                metrics["n"],
                 len(uid_entries),
                 pipeline=pipeline,
             )
@@ -2120,7 +2103,7 @@ class Element:
 
     def _entry_read_since_init_metrics(
         self, element_name: str, stream_name: str
-    ) -> None:
+    ) -> MetricsDict:
         """
         Initialize metrics for reading from an element's stream
 
@@ -2130,14 +2113,13 @@ class Element:
         """
 
         # If we've already initialized this, return
-        if self._entry_read_since_metrics[element_name][stream_name]:
-            return
+        current_metrics = self._entry_read_since_metrics[element_name][stream_name]
+        if current_metrics:
+            return current_metrics
 
-        self._entry_read_since_metrics[element_name][stream_name] = {}
+        metrics = {}
 
-        self._entry_read_since_metrics[element_name][stream_name][
-            "data"
-        ] = self.metrics_create(
+        metrics["data"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:entry_read_since",
             "data",
@@ -2145,9 +2127,7 @@ class Element:
             stream_name,
             agg_types=["AVG", "MIN", "MAX"],
         )
-        self._entry_read_since_metrics[element_name][stream_name][
-            "deserialize"
-        ] = self.metrics_create(
+        metrics["deserialize"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:entry_read_since",
             "deserialize",
@@ -2155,9 +2135,7 @@ class Element:
             stream_name,
             agg_types=["AVG", "MIN", "MAX"],
         )
-        self._entry_read_since_metrics[element_name][stream_name][
-            "n"
-        ] = self.metrics_create(
+        metrics["n"] = self.metrics_create(
             MetricsLevel.INFO,
             "atom:entry_read_n",
             "n",
@@ -2165,6 +2143,8 @@ class Element:
             stream_name,
             agg_types=["SUM"],
         )
+        self._entry_read_since_metrics[element_name][stream_name] = metrics
+        return metrics
 
     def entry_read_since(
         self,
@@ -2201,7 +2181,7 @@ class Element:
         """
 
         # Initialize metrics
-        self._entry_read_since_init_metrics(element_name, stream_name)
+        metrics = self._entry_read_since_init_metrics(element_name, stream_name)
 
         # Get a metrics pipeline
         with MetricsPipeline(self) as pipeline:
@@ -2211,12 +2191,10 @@ class Element:
             streams[stream_id] = last_id
 
             # Read data
-            self.metrics_timing_start(
-                self._entry_read_since_metrics[element_name][stream_name]["data"]
-            )
+            self.metrics_timing_start(metrics["data"])
             stream_entries = self._rclient.xread(streams, count=n, block=block)
             self.metrics_timing_end(
-                self._entry_read_since_metrics[element_name][stream_name]["data"],
+                metrics["data"],
                 pipeline=pipeline,
             )
             stream_names = [x[0].decode() for x in stream_entries]
@@ -2224,9 +2202,7 @@ class Element:
                 return entries
 
             # Deserialize
-            self.metrics_timing_start(
-                self._entry_read_since_metrics[element_name][stream_name]["deserialize"]
-            )
+            self.metrics_timing_start(metrics["deserialize"])
             for key, msgs in stream_entries:
                 if key.decode() == stream_id:
                     for uid, entry in msgs:
@@ -2238,20 +2214,20 @@ class Element:
                         entry["id"] = uid.decode()
                         entries.append(entry)
             self.metrics_timing_end(
-                self._entry_read_since_metrics[element_name][stream_name]["data"],
+                metrics["data"],
                 pipeline=pipeline,
             )
 
             # Note we read the entries
             self.metrics_add(
-                self._entry_read_since_metrics[element_name][stream_name]["n"],
+                metrics["n"],
                 len(stream_entries),
                 pipeline=pipeline,
             )
 
         return entries
 
-    def _entry_write_init_metrics(self, stream_name: str) -> None:
+    def _entry_write_init_metrics(self, stream_name: str) -> MetricsDict:
         """
         Initialize metrics for writing to a stream
 
@@ -2260,25 +2236,28 @@ class Element:
         """
 
         # If we've already initialized the metrics, no need to worry
-        if self._entry_write_metrics[stream_name]:
-            return
+        current_metrics = self._entry_write_metrics[stream_name]
+        if current_metrics:
+            return current_metrics
 
-        self._entry_write_metrics[stream_name] = {}
+        metrics: MetricsDict = {}
 
-        self._entry_write_metrics[stream_name]["data"] = self.metrics_create(
+        metrics["data"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:entry_write",
             "data",
             stream_name,
             agg_types=["AVG", "MIN", "MAX"],
         )
-        self._entry_write_metrics[stream_name]["serialize"] = self.metrics_create(
+        metrics["serialize"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:entry_write",
             "serialize",
             stream_name,
             agg_types=["AVG", "MIN", "MAX"],
         )
+        self._entry_write_metrics[stream_name] = metrics
+        return metrics
 
     def entry_write(
         self,
@@ -2309,7 +2288,7 @@ class Element:
         """
 
         # Initialize metrics
-        self._entry_write_init_metrics(stream_name)
+        metrics = self._entry_write_init_metrics(stream_name)
 
         # Get a metrics pipeline
         with MetricsPipeline(self) as pipeline:
@@ -2321,9 +2300,7 @@ class Element:
                 serialization = "msgpack" if serialize else None
 
             # Serialize
-            self.metrics_timing_start(
-                self._entry_write_metrics[stream_name]["serialize"]
-            )
+            self.metrics_timing_start(metrics["serialize"])
             ser_field_data_map = {}
             for k, v in field_data_map.items():
                 if k in ENTRY_RESERVED_KEYS:
@@ -2336,21 +2313,17 @@ class Element:
                 str(serialization) if serialization is not None else "none"
             )
             entry = Entry(ser_field_data_map)
-            self.metrics_timing_end(
-                self._entry_write_metrics[stream_name]["serialize"], pipeline=pipeline
-            )
+            self.metrics_timing_end(metrics["serialize"], pipeline=pipeline)
 
             # Write Data
-            self.metrics_timing_start(self._entry_write_metrics[stream_name]["data"])
+            self.metrics_timing_start(metrics["data"])
             _pipe = self._rpipeline_pool.get()
             _pipe.xadd(
                 self._make_stream_id(self.name, stream_name), vars(entry), maxlen=maxlen
             )
             ret = _pipe.execute()
             _pipe = self._release_pipeline(_pipe)
-            self.metrics_timing_end(
-                self._entry_write_metrics[stream_name]["data"], pipeline=pipeline
-            )
+            self.metrics_timing_end(metrics["data"], pipeline=pipeline)
 
         if (
             (not isinstance(ret, list))
@@ -2860,7 +2833,7 @@ class Element:
 
     def _reference_create_from_stream_init_metrics(
         self, element: str, stream: str
-    ) -> None:
+    ) -> MetricsDict:
         """
         Initialize the metrics for creating a reference from a stream
 
@@ -2870,21 +2843,22 @@ class Element:
         """
 
         # If we've already created the metrics, just return
-        if self._reference_create_from_stream_metrics[element][stream]:
-            return
+        current_metrics = self._reference_create_from_stream_metrics[element][stream]
+        if current_metrics:
+            return current_metrics
 
-        self._reference_create_from_stream_metrics[element][stream] = {}
-
-        self._reference_create_from_stream_metrics[element][stream][
-            "data"
-        ] = self.metrics_create(
-            MetricsLevel.TIMING,
-            "atom:reference_create_from_stream",
-            "data",
-            element,
-            stream,
-            agg_types=["AVG", "MIN", "MAX", "COUNT"],
-        )
+        metrics = {
+            "data": self.metrics_create(
+                MetricsLevel.TIMING,
+                "atom:reference_create_from_stream",
+                "data",
+                element,
+                stream,
+                agg_types=["AVG", "MIN", "MAX", "COUNT"],
+            )
+        }
+        self._reference_create_from_stream_metrics[element][stream] = metrics
+        return metrics
 
     def reference_create_from_stream(
         self, element: str, stream: str, stream_id: str = "", timeout_ms: int = 10000
@@ -2927,7 +2901,7 @@ class Element:
             )
 
         # Initialize metrics
-        self._reference_create_from_stream_init_metrics(element, stream)
+        metrics = self._reference_create_from_stream_init_metrics(element, stream)
 
         with MetricsPipeline(self) as pipeline:
 
@@ -2937,9 +2911,7 @@ class Element:
             # Get the stream we'll be reading from
             stream_name = self._make_stream_id(element, stream)
 
-            self.metrics_timing_start(
-                self._reference_create_from_stream_metrics[element][stream]["data"]
-            )
+            self.metrics_timing_start(metrics["data"])
             # Call the script to make a reference
             _pipe = self._rpipeline_pool.get()
             _pipe.evalsha(
@@ -2948,7 +2920,7 @@ class Element:
             data = _pipe.execute()
             _pipe = self._release_pipeline(_pipe)
             self.metrics_timing_end(
-                self._reference_create_from_stream_metrics[element][stream]["data"],
+                metrics["data"],
                 pipeline=pipeline,
             )
 
