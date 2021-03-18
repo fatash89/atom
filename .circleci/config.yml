@@ -295,7 +295,7 @@ commands:
           command: docker exec -it -w /atom/languages/python/tests << parameters.container >> python -V 2>&1 | grep "3.7"
       - run:
           name: Python type check
-          command: docker exec -it << parameters.container >> pyright --lib /atom/languages/python/atom
+          command: docker exec -it << parameters.container >> pyright -p pyrightconfig-ci.json /atom/languages/python/atom
       - run:
           name: Python tests
           command: docker exec -it -w /atom/languages/python/tests << parameters.container >> pytest -vv --durations=0 --capture=tee-sys
