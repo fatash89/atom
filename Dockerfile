@@ -221,9 +221,12 @@ RUN pip3 install --no-cache-dir -r requirements-test.txt
 RUN apt install -y curl
 RUN curl -sL https://deb.nodesource.com/setup_12.x | bash -
 RUN apt install -y nodejs && npm install -g pyright
+# Copy in pyright config for running pyright on atom source code
+ADD ./languages/python/pyrightconfig-ci.json /atom/languages/python/pyrightconfig-ci.json
 
 
 # Copy source code
 COPY ./languages/c/ /atom/languages/c
 COPY ./languages/cpp/ /atom/languages/cpp
 COPY ./languages/python/tests /atom/languages/python/tests
+COPY ./languages/python/atom /atom/languages/python/atom
