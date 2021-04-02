@@ -11,7 +11,7 @@ set -o xtrace
 if [[ ! -z ${DO_FORMAT} ]]; then
 
     # Do an isort first
-    cd $CODE_DIR && isort --profile black ${ISORT_EXCLUDE} . || exit 1
+    cd $CODE_DIR && isort --overwrite-in-place --profile black ${ISORT_EXCLUDE} . || exit 1
 
     # If we're using black
     if [[ ! -z ${FORMAT_BLACK} ]]; then
