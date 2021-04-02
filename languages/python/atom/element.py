@@ -306,7 +306,7 @@ class Element:
         # logger instance as before, which already has a handler. Any previous
         # handlers are cleared s.t. we're sure that there's only one rotating
         # file handler attached to the logger.
-        if (logger.hasHandlers()):
+        if logger.hasHandlers():
             logger.handlers.clear()
 
         try:
