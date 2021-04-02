@@ -300,6 +300,15 @@ class Element:
         # Set up logger
         #
         logger = logging.getLogger(self.name)
+
+        # Ensure only one handler is added to avoid duplicate logs. Calling
+        # getLogger with the same name as a previous element will yield the same
+        # logger instance as before, which already has a handler. Any previous
+        # handlers are cleared s.t. we're sure that there's only one rotating
+        # file handler attached to the logger.
+        if (logger.hasHandlers()):
+            logger.handlers.clear()
+
         try:
             rfh = logging.handlers.RotatingFileHandler(
                 f"{ATOM_LOG_DIR}{self.name}.log", maxBytes=ATOM_LOG_FILE_SIZE
