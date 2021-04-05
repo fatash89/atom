@@ -14,9 +14,8 @@ SerializationMethod = Literal["msgpack", "arrow", "none"]
 
 class GenericSerializationMethod:
     """
-    Class containing generic functions for serialization methods
-        (no serialization).
-    Parent class for all serialization method classes.
+    Class containing generic functions for serialization methods (no
+    serialization). Parent class for all serialization method classes.
     """
 
     @classmethod
@@ -51,12 +50,12 @@ class Arrow(GenericSerializationMethod):
     def _type_check(cls, data):
         """
         Check that data is serializeable by pyarrow. Specifically check that
-        data is a built-in Python type, numpy array, or a built-in
-        container of those. Only lists, tuples, and dict container types are
-        supported. Raises error if data is not serializeable by pyarrow.
-        Note that pyarrow supports pickling of arbitary objects, but the intent
-        of this function is to forbid pickling altogether in order to
-        maximize interoperability with non-Python code.
+        data is a built-in Python type, numpy array, or a built-in container of
+        those. Only lists, tuples, and dict container types are supported.
+        Raises error if data is not serializeable by pyarrow. Note that pyarrow
+        supports pickling of arbitary objects, but the intent of this function
+        is to forbid pickling altogether in order to maximize interoperability
+        with non-Python code.
         """
         if isinstance(data, dict):
             for item in data.items():
@@ -103,7 +102,7 @@ class Serializations(Enum):
     def print_values(cls):
         """
         Returns comma separated string of serialization options for pretty
-            printing.
+        printing.
         """
         return ", ".join([v.name for v in cls])
 
@@ -122,14 +121,14 @@ def serialize(data, method: Optional[SerializationMethod] = "none"):
 
     Args:
         data: The data to serialize.
-        method (str, optional): The serialization method to use; defaults to
-            "none"
+        method: The serialization method to use; defaults to "none"
+
     Returns:
         The serialized data.
+
     Raises:
         ValueError if requested method is not in available serialization options
-            defined
-        by Serializations enum.
+            defined by Serializations enum.
     """
     method = "none" if method is None else method
 
@@ -147,14 +146,14 @@ def deserialize(data, method: Optional[SerializationMethod] = "msgpack"):
 
     Args:
         data: The data to deserialize.
-        method (str, optional): The deserialization method to use; defaults to
-            "none"
+        method: The deserialization method to use; defaults to "none"
+
     Returns:
         The deserialized data.
+
     Raises:
         ValueError if requested method is not in available serialization options
-            defined
-        by Serializations enum.
+            defined by Serializations enum.
     """
     method = "none" if method is None else method
 

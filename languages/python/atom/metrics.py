@@ -48,12 +48,12 @@ class MetricsHelper(object):
 
     def _set_metric_info(self, m_type: str, *m_subtypes: str) -> None:
         """
-        Set the metric info for this class. Takes a type and a variadic list
-        of subtypes and strings them into a key we'll use as a high-level
+        Set the metric info for this class. Takes a type and a variadic list of
+        subtypes and strings them into a key we'll use as a high-level
         identifier for this class's metrics.
 
         Args:
-            queue_type (string): Metrics type for this queue
+            queue_type: Metrics type for this queue
         """
         self._metrics_type = m_type
         self._metrics_subtypes = m_subtypes
@@ -76,7 +76,7 @@ class MetricsHelper(object):
         Return a fully specified metrics key
 
         Args:
-            descriptor (string): Descriptor for the key
+            descriptor: Descriptor for the key
         """
         return f"{self._metrics_key_str}:{descriptor}"
 
@@ -90,11 +90,11 @@ class MetricsHelper(object):
         Create a metric and return the key for it
 
         Args:
-            element (Atom Element): Element used to create the metric
-            descriptor (string): Subtype/Descriptor for the metric
-            metric_level (MetricsLevel): Level of the metric
+            element: Element used to create the metric
+            descriptor: Subtype/Descriptor for the metric
+            metric_level: Level of the metric
 
-        Return:
+        Returns:
             Key string for the metric
         """
 
@@ -122,10 +122,10 @@ class MetricsHelper(object):
         Log a metric for a descriptor
 
         Args:
-            element (Atom Element): Element used to create the metric
-            descriptor (string): Subtype/Descriptor for the metric
-            value (float): Value for the metric
-            pipeline (redis pipeline): Pipeline for the metric
+            element: Element used to create the metric
+            descriptor: Subtype/Descriptor for the metric
+            value: Value for the metric
+            pipeline: Pipeline for the metric
         """
 
         # Issue in Atom -- if we're not the element that made the metric
@@ -153,11 +153,10 @@ class MetricsHelper(object):
         calculated with time.monotonic()
 
         Args:
-            element (Atom Element): Element used to create the metric
-            descriptor (string): Subtype/Descriptor for the metric
-            start_time (time.monotonic() return): Time the timing metric
-                was started
-            pipeline (redis pipeline): Pipeline for the metric
+            element: Element used to create the metric
+            descriptor: Subtype/Descriptor for the metric
+            start_time: Time the timing metric was started
+            pipeline: Pipeline for the metric
         """
         self._log_metric(
             element, descriptor, time.monotonic() - start_time, pipeline=pipeline

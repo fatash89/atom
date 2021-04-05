@@ -42,8 +42,8 @@ class Cmd:
         Specifies the format of a command that an element sends to another.
 
         Args:
-            element (str): The element from which the command came from.
-            cmd (str): The name of the command to run on the element.
+            element: The element from which the command came from.
+            cmd: The name of the command to run on the element.
             data: The data to be passed into the element's command.
         """
         if not isinstance(element, str):
@@ -69,18 +69,16 @@ class Response:
     ):
         """
         Specifies the format of a response that an element returns from a
-            command.
+        command.
 
         Args:
-            data (optional): The data returned from the element's command.
-            err_code (int, optional): The error code if error, otherwise 0.
-            err_str (str, optional): The error message, if any.
-            serialization (str, optional): Method of serialization to use;
-                                           defaults to None.
+            data: The data returned from the element's command.
+            err_code: The error code if error, otherwise 0.
+            err_str: The error message, if any.
+            serialization: Method of serialization to use; defaults to None.
 
             Deprecated:
-            serialize (bool, optional): Whether or not to serialize data using
-                sgpack.
+            serialize: Whether or not to serialize data using msgpack.
         """
         if not isinstance(err_code, int):
             raise TypeError("err_code must be an int")
@@ -107,8 +105,8 @@ class Entry:
         Formats the data published on a stream from an element.
 
         Args:
-            field_data_map (dict): Dict where the keys are the names of the
-                fields and the values are the data of the corresponding field.
+            field_data_map: Dict where the keys are the names of the fields and
+                the values are the data of the corresponding field.
         """
         for field, data in field_data_map.items():
             if not isinstance(field, str):
@@ -120,14 +118,12 @@ class Acknowledge:
     def __init__(self, element: str, cmd_id: bytes, timeout: int) -> None:
         """
         Formats the acknowledge that a element sends to a caller upon receiving
-            a command.
+        a command.
 
         Args:
-            element (str): The element from which this acknowledge comes from.
-            cmd_id (bytes): The Redis ID of the command that generated this
-                acknowledge.
-            timeout (int): Time for the caller to wait for the command to
-                finish.
+            element: The element from which this acknowledge comes from.
+            cmd_id: The Redis ID of the command that generated this acknowledge.
+            timeout: Time for the caller to wait for the command to finish.
         """
         if not isinstance(element, str):
             raise TypeError("element must be a str")
@@ -146,10 +142,9 @@ class StreamHandler:
         Formats the association with a stream and handler of the stream's data.
 
         Args:
-            element (str): Name of the element that owns the stream of interest.
-            stream (str): Name of the stream to listen to.
-            handler (callable): Function to call on the data received from the
-                stream.
+            element: Name of the element that owns the stream of interest.
+            stream: Name of the stream to listen to.
+            handler: Function to call on the data received from the stream.
         """
         if not isinstance(element, str):
             raise TypeError("element must be a str")
@@ -185,9 +180,9 @@ class Log:
         Formats the log published on the element's log stream
 
         Args:
-            element (str): Name of the element writing the log.
-            level (LogLevel or int): Syslog severity level.
-            msg (str): Message for log.
+            element: Name of the element writing the log.
+            level: Syslog severity level.
+            msg: Message for log.
         """
         if not isinstance(element, str):
             raise TypeError("element must be a str")

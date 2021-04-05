@@ -104,8 +104,8 @@ class CommandHandlerMapBase(TypedDict):
 class CommandHandlerMap(CommandHandlerMapBase, total=False):
     """
     Using total=False so that `deserialize` is accepted as an optional key (but
-        not required) to check for deprecated legacy logic in
-        Element._get_serialization_method.
+    not required) to check for deprecated legacy logic in
+    Element._get_serialization_method.
     """
 
     deserialize: Optional[atom_ser.SerializationMethod]
@@ -168,8 +168,8 @@ class SetEmptyError(Exception):
 
 class RedisPipeline:
     """
-    Wrapper around obtaining and releasing redis pipelines to make sure
-    we don't leak any
+    Wrapper around obtaining and releasing redis pipelines to make sure we don't
+    leak any
     """
 
     def __init__(self, element: Element):
@@ -185,8 +185,8 @@ class RedisPipeline:
 
 class MetricsPipeline:
     """
-    Wrapper around obtaining and releasing metrics pipelines to make
-    sure we don't leak any
+    Wrapper around obtaining and releasing metrics pipelines to make sure we
+    don't leak any
     """
 
     def __init__(self, element: Element):
@@ -216,23 +216,21 @@ class Element:
     ):
         """
         Args:
-            name (str): The name of the element to register with Atom.
-            host (str, optional): The ip address of the Redis server
-            port (int, optional): The port of the Redis server to connect to.
-            socket_path (str, optional): Path to Redis Unix socket.
-            metrics_host (str, optional): The ip address of the metrics Redis
-            metrics_port (int, optional): The port of the metrics Redis server
-            metrics_socket_path (str, optional): Path to metrics Redis socket.
-            enforce_metrics (bool, optional): While metrics is a relatively new
-                feature this will allow an element to connect to a nucleus
-                without metrics and fail with a log but not throw an error.
-                This enables us to be backwards compatible with older setups.
-            conn_timeout_ms (int, optional): The number of milliseconds to wait
-                                             before timing out when establishing
-                                             a Redis connection
-            data_timeout_ms (int, optional): The number of milliseconds to wait
-                                             before timing out while waiting for
-                                             data back over a Redis connection.
+            name: The name of the element to register with Atom.
+            host: The ip address of the Redis server
+            port: The port of the Redis server to connect to.
+            socket_path: Path to Redis Unix socket.
+            metrics_host: The ip address of the metrics Redis
+            metrics_port: The port of the metrics Redis server
+            metrics_socket_path: Path to metrics Redis socket.
+            enforce_metrics: While metrics is a relatively new feature this will
+                allow an element to connect to a nucleus without metrics and
+                fail with a log but not throw an error. This enables us to be
+                backwards compatible with older setups.
+            conn_timeout_ms: The number of milliseconds to wait before timing
+                out when establishing a Redis connection
+            data_timeout_ms: The number of milliseconds to wait before timing
+                out while waiting for data back over a Redis connection.
         """
 
         self.name = name
@@ -499,7 +497,7 @@ class Element:
         Deletes the specified stream.
 
         Args:
-            stream (string): The stream to delete.
+            stream: The stream to delete.
         """
         if stream not in self.streams:
             raise RuntimeError(
@@ -536,6 +534,9 @@ class Element:
         self._clean_up()
 
     def _clean_up_streams(self) -> None:
+        """
+        Clean up all streams
+        """
         # if we have encountered a connection timeout there's no use
         # in re-attempting stream cleanup commands as they will implicitly
         # cause the redis pool to reconnect and trigger a subsequent
@@ -555,10 +556,10 @@ class Element:
     def _release_pipeline(self, pipeline: Pipeline, metrics: bool = False) -> None:
         """
         Resets the specified pipeline and returns it to the pool of available
-            pipelines.
+        pipelines.
 
         Args:
-            pipeline (Redis Pipeline): The pipeline to release
+            pipeline: The pipeline to release
         """
         pipeline.reset()
         self._rpipeline_pool.put(pipeline)
@@ -567,10 +568,10 @@ class Element:
     def _update_response_id_if_older(self, new_id: str) -> None:
         """
         Atomically update global response_last_id to new id, if timestamp on new
-            id is more recent
+        id is more recent
 
         Args:
-            new_id (str): New response id we want to set
+            new_id: New response id we want to set
         """
         self.response_last_id_lock.acquire()
         components = self.response_last_id.split("-")
@@ -590,7 +591,7 @@ class Element:
         Creates the string representation for a element's response stream id.
 
         Args:
-            element_name (str): Name of the element to generate the id for.
+            element_name: Name of the element to generate the id for.
         """
         return f"response:{element_name}"
 
@@ -599,7 +600,7 @@ class Element:
         Creates the string representation for an element's command stream id.
 
         Args:
-            element_name (str): Name of the element to generate the id for.
+            element_name: Name of the element to generate the id for.
         """
         return f"command:{element_name}"
 
@@ -609,7 +610,7 @@ class Element:
         stream counter id.
 
         Args:
-            element_name (str): Name of the element to generate the id for.
+            element_name: Name of the element to generate the id for.
         """
         return f"command_consumer_group_counter:{element_name}"
 
@@ -619,7 +620,7 @@ class Element:
         stream id.
 
         Args:
-            element_name (str): Name of the element to generate the id for.
+            element_name: Name of the element to generate the id for.
         """
         return f"command_consumer_group:{element_name}"
 
@@ -628,23 +629,20 @@ class Element:
         Creates the string representation of an element's stream id.
 
         Args:
-            element_name (str): Name of the element to generate the id for.
-            stream_name (str): Name of element_name's stream to generate the id
-                for.
+            element_name: Name of the element to generate the id for.
+            stream_name: Name of element_name's stream to generate the id for.
         """
         if element_name is None:
             return stream_name
         else:
             return f"stream:{element_name}:{stream_name}"
 
-    def _make_metric_id(self, element_name: str, m_type: str, *m_subtypes) -> str:
+    def _make_metric_id(self, element_name: str, m_type: str, *m_subtypes: str) -> str:
         """
-        Creates the string representation of a metric ID created by an
-        element
+        Creates the string representation of a metric ID created by an element
 
         Args:
-            element_name (str): Name of the element to generate the metric ID
-                for
+            element_name: Name of the element to generate the metric ID for
             key: Original key passed by the caller
         """
         key_str = f"{element_name}:{m_type}"
@@ -653,7 +651,7 @@ class Element:
         return key_str
 
     def _metrics_add_default_labels(
-        self, labels: dict[str, str], level, m_type: str, *m_subtypes
+        self, labels: dict[str, str], level, m_type: str, *m_subtypes: str
     ) -> dict[str, str]:
         """
         Adds the default labels that come from atom. Default labels will
@@ -694,6 +692,9 @@ class Element:
             return default_labels
 
     def _metrics_validate_labels(self, labels: dict) -> None:
+        """
+        Raises an error if labels contains empty strings as keys
+        """
         if "" in labels.values():
             raise AtomError("Metrics labels cannot include empty strings")
 
@@ -702,7 +703,8 @@ class Element:
         Creates a reference ID
 
         Args:
-            key (str, optional): User specified key; defaults to None
+            key: User specified key; defaults to None
+
         Returns:
             Full reference key that includes element name
         """
@@ -722,7 +724,8 @@ class Element:
         Decodes the binary keys of an entry
 
         Args:
-            entry (dict): The entry in dictionary form to decode.
+            entry: The entry in dictionary form to decode.
+
         Returns:
             The decoded entry as a dictionary.
         """
@@ -744,9 +747,9 @@ class Element:
         Deserializes the binary data of the entry.
 
         Args:
-            entry (dict): The entry in dictionary form to deserialize.
-            method (str, optional): The method of deserialization to use;
-                                    defaults to None.
+            entry: The entry in dictionary form to deserialize.
+            method: The method of deserialization to use; defaults to None.
+
         Returns:
             The deserialized entry as a dictionary.
         """
@@ -766,14 +769,14 @@ class Element:
     ) -> bool:
         """
         Convenient helper function to query an element about whether it meets
-            min language and version requirements for some feature
+        min language and version requirements for some feature
 
         Args:
-            element_name (str): Name of the element to query
-            supported_language_set (set, optional): Optional set of supported
-                languages target element must be a part of to pass
-            supported_min_version (float, optional): Optional min version
-                target element must meet to pass
+            element_name: Name of the element to query
+            supported_language_set: Optional set of supported languages target
+                element must be a part of to pass
+            supported_min_version Optional min version target element must meet
+                to pass
         """
         # Check if element is reachable and supports the version command
         response = self.get_element_version(element_name)
@@ -809,8 +812,8 @@ class Element:
     ) -> Optional[atom_ser.SerializationMethod]:
         """
         Helper function to make a unified serialization decision based off of
-        common user arguments. The serialization method returned will
-        be a string, that will be based on the following logic:
+        common user arguments. The serialization method returned will be a
+        string, that will be based on the following logic:
 
         1. If `force_serialization` is true, then return the user-passed
             serialization method
@@ -820,15 +823,14 @@ class Element:
         4. Else, leave the data alone
 
         Args:
-            data (dict): set of keys through which to search for special
-                serialization key "ser".
-            user_serialization (none/str): User-passed argument to API
-            force_serialization (bool): Boolean to ignore "ser" key if found
-                in favor of the user-passed serialization. This can be useful
-                if data is being read from atom in order to then move it
-                through another transport layer which still needs the
-                serialization
-            deserialize (none/bool): Legacy param. If not equal to none, implies
+            data: set of keys through which to search for special serialization
+                key "ser".
+            user_serialization: User-passed argument to API
+            force_serialization: Boolean to ignore "ser" key if found in favor
+                of the user-passed serialization. This can be useful if data is
+                being read from atom in order to then move it through another
+                transport layer which still needs the serialization
+            deserialize: Legacy param. If not equal to none, implies
                 user_serialization = "msgpack"
         """
 
@@ -846,12 +848,12 @@ class Element:
 
     def _redis_scan_keys(self, pattern: str) -> list[str]:
         """
-        Scan redis for all keys matching the pattern. Will use redis SCAN
-            under the hood since KEYS is not recommended/suitable for
-            production environments.
+        Scan redis for all keys matching the pattern. Will use redis SCAN under
+        the hood since KEYS is not recommended/suitable for production
+        environments.
 
         Args:
-            pattern (string): Match pattern to search across keys
+            pattern: Match pattern to search across keys
         """
 
         matches = []
@@ -888,12 +890,11 @@ class Element:
 
     def get_all_streams(self, element_name: str = "*") -> list[str]:
         """
-        Gets the names of all the streams of the specified element
-            (all by default).
+        Gets the names of all the streams of the specified element (all by
+        default).
 
         Args:
-            element_name (str): Name of the element of which to get the streams
-                from.
+            element_name: Name of the element of which to get the streams from.
 
         Returns:
             List of Stream ids belonging to element_name
@@ -905,7 +906,7 @@ class Element:
         Queries the version info for the given element name.
 
         Args:
-            element_name (str): Name of the element to query
+            element_name: Name of the element to query
 
         Returns:
             A dictionary of the response from the command.
@@ -918,13 +919,12 @@ class Element:
         self, element_name: Optional[str] = None, ignore_caller: bool = True
     ) -> list[str]:
         """
-        Gets the names of the commands of the specified element
-            (all elements by default).
+        Gets the names of the commands of the specified element (all elements by
+            default).
 
         Args:
-            element_name (str): Name of the element of which to get the
-                commands.
-            ignore_caller (bool): Do not send commands to the caller.
+            element_name: Name of the element of which to get the commands.
+            ignore_caller: Do not send commands to the caller.
 
         Returns:
             List of available commands for all elements or specified element.
@@ -956,12 +956,12 @@ class Element:
 
     def _command_add_init_metrics(self, name: str) -> None:
         """
-        Create the metrics for a new command. Puts the command's metric
-        keys into its dictionary structure so they can be added to in a more
+        Create the metrics for a new command. Puts the command's metric keys
+        into its dictionary structure so they can be added to in a more
         performant fashion moving forward
 
         Args:
-            name (str): Name of the command
+            name: Name of the command
         """
 
         # Number of times a commmand is called
@@ -1001,16 +1001,14 @@ class Element:
         Adds a command to the element for another element to call.
 
         Args:
-            name (str): Name of the command.
-            handler (callable): Function to call given the command name.
-            timeout (int, optional): Time for the caller to wait for the command
-                to finish.
-            serialization (str, optional): The method of serialization to use;
-                defaults to None.
+            name: Name of the command.
+            handler: Function to call given the command name.
+            timeout: Time for the caller to wait for the command to finish.
+            serialization: The method of serialization to use; defaults to None.
 
             Deprecated:
-            deserialize (bool, optional): Whether or not to deserialize the data
-                using msgpack before passing it to the handler.
+            deserialize: Whether or not to deserialize the data using msgpack
+                before passing it to the handler.
         """
         if not callable(handler):
             raise TypeError("Passed in handler is not a function!")
@@ -1041,9 +1039,9 @@ class Element:
         Sets a custom healthcheck callback
 
         Args:
-            handler (callable): Function to call when evaluating whether this
-                element is healthy or not. Should return a Response with
-                err_code ATOM_NO_ERROR if healthy.
+            handler: Function to call when evaluating whether this element is
+                healthy or not. Should return a Response with err_code
+                ATOM_NO_ERROR if healthy.
         """
         if not callable(handler):
             raise TypeError("Passed in handler is not a function!")
@@ -1062,16 +1060,16 @@ class Element:
     ) -> None:
         """
         Blocking call will wait until all elements in the element respond that
-            they are healthy.
+        they are healthy.
 
         Args:
-            element_list ([str]): List of element names to run healthchecks on
+            element_list: List of element names to run healthchecks on
                 Should return a Response with err_code ATOM_NO_ERROR if healthy.
-            retry_interval (float, optional) Time in seconds to wait before
-                retrying after a failed attempt.
-            strict (bool, optional) In strict mode, all elements must be
-                reachable and support healthchecks to pass. If false, elements
-                that don't have healthchecks will be assumed healthy.
+            retry_interval: Time in seconds to wait before retrying after a
+                failed attempt.
+            strict: In strict mode, all elements must be reachable and support
+                healthchecks to pass. If false, elements that don't have
+                healthchecks will be assumed healthy.
         """
 
         while True:
@@ -1113,25 +1111,23 @@ class Element:
         read_block_ms: int = 1000,
         join_timeout: Optional[float] = None,
     ) -> None:
-        """Main command execution event loop
+        """
+        Main command execution event loop
 
         For each worker process, performs the following event loop:
-            - Waits for command to be put in element's command stream consumer
-              group
-            - Sends Acknowledge to caller and then runs command
-            - Returns Response with processed data to caller
+        - Waits for command to be put in element's command stream consumer group
+        - Sends Acknowledge to caller and then runs command
+        - Returns Response with processed data to caller
 
         Args:
-            n_procs (integer): Number of worker processes.  Each worker process
-                will pull work from the Element's shared command consumer group
-                (defaults to 1).
-            block (bool, optional): Wait for the response before returning
-                from the function
-            read_block_ms (integer, optional): Number of milliseconds to block
-                for during a stream read insde of a command loop.
-            join_timeout (float, optional): If block=True, how long to wait
-                while joining threads at the end of the command loop before
-                raising an exception
+            n_procs: Number of worker processes.  Each worker process will pull
+                work from the Element's shared command consumer group (defaults
+                to 1).
+            block: Wait for the response before returning from the function
+            read_block_ms: Number of milliseconds to block for during a stream
+                read insde of a command loop.
+            join_timeout: If block=True, how long to wait while joining threads
+                at the end of the command loop before raising an exception
         """
         # update self._pid in case e.g. we were constructed in a parent thread
         #   but `command_loop` was explicitly called as a sub-process
@@ -1175,7 +1171,7 @@ class Element:
             self._command_loop_join(join_timeout=join_timeout)
 
     def _increment_command_group_counter(self, _pipe: Pipeline) -> Any:
-        """Incremeents reference counter for element stream collection"""
+        """Increments reference counter for element stream collection"""
         _pipe.incr(self._make_consumer_group_counter(self.name))
         result = _pipe.execute()[-1]
         self.logger.debug(f"incrementing element {self.name} {result}")
@@ -1194,19 +1190,19 @@ class Element:
         All of the metric creation calls for the command loop.
 
         NOTE: Technically workers will be in their own process so we really
-        don't need the two-level dict with _command_loop_metrics. That said
-        we may have some users who want to use threads in order to share state
-        and we might as well take a small performance hit here to support it
-        without running into subtle bugs down the line.
+        don't need the two-level dict with _command_loop_metrics. That said we
+        may have some users who want to use threads in order to share state and
+        we might as well take a small performance hit here to support it without
+        running into subtle bugs down the line.
 
         Args:
-            worker_num (int): Which command loop worker we are.
+            worker_num: Which command loop worker we are.
         """
 
         self._command_loop_metrics[worker_num]["block_time"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:command_loop",
-            worker_num,
+            f"{worker_num}",
             "block_time",
             labels={"worker": f"{worker_num}"},
             agg_types=["AVG", "MIN", "MAX"],
@@ -1216,7 +1212,7 @@ class Element:
         ] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:command_loop",
-            worker_num,
+            f"{worker_num}",
             "block_handler_time",
             labels={"worker": f"{worker_num}"},
             agg_types=["AVG", "MIN", "MAX"],
@@ -1224,7 +1220,7 @@ class Element:
         self._command_loop_metrics[worker_num]["handler_time"] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:command_loop",
-            worker_num,
+            f"{worker_num}",
             "handler_time",
             labels={"worker": f"{worker_num}"},
             agg_types=["AVG", "MIN", "MAX"],
@@ -1234,7 +1230,7 @@ class Element:
         ] = self.metrics_create(
             MetricsLevel.TIMING,
             "atom:command_loop",
-            worker_num,
+            f"{worker_num}",
             "handler_block_time",
             labels={"worker": f"{worker_num}"},
             agg_types=["AVG", "MIN", "MAX"],
@@ -1244,7 +1240,7 @@ class Element:
         self._command_loop_metrics[worker_num]["n_commands"] = self.metrics_create(
             MetricsLevel.INFO,
             "atom:command_loop",
-            worker_num,
+            f"{worker_num}",
             "n_commands",
             labels={"worker": f"{worker_num}"},
             agg_types=["SUM"],
@@ -1256,7 +1252,7 @@ class Element:
         ] = self.metrics_create(
             MetricsLevel.ERR,
             "atom:command_loop",
-            worker_num,
+            f"{worker_num}",
             "xreadgroup_error",
             labels={"worker": f"{worker_num}"},
             agg_types=["SUM"],
@@ -1266,7 +1262,7 @@ class Element:
         ] = self.metrics_create(
             MetricsLevel.ERR,
             "atom:command_loop",
-            worker_num,
+            f"{worker_num}",
             "stream_match_error",
             labels={"worker": f"{worker_num}"},
             agg_types=["SUM"],
@@ -1274,7 +1270,7 @@ class Element:
         self._command_loop_metrics[worker_num]["no_caller"] = self.metrics_create(
             MetricsLevel.ERR,
             "atom:command_loop",
-            worker_num,
+            f"{worker_num}",
             "no_caller",
             labels={"worker": f"{worker_num}"},
             agg_types=["SUM"],
@@ -1284,7 +1280,7 @@ class Element:
         ] = self.metrics_create(
             MetricsLevel.ERR,
             "atom:command_loop",
-            worker_num,
+            f"{worker_num}",
             "unsupported_command",
             labels={"worker": f"{worker_num}"},
             agg_types=["SUM"],
@@ -1292,7 +1288,7 @@ class Element:
         self._command_loop_metrics[worker_num]["unhandled"] = self.metrics_create(
             MetricsLevel.CRIT,
             "atom:command_loop",
-            worker_num,
+            f"{worker_num}",
             "unhandled",
             labels={"worker": f"{worker_num}"},
             agg_types=["SUM"],
@@ -1300,7 +1296,7 @@ class Element:
         self._command_loop_metrics[worker_num]["failed"] = self.metrics_create(
             MetricsLevel.ERR,
             "atom:command_loop",
-            worker_num,
+            f"{worker_num}",
             "failed",
             labels={"worker": f"{worker_num}"},
             agg_types=["SUM"],
@@ -1308,7 +1304,7 @@ class Element:
         self._command_loop_metrics[worker_num]["response_error"] = self.metrics_create(
             MetricsLevel.ERR,
             "atom:command_loop",
-            worker_num,
+            f"{worker_num}",
             "response_error",
             labels={"worker": f"{worker_num}"},
             agg_types=["SUM"],
@@ -1316,7 +1312,7 @@ class Element:
         self._command_loop_metrics[worker_num]["xack_error"] = self.metrics_create(
             MetricsLevel.ERR,
             "atom:command_loop",
-            worker_num,
+            f"{worker_num}",
             "xack_error",
             labels={"worker": f"{worker_num}"},
             agg_types=["SUM"],
@@ -1325,6 +1321,7 @@ class Element:
     def _command_loop(
         self, shutdown_event, worker_num: int, read_block_ms: int = 1000
     ) -> None:
+        """Execute the command loop"""
         client_name = f"{self.name}-command-loop-{worker_num}"
         if hasattr(self, "_host"):
             _rclient = redis.StrictRedis(
@@ -1637,8 +1634,8 @@ class Element:
         Create all of the metrics for a command send call
 
         Args:
-            element_name (str): Name of the element we're calling
-            cmd_name (str): Name of the command we're calling
+            element_name: Name of the element we're calling
+            cmd_name: Name of the command we're calling
         """
 
         # If we already have something non-None in there, return out
@@ -1696,26 +1693,24 @@ class Element:
         deserialize: Optional[bool] = None,
     ) -> ResponseDict:
         """
-        Sends command to element and waits for acknowledge.
-        When acknowledge is received, waits for timeout from acknowledge or
-            until response is received.
+        Sends command to element and waits for acknowledge. When acknowledge is
+        received, waits for timeout from acknowledge or until response is
+        received.
 
         Args:
-            element_name (str): Name of the element to send the command to.
-            cmd_name (str): Name of the command to execute of element_name.
+            element_name: Name of the element to send the command to.
+            cmd_name: Name of the command to execute of element_name.
             data: Entry to be passed to the function specified by cmd_name.
-            block (bool): Wait for the response before returning from the
-                function.
-            ack_timeout (int, optional): Time in milliseconds to wait for ack
-                before timing out, overrides default value.
-            serialization (str, optional): Method of serialization to use;
-                defaults to None.
+            block: Wait for the response before returning from the function.
+            ack_timeout: Time in milliseconds to wait for ack before timing out,
+                overrides default value.
+            serialization: Method of serialization to use; defaults to None.
 
             Deprecated:
-            serialize (bool, optional): Whether or not to serialize the data
-                with msgpack before sending it to the command; defaults to None.
-            deserialize (bool, optional): Whether or not to deserialize the data
-                with msgpack in the response; defaults to None.
+            serialize: Whether or not to serialize the data with msgpack before
+                sending it to the command; defaults to None.
+            deserialize: Whether or not to deserialize the data with msgpack in
+                the response; defaults to None.
 
         Returns:
             A dictionary of the response from the command.
@@ -1941,19 +1936,18 @@ class Element:
         Listens to streams and pass any received entry to corresponding handler.
 
         Args:
-            stream_handlers (list of messages.StreamHandler):
-            n_loops (int): Number of times to send the stream entry to the
-                handlers.
-            timeout (int): How long to block on the stream. If surpassed, the
-                unction returns.
-            serialization (str, optional): If deserializing, the method of
-                serialization to use; defaults to None.
-            force_serialization (bool): Boolean to ignore "ser" key if found
-                in favor of the user-passed serialization. Defaults to false.
+            stream_handlers: Iterable sequence of stream handlers
+            n_loops: Number of times to send the stream entry to the handlers.
+            timeout: How long to block on the stream. If surpassed, the unction
+                returns.
+            serialization: If deserializing, the method of serialization to use;
+                defaults to None.
+            force_serialization: Boolean to ignore "ser" key if found in favor
+                of the user-passed serialization. Defaults to false.
 
             Deprecated:
-            deserialize (bool, optional): Whether or not to deserialize the
-                entries using msgpack; defaults to None.
+            deserialize: Whether or not to deserialize the entries using
+                msgpack; defaults to None.
         """
         if n_loops is None:
             # Create an infinite loop
@@ -1993,8 +1987,8 @@ class Element:
         Initialize metrics for reading from an element's stream
 
         Args:
-            element_name (str): name of the element we're reading from
-            stream_name (str): name of the stream we're reading from
+            element_name: name of the element we're reading from
+            stream_name: name of the stream we're reading from
         """
 
         # If we've already initialized this, return
@@ -2044,17 +2038,17 @@ class Element:
         Gets the n most recent entries from the specified stream.
 
         Args:
-            element_name (str): Name of the element to get the entry from.
-            stream_name (str): Name of the stream to get the entry from.
-            n (int): Number of entries to get.
-            serialization (str, optional): The method of deserialization to use;
-                                           defaults to None.
-            force_serialization (bool): Boolean to ignore "ser" key if found
-                in favor of the user-passed serialization. Defaults to false.
+            element_name: Name of the element to get the entry from.
+            stream_name: Name of the stream to get the entry from.
+            n: Number of entries to get.
+            serialization: The method of deserialization to use; defaults to
+                None.
+            force_serialization: Boolean to ignore "ser" key if found in favor
+                of the user-passed serialization. Defaults to false.
 
             Deprecated:
-            deserialize (bool, optional): Whether or not to deserialize the
-                entries using msgpack; defaults to None.
+            deserialize: Whether or not to deserialize the entries using
+                msgpack; defaults to None.
 
         Returns:
             List of dicts containing the data of the entries
@@ -2108,8 +2102,8 @@ class Element:
         Initialize metrics for reading from an element's stream
 
         Args:
-            element_name (str): name of the element we're reading from
-            stream_name (str): name of the stream we're reading from
+            element_name: name of the element we're reading from
+            stream_name: name of the stream we're reading from
         """
 
         # If we've already initialized this, return
@@ -2161,23 +2155,22 @@ class Element:
         Read entries from a stream since the last_id.
 
         Args:
-            element_name (str): Name of the element to get the entry from.
-            stream_name (str): Name of the stream to get the entry from.
-            last_id (str, optional): Time from which to start get entries from.
+            element_name: Name of the element to get the entry from.
+            stream_name: Name of the stream to get the entry from.
+            last_id: Time from which to start get entries from.
                 If '0', get all entries.
                 If '$' (default), get only new entries after the function call
                     (blocking).
-            n (int, optional): Number of entries to get. If None, get all.
-            block (int, optional): Time (ms) to block on the read. If 0, block
-                forever. If None, don't block.
-            serialization (str, optional): Method of deserialization to use;
-                defaults to None.
-            force_serialization (bool): Boolean to ignore "ser" key if found
-                in favor of the user-passed serialization. Defaults to false.
+            n: Number of entries to get. If None, get all.
+            block: Time (ms) to block on the read. If 0, block forever. If None,
+                don't block.
+            serialization: Method of deserialization to use; defaults to None.
+            force_serialization: Boolean to ignore "ser" key if found in favor
+                of the user-passed serialization. Defaults to false.
 
             Deprecated:
-            deserialize (bool, optional): Whether or not to deserialize the
-                entries using msgpack; defaults to None.
+            deserialize: Whether or not to deserialize the entries using
+                msgpack; defaults to None.
         """
 
         # Initialize metrics
@@ -2232,7 +2225,7 @@ class Element:
         Initialize metrics for writing to a stream
 
         Args:
-            stream_name (str): Stream we're writing to
+            stream_name: Stream we're writing to
         """
 
         # If we've already initialized the metrics, no need to worry
@@ -2268,23 +2261,22 @@ class Element:
         serialize: Optional[bool] = None,
     ) -> str:
         """
-        Creates element's stream if it does not exist.
-        Adds the fields and data to a Entry and puts it in the element's stream.
+        Creates element's stream if it does not exist. Adds the fields and data
+        to a Entry and puts it in the element's stream.
 
         Args:
-            stream_name (str): The stream to add the data to.
-            field_data_map (dict): Dict which creates the Entry. See messages.
-                Entry for more usage.
-            maxlen (int, optional): The maximum number of data to keep in the
-                stream.
-            serialization (str, optional): Method of serialization to use;
-                defaults to None.
+            stream_name: The stream to add the data to.
+            field_data_map: Dict which creates the Entry. See messages. Entry
+                for more usage.
+            maxlen: The maximum number of data to keep in the stream.
+            serialization: Method of serialization to use; defaults to None.
 
             Deprecated:
-            serialize (bool, optional): Whether or not to serialize the entry
-                using msgpack; defaults to None.
+            serialize: Whether or not to serialize the entry using msgpack;
+                defaults to None.
 
-        Return: ID of item added to stream
+        Returns:
+            ID of item added to stream
         """
 
         # Initialize metrics
@@ -2345,15 +2337,13 @@ class Element:
     ) -> None:
         """
         Forwards calls to self.logger
+
         Args:
-            level (messages.LogLevel): Unix syslog severity of message.
-            message (str): The message to write for the log.
-            stdout (bool, optional): Whether to write to stdout or only write to
-                log stream.
-            _pipe (pipeline, optional): Pipeline to use for the log message to
-                be sent to redis
-            redis (bool, optional): Default true, whether to log to
-                redis or not
+            level: Unix syslog severity of message.
+            message: The message to write for the log.
+            stdout: Whether to write to stdout or only write to log stream.
+            _pipe: Pipeline to use for the log message to be sent to redis
+            redis: Default true, whether to log to redis or not
         """
 
         numeric_level = getattr(logging, level.name.upper(), None)
@@ -2431,27 +2421,26 @@ class Element:
         Creates a Redis hash store, prefixed under the "parameter:" namespace
         with user specified key. Each field in the data dictionary will be
         stored as a field on the Redis hash. Override and serialization fields
-        will be added based on the user-passed args. The store will never
-        expire by default and should be explicitly deleted when no longer
-        needed.
+        will be added based on the user-passed args. The store will never expire
+        by default and should be explicitly deleted when no longer needed.
 
-        If the store already exists under the specified key, the override
-        field will be checked. The fields will be updated if override is true,
+        If the store already exists under the specified key, the override field
+        will be checked. The fields will be updated if override is true,
         otherwise an error will be raised. A parameter's serialization method
         cannot be changed once it is set at the intial write.
 
         Args:
-            key (str): name of parameter to store
-            data (dict): dictionary of data fields to store
-            override (bool, optional): whether or not hash fields can be
-                overwritten
-            serialization (str, optional): Method of serialization to use;
-                defaults to None.
-            timeout_ms (int, optional): How long the reference should persist
-                in atom unless otherwise extended/deleted. Defaults to 0 for no
-                timeout, i.e. parameter exists until explicitly deleted.
+            key: name of parameter to store
+            data: dictionary of data fields to store
+            override: whether or not hash fields can be overwritten
+            serialization: Method of serialization to use; defaults to None.
+            timeout_ms: How long the reference should persist in atom unless
+                otherwise extended/deleted. Defaults to 0 for no timeout, i.e.
+                parameter exists until explicitly deleted.
+
         Returns:
             list of fields written to
+
         Raises:
             AtomError if key exists and cannot be overridden or a serialization
             method other than the existing one is requested
@@ -2558,9 +2547,11 @@ class Element:
         Return parameter's override setting
 
         Args:
-            key (str): Parameter key
+            key: Parameter key
+
         Returns:
-            (str) "true" or "false" parameter override setting
+            String "true" or "false" parameter override setting
+
         Raises:
             AtomError if parameter does not exist
         """
@@ -2589,13 +2580,13 @@ class Element:
         read from the parameter.
 
         Args:
-            key (str): One parameter key to get from Atom
-            fields (strs, optional): list of field names to read from parameter
-            serialization (str, optional): If deserializing, the method of
-                serialization to use; defaults to None.
-            force_serialization (bool): Boolean to ignore serialization field if
-                found in favor of the user-passed serialization. Defaults to
-                false.
+            key: One parameter key to get from Atom
+            fields: list of field names to read from parameter
+            serialization: If deserializing, the method of serialization to use;
+                defaults to None.
+            force_serialization: Boolean to ignore serialization field if found
+                in favor of the user-passed serialization. Defaults to false.
+
         Returns:
             dictionary of data read from the parameter store
         """
@@ -2664,10 +2655,10 @@ class Element:
         Deletes a parameter and cleans up its memory
 
         Args:
-            keys (str): Key of parameter to delete from Atom
+            keys: Key of parameter to delete from Atom
 
-        Return
-            success (bool)
+        Returns:
+            True if parameter was successfully deleted
         """
 
         # Initialize metrics
@@ -2686,27 +2677,24 @@ class Element:
 
     def parameter_update_timeout_ms(self, key: str, timeout_ms: int) -> None:
         """
-        Updates the timeout for an existing parameter. This might want to
-        be done in case we don't want the parameter to live forever.
+        Updates the timeout for an existing parameter. This might want to be
+        done in case we don't want the parameter to live forever.
 
         Args:
-            key (str): Key of a parameter for which we want to update the
-                        timeout
-            timeout_ms (int): Timeout at which we want the key to expire.
-                        Pass <= 0 for no timeout, i.e. never expire (generally
-                        a terrible idea)
+            key: Key of a parameter for which we want to update the timeout
+            timeout_ms: Timeout at which we want the key to expire. Pass <= 0
+                for no timeout, i.e. never expire (generally a terrible idea)
 
         """
         self._redis_key_update_timeout_ms(self._make_parameter_key(key), timeout_ms)
 
-    def parameter_get_timeout_ms(self, key: str):
+    def parameter_get_timeout_ms(self, key: str) -> int:
         """
-        Get the current amount of ms left on the parameter. Mainly useful
-        for debug. Returns -1 if no timeout, else the timeout in ms.
+        Get the current amount of ms left on the parameter. Mainly useful for
+        debug. Returns -1 if no timeout, else the timeout in ms.
 
         Args:
-            key (str):  Key of a reference for which we want to get the
-                        timeout ms for.
+            key: Key of a reference for which we want to get the timeout ms for.
         """
         return self._redis_key_get_timeout_ms(self._make_parameter_key(key))
 
@@ -2745,27 +2733,25 @@ class Element:
         """
         Creates one or more expiring references (similar to a pointer) in the
         atom system. This will typically be used when we've gotten a piece of
-        data from a stream and we want it to persist past the length of time
-        it would live in the stream s.t. we can pass it to other commands /
-        elements. The references will simply be cached values in redis and
-        will expire after the timeout_ms amount of time.
+        data from a stream and we want it to persist past the length of time it
+        would live in the stream s.t. we can pass it to other commands /
+        elements. The references will simply be cached values in redis and will
+        expire after the timeout_ms amount of time.
 
         Args:
-            data (binary or object): one or more data items to be included in
-                the reference
-            keys (strs, optional): keys to use in reference IDs; defaults to
-                None, in which case they will be auto-generated UUIDs.
-            timeout_ms (int, optional): How long the reference should persist
-                in atom unless otherwise extended/deleted. Set to 0 to have the
-                reference never time out (generally a terrible idea)
-            serialization (str, optional): Method of serialization to use;
-                defaults to None.
+            data: one or more data items to be included in the reference
+            keys: keys to use in reference IDs; defaults to None, in which case
+                they will be auto-generated UUIDs.
+            timeout_ms: How long the reference should persist in atom unless
+                otherwise extended/deleted. Set to 0 to have the reference never
+                time out (generally a terrible idea)
+            serialization: Method of serialization to use; defaults to None.
 
             Deprecated:
-            serialize (bool, optional): whether or not to serialize the data
-                using msgpack before creating the reference
+            serialize: whether or not to serialize the data using msgpack before
+                creating the reference
 
-        Return:
+        Returns:
             List of references corresponding to the arguments passed
         """
         ref_ids = []
@@ -2838,8 +2824,8 @@ class Element:
         Initialize the metrics for creating a reference from a stream
 
         Args:
-            element (str): Element whose stream we'll be reading from
-            stream (str): Stream we'll be reading from
+            element: Element whose stream we'll be reading from
+            stream: Stream we'll be reading from
         """
 
         # If we've already created the metrics, just return
@@ -2866,33 +2852,30 @@ class Element:
         """
         Creates an expiring reference (similar to a pointer) in the atom system.
         This API will take an element and a stream and, depending on the value
-        of the stream_id field, will create a reference within Atom without
-        the data ever having left Redis. This is optimal for performance and
-        memory reasons. If the id arg is "" then we will make a reference
-        from the most recent piece of data. If it is a particular ID we will
-        make a reference from that piece of data.
+        of the stream_id field, will create a reference within Atom without the
+        data ever having left Redis. This is optimal for performance and memory
+        reasons. If the id arg is "" then we will make a reference from the most
+        recent piece of data. If it is a particular ID we will make a reference
+        from that piece of data.
 
-        Since streams have multiple key:value pairs, one reference per key
-        in the stream will be created, and the return type is a dictionary
-        mapping stream keys to references.  The references are named so that
-        the stream key is also included in the name of the corresponding
-        reference.
+        Since streams have multiple key:value pairs, one reference per key in
+        the stream will be created, and the return type is a dictionary mapping
+        stream keys to references.  The references are named so that the stream
+        key is also included in the name of the corresponding reference.
 
         Args:
+            element: Name of the element whose stream we want to make a
+                reference from
+            stream: Stream from which we want to make a reference
+            id: If "", will use the most recent value from the stream. Else,
+                will try to make a reference from the particular stream ID
+            timeout_ms: How long the reference should persist in atom unless
+                otherwise extended/deleted. Set to 0 to have the reference never
+                time out (generally a terrible idea)
 
-            element (string) : Name of the element whose stream we want to
-                        make a reference from
-            stream (string) : Stream from which we want to make a reference
-            id (string) : If "", will use the most recent value from the
-                        stream. Else, will try to make a reference from the
-                        particular stream ID
-            timeout_ms (int): How long the reference should persist in atom
-                        unless otherwise extended/deleted. Set to 0 to have the
-                        reference never time out (generally a terrible idea)
-
-        Return:
-            dictionary mapping stream keys to reference keys. Raises
-            an error on failure.
+        Returns:
+            dictionary mapping stream keys to reference keys. Raises an error on
+            failure.
         """
 
         if self._stream_reference_sha is None:
@@ -2972,18 +2955,18 @@ class Element:
         on each key as commanded by the user
 
         Args:
-            keys (str): One or more keys of references to get from Atom
-            serialization (str, optional): If deserializing, the method of
-                serialization to use; defaults to msgpack.
-            force_serialization (bool): Boolean to ignore "ser" key if found
-                in favor of the user-passed serialization. Defaults to false.
+            keys: One or more keys of references to get from Atom
+            serialization: If deserializing, the method of serialization to use;
+                defaults to msgpack.
+            force_serialization: Boolean to ignore "ser" key if found in favor
+                of the user-passed serialization. Defaults to false.
 
             Deprecated:
-            deserialize (bool, optional): Whether or not to deserialize
-                reference; defaults to False.
-        Return:
+            deserialize: Whether or not to deserialize reference; default False.
+
+        Returns:
             List of items corresponding to each reference key passed as an
-                argument
+            argument
         """
 
         # Initialize metrics
@@ -3051,9 +3034,9 @@ class Element:
         Deletes one or more Redis keys and cleans up their memory
 
         Args:
-            keys (strs): Keys to delete from Atom
+            keys: Keys to delete from Atom
 
-        Return:
+        Returns:
             success (bool), failed_to_delete (list of key)
         """
 
@@ -3108,9 +3091,9 @@ class Element:
         Deletes one or more references from Atom
 
         Args:
-            keys (list of reference string): References to delete
+            keys: References to delete
 
-        Return:
+        Returns:
             success (bool), list of failed keys (list of reference)
         """
 
@@ -3131,16 +3114,14 @@ class Element:
 
     def _redis_key_update_timeout_ms(self, key: str, timeout_ms: int) -> None:
         """
-        Updates the timeout for an existing redis key. This might want to
-        be done as we won't know exactly how long we'll need the key for
-        at the original point in time for which we created it
+        Updates the timeout for an existing redis key. This might want to be
+        done as we won't know exactly how long we'll need the key for at the
+        original point in time for which we created it
 
         Args:
-            key (str): Key of a reference for which we want to update the
-                        timeout
-            timeout_ms (int): Timeout at which we want the key to expire.
-                        Pass <= 0 for no timeout, i.e. never expire (generally
-                        a terrible idea)
+            key: Key of a reference for which we want to update the timeout
+            timeout_ms: Timeout at which we want the key to expire. Pass <= 0
+                for no timeout, i.e. never expire (generally a terrible idea)
         """
         _pipe = self._rpipeline_pool.get()
 
@@ -3170,12 +3151,12 @@ class Element:
 
     def _redis_key_get_timeout_ms(self, key: str) -> int:
         """
-        Get the current amount of ms left on the key. Mainly useful
-        for debug. Returns -1 if no timeout, else the timeout in ms.
+        Get the current amount of ms left on the key. Mainly useful for debug.
+        Returns -1 if no timeout, else the timeout in ms.
 
         Args:
-            key (str):  Key of a reference for which we want to get the
-                        timeout ms for.
+            key:  Key of a reference for which we want to get the timeout ms
+                for.
         """
         _pipe = self._rpipeline_pool.get()
         _pipe.pttl(key)
@@ -3256,16 +3237,14 @@ class Element:
         Set the value for a shared, atomic counter directly using SET
 
         Args:
-            key (string): Name of the shared counter
-            value (int): Integer value of the shared counter. MUST be int
-                for this API, though SET under the hood can indeed take
-                any value
-            timeout_ms (int, optional): How long the counter should live for.
-                Default None, i.e. won't expire, but if set will call PEXPIRE
-                under the hood to have the value expire after a certain amount
-                of time.
+            key: Name of the shared counter
+            value: Integer value of the shared counter. MUST be int for this
+                API, though SET under the hood can indeed take any value
+            timeout_ms: How long the counter should live for. Default None, i.e.
+                won't expire, but if set will call PEXPIRE under the hood to
+                have the value expire after a certain amount of time.
 
-        Return:
+        Returns:
             Current integer value of the counter
 
         Raises:
@@ -3312,25 +3291,23 @@ class Element:
 
     def counter_update(self, key: str, value: int, timeout_ms: int = 0) -> int:
         """
-        Increments the counter at key by the integer value specified. If
-        value is positive, the counter will atomically increment, if negative
-        then it will atomically decrement.
+        Increments the counter at key by the integer value specified. If value
+        is positive, the counter will atomically increment, if negative then it
+        will atomically decrement.
 
-        NOTE: If key does not exist, it will be set to the value here. This
-            is how redis handles it and is good enough for now. We don't
-            throw/raise an error on updating a counter that wasn't previously
-            created.
+        NOTE: If key does not exist, it will be set to the value here. This is
+        how redis handles it and is good enough for now. We don't throw/raise an
+        error on updating a counter that wasn't previously created.
 
         Args:
-            key (string): Name of the shared counter
-            value (int): Integer value of the shared counter. MUST be int
-                for this API. Can be positive or negative
-            timeout_ms (int, optional): How long the counter should live for.
-                Default None, i.e. won't expire, but if set will call PEXPIRE
-                under the hood to have the value expire after a certain amount
-                of time.
+            key: Name of the shared counter
+            value: Integer value of the shared counter. MUST be int for this
+                API. Can be positive or negative
+            timeout_ms: How long the counter should live for. Default None, i.e.
+                won't expire, but if set will call PEXPIRE under the hood to
+                have the value expire after a certain amount of time.
 
-        Return:
+        Returns:
             Current value of the counter
 
         Raises:
@@ -3377,13 +3354,13 @@ class Element:
 
     def counter_get(self, key: str) -> Optional[int]:
         """
-        Return the value of a shared counter. Returns None if the counter
-            does not exist
+        Return the value of a shared counter. Returns None if the counter does
+        not exist
 
         Args:
-            key (string): Name of the shared counter
+            key: Name of the shared counter
 
-        Return:
+        Returns:
             Current value of the counter if it exists, else None
         """
 
@@ -3419,9 +3396,9 @@ class Element:
         Deletes a shared counter
 
         Args:
-            keys (str): Key of counter to delete from Atom
+            keys: Key of counter to delete from Atom
 
-        Return:
+        Returns:
             success (bool)
         """
 
@@ -3533,13 +3510,12 @@ class Element:
         Set the value for a shared, atomic counter directly using SET
 
         Args:
-            set_key (string): Name of the sorted set
-            member (string): Name of the member to use in the sorted set
-            value (float): Value to give to the member in the sorted set
+            set_key: Name of the sorted set
+            member: Name of the member to use in the sorted set
+            value: Value to give to the member in the sorted set
 
-        Return:
-            Cardinality of the set, i.e. how many members exist after
-                the ADD.
+        Returns:
+            Cardinality of the set, i.e. how many members exist after the ADD.
 
         Raises:
             AtomError on inability to add to set
@@ -3584,11 +3560,10 @@ class Element:
         Get the cardinality/size of a sorted set
 
         Args:
-            set_key (string): Name of the sorted set
+            set_key: Name of the sorted set
 
-        Return:
-            Cardinality of the set, i.e. how many members exist after
-                the ADD.
+        Returns:
+            Cardinality of the set, i.e. how many members exist after the ADD.
 
         Raises:
             AtomError on inability to add to set
@@ -3632,20 +3607,20 @@ class Element:
         Pop a value from a sorted set. Minium or maximum (min by default)
 
         NOTE: We cannot/should not do blocking operations inside of multi/exec
-            pipelines since this will block the entire server. If we try to do
-            the BZPOP-type operations inside of a traditional multi-exec
-            pipeline we'll get an immediate None/Failure type response
+        pipelines since this will block the entire server. If we try to do the
+        BZPOP-type operations inside of a traditional multi-exec pipeline we'll
+        get an immediate None/Failure type response
 
         Args:
-            set_key (string): Name of the sorted set
-            maximum (bool): True to pop maximum, False to pop minimum
-            block (bool, optional): True to block and wait for data if none
+            set_key: Name of the sorted set
+            maximum: True to pop maximum, False to pop minimum
+            block: True to block and wait for data if none
                 exists, False to not block
-            timeout (float, optional): Seconds. If block is true, this will
-                be how long we wait for data before timing out. Set to 0 for
-                infinite block/no timeout.
+            timeout: Seconds. If block is true, this will be how long we wait
+                for data before timing out. Set to 0 for infinite block/no
+                timeout.
 
-        Return:
+        Returns:
             Tuple of (Tuple of (member, value) that was popped, set cardinality)
 
         Raises:
@@ -3705,9 +3680,9 @@ class Element:
 
     def sorted_set_pop_n(self, set_key: str, n: int, maximum: bool = False):
         """
-        Pop at most n values from a sorted set. Items are popped and returned
-            in prio order (Minium or maximum (min by default)). Done via a
-            single redis call/transaction.
+        Pop at most n values from a sorted set. Items are popped and returned in
+        prio order (Minium or maximum (min by default)). Done via a single redis
+        call/transaction.
 
         Will raise SetEmptyError on no data in the set
         Will never block
@@ -3715,11 +3690,11 @@ class Element:
             set <= N.
 
         Args:
-            set_key (string): Name of the sorted set
-            n (int): Maximum number of items to pop.
-            maximum (bool): True to pop maximum, False to pop minimum
+            set_key: Name of the sorted set
+            n: Maximum number of items to pop.
+            maximum: True to pop maximum, False to pop minimum
 
-        Return:
+        Returns:
             Tuple ([List of (member, value)], set cardinality)
 
         Raises:
@@ -3774,13 +3749,13 @@ class Element:
         Read a range of the sorted set
 
         Args:
-            set_key (string): Name of the sorted set
-            start (int): start index of the read
-            end (int): End index of the read
-            maximum (bool): Read from greatest to least, else least to greatest
-            withvalues (bool): Return scores with member.
+            set_key: Name of the sorted set
+            start: start index of the read
+            end: End index of the read
+            maximum: Read from greatest to least, else least to greatest
+            withvalues: Return scores with member.
 
-        Return:
+        Returns:
             List of Tuple of (member, value) that was read if withvalues=True.
                 Else, will be sorted list of members read.
 
@@ -3822,10 +3797,10 @@ class Element:
         Read the value of a member from a sorted set
 
         Args:
-            set_key (string): Name of the sorted set
-            member (string): Mmeber of the sorted set we want to read
+            set_key: Name of the sorted set
+            member: Mmeber of the sorted set we want to read
 
-        Return:
+        Returns:
             value of member
 
         Raises:
@@ -3863,10 +3838,10 @@ class Element:
         Remove a member from a sorted set
 
         Args:
-            set_key (string): Name of the sorted set
-            member (string): Mmeber of the sorted set we want to remove
+            set_key: Name of the sorted set
+            member: Mmeber of the sorted set we want to remove
 
-        Return:
+        Returns:
             None
 
         Raises:
@@ -3909,10 +3884,7 @@ class Element:
         Delete a sorted set entirely
 
         Args:
-            set_key (string): Name of the sorted set
-
-        Return:
-            None
+            set_key: Name of the sorted set
 
         Raises:
             AtomError on inability to remove member from set
@@ -3948,7 +3920,7 @@ class Element:
         """
         Get a pipeline for use in metrics.
 
-        Return:
+        Returns:
             pipeline: the pipeline itself
         """
         if not self._metrics_enabled:
@@ -3971,11 +3943,11 @@ class Element:
     ) -> Optional[list[Any]]:
         """
         Release (and perhaps execute) a pipeline that was used for a metrics
-        call. If execute is TRUE we will execute the pipeline and return
-        it to the general pool. If execute is FALSE we will not execute the
-        pipeline and we will put it back into the async pool. Then, it will get
-        executed either when someone flushes or opportunistically by
-        the next person who releases a pipeline with execute=True.
+        call. If execute is TRUE we will execute the pipeline and return it to
+        the general pool. If execute is FALSE we will not execute the pipeline
+        and we will put it back into the async pool. Then, it will get executed
+        either when someone flushes or opportunistically by the next person who
+        releases a pipeline with execute=True.
 
         Args:
             pipeline: pipeline to release (return value 0 of
@@ -4024,19 +3996,18 @@ class Element:
         recommended to use this and encouraged to stick with the atom system.
 
         NOTE: not able to be done asynchronously -- there is too much internal
-        back and forth with the redis server. This call will always make
-        writes out to the metrics redis.
+        back and forth with the redis server. This call will always make writes
+        out to the metrics redis.
 
         Args:
-            level (MetricsLevel): Severity level of the metric
-            key (str): Key to use for the metric
-            retention (int, optional): How long to keep data for the metric,
-                in milliseconds. Default 60000ms == 1 minute. Be careful with
-                this, it will grow unbounded if set to 0.
-            labels (dictionary, optional): Optional labels to add to the
-                data. Each key should be a string and each value should also
-                be a string.
-            rules (dictionary, optional): Optional dictionary of rules to apply
+            level: Severity level of the metric
+            key: Key to use for the metric
+            retention: How long to keep data for the metric, in milliseconds.
+                Default 60000ms == 1 minute. Be careful with this, it will grow
+                unbounded if set to 0.
+            labels: Optional labels to add to the data. Each key should be a
+                string and each value should also be a string.
+            rules: Optional dictionary of rules to apply
                 to the metric using TS.CREATERULE
                 (https://oss.redislabs.com/redistimeseries/commands/#tscreaterule) # noqa 501
                 Each key in the dictionary should be a new time series key and
@@ -4047,10 +4018,10 @@ class Element:
                         to perform aggregation)
                     [2]: aggregation retention, i.e. how long to keep this
                         aggregated stat for
-            update (boolean, optional): We will call TS.CREATE to attempt to
-                create the key. If this is false and the key exists we'll
-                return out. Otherwise we'll update the key.
-            duplicate_policy (string, optional): How to handle when there's
+            update: We will call TS.CREATE to attempt to create the key. If this
+                is false and the key exists we'll return out. Otherwise we'll
+                update the key.
+            duplicate_policy: How to handle when there's
                 already a sample in the series at the same millisecond. The
                 default behavior here, `last`, will overwrite and not throw
                 an error. Choices are:
@@ -4062,8 +4033,8 @@ class Element:
                   - 'max': only override if the value is higher than the
                         existing value
 
-        Return:
-            key (str): The key used. Can then be passed to metrics timing
+        Returns:
+            key: The key used. Can then be passed to metrics timing
                 and/or metrics add custom without having to go through the whole
                 type/subtype rigamarole.
         """
@@ -4200,7 +4171,7 @@ class Element:
         self,
         level: MetricsLevel,
         m_type: str,
-        *m_subtypes,
+        *m_subtypes: str,
         retention: int = METRICS_DEFAULT_RETENTION,
         labels: Optional[dict] = None,
         agg_timing: list[tuple[int, int]] = METRICS_DEFAULT_AGG_TIMING,
@@ -4208,44 +4179,42 @@ class Element:
         duplicate_policy: DuplicatePolicy = "last",
     ) -> Optional[str]:
         """
-        Create a metric of the given type and subtypes. All labels you need
-        will be auto-generated, though more can be passed. Aggregation will
-        be by default not performed, pass agg_types to add aggregation with
-        default timing of the types specified
+        Create a metric of the given type and subtypes. All labels you need will
+        be auto-generated, though more can be passed. Aggregation will be by
+        default not performed, pass agg_types to add aggregation with default
+        timing of the types specified
 
         NOTE: not able to be done asynchronously -- there is too much internal
-        back and forth with the redis server. This call will always make
-        writes out to the metrics redis.
+        back and forth with the redis server. This call will always make writes
+        out to the metrics redis.
 
         Args:
-            level (MetricsLevel): Severity level of the metric
-            m_type (str): Type of the metric to be used
+            level: Severity level of the metric
+            m_type: Type of the metric to be used
             m_subtypes (list of anything that can be converted to a string):
                 Subtypes for the metric to be used. As long as the object can
                 be converted to a string using f-string syntax then it can be
                 passed here. This is nice to simplify the API and prevent
                 the user from having to do it themselves
-
-            retention (int, optional): How long to keep data for the metric,
-                in milliseconds. Default 60000ms == 1 minute. Be careful with
-                this, it will grow unbounded if set to 0.
-            labels (dictionary, optional): Optional additional labels to add to
-                the data. Each key should be a string and each value should also
-                be a string. All default atom labels will be added
-            agg_timing (list of tuples, optional): List of tuples where
-                each tuple has the following fields:
+            retention: How long to keep data for the metric, in milliseconds.
+                Default 60000ms == 1 minute. Be careful with this, it will grow
+                unbounded if set to 0.
+            labels: Optional additional labels to add to the data. Each key
+                should be a string and each value should also be a string. All
+                default atom labels will be added
+            agg_timing: List of tuples where each tuple has the following
+                fields:
                     [0]: Time bucket
                     [1]: Retention
-            agg_types (list of strings, optional): List of strings. For each
-                aggregation type in this list, rules will be set up for each
-                of the timings in the timing lists.
-            update (boolean, optional): We will call TS.CREATE to attempt to
-                create the key. If this is false and the key exists we'll
-                return out. Otherwise we'll update the key.
-            duplicate_policy (string, optional): How to handle when there's
-                already a sample in the series at the same millisecond. The
-                default behavior here, `last`, will overwrite and not throw
-                an error. Choices are:
+            agg_types: List of strings. For each aggregation type in this list,
+                rules will be set up for each of the timings in the timing
+                lists.
+            update: We will call TS.CREATE to attempt to create the key. If this
+                is false and the key exists we'll return out. Otherwise we'll
+                update the key.
+            duplicate_policy: How to handle when there's already a sample in the
+                series at the same millisecond. The default behavior here,
+                `last`, will overwrite and not throw an error. Choices are:
                   - 'block': an error will occur for any out of order sample
                   - 'first': ignore the new value
                   - 'last': override with latest value
@@ -4254,9 +4223,9 @@ class Element:
                   - 'max': only override if the value is higher than the
                         existing value
 
-        Return:
-            key (str): The key used. Can then be passed to metrics timing
-                and/or metrics add custom without having to go through the whole
+        Returns:
+            key: The key used. Can then be passed to metrics timing and/or
+                metrics add custom without having to go through the whole
                 type/subtype rigamarole.
         """
 
@@ -4353,36 +4322,35 @@ class Element:
         labels: Optional[dict] = None,
     ) -> Optional[list[Any]]:
         """
-        Adds a metric at the given key with the given value. Timestamp
-            can be set if desired, leaving at the default of '*' will result
-            in using the redis-server's timestamp which is usually good enough.
+        Adds a metric at the given key with the given value. Timestamp can be
+        set if desired, leaving at the default of '*' will result in using the
+        redis-server's timestamp which is usually good enough.
 
         NOTE: The metric MUST have been created with metrics_create or
-            metrics_create_custom before calling.
+        metrics_create_custom before calling.
 
         Args:
-            key (str): Key to use for the metric
-            val (int/float): Value to be adding to the time series
-            timestamp (None/str/int, optional): Timestamp to use for the value
-                in the time series. Leave at default to use the redis server's
-                built-in timestamp. Set to None to have this function take the
-                current system time and write it in. Else, pass an integer that
-                will be used as the timestamp.
-            pipeline (redis pipeline, optional): Leave NONE (default) to send
-                the metric to the redis server in this function call. Pass a
-                pipeline to just have the data added to the pipeline which you
-                will need to flush later
+            key: Key to use for the metric
+            val: Value to be adding to the time series
+            timestamp: Timestamp to use for the value in the time series. Leave
+                at default to use the redis server's built-in timestamp. Set to
+                None to have this function take the current system time and
+                write it in. Else, pass an integer that will be used as the
+                timestamp.
+            pipeline: Leave NONE (default) to send the metric to the redis
+                server in this function call. Pass a pipeline to just have the
+                data added to the pipeline which you will need to flush later
             enforce_exists: If TRUE, enforce that the metric exists before
                 writing. RECOMMENDED TO ALWAYS LEAVE THIS TRUE. However, it's
                 useful some times if you truly don't know which metrics you'll
                 be writing to that you can just call ADD and it'll write it out
                 and create the key if it doesn't exist. Use with caution.
-            retention (int, optional): Retention for the metric, if it doesn't
+            retention: Retention for the metric, if it doesn't
                 already exist. Only used if enforce_exists=False.
-            labels(dict, optional): Label of key, value pairs to be used as
-                filters for the metric. Only used if enforce_exists=False
+            labels: Label of key, value pairs to be used as filters for the
+                metric. Only used if enforce_exists=False
 
-        Return:
+        Returns:
             list of integers representing the timestamps created. None on
                 failure.
         """
@@ -4433,30 +4401,29 @@ class Element:
         labels: Optional[dict] = None,
     ):
         """
-        Adds a metric at the given key with the given value. Timestamp
-            can be set if desired, leaving at the default of '*' will result
-            in using the redis-server's timestamp which is usually good enough.
+        Adds a metric at the given key with the given value. Timestamp can be
+        set if desired, leaving at the default of '*' will result in using the
+        redis-server's timestamp which is usually good enough.
 
         Args:
-            level (MetricsLevel): Severity level of the metric
-            val (int/float): Value to be adding to the time series
-            m_type (str): Metric's identifying type
-            m_subtypes (str): Metric's identifying subtypes
-            timestamp (None/str/int, optional): Timestamp to use for the value
-                in the time series. Leave at default to use the redis server's
-                built-in timestamp. Set to None to have this function take the
-                current system time and write it in. Else, pass an integer that
-                will be used as the timestamp.
-            pipeline (redis pipeline, optional): Leave NONE (default) to send
-                the metric to the redis server in this function call. Pass a
-                pipeline to just have the data added to the pipeline which you
-                will need to flush later
-            retention (int, optional): Retention for the metric, if it doesn't
-                already exist. Only used if enforce_exists=False.
-            labels (dict, optional): Label of key, value pairs to be used as
-                filters for the metric. Only used if enforce_exists=False
+            level: Severity level of the metric
+            val: Value to be adding to the time series
+            m_type: Metric's identifying type
+            m_subtypes: Metric's identifying subtypes
+            timestamp: Timestamp to use for the value in the time series. Leave
+                at default to use the redis server's built-in timestamp. Set to
+                None to have this function take the current system time and
+                write it in. Else, pass an integer that will be used as the
+                timestamp.
+            pipeline: Leave NONE (default) to send the metric to the redis
+                server in this function call. Pass a pipeline to just have the
+                data added to the pipeline which you will need to flush later
+            retention: Retention for the metric, if it doesn't already exist.
+                Only used if enforce_exists=False.
+            labels: Label of key, value pairs to be used as filters for the
+                metric. Only used if enforce_exists=False
 
-        Return:
+        Returns:
             list of integers representing the timestamps created. None on
                 failure.
         """
@@ -4501,7 +4468,7 @@ class Element:
             key: User-supplied key
 
         Returns:
-            db_key (string): String to use as lookup in the timing dict
+            db_key: String to use as lookup in the timing dict
         """
         return f"{threading.get_ident()}:{key}"
 
@@ -4511,7 +4478,7 @@ class Element:
         timing-based metrics.
 
         Args:
-            key (string): Key we want to start tracking timing for
+            key: Key we want to start tracking timing for
         """
         self._active_timing_metrics[
             self._metrics_get_timing_key(key)
@@ -4524,14 +4491,14 @@ class Element:
         strict: bool = False,
     ) -> None:
         """
-        Simple helper function to finish a time that was being kept
-        track of and write out the metric
+        Simple helper function to finish a time that was being kept track of and
+        write out the metric
 
         Args:
-            key: (string): Key we want to stop metrics timing on
-            pipeline (optional, Redis Pipeline): Pipeline to add the metric to
-            strict (optional, bool): If set to TRUE, will raise an AtomError
-                on the key not existing, else will just log a warning
+            key: Key we want to stop metrics timing on
+            pipeline: Pipeline to add the metric to
+            strict: If set to TRUE, will raise an AtomError on the key not
+                existing, else will just log a warning
         """
         db_key = self._metrics_get_timing_key(key)
         if db_key not in self._active_timing_metrics:
