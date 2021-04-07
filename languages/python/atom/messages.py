@@ -8,7 +8,8 @@ from typing_extensions import Literal
 
 CMD_RESERVED_KEYS = ("data", "cmd", "element", "ser")
 RES_RESERVED_KEYS = ("data", "err_code", "err_str", "element", "cmd", "cmd_id", "ser")
-ENTRY_RESERVED_KEYS = "ser"
+# "ser" overwritten on write; "id" overwritten on read; "meta" maybe overwritten
+ENTRY_RESERVED_KEYS = ("ser", "id", "meta")
 
 
 @overload
