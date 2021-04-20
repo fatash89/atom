@@ -53,7 +53,7 @@ dashboards. After making changes in the Grafana web app, use the
 `dashboards/save_dashboard.py` script to save the JSON blob as a jinja2
 template.
 
-1. To get the `uuid` of a dashboard, navigate to the dashboard and get the uuid
+1. To get the `uid` of a dashboard, navigate to the dashboard and get the uid
    string from the URL. Something like `http://localhost:3001/d/{uid}/{dashboard_name}`.
    Then exec into the metrics container to run the `save_dashboard.py` script. 
     ```
