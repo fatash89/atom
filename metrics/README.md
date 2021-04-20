@@ -42,9 +42,29 @@ The general process for adding/tweaking a dashboard in `create_dashboards.py` is
 1. Change it in the grafana UI
 2. Use the grafana HTTP API: https://grafana.com/docs/grafana/latest/http_api/ to read out a JSON blob corresponding to what you did
 3. Save the JSON blob as a jinja2 template in the templates folder in the `templates` directory + jinja-fy it with variables you need
+    1. The [Saving a dashboard](#saving-a-dashboard) section presents a helper script for doing this.
 4. Add a section to the script that reads in the template and writes out the settings.
 
 This is a fairly annoying process, but seems to be the most fully-featured way to do things in Grafana. Grafana uses a SQLite DB backend and exposes some settings via YAML configs but seems to only give first-class support to their RESTful API. For example, the default dashboard can only be set via the RESTful API.
+
+#### Saving a dashboard
+The `elementaryrobotics/metrics` container ships with a helper script for saving
+dashboards. After making changes in the Grafana web app, use the
+`dashboards/save_dashboard.py` script to save the JSON blob as a jinja2
+template.
+
+1. To get the `uuid` of a dashboard, navigate to the dashboard and get the uuid
+   string from the URL. Something like `http://localhost:3001/d/{uid}/{dashboard_name}`.
+   Then exec into the metrics container to run the `save_dashboard.py` script. 
+    ```
+    docker exec -it <metrics_container> \
+        python3 /dashboard/save_dashboard.py \
+        --dashboard <uid> \
+        --name <output_file_name>
+    ```
+1. The dashboard json file is saved to `/metrics/dashboards/user/{output_file_name}.json.j2`
+   by default. Use `docker cp` to copy the file host machine .
+
 
 ## Atom Automatic Metrics
 
