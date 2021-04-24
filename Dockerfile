@@ -1,14 +1,114 @@
 ################################################################################
 #
-# Build in the source
+# Base image: Deps that change infrequently so that we don't have to
+#  rebuild this part of the file often and can rely on the cache
 #
 ################################################################################
 
-ARG BASE_IMAGE=elementaryrobotics/atom:base
-ARG PRODUCTION_IMAGE=debian:buster-slim
-FROM $BASE_IMAGE as atom-source
+ARG STOCK_IMAGE=debian:buster-slim
+FROM $STOCK_IMAGE as atom-base
 
 ARG DEBIAN_FRONTEND=noninteractive
+ARG BLAS_TARGET_CPU=""
+ARG PYARROW_EXTRA_CMAKE_ARGS=""
+
+#
+# System-level installs
+#
+
+# If we're on an ubuntu-based build, need to add the universe repository.
+#   On debian:buster this will error out which is OK
+RUN apt-get update && apt-get -y install software-properties-common
+RUN add-apt-repository universe || exit 0
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      apt-utils \
+      git \
+      autoconf \
+      libtool \
+      cmake \
+      build-essential \
+      python3.7 \
+      python3.7-dev \
+      python3.7-venv \
+      python3-pip \
+      flex \
+      bison \
+      curl \
+      pkg-config
+
+# Set Python3.7 as the default if it's not already
+RUN ln -sf /usr/bin/python3.7 /usr/bin/python3
+
+# Install setuptools
+RUN pip3 install --no-cache-dir --upgrade pip setuptools
+RUN pip3 install wheel
+
+#
+# C/C++ deps
+#
+
+# Build third-party C dependencies
+ADD ./languages/c/third-party /atom/languages/c/third-party
+RUN cd /atom/languages/c/third-party && make
+
+#
+# Python deps
+#
+
+# Create and activate python virtualenv
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+ENV LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
+
+# Install custom third-party deps. We need to build
+# some of these separately as opposed to installing
+# from pip
+#
+# Install list:
+#   1. Cython (needs to be x-compiled for aarch64)
+#   2. OpenBLAS (needs to be x-compiled for aarch64/ARM CPU)
+#   3. numpy (needs to be x-compiled for aarch64)
+#   4. pyarrow (needs to be x-compiled for aarch64)
+#   5. redis-py (needs support for memoryviews)
+
+# Cython
+ADD ./languages/python/third-party/cython /atom/languages/python/third-party/cython
+WORKDIR /atom/languages/python/third-party/cython
+RUN python3 setup.py build -j8 install
+
+# OpenBLAS
+ADD ./third-party/OpenBLAS /atom/third-party/OpenBLAS
+RUN cd /atom/third-party/OpenBLAS \
+  && make TARGET=${BLAS_TARGET_CPU} -j8 \
+  && make PREFIX=/usr/local install
+
+# Numpy
+ADD ./languages/python/third-party/numpy /atom/languages/python/third-party/numpy
+ADD ./languages/python/third-party/numpy.site.cfg /atom/languages/python/third-party/numpy/site.cfg
+WORKDIR /atom/languages/python/third-party/numpy
+RUN python3 setup.py build -j8 install
+
+# Pyarrow
+ADD ./third-party/apache-arrow /atom/third-party/apache-arrow
+WORKDIR /atom/third-party/apache-arrow/python
+RUN mkdir -p /atom/third-party/apache-arrow/cpp/build \
+  && cd /atom/third-party/apache-arrow/cpp/build \
+  && cmake -DCMAKE_BUILD_TYPE=release \
+           -DOPENSSL_ROOT_DIR=/usr/local/ssl \
+           -DCMAKE_INSTALL_LIBDIR=lib \
+           -DCMAKE_INSTALL_PREFIX=/usr/local \
+           -DARROW_PARQUET=OFF \
+           -DARROW_PYTHON=ON \
+           -DARROW_PLASMA=ON \
+           -DARROW_BUILD_TESTS=OFF \
+           -DPYTHON_EXECUTABLE=/opt/venv/bin/python3 \
+           .. \
+  && make -j8 \
+  && make install
+RUN cd /atom/third-party/apache-arrow/python \
+  && ARROW_HOME=/usr/local SETUPTOOLS_SCM_PRETEND_VERSION="0.17.0" python3 setup.py build_ext -j 8 --build-type=release --extra-cmake-args=${PYARROW_EXTRA_CMAKE_ARGS} install
 
 #
 # Redis itself
@@ -26,6 +126,171 @@ ADD ./third-party/RedisTimeSeries /atom/third-party/RedisTimeSeries
 WORKDIR /atom/third-party/RedisTimeSeries
 RUN python3 system-setup.py
 RUN make build MK.pyver=3
+
+#
+# Finish up
+#
+
+# Change working directory back to atom location
+WORKDIR /atom
+
+################################################################################
+#
+# Base image: atom + CV tools
+#
+################################################################################
+
+FROM atom-base as atom-base-cv-build
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG ARCH=x86_64
+
+# Install pre-requisites
+RUN apt-get update && apt-get install -y \
+    zlib1g-dev \
+    libjpeg62-turbo-dev \
+    libpng-dev \
+    libtiff-dev \
+    libopenexr-dev \
+    libavcodec-dev \
+    libavformat-dev \
+    libswscale-dev \
+    libwebp-dev
+
+# Install openCV + python3 bindings
+COPY ./third-party/opencv /atom/third-party/opencv
+WORKDIR /atom/third-party/opencv
+RUN mkdir -p build && cd build && cmake \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr/local \
+    -DPYTHON3_EXECUTABLE=/opt/venv/bin/python3 \
+    -DPYTHON_INCLUDE_DIR=/usr/include/python3.7m \
+    -DPYTHON_INCLUDE_DIR2=/usr/include/${ARCH}-linux-gnu/python3.7m \
+    -DPYTHON_LIBRARY=/usr/lib/${ARCH}-linux-gnu/libpython3.7m.so \
+    -DPYTHON3_NUMPY_INCLUDE_DIRS=/opt/venv/lib/python3.7/site-packages/numpy-1.18.3-py3.7-linux-${ARCH}.egg/numpy/core/include \
+    -DOPENCV_PYTHON3_INSTALL_PATH=/opt/venv/lib/python3.7/site-packages \
+    ../ && \
+    make -j8 && \
+    make install
+
+# Install Pillow (PIL) as that's also used frequently with opencv
+COPY ./languages/python/third-party/Pillow /atom/languages/python/third-party/Pillow
+WORKDIR /atom/languages/python/third-party/Pillow
+RUN MAX_CONCURRENCY=8 python3 setup.py install
+
+RUN ldd /usr/local/lib/libopencv* | grep "=> /" | awk '{print $3}' | sort -u > /tmp/required_libs.txt
+
+#
+# Determine libraries we'll ship with in production so we can see what's
+#   missing
+#
+FROM atom-base as no-deps
+
+ARG ARCH=x86_64
+
+RUN ls /lib/${ARCH}-linux-gnu/*.so* > /tmp/existing_libs.txt && \
+    ls /usr/lib/${ARCH}-linux-gnu/*.so* >> /tmp/existing_libs.txt
+
+#
+# Copy missing libraries from production into /usr/local/lib
+#
+FROM atom-base-cv-build as atom-base-cv-deps
+
+COPY --from=no-deps /tmp/existing_libs.txt /tmp/existing_libs.txt
+RUN diff --new-line-format="" --unchanged-line-format=""  /tmp/required_libs.txt /tmp/existing_libs.txt | grep -v /usr/local/lib > /tmp/libs_to_copy.txt
+RUN xargs -a /tmp/libs_to_copy.txt cp -L -t /usr/local/lib
+
+#
+# Clean up and only ship the following folders:
+#   1. /usr/local/lib
+#   2. /usr/local/include
+#   3. /opt/venv
+#
+FROM atom-base as atom-base-cv
+
+COPY --from=atom-base-cv-deps /usr/local/lib /usr/local/lib
+COPY --from=atom-base-cv-deps /usr/local/include /usr/local/include
+COPY --from=atom-base-cv-deps /opt/venv /opt/venv
+
+################################################################################
+#
+# Base image: atom + cv + graphics
+#
+################################################################################
+
+FROM atom-base-cv as atom-base-graphics
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Potentially install opengl
+RUN apt-get update && apt-get install -y \
+  --no-install-recommends \
+  libglvnd0 \
+  libgl1 \
+  libglx0 \
+  libegl1 \
+  libgles2
+
+# Add in noVNC to /opt/noVNC
+ADD third-party/noVNC /opt/noVNC
+
+# Install graphics
+# Note: supervisor-stdout must be installed with pip2 and not pip3
+RUN apt-get install -y --no-install-recommends \
+      libgl1-mesa-dri \
+      menu \
+      net-tools \
+      openbox \
+      supervisor \
+      tint2 \
+      x11-xserver-utils \
+      x11vnc \
+      xinit \
+      xserver-xorg-video-dummy \
+      xserver-xorg-input-void \
+      websockify \
+      sudo \
+      python-pip \
+ && rm -f /usr/share/applications/x11vnc.desktop \
+# VNC
+ && cd /opt/noVNC \
+ && ln -s vnc_auto.html index.html \
+ && pip2 install --no-cache-dir setuptools \
+ && pip2 install --no-cache-dir supervisor-stdout \
+ && apt-get -y remove python-pip \
+ && apt-get -y autoremove \
+ && apt-get -y clean \
+ && rm -rf /var/lib/apt/lists/*
+
+# noVNC (http server) is on 6080, and the VNC server is on 5900
+EXPOSE 6080 5900
+COPY third-party/docker-opengl/etc/skel/.xinitrc /etc/skel/.xinitrc
+
+RUN useradd -m -s /bin/bash user
+USER user
+RUN cp /etc/skel/.xinitrc /home/user/
+USER root
+RUN echo "user ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/user
+
+COPY third-party/docker-opengl/etc /etc
+COPY third-party/docker-opengl/usr /usr
+
+# Need to run app with python2 instead of python3
+RUN var='#!/usr/bin/env python2' \
+ && sed -i "1s@.*@${var}@" /usr/bin/graphical-app-launcher.py
+
+ENV DISPLAY :0
+
+################################################################################
+#
+# Atom: Built atop any of the bases
+#
+################################################################################
+
+ARG ATOM_BASE=atom-base
+FROM ${ATOM_BASE} as atom-source
+
+ARG DEBIAN_FRONTEND=noninteractive
 
 #
 # C client
@@ -72,9 +337,6 @@ RUN cp /atom/utilities/atom-cli/atom-cli.py /usr/local/bin/atom-cli \
 #
 # Requirements for metrics/monitoring
 #
-
-RUN apt-get -y install python3-dev
-RUN pip3 install wheel
 ADD metrics/monitoring /usr/local/bin/monitoring
 RUN pip3 install -r /usr/local/bin/monitoring/requirements.txt
 
@@ -92,7 +354,7 @@ WORKDIR /atom
 #
 ################################################################################
 
-FROM $PRODUCTION_IMAGE as atom
+FROM $STOCK_IMAGE as atom
 
 # Configuration environment variables
 ENV ATOM_NUCLEUS_HOST ""
