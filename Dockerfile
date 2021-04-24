@@ -11,12 +11,9 @@
 #
 ARG STOCK_IMAGE=debian:buster-slim
 ARG ATOM_BASE=atom-base
+ARG DEBIAN_FRONTEND=noninteractive
 
 FROM $STOCK_IMAGE as atom-base
-
-ARG DEBIAN_FRONTEND=noninteractive
-ARG BLAS_TARGET_CPU=""
-ARG PYARROW_EXTRA_CMAKE_ARGS=""
 
 #
 # System-level installs
@@ -87,7 +84,7 @@ RUN python3 setup.py build -j8 install
 # OpenBLAS
 ADD ./third-party/OpenBLAS /atom/third-party/OpenBLAS
 RUN cd /atom/third-party/OpenBLAS \
-  && make TARGET=${BLAS_TARGET_CPU} -j8 \
+  && make -j8 \
   && make PREFIX=/usr/local install
 
 # Numpy
@@ -114,7 +111,7 @@ RUN mkdir -p /atom/third-party/apache-arrow/cpp/build \
   && make -j8 \
   && make install
 RUN cd /atom/third-party/apache-arrow/python \
-  && ARROW_HOME=/usr/local SETUPTOOLS_SCM_PRETEND_VERSION="0.17.0" python3 setup.py build_ext -j 8 --build-type=release --extra-cmake-args=${PYARROW_EXTRA_CMAKE_ARGS} install
+  && ARROW_HOME=/usr/local SETUPTOOLS_SCM_PRETEND_VERSION="0.17.0" python3 setup.py build_ext -j 8 --build-type=release install
 
 #
 # Redis itself
@@ -148,9 +145,6 @@ WORKDIR /atom
 
 FROM atom-base as atom-base-cv-build
 
-ARG DEBIAN_FRONTEND=noninteractive
-ARG ARCH=x86_64
-
 # Install pre-requisites
 RUN apt-get update && apt-get install -y \
     zlib1g-dev \
@@ -171,9 +165,9 @@ RUN mkdir -p build && cd build && cmake \
     -DCMAKE_INSTALL_PREFIX=/usr/local \
     -DPYTHON3_EXECUTABLE=/opt/venv/bin/python3 \
     -DPYTHON_INCLUDE_DIR=/usr/include/python3.7m \
-    -DPYTHON_INCLUDE_DIR2=/usr/include/${ARCH}-linux-gnu/python3.7m \
-    -DPYTHON_LIBRARY=/usr/lib/${ARCH}-linux-gnu/libpython3.7m.so \
-    -DPYTHON3_NUMPY_INCLUDE_DIRS=/opt/venv/lib/python3.7/site-packages/numpy-1.18.3-py3.7-linux-${ARCH}.egg/numpy/core/include \
+    -DPYTHON_INCLUDE_DIR2=/usr/include/$(arch)-linux-gnu/python3.7m \
+    -DPYTHON_LIBRARY=/usr/lib/$(arch)-linux-gnu/libpython3.7m.so \
+    -DPYTHON3_NUMPY_INCLUDE_DIRS=/opt/venv/lib/python3.7/site-packages/numpy-1.18.3-py3.7-linux-$(arch).egg/numpy/core/include \
     -DOPENCV_PYTHON3_INSTALL_PATH=/opt/venv/lib/python3.7/site-packages \
     ../ && \
     make -j8 && \
@@ -192,10 +186,8 @@ RUN ldd /usr/local/lib/libopencv* | grep "=> /" | awk '{print $3}' | sort -u > /
 #
 FROM atom-base as no-deps
 
-ARG ARCH=x86_64
-
-RUN ls /lib/${ARCH}-linux-gnu/*.so* > /tmp/existing_libs.txt && \
-    ls /usr/lib/${ARCH}-linux-gnu/*.so* >> /tmp/existing_libs.txt
+RUN ls /lib/$(arch)-linux-gnu/*.so* > /tmp/existing_libs.txt && \
+    ls /usr/lib/$(arch)-linux-gnu/*.so* >> /tmp/existing_libs.txt
 
 #
 # Copy missing libraries from production into /usr/local/lib
@@ -225,8 +217,6 @@ COPY --from=atom-base-cv-deps /opt/venv /opt/venv
 ################################################################################
 
 FROM atom-base-cv as atom-base-cv-graphics
-
-ARG DEBIAN_FRONTEND=noninteractive
 
 # Potentially install opengl
 RUN apt-get update && apt-get install -y \
@@ -294,8 +284,6 @@ ENV DISPLAY :0
 ################################################################################
 
 FROM ${ATOM_BASE} as atom-source
-
-ARG DEBIAN_FRONTEND=noninteractive
 
 #
 # C client
@@ -370,6 +358,7 @@ ENV ATOM_NUCLEUS_SOCKET "/shared/redis.sock"
 ENV ATOM_METRICS_SOCKET "/shared/metrics.sock"
 ENV ATOM_LOG_DIR "/var/log/atom/"
 ENV ATOM_LOG_FILE_SIZE 2000
+ENV PYTHONUNBUFFERED=TRUE
 
 # Pick up the universe repo to get python3.7 for some builds. This is not
 #   necessary on debian but necessary on ubuntu builds
@@ -392,7 +381,6 @@ RUN ln -sf /usr/bin/python3.7 /usr/bin/python3
 # Copy contents of python virtualenv and activate
 COPY --from=atom-source /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-ENV PYTHONUNBUFFERED=TRUE
 
 # Copy C builds
 COPY --from=atom-source /usr/local/lib /usr/local/lib
@@ -458,8 +446,6 @@ CMD [ "/bin/bash", "launch.sh" ]
 ################################################################################
 
 FROM atom as test
-
-ARG DEBIAN_FRONTEND=noninteractive
 
 #
 # Install test dependencies
