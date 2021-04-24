@@ -69,12 +69,6 @@ aliases:
       build_args:
         type: string
         default: ""
-      base_repo:
-        type: string
-        default: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
-      base_tag:
-        type: string
-        default: base
       cache_repo:
         type: string
         default: << pipeline.parameters.cache_repo >>
@@ -85,100 +79,19 @@ aliases:
         type: executor
         default: atom/build-ubuntu
 
-  # Typical mapping of params for building atom.
-  #   NOTE: you will always need to specify:
-  #     - base_tag
-  #   NOTE: if building atom and not a base, you will also need to specify:
-  #     - production_image
-  - &build_atom_variant_shared_mapping
-      variant: << parameters.variant >>
-      platform: << parameters.platform >>
-      stage: << parameters.stage >>
-      build_args: << parameters.build_args >>
-      cache_repo: << parameters.cache_repo >>
-      test_valgrind: << parameters.test_valgrind >>
-
   - &build_buildx_atom_variant_shared_mapping
       variant: << parameters.variant >>
       platform: << parameters.platform >>
       build_args: >-
         --build-arg BASE_IMAGE=<< parameters.base_repo >>:<< parameters.base_tag >>
-        --build-arg PRODUCTION_IMAGE=<< parameters.production_image >>
+        --build-arg PRODUCTION_IMAGE=<< parameters.stock_image >>
         << parameters.build_args >>
       cache_repo: << parameters.cache_repo >>
       cache_tag: cache-atom
 
-  # Name of the build job
-  - &atom_matrix_build_job_name "build-atom-<< matrix.variant >>-<< matrix.platform >>"
-
   #
   # Deploy Configurations
   #
-
-  # Atom Build Matrix
-  - &atom_matrix
-      parameters:
-        variant: ["stock", "opengl", "opengl-vnc", "cuda", "opengl-cuda", "opengl-cuda-vnc", "opencv"]
-        platform: ["amd64", "aarch64"]
-        component: ["atom", "nucleus"]
-      exclude:
-        # No opengl, CUDA, or opengl-cuda builds for AARCH64 atom
-        - variant: "opengl"
-          platform: "aarch64"
-          component: "atom"
-        - variant: "opengl-vnc"
-          platform: "aarch64"
-          component: "atom"
-        - variant: "cuda"
-          platform: "aarch64"
-          component: "atom"
-        - variant: "opengl-cuda"
-          platform: "aarch64"
-          component: "atom"
-        - variant: "opengl-cuda-vnc"
-          platform: "aarch64"
-          component: "atom"
-
-        # No opengl, CUDA, or opengl-cuda builds for AARCH64 nucleus
-        - variant: "opengl-vnc"
-          platform: "aarch64"
-          component: "nucleus"
-        - variant: "cuda"
-          platform: "aarch64"
-          component: "nucleus"
-        - variant: "opengl-cuda-vnc"
-          platform: "aarch64"
-          component: "nucleus"
-        - variant: "opencv"
-          platform: "aarch64"
-          component: "nucleus"
-        - variant: "opengl"
-          platform: "aarch64"
-          component: "nucleus"
-        - variant: "opengl-cuda"
-          platform: "aarch64"
-          component: "nucleus"
-
-        # No opengl, CUDA, or opengl-cuda builds for AMD64 nucleus
-        - variant: "opengl-vnc"
-          platform: "amd64"
-          component: "nucleus"
-        - variant: "cuda"
-          platform: "amd64"
-          component: "nucleus"
-        - variant: "opengl-cuda-vnc"
-          platform: "amd64"
-          component: "nucleus"
-        - variant: "opencv"
-          platform: "amd64"
-          component: "nucleus"
-        - variant: "opengl"
-          platform: "amd64"
-          component: "nucleus"
-        - variant: "opengl-cuda"
-          platform: "amd64"
-          component: "nucleus"
-
 
   # Shared config around deployment logic
   - &deploy_atom_shared
@@ -187,63 +100,17 @@ aliases:
       target_image: << pipeline.parameters.dockerhub_org >>/<< matrix.component >>
 
   #
-  # Base image info
+  # Basic build for both intel + arm
   #
-
-  # Base Build Matrix
-  - &base_matrix
-      parameters:
-        variant: ["stock", "opengl", "cuda", "opengl-cuda", "opengl-cuda-vnc", "opengl-vnc", "opencv"]
-        platform: ["amd64", "aarch64"]
-      exclude:
-        - variant: "opengl"
-          platform: "aarch64"
-        - variant: "cuda"
-          platform: "aarch64"
-        - variant: "opengl-cuda"
-          platform: "aarch64"
-        - variant: "opengl-cuda-vnc"
-          platform: "aarch64"
-        - variant: "opengl-vnc"
-          platform: "aarch64"
-
-
-  # Base tags in use for the various builds
-  - &base_build_atom_stock_amd64_tag "base-1952-stock-amd64"
-  - &base_build_atom_opencv_amd64_tag "base-1952-opencv-amd64"
-  - &base_build_atom_opengl_amd64_tag "base-1952-opengl-amd64"
-  - &base_build_atom_opengl_vnc_amd64_tag "base-1952-opengl-vnc-amd64"
-  - &base_build_atom_cuda_amd64_tag "base-1952-cuda-amd64"
-  - &base_build_atom_opengl_cuda_amd64_tag "base-1952-opengl-cuda-amd64"
-  - &base_build_atom_opengl_cuda_vnc_amd64_tag "base-1952-opengl-cuda-vnc-amd64"
-  - &base_build_atom_stock_aarch64_tag "base-1067-stock-aarch64"
-  - &base_build_atom_opencv_aarch64_tag "base-1067-opencv-aarch64"
-  - &base_build_tags
-      source_tag:
-        - *base_build_atom_stock_amd64_tag
-        - *base_build_atom_opencv_amd64_tag
-        - *base_build_atom_opengl_amd64_tag
-        - *base_build_atom_opengl_vnc_amd64_tag
-        - *base_build_atom_cuda_amd64_tag
-        - *base_build_atom_opengl_cuda_amd64_tag
-        - *base_build_atom_opengl_cuda_vnc_amd64_tag
-        - *base_build_atom_stock_aarch64_tag
-        - *base_build_atom_opencv_aarch64_tag
-
-  # Helpful alias when building bases using additional Dockerfiles
-  - &build_atom_base_add_shared_mapping
-      prev_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
-      prev_tag: base-build-<< pipeline.number >>-<< parameters.variant >>-<< parameters.platform >>
-
-  # Shared requirement when building with build-base
-  - &build_atom_base_shared
-      name: "build-base-<< matrix.variant >>-<< matrix.platform >>"
-
-  # Shared requirement when building with build-base-add
-  - &build_atom_base_add_shared
-      name: "build-base-<< matrix.variant >>-<< matrix.platform >>"
-      requires:
-        - "build-base-<< matrix.previous >>-<< matrix.platform >>"
+  - &build_intel_and_arm
+      matrix:
+        platform: [ amd64, aarch64 ]
+        executor: [ atom/build-ubuntu, atom/build-ubuntu-arm]
+        exclude:
+          - platform: amd64
+            executor: atom/build-ubuntu-arm
+          - platform: aarch64
+            executor: atom/build-ubuntu
 
   #
   # Docs build shared info
@@ -369,7 +236,7 @@ commands:
   build_atom_variant:
     parameters:
       << : *build_atom_variant_shared_params
-      production_image:
+      stock_image:
         type: string
         default: debian:buster-slim
       test_nucleus_tag:
@@ -411,7 +278,7 @@ commands:
   build_atom_with_nucleus_variant:
     parameters:
       << : *build_atom_variant_shared_params
-      production_image:
+      stock_image:
         type: string
         default: debian:buster-slim
     steps:
@@ -433,102 +300,15 @@ commands:
       # Build and test the rest of atom
       - build_atom_variant:
           << : *build_atom_variant_shared_mapping
-          base_tag: << parameters.base_tag >>
-          production_image: << parameters.production_image >>
+          stock_image: << parameters.stock_image >>
           test_nucleus_tag: build-<< pipeline.number >>-<< parameters.variant >>-<< parameters.platform >>
-
-  build_atom_base_test:
-    parameters:
-      <<: *build_atom_variant_shared_params
-    steps:
-
-      # Build the atom variant with the base
-      - build_atom_with_nucleus_variant:
-          << : *build_atom_variant_shared_mapping
-          base_tag: base-build-<< pipeline.number >>-<< parameters.variant >>-<< parameters.platform >>
-          production_image: << parameters.base_repo >>:<< parameters.base_tag >>
-
-  build_dockerfile_atom_base:
-    parameters:
-      << : *build_atom_variant_shared_params
-      file:
-        type: string
-        default: Dockerfile-base
-      prev_image:
-        type: string
-      prev_tag:
-        type: string
-    steps:
-
-      # Build the base
-      - atom/build_dockerfile_buildx:
-          file: << parameters.file >>
-          variant: << parameters.variant >>
-          platform: << parameters.platform >>
-          image_name: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
-          image_tag: base-build-<< pipeline.number >>
-          build_args: >-
-            --build-arg
-            BASE_IMAGE=<< parameters.prev_image >>:<< parameters.prev_tag >>
-            << parameters.build_args >>
-          cache_tag: cache-base
-          cache_repo: << parameters.cache_repo >>
-          no_output_timeout: 3h
-
-      # Push build image
-      - atom/push_image_variant:
-          target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
-          target_tag: base-build-<< pipeline.number >>
-          variant: << parameters.variant >>
-          platform: << parameters.platform >>
-
-  build_atom_base_variant:
-    parameters:
-      << : *build_atom_variant_shared_params
-    steps:
-
-      # Build the vanilla base
-      - build_dockerfile_atom_base:
-          << : *build_atom_variant_shared_mapping
-          file: Dockerfile-base
-          prev_image: << parameters.base_repo >>
-          prev_tag: << parameters.base_tag >>
-
-      # Push and Test
-      - build_atom_base_test:
-          << : *build_atom_variant_shared_mapping
-          base_repo: << parameters.base_repo >>
-          base_tag: << parameters.base_tag >>
-
-  build_atom_base_variant_add:
-    parameters:
-      << : *build_atom_variant_shared_params
-      file:
-        type: string
-      previous:
-        type: string
-    steps:
-
-        # Build the vanilla base
-      - build_dockerfile_atom_base:
-          << : *build_atom_variant_shared_mapping
-          << : *build_atom_base_add_shared_mapping
-          file: << parameters.file >>
-          prev_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
-          prev_tag: base-build-<< pipeline.number >>-<< parameters.previous >>-<< parameters.platform >>
-
-      # Push and Test
-      - build_atom_base_test:
-          << : *build_atom_variant_shared_mapping
-          base_repo: << parameters.base_repo >>
-          base_tag: << parameters.base_tag >>
 
 jobs:
 
   build-atom-with-nucleus:
     parameters:
       << : *build_atom_variant_shared_params
-      production_image:
+      stock_image:
         type: string
         default: debian:buster-slim
     executor: << parameters.executor >>
@@ -536,13 +316,12 @@ jobs:
       - build_shared_init
       - build_atom_with_nucleus_variant:
           << : *build_atom_variant_shared_mapping
-          base_tag: << parameters.base_tag >>
-          production_image: << parameters.production_image >>
+          stock_image: << parameters.stock_image >>
 
   build-atom:
     parameters:
       << : *build_atom_variant_shared_params
-      production_image:
+      stock_image:
         type: string
         default: debian:buster-slim
     executor: << parameters.executor >>
@@ -550,39 +329,8 @@ jobs:
       - build_shared_init
       - build_atom_variant:
           << : *build_atom_variant_shared_mapping
-          base_tag: << parameters.base_tag >>
-          production_image: << parameters.production_image >>
+          stock_image: << parameters.stock_image >>
           test_nucleus_tag: build-<< pipeline.number >>-stock-<< parameters.platform >>
-
-  build-base:
-    parameters:
-      << : *build_atom_variant_shared_params
-    executor: << parameters.executor >>
-    resource_class: medium
-    steps:
-      - build_shared_init
-      - build_atom_base_variant:
-          << : *build_atom_variant_shared_mapping
-          base_repo: << parameters.base_repo >>
-          base_tag: << parameters.base_tag >>
-
-  build-base-add:
-    parameters:
-      << : *build_atom_variant_shared_params
-      file:
-        type: string
-      previous:
-        type: string
-    executor: << parameters.executor >>
-    resource_class: large
-    steps:
-      - build_shared_init
-      - build_atom_base_variant_add:
-          << : *build_atom_variant_shared_mapping
-          file: << parameters.file >>
-          previous: << parameters.previous >>
-          base_repo: << parameters.base_repo >>
-          base_tag: << parameters.base_tag >>
 
   build-docs:
     executor: atom/build-ubuntu
@@ -633,177 +381,59 @@ workflows:
   atom-build:
     jobs:
 
-      #
-      # Build + test stock atom
-      #
-
-
-      #
-      # Build variants of atom:
-      #   AMD64
-      #     - stock
-      #     - opengl
-      #     - opengl-vnc
-      #     - cuda
-      #     - opengl-cuda
-      #     - opengl-cuda-vnc
-      #   AARCH64
-      #     - stock
-      #     - opencv
-
-      #
-      # AMD64 / Intel
-      #
-
-      # AMD64 stock-- Note: stock builds with nucleus
+      # Intel + ARM Stock with nucleus
       - build-atom-with-nucleus:
-          name: *atom_matrix_build_job_name
-          matrix:
-            parameters:
-              variant: [ stock ]
-              platform: [ amd64 ]
-          base_tag: *base_build_atom_stock_amd64_tag
-          production_image: debian:buster-slim
+          name: "build-atom-base-<< matrix.platform >>"
+          << : *build_intel_and_arm
+          stock_image: debian:buster-slim
           filters:
             tags:
               only:
                 - /.*/
-            branches:
-              ignore:
-                - /.*-build-base.*/
 
-      # AMD64 openGL + openGL-VNC
+      # Intel + ARM CV base on debian buster:slim
       - build-atom:
-          name: *atom_matrix_build_job_name
-          matrix:
-            parameters:
-              variant: [ opengl, opengl-vnc ]
-              platform: [ amd64 ]
-              base_tag:
-                - *base_build_atom_opengl_amd64_tag
-                - *base_build_atom_opengl_vnc_amd64_tag
-            exclude:
-              - variant: opengl
-                platform: amd64
-                base_tag: *base_build_atom_opengl_vnc_amd64_tag
-              - variant: opengl-vnc
-                platform: amd64
-                base_tag: *base_build_atom_opengl_amd64_tag
-          production_image: nvidia/opengl:1.0-glvnd-runtime-ubuntu18.04
+          name: "build-<< matrix.variant >>-<< matrix.platform >>"
+          variant: atom-base-cv
+          << : *build_intel_and_arm
+          stock_image: debian:buster-slim
           requires:
-            - build-atom-stock-amd64
+            - build-atom-base-<< matrix.platform >>
           filters:
             tags:
               only:
                 - /.*/
-            branches:
-              ignore:
-                - /.*-build-base.*/
 
-      # AMD64 CUDA, OpenGL-Cuda, OpenGL-Cuda-VNC
+      # Intel CV + graphics base
       - build-atom:
-          name: *atom_matrix_build_job_name
+          name: "build-<< matrix.variant >>-<< matrix.platform >>"
+          variant: atom-base-cv-graphics
           matrix:
             parameters:
-              variant: [ cuda, opengl-cuda, opengl-cuda-vnc ]
-              platform: [ amd64 ]
-              base_tag:
-                - *base_build_atom_cuda_amd64_tag
-                - *base_build_atom_opengl_cuda_amd64_tag
-                - *base_build_atom_opengl_cuda_vnc_amd64_tag
-            exclude:
-              - variant: cuda
-                platform: amd64
-                base_tag: *base_build_atom_opengl_cuda_amd64_tag
-              - variant: cuda
-                platform: amd64
-                base_tag: *base_build_atom_opengl_cuda_vnc_amd64_tag
-              - variant: opengl-cuda
-                platform: amd64
-                base_tag: *base_build_atom_cuda_amd64_tag
-              - variant: opengl-cuda
-                platform: amd64
-                base_tag: *base_build_atom_opengl_cuda_vnc_amd64_tag
-              - variant: opengl-cuda-vnc
-                platform: amd64
-                base_tag: *base_build_atom_cuda_amd64_tag
-              - variant: opengl-cuda-vnc
-                platform: amd64
-                base_tag: *base_build_atom_opengl_cuda_amd64_tag
-          production_image: nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04
+              platform: amd64
+          stock_image: nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04
           requires:
-            - build-atom-stock-amd64
+            - build-atom-base-<< matrix.platform >>
           filters:
             tags:
               only:
                 - /.*/
-            branches:
-              ignore:
-                - /.*-build-base.*/
 
-      # AMD64 openCV
+      # ARM CV + graphics base
       - build-atom:
-          name: *atom_matrix_build_job_name
+          name: "build-<< matrix.variant >>-<< matrix.platform >>"
+          variant: atom-base-cv-graphics
           matrix:
             parameters:
-              variant: [ opencv ]
-              platform: [ amd64 ]
-              base_tag:
-                - *base_build_atom_opencv_amd64_tag
-          production_image: debian:buster-slim
+              platform: amd64
+          executor: atom/build-ubuntu-arm
+          stock_image: nvcr.io/nvidia/l4t-pytorch:r32.5.0-pth1.7-py3
           requires:
-            - build-atom-stock-amd64
+            - build-atom-base-<< matrix.platform >>
           filters:
             tags:
               only:
                 - /.*/
-            branches:
-              ignore:
-                - /.*-build-base.*/
-
-      #
-      # AARCH64 / ARM
-      #
-
-      # AARCH64 stock-- Note: stock builds with nucleus
-      - build-atom-with-nucleus:
-          name: *atom_matrix_build_job_name
-          matrix:
-            parameters:
-              variant: [ stock ]
-              platform: [ aarch64 ]
-              executor: [ atom/build-ubuntu-arm ]
-          base_tag: *base_build_atom_stock_aarch64_tag
-          production_image: debian:buster-slim
-          test_valgrind: false
-          filters:
-            tags:
-              only:
-                - /.*/
-            branches:
-              ignore:
-                - /.*-build-base.*/
-
-      # AARCH64 OpenCV
-      - build-atom:
-          name: *atom_matrix_build_job_name
-          matrix:
-            parameters:
-              variant: [ opencv ]
-              platform: [ aarch64 ]
-              executor: [ atom/build-ubuntu-arm ]
-          base_tag: *base_build_atom_opencv_aarch64_tag
-          production_image: debian:buster-slim
-          test_valgrind: false
-          requires:
-            - build-atom-stock-aarch64
-          filters:
-            tags:
-              only:
-                - /.*/
-            branches:
-              ignore:
-                - /.*-build-base.*/
 
       #
       # Atom Development tags: development-YYY
@@ -942,13 +572,12 @@ workflows:
   metrics-build:
     jobs:
 
-      # Build for intel
+
+      # Build for Intel + ARM
       - atom/build_buildx:
           name: "build-metrics-<< matrix.platform >>"
-          matrix:
-            parameters:
-              platform: [ amd64 ]
-          file: metrics/Dockerfile
+          << : *build_intel_and_arm
+          working_directory: metrics
           image_name: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
           image_tag: build-<< pipeline.number >>
           cache_repo: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
@@ -956,23 +585,6 @@ workflows:
           filters:
             tags:
               only: /.*/
-
-      # Build for ARM
-      # - atom/build_buildx:
-      #     name: "build-metrics-<< matrix.platform >>"
-      #     matrix:
-      #       parameters:
-      #         platform: [ aarch64 ]
-      #         executor: [ atom/build-ubuntu-arm ]
-      #     working_directory: metrics
-      #     image_name: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
-      #     image_tag: build-<< pipeline.number >>
-      #     cache_repo: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
-      #     cache_tag: cache
-      #     build_args: "--build-arg NODE_ARCH=arm64"
-      #     filters:
-      #       tags:
-      #         only: /.*/
 
       # Deploy development
       - atom/deploy:
@@ -1175,223 +787,6 @@ workflows:
           target_tag: ${CIRCLE_TAG}
           requires:
             - build-docs
-          filters:
-            branches:
-              ignore:
-                - /.*/
-            tags:
-              only: /.*/
-
-  #
-  # Build and deploy base images
-  #
-  base-build:
-    jobs:
-
-      #
-      # Stock AMD64 base and variants
-      #
-      - build-base:
-          << : *build_atom_base_shared
-          matrix:
-            parameters:
-              variant: [ stock ]
-              platform: [ amd64 ]
-          base_repo: debian
-          base_tag: buster-slim
-          filters:
-            branches:
-              only:
-                - /.*-build-base-all/
-                - /.*-build-base-atom/
-                - /.*-build-base-opencv/
-                - /.*-build-base-opencv-amd64/
-                - /.*-build-base-<< matrix.platform >>/
-
-      - build-base-add:
-          << : *build_atom_base_add_shared
-          matrix:
-            parameters:
-              variant: [ opencv ]
-              platform: [ amd64 ]
-              previous: [ stock ]
-          file: Dockerfile-opencv
-          base_repo: debian
-          base_tag: buster-slim
-          build_args: "--build-arg PRODUCTION_IMAGE=debian:buster-slim"
-          filters:
-            branches:
-              only:
-                - /.*-build-base-all/
-                - /.*-build-base-opencv/
-                - /.*-build-base-opencv-amd64/
-                - /.*-build-base-<< matrix.platform >>/
-
-      #
-      # Cuda AMD64 base and variants
-      #
-
-      - build-base:
-          << : *build_atom_base_shared
-          matrix:
-            parameters:
-              variant: [ cuda ]
-              platform: [ amd64 ]
-          base_repo: nvidia/cuda
-          base_tag: 10.2-cudnn7-runtime-ubuntu18.04
-          filters:
-            branches:
-              only:
-                - /.*-build-base-all/
-                - /.*-build-base-cuda/
-                - /.*-build-base-opengl-cuda/
-                - /.*-build-base-<< matrix.platform >>/
-
-      - build-base-add:
-          << : *build_atom_base_add_shared
-          matrix:
-            parameters:
-              variant: [ opengl-cuda, opengl-cuda-vnc ]
-              platform: [ amd64 ]
-              previous: [ cuda, opengl-cuda ]
-            exclude:
-              - variant: opengl-cuda
-                previous: opengl-cuda
-                platform: amd64
-              - variant: opengl-cuda-vnc
-                previous: cuda
-                platform: amd64
-          file: Dockerfile-opengl
-          base_repo: nvidia/cuda
-          base_tag: 10.2-cudnn7-runtime-ubuntu18.04
-          filters:
-            branches:
-              only:
-                - /.*-build-base-all/
-                - /.*-build-base-opengl-cuda/
-                - /.*-build-base-<< matrix.platform >>/
-
-      #
-      # OpenGL AMD64 base and variants
-      #
-
-      - build-base:
-          << : *build_atom_base_shared
-          matrix:
-            parameters:
-              variant: [ opengl ]
-              platform: [ amd64 ]
-          base_repo: nvidia/opengl
-          base_tag: 1.0-glvnd-runtime-ubuntu18.04
-          filters:
-            branches:
-              only:
-                - /.*-build-base-all/
-                - /.*-build-base-opengl/
-                - /.*-build-base-opengl-vnc/
-                - /.*-build-base-<< matrix.platform >>/
-
-      - build-base-add:
-          << : *build_atom_base_add_shared
-          matrix:
-            parameters:
-              variant: [ opengl-vnc ]
-              platform: [ amd64 ]
-              previous: [ opengl ]
-          file: Dockerfile-vnc
-          base_repo: nvidia/opengl
-          base_tag: 1.0-glvnd-runtime-ubuntu18.04
-          filters:
-            branches:
-              only:
-                - /.*-build-base-all/
-                - /.*-build-base-opengl-vnc/
-                - /.*-build-base-<< matrix.platform >>/
-
-      #
-      # Stock AARCH64 base + variants
-      #
-      - build-base:
-          << : *build_atom_base_shared
-          matrix:
-            parameters:
-              variant: [ stock ]
-              platform: [ aarch64 ]
-          base_repo: debian
-          base_tag: buster-slim
-          build_args: "--build-arg BLAS_TARGET_CPU=ARMV8 --build-arg PYARROW_EXTRA_CMAKE_ARGS=-DARROW_ARMV8_ARCH=armv8-a"
-          test_valgrind: false
-          filters:
-            branches:
-              only:
-                - /.*-build-base-all/
-                - /.*-build-base-aarch64/
-                - /.*-build-base-opencv/
-                - /.*-build-base-opencv-aarch64/
-                - /.*-build-base-<< matrix.platform >>/
-
-      - build-base-add:
-          << : *build_atom_base_add_shared
-          matrix:
-            parameters:
-              variant: [ opencv ]
-              platform: [ aarch64 ]
-              previous: [ stock ]
-          file: Dockerfile-opencv
-          base_repo: debian
-          base_tag: buster-slim
-          build_args: "--build-arg ARCH=aarch64 --build-arg PRODUCTION_IMAGE=debian:buster-slim"
-          test_valgrind: false
-          filters:
-            branches:
-              only:
-                - /.*-build-base-all/
-                - /.*-build-base-opencv/
-                - /.*-build-base-opencv-aarch64/
-                - /.*-build-base-<< matrix.platform >>/
-
-
-      # Deploy base images. Don't need branch filters since they depend
-      # on base builds with the branch filters
-      - atom/deploy:
-          name: "deploy-base-dev-<< matrix.variant >>-<< matrix.platform >>"
-          source_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
-          source_tag: base-build-<< pipeline.number >>
-          target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
-          target_tag: base-<< pipeline.number >>
-          target_tag_cmd: "grep '.*'"
-          matrix:
-            << : *base_matrix
-          requires:
-            - "build-base-<< matrix.variant >>-<< matrix.platform >>"
-
-      # Bump the base tags when merging into latest
-      - atom/deploy_no_variant_platform:
-          name: "deploy-base-latest-<< matrix.source_tag >>"
-          source_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
-          target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
-          target_tag: << matrix.source_tag >>
-          # Should wind up being "base-stock-amd64, base-opengl-amd64, base-stock-aarch64, etc."
-          target_tag_cmd: sed s/-[0-9][0-9]*//g
-          matrix:
-            parameters:
-              << : *base_build_tags
-          filters:
-            branches:
-              only:
-                - latest
-
-      # Bump the base tags when tagging
-      - atom/deploy_no_variant_platform:
-          name: "deploy-base-tag-<< matrix.source_tag >>"
-          source_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
-          target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
-          target_tag: ${CIRCLE_TAG}-<< matrix.source_tag >>
-          # Should wind up being "v1.4.1-base-stock-amd64, v1.4.1-base-opengl-amd64, v1.4.1-base-stock-aarch64, etc."
-          target_tag_cmd: sed s/-[0-9][0-9]*//g
-          matrix:
-            parameters:
-              << : *base_build_tags
           filters:
             branches:
               ignore:
