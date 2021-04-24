@@ -5,7 +5,13 @@
 #
 ################################################################################
 
+#
+# ALL ARGS TO BE USED IN **ANY** FROM MUST OCCUR BEFORE THE **FIRST** FROM
+# https://docs.docker.com/engine/reference/builder/#understand-how-arg-and-from-interact
+#
 ARG STOCK_IMAGE=debian:buster-slim
+ARG ATOM_BASE=atom-base
+
 FROM $STOCK_IMAGE as atom-base
 
 ARG DEBIAN_FRONTEND=noninteractive
@@ -218,7 +224,7 @@ COPY --from=atom-base-cv-deps /opt/venv /opt/venv
 #
 ################################################################################
 
-FROM atom-base-cv as atom-base-graphics
+FROM atom-base-cv as atom-base-cv-graphics
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -287,7 +293,6 @@ ENV DISPLAY :0
 #
 ################################################################################
 
-ARG ATOM_BASE=atom-base
 FROM ${ATOM_BASE} as atom-source
 
 ARG DEBIAN_FRONTEND=noninteractive
