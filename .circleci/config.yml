@@ -105,7 +105,7 @@ aliases:
       nucleus_under_test: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.nucleus_repo_name >>:build-<< pipeline.number >>-nucleus-atom-base-<< matrix.platform >>
       atom_under_test: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>:build-<< pipeline.number >>-test-<< matrix.variant >>-<< matrix.platform >>
       compose_file: ./.circleci/docker-compose-circle.yml
-      compose_container_name: atom
+      compose_container_name: test_atom
 
   #
   # Deploy Configurations
