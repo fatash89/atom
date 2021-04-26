@@ -62,7 +62,6 @@ aliases:
   - &atom_cuda_aarch64_image_repo nvcr.io/nvidia/cuda-arm64
   - &atom_cuda_image_tag 11.3.0-cudnn8-runtime-ubuntu20.04
 
-
   # Typical params for building atom
   - &build_atom_shared_params
       variant:
@@ -128,11 +127,27 @@ aliases:
   # Deploy Configurations
   #
 
-  # Shared config around deployment logic
-  - &deploy_atom_shared
-      source_image: << pipeline.parameters.dockerhub_org >>/<< matrix.component >>
-      source_tag: build-<< pipeline.number >>
-      target_image: << pipeline.parameters.dockerhub_org >>/<< matrix.component >>
+  # Shared config around atom deployment logic
+  - &atom_deploy_shared_params
+      matrix:
+        parameters:
+          platform: [ aarch64, amd64 ]
+          stage: [ atom ]
+          variant: [ atom-base, atom-base-cv, atom-base-cv-graphics ]
+      source_image: << pipeline.parameters.atom_repo_name >>
+      source_tag: build-<< pipeline.number >>-<< matrix.stage >>
+      target_image: << pipeline.parameters.atom_repo_name >>
+
+  # Shared config around atom deployment logic
+  - &nucleus_deploy_shared_params
+      matrix:
+        parameters:
+          platform: [ aarch64, amd64 ]
+          stage: [ nucleus ]
+          variant: [ atom-base ]
+      source_image: << pipeline.parameters.nucleus_repo_name >>
+      source_tag: build-<< pipeline.number >>-<< matrix.stage >>
+      target_image: << pipeline.parameters.nucleus_repo_name >>
 
   #
   # Docs build shared info
@@ -510,111 +525,52 @@ workflows:
                 - /.*/
 
       #
-      # Atom Development tags: development-YYY
+      # Deploy Nucleus
       #
+
+      # Deploy development
       - atom/deploy:
-          name: "deploy-dev-<< matrix.component >>-<< matrix.variant >>-<< matrix.platform >>"
-          << : *deploy_atom_shared
-          target_tag: development-<< pipeline.number >>
-          matrix:
-            << : *atom_matrix
+          name: "deploy-development-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>"
+          target_tag: development-<< pipeline.number >>-<< matrix.variant >>
+          << : *nucleus_deploy_shared_params
           requires:
-            - *atom_matrix_build_job_name
-          filters:
-            branches:
-              ignore:
-                - latest
-      #
-      # Atom Development tags: development-YYY-variant-platform
-      #
-      - atom/deploy:
-          name: "deploy-dev-<< matrix.component >>-variant-<< matrix.variant >>-<< matrix.platform >>"
-          << : *deploy_atom_shared
-          target_tag: development-<< pipeline.number >>
-          target_tag_cmd: "grep '.*'"
-          matrix:
-            << : *atom_matrix
-          requires:
-            - *atom_matrix_build_job_name
+            - build-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>
           filters:
             branches:
               ignore:
                 - latest
 
-      #
-      # Atom Master tags: latest-YYY
-      #
+      # Deploy latest
       - atom/deploy:
-          name: "deploy-latest-<< matrix.component >>-<< matrix.variant >>-<< matrix.platform >>"
-          << : *deploy_atom_shared
-          target_tag: latest-<< pipeline.number >>
-          matrix:
-            << : *atom_matrix
+          name: "deploy-latest-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>"
+          target_tag: latest-<< pipeline.number >>-<< matrix.variant >>
+          << : *nucleus_deploy_shared_params
           requires:
-            - *atom_matrix_build_job_name
+            - build-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>
           filters:
             branches:
               only:
                 - latest
 
-      #
-      # Atom Master tags: latest-YYY-variant-platform
-      #
-      - atom/deploy:
-          name: "deploy-latest-<< matrix.component >>-variant-<< matrix.variant >>-<< matrix.platform >>"
-          << : *deploy_atom_shared
-          target_tag: latest-<< pipeline.number >>
-          target_tag_cmd: "grep '.*'"
-          matrix:
-            << : *atom_matrix
-          requires:
-            - *atom_matrix_build_job_name
-          filters:
-            branches:
-              only:
-                - latest
-
-      #
-      # Atom release tags: latest + aarch64 + opengl-cuda, etc.
-      #
+      # Deploy release
       - atom/deploy_release:
-          name: "deploy-release-<< matrix.component >>-variant-<< matrix.variant >>-<< matrix.platform >>"
-          << : *deploy_atom_shared
-          matrix:
-            << : *atom_matrix
+          name: "deploy-release-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>"
+          target_tag: << matrix.variant >>
+          << : *nucleus_deploy_shared_params
           requires:
-            - *atom_matrix_build_job_name
-          filters:
-            branches:
-              only:
-                - latest
-      #
-      # Atom release tags: variant-platform
-      #
-      - atom/deploy_release:
-          name: "deploy-release-<< matrix.component >>-variant-<< matrix.variant >>-<< matrix.platform >>-platform"
-          << : *deploy_atom_shared
-          target_tag_cmd: "grep -oP '(?<=-).*'"
-          matrix:
-            << : *atom_matrix
-          requires:
-            - *atom_matrix_build_job_name
+            - build-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>
           filters:
             branches:
               only:
                 - latest
 
-      #
-      # Atom Release tags: Git tag
-      #
+      # Deploy tag
       - atom/deploy:
-          name: "deploy-tag-<< matrix.component >>-<< matrix.variant >>-<< matrix.platform >>"
-          << : *deploy_atom_shared
-          target_tag: ${CIRCLE_TAG}
-          matrix:
-            << : *atom_matrix
+          name: "deploy-tag-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>"
+          target_tag: ${CIRCLE_TAG}-<< matrix.variant >>
+          << : *nucleus_deploy_shared_params
           requires:
-            - *atom_matrix_build_job_name
+            - build-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>
           filters:
             branches:
               ignore:
@@ -623,23 +579,60 @@ workflows:
               only: /.*/
 
       #
-      # Atom Release tags: Git tag-variant-platform
+      # Deploy Atom
       #
+
+      # Deploy development
       - atom/deploy:
-          name: "deploy-tag-<< matrix.component >>-variant-<< matrix.variant >>-<< matrix.platform >>"
-          << : *deploy_atom_shared
-          target_tag: ${CIRCLE_TAG}
-          target_tag_cmd: "grep '.*'"
-          matrix:
-            << : *atom_matrix
+          name: "deploy-development-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>"
+          target_tag: development-<< pipeline.number >>-<< matrix.variant >>
+          << : *atom_deploy_shared_params
           requires:
-            - *atom_matrix_build_job_name
+            - build-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>
+          filters:
+            branches:
+              ignore:
+                - latest
+
+      # Deploy latest
+      - atom/deploy:
+          name: "deploy-latest-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>"
+          target_tag: latest-<< pipeline.number >>-<< matrix.variant >>
+          << : *atom_deploy_shared_params
+          requires:
+            - build-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>
+          filters:
+            branches:
+              only:
+                - latest
+
+      # Deploy release
+      - atom/deploy_release:
+          name: "deploy-release-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>"
+          target_tag: << matrix.variant >>
+          << : *atom_deploy_shared_params
+          requires:
+            - build-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>
+          filters:
+            branches:
+              only:
+                - latest
+
+      # Deploy tag
+      - atom/deploy:
+          name: "deploy-tag-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>"
+          target_tag: ${CIRCLE_TAG}-<< matrix.variant >>
+          << : *atom_deploy_shared_params
+          requires:
+            - build-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>
           filters:
             branches:
               ignore:
                 - /.*/
             tags:
               only: /.*/
+
+
   #
   # Build and deploy the metrics/grafana container
   #
