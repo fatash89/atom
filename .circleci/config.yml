@@ -194,6 +194,11 @@ commands:
       << : *build_atom_shared_params
     steps:
 
+      # Check out the code, update submodules and log into Docker
+      - checkout
+      - atom/update_submodules
+      - atom/docker_login
+
       # Build nucleus
       - atom/build_dockerfile_buildx:
           stage: << parameters.stage >>
