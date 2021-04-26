@@ -31,8 +31,6 @@ ADD metrics/grafana-redis-datasource /tmp/grafana-redis-datasource
 WORKDIR /tmp/grafana-redis-datasource
 
 # Install yarn and dependencies, build JS
-ARG NODE_ARCH=x86
-ENV npm_config_arch=${NODE_ARCH}
 RUN npm install yarn -g && yarn install && yarn build
 
 # Build and install plugin
