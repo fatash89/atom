@@ -57,8 +57,8 @@ aliases:
   - &atom_cuda_image_tag 11.3.0-cudnn8-runtime-ubuntu20.04
 
   # Executor sizes for builds
-  - &atom_amd64_build_executor atom/build-ubuntu-large
-  - &atom_aarch64_build_executor atom/build-ubuntu-arm-large
+  - &atom_amd64_build_executor atom/build-ubuntu
+  - &atom_aarch64_build_executor atom/build-ubuntu-arm
 
   # Typical params for building atom
   - &build_atom_shared_params
@@ -500,7 +500,7 @@ workflows:
       # Deploy development
       - atom/deploy:
           name: "deploy-development-<< matrix.variant >>-<< matrix.platform >>-nucleus"
-          target_tag: development-<< pipeline.number >>-<< matrix.variant >>
+          target_tag: development-<< pipeline.number >>
           << : *nucleus_deploy_shared_params
           requires:
             - build-<< matrix.variant >>-<< matrix.platform >>-nucleus
@@ -512,7 +512,7 @@ workflows:
       # Deploy latest
       - atom/deploy:
           name: "deploy-latest-<< matrix.variant >>-<< matrix.platform >>-nucleus"
-          target_tag: latest-<< pipeline.number >>-<< matrix.variant >>
+          target_tag: latest-<< pipeline.number >>
           << : *nucleus_deploy_shared_params
           requires:
             - build-<< matrix.variant >>-<< matrix.platform >>-nucleus
@@ -524,7 +524,7 @@ workflows:
       # Deploy release
       - atom/deploy_release:
           name: "deploy-release-<< matrix.variant >>-<< matrix.platform >>-nucleus"
-          target_tag: << matrix.variant >>
+          target_tag: ""
           << : *nucleus_deploy_shared_params
           requires:
             - build-<< matrix.variant >>-<< matrix.platform >>-nucleus
@@ -536,7 +536,7 @@ workflows:
       # Deploy tag
       - atom/deploy:
           name: "deploy-tag-<< matrix.variant >>-<< matrix.platform >>-nucleus"
-          target_tag: ${CIRCLE_TAG}-<< matrix.variant >>
+          target_tag: ${CIRCLE_TAG}
           << : *nucleus_deploy_shared_params
           requires:
             - build-<< matrix.variant >>-<< matrix.platform >>-nucleus
@@ -554,7 +554,7 @@ workflows:
       # Deploy development
       - atom/deploy:
           name: "deploy-development-<< matrix.variant >>-<< matrix.platform >>-atom"
-          target_tag: development-<< pipeline.number >>-<< matrix.variant >>
+          target_tag: development-<< pipeline.number >>
           << : *atom_deploy_shared_params
           requires:
             - build-<< matrix.variant >>-<< matrix.platform >>-atom
@@ -566,7 +566,7 @@ workflows:
       # Deploy latest
       - atom/deploy:
           name: "deploy-latest-<< matrix.variant >>-<< matrix.platform >>-atom"
-          target_tag: latest-<< pipeline.number >>-<< matrix.variant >>
+          target_tag: latest-<< pipeline.number >>
           << : *atom_deploy_shared_params
           requires:
             - build-<< matrix.variant >>-<< matrix.platform >>-atom
@@ -578,7 +578,7 @@ workflows:
       # Deploy release
       - atom/deploy_release:
           name: "deploy-release-<< matrix.variant >>-<< matrix.platform >>-atom"
-          target_tag: << matrix.variant >>
+          target_tag: ""
           << : *atom_deploy_shared_params
           requires:
             - build-<< matrix.variant >>-<< matrix.platform >>-atom
@@ -590,7 +590,7 @@ workflows:
       # Deploy tag
       - atom/deploy:
           name: "deploy-tag-<< matrix.variant >>-<< matrix.platform >>-atom"
-          target_tag: ${CIRCLE_TAG}-<< matrix.variant >>
+          target_tag: ${CIRCLE_TAG}
           << : *atom_deploy_shared_params
           requires:
             - build-<< matrix.variant >>-<< matrix.platform >>-atom
