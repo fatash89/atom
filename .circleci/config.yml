@@ -8,22 +8,19 @@ parameters:
   # Atom parameters
   dockerhub_org:
     type: string
-    default: ${DOCKERHUB_ORG}
+    default: elementaryrobotics
   atom_repo_name:
     type: string
-    default: ${DOCKERHUB_ATOM_REPO}
+    default: atom
   nucleus_repo_name:
     type: string
-    default: ${DOCKERHUB_NUCLEUS_REPO}
+    default: nucleus
   metrics_repo_name:
     type: string
-    default: ${DOCKERHUB_METRICS_REPO}
+    default: metrics
   formatter_repo_name:
     type: string
-    default: ${DOCKERHUB_FORMATTER_REPO}
-  cache_repo:
-    type: string
-    default: ${DOCKERHUB_ORG}/${DOCKERHUB_CACHE_REPO}
+    default: formatter
   dockerhub_user:
     type: string
     default: ${DOCKERHUB_USER}
@@ -32,12 +29,9 @@ parameters:
     default: ${DOCKEHUB_PASSWORD}
 
   # Docs parameters
-  docs_repo:
+  docs_repo_name:
     type: string
-    default: ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}
-  docs_cache_repo:
-    type: string
-    default: ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}
+    default: atom-doc
   heroku_api_key:
     type: string
     default: ${HEROKU_API_KEY}
@@ -85,9 +79,6 @@ aliases:
       build_args:
         type: string
         default: ""
-      cache_repo:
-        type: string
-        default: << pipeline.parameters.cache_repo >>
       test_valgrind:
         type: boolean
         default: true
@@ -103,7 +94,6 @@ aliases:
       stock_image_repo: << parameters.stock_image_repo >>
       stock_image_tag: << parameters.stock_image_tag >>
       build_args: << parameters.build_args >>
-      cache_repo: << parameters.cache_repo >>
       test_valgrind: << parameters.test_valgrind >>
       executor: << parameters.executor >>
 
@@ -144,15 +134,15 @@ aliases:
       name: "build-docs"
       working_directory: doc
       file: Dockerfile
-      image_name: << pipeline.parameters.docs_repo >>
+      image_name: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.docs_repo_name >>
       image_tag: build-<< pipeline.number >>
-      cache_repo: << pipeline.parameters.docs_cache_repo >>
+      cache_repo: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.docs_repo_name >>
       cache_tag: cache-docs
 
   - &deploy_docs_shared
-      source_image: << pipeline.parameters.docs_repo >>
+      source_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.docs_repo_name >>
       source_tag: build-<< pipeline.number >>
-      target_image: << pipeline.parameters.docs_repo >>
+      target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.docs_repo_name >>
 
   - &deploy_metrics_shared
       source_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
@@ -210,8 +200,10 @@ commands:
             --build-arg STOCK_IMAGE=<< parameters.stock_image_repo >>:<< parameters.stock_image_tag >>
             --build-arg ATOM_BASE=<< parameters.variant >>
             << parameters.build_args >>
-          cache_repo: << parameters.cache_repo >>
-          cache_tag: cache-<< parameters.variant >>
+          # Always cache to atom -- will allow atom builds to leverage nucleus
+          # build cache
+          cache_repo: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
+          cache_tag: cache
 
       # Tag and push nucleus image
       - atom/push_image_variant:
@@ -297,33 +289,11 @@ jobs:
           compose_file: << parameters.compose_file >>
           compose_container_name: << parameters.compose_container_name >>
 
-  build-docs:
-    executor: atom/build-ubuntu
-    steps:
-      - checkout
-
-      #
-      # Build docker image
-      #
-      - atom/build_dockerfile_buildx:
-          working_directory: doc
-          stage: docs
-          file: Dockerfile
-          image_name: << pipeline.parameters.docs_repo >>
-          image_tag: build-<< pipeline.number >>
-          cache_repo: << pipeline.parameters.docs_cache_repo >>
-          cache_tag: cache-docs
-
-      # Push build image
-      - atom/push_image:
-          target_image: << pipeline.parameters.docs_repo >>
-          target_tag: build-<< pipeline.number >>
-
   deploy-docs-heroku:
     executor: atom/build-ubuntu
     steps:
       - heroku_deploy:
-          source_image: << pipeline.parameters.docs_repo >>
+          source_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.docs_repo_name >>
           source_tag: build-<< pipeline.number >>
 
   check-formatting:
@@ -334,7 +304,7 @@ jobs:
       - checkout
       - run:
           name: Check Formatting
-          description: Run black & flake8 checks
+          description: Run formatting checks
           command: CODE_DIR=/root/project /usr/local/bin/run.sh
 
 workflows:
