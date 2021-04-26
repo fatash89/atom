@@ -107,16 +107,6 @@ aliases:
       test_valgrind: << parameters.test_valgrind >>
       executor: << parameters.executor >>
 
-  - &build_atom_dockerfile_shared_mapping
-      variant: << parameters.variant >>
-      platform: << parameters.platform >>
-      build_args: >-
-        --build-arg STOCK_IMAGE=<< parameters.stock_image_repo >>:<< parameters.stock_image_tag >>
-        --build-arg ATOM_BASE=<< parameters.variant >>
-        << parameters.build_args >>
-      cache_repo: << parameters.cache_repo >>
-      cache_tag: cache-<< parameters.variant >>
-
   - &test_atom_default_params
       nucleus_under_test: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.nucleus_repo_name >>:build-<< pipeline.number >>-nucleus-atom-base-<< matrix.platform >>
       atom_under_test: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>:build-<< pipeline.number >>-test-<< matrix.variant >>-<< matrix.platform >>
@@ -132,10 +122,9 @@ aliases:
       matrix:
         parameters:
           platform: [ aarch64, amd64 ]
-          stage: [ atom ]
           variant: [ atom-base, atom-base-cv, atom-base-cv-graphics ]
       source_image: << pipeline.parameters.atom_repo_name >>
-      source_tag: build-<< pipeline.number >>-<< matrix.stage >>
+      source_tag: build-<< pipeline.number >>-atom
       target_image: << pipeline.parameters.atom_repo_name >>
 
   # Shared config around atom deployment logic
@@ -143,10 +132,9 @@ aliases:
       matrix:
         parameters:
           platform: [ aarch64, amd64 ]
-          stage: [ nucleus ]
           variant: [ atom-base ]
       source_image: << pipeline.parameters.nucleus_repo_name >>
-      source_tag: build-<< pipeline.number >>-<< matrix.stage >>
+      source_tag: build-<< pipeline.number >>-nucleus
       target_image: << pipeline.parameters.nucleus_repo_name >>
 
   #
@@ -214,7 +202,7 @@ commands:
           variant: << parameters.variant >>
           platform: << parameters.platform >>
           build_args: >-
-            --build-arg STOCK_IMAGE=<< parameters.stock_image >>
+            --build-arg STOCK_IMAGE=<< parameters.stock_image_repo >>:<< parameters.stock_image_tag >>
             --build-arg ATOM_BASE=<< parameters.variant >>
             << parameters.build_args >>
           cache_repo: << parameters.cache_repo >>
@@ -278,9 +266,10 @@ jobs:
   build-dockerfile:
     parameters:
       << : *build_atom_shared_params
+    executor: << parameters.executor >>
     steps:
       - build_atom:
-        << : *build_atom_shared_params_passthrough
+          << : *build_atom_shared_params_passthrough
 
   build-dockerfile-and-test:
     parameters:
@@ -293,6 +282,7 @@ jobs:
         type: string
       compose_container_name:
         type: string
+    executor: << parameters.executor >>
     steps:
       - build_atom:
           << : *build_atom_shared_params_passthrough
@@ -391,7 +381,7 @@ workflows:
           stock_image_tag: *atom_cuda_image_tag
           matrix:
             parameters:
-              platform: amd64
+              platform: [ amd64 ]
               stage: [ atom ]
               variant: [ atom-base-cv-graphics ]
           requires:
@@ -425,7 +415,7 @@ workflows:
           << : *test_atom_default_params
           matrix:
             parameters:
-              platform: amd64
+              platform: [ amd64 ]
               stage: [ test ]
               variant: [ atom-base-cv-graphics ]
           requires:
@@ -448,7 +438,7 @@ workflows:
               platform: [ aarch64 ]
               stage: [ nucleus ]
               variant: [ atom-base ]
-          executor: build-ubuntu-arm
+          executor: atom/build-ubuntu-arm
           filters:
             tags:
               only:
@@ -462,7 +452,7 @@ workflows:
               platform: [ aarch64 ]
               stage: [ atom ]
               variant: [ atom-base, atom-base-cv ]
-          executor: build-ubuntu-arm
+          executor: atom/build-ubuntu-arm
           requires:
             - build-atom-base-<< matrix.platform >>-nucleus
           filters:
@@ -477,10 +467,10 @@ workflows:
           stock_image_tag: *atom_cuda_image_tag
           matrix:
             parameters:
-              platform: aarch64
+              platform: [ aarch64 ]
               stage: [ atom ]
               variant: [ atom-base-cv-graphics ]
-          executor: build-ubuntu-arm
+          executor: atom/build-ubuntu-arm
           requires:
             - build-atom-base-<< matrix.platform >>-nucleus
           filters:
@@ -497,7 +487,7 @@ workflows:
               platform: [ aarch64 ]
               stage: [ test ]
               variant: [ atom-base, atom-base-cv ]
-          executor: build-ubuntu-arm
+          executor: atom/build-ubuntu-arm
           requires:
             - build-<< matrix.variant >>-<< matrix.platform >>-atom
           filters:
@@ -516,7 +506,7 @@ workflows:
               platform: [ aarch64 ]
               stage: [ test ]
               variant: [ atom-base-cv-graphics ]
-          executor: build-ubuntu-arm
+          executor: atom/build-ubuntu-arm
           requires:
             - build-<< matrix.variant >>-<< matrix.platform >>-atom
           filters:
@@ -530,11 +520,11 @@ workflows:
 
       # Deploy development
       - atom/deploy:
-          name: "deploy-development-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>"
+          name: "deploy-development-<< matrix.variant >>-<< matrix.platform >>-nucleus"
           target_tag: development-<< pipeline.number >>-<< matrix.variant >>
           << : *nucleus_deploy_shared_params
           requires:
-            - build-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>
+            - build-<< matrix.variant >>-<< matrix.platform >>-nucleus
           filters:
             branches:
               ignore:
@@ -542,11 +532,11 @@ workflows:
 
       # Deploy latest
       - atom/deploy:
-          name: "deploy-latest-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>"
+          name: "deploy-latest-<< matrix.variant >>-<< matrix.platform >>-nucleus"
           target_tag: latest-<< pipeline.number >>-<< matrix.variant >>
           << : *nucleus_deploy_shared_params
           requires:
-            - build-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>
+            - build-<< matrix.variant >>-<< matrix.platform >>-nucleus
           filters:
             branches:
               only:
@@ -554,11 +544,11 @@ workflows:
 
       # Deploy release
       - atom/deploy_release:
-          name: "deploy-release-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>"
+          name: "deploy-release-<< matrix.variant >>-<< matrix.platform >>-nucleus"
           target_tag: << matrix.variant >>
           << : *nucleus_deploy_shared_params
           requires:
-            - build-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>
+            - build-<< matrix.variant >>-<< matrix.platform >>-nucleus
           filters:
             branches:
               only:
@@ -566,11 +556,11 @@ workflows:
 
       # Deploy tag
       - atom/deploy:
-          name: "deploy-tag-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>"
+          name: "deploy-tag-<< matrix.variant >>-<< matrix.platform >>-nucleus"
           target_tag: ${CIRCLE_TAG}-<< matrix.variant >>
           << : *nucleus_deploy_shared_params
           requires:
-            - build-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>
+            - build-<< matrix.variant >>-<< matrix.platform >>-nucleus
           filters:
             branches:
               ignore:
@@ -584,11 +574,11 @@ workflows:
 
       # Deploy development
       - atom/deploy:
-          name: "deploy-development-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>"
+          name: "deploy-development-<< matrix.variant >>-<< matrix.platform >>-atom"
           target_tag: development-<< pipeline.number >>-<< matrix.variant >>
           << : *atom_deploy_shared_params
           requires:
-            - build-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>
+            - build-<< matrix.variant >>-<< matrix.platform >>-atom
           filters:
             branches:
               ignore:
@@ -596,11 +586,11 @@ workflows:
 
       # Deploy latest
       - atom/deploy:
-          name: "deploy-latest-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>"
+          name: "deploy-latest-<< matrix.variant >>-<< matrix.platform >>-atom"
           target_tag: latest-<< pipeline.number >>-<< matrix.variant >>
           << : *atom_deploy_shared_params
           requires:
-            - build-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>
+            - build-<< matrix.variant >>-<< matrix.platform >>-atom
           filters:
             branches:
               only:
@@ -608,11 +598,11 @@ workflows:
 
       # Deploy release
       - atom/deploy_release:
-          name: "deploy-release-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>"
+          name: "deploy-release-<< matrix.variant >>-<< matrix.platform >>-atom"
           target_tag: << matrix.variant >>
           << : *atom_deploy_shared_params
           requires:
-            - build-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>
+            - build-<< matrix.variant >>-<< matrix.platform >>-atom
           filters:
             branches:
               only:
@@ -620,11 +610,11 @@ workflows:
 
       # Deploy tag
       - atom/deploy:
-          name: "deploy-tag-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>"
+          name: "deploy-tag-<< matrix.variant >>-<< matrix.platform >>-atom"
           target_tag: ${CIRCLE_TAG}-<< matrix.variant >>
           << : *atom_deploy_shared_params
           requires:
-            - build-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>
+            - build-<< matrix.variant >>-<< matrix.platform >>-atom
           filters:
             branches:
               ignore:
@@ -644,8 +634,9 @@ workflows:
       - atom/build_buildx:
           name: "build-metrics-<< matrix.platform >>"
           matrix:
-            platform: [ amd64, aarch64 ]
-            executor: [ atom/build-ubuntu, atom/build-ubuntu-arm]
+            parameters:
+              platform: [ amd64, aarch64 ]
+              executor: [ atom/build-ubuntu, atom/build-ubuntu-arm]
             exclude:
               - platform: amd64
                 executor: atom/build-ubuntu-arm
