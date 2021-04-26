@@ -617,7 +617,7 @@ workflows:
                 executor: atom/build-ubuntu-arm
               - platform: aarch64
                 executor: atom/build-ubuntu
-          working_directory: metrics
+          file: metrics/Dockerfile
           image_name: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
           image_tag: build-<< pipeline.number >>
           cache_repo: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
