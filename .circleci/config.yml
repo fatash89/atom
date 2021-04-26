@@ -100,19 +100,6 @@ aliases:
       target_image: << pipeline.parameters.dockerhub_org >>/<< matrix.component >>
 
   #
-  # Basic build for both intel + arm
-  #
-  - &build_intel_and_arm
-      matrix:
-        platform: [ amd64, aarch64 ]
-        executor: [ atom/build-ubuntu, atom/build-ubuntu-arm]
-        exclude:
-          - platform: amd64
-            executor: atom/build-ubuntu-arm
-          - platform: aarch64
-            executor: atom/build-ubuntu
-
-  #
   # Docs build shared info
   #
   - &docs_build_shared_config
@@ -381,11 +368,39 @@ workflows:
   atom-build:
     jobs:
 
-      # Intel + ARM Stock with nucleus
-      - build-atom-with-nucleus:
-          name: "build-atom-base-<< matrix.platform >>"
-          << : *build_intel_and_arm
+      # Build nucleus
+      - build-nucleus:
+          name: "build-nucleus-<< matrix.platform >>"
+          variant: atom-base
           stock_image: debian:buster-slim
+          matrix:
+            platform: [ amd64, aarch64 ]
+            executor: [ atom/build-ubuntu, atom/build-ubuntu-arm]
+            exclude:
+              - platform: amd64
+                executor: atom/build-ubuntu-arm
+              - platform: aarch64
+                executor: atom/build-ubuntu
+          filters:
+            tags:
+              only:
+                - /.*/
+
+      # Intel + ARM Stock
+      - build-atom:
+          name: "build-atom-<< matrix.platform >>"
+          variant: atom-base
+          stock_image: debian:buster-slim
+          matrix:
+            platform: [ amd64, aarch64 ]
+            executor: [ atom/build-ubuntu, atom/build-ubuntu-arm]
+            exclude:
+              - platform: amd64
+                executor: atom/build-ubuntu-arm
+              - platform: aarch64
+                executor: atom/build-ubuntu
+          requires:
+            - build-nucleus-<< matrix.platform >>
           filters:
             tags:
               only:
@@ -393,43 +408,50 @@ workflows:
 
       # Intel + ARM CV base on debian buster:slim
       - build-atom:
-          name: "build-<< matrix.variant >>-<< matrix.platform >>"
+          name: "build-atom-cv-<< matrix.platform >>"
           variant: atom-base-cv
-          << : *build_intel_and_arm
           stock_image: debian:buster-slim
+          matrix:
+            platform: [ amd64, aarch64 ]
+            executor: [ atom/build-ubuntu, atom/build-ubuntu-arm]
+            exclude:
+              - platform: amd64
+                executor: atom/build-ubuntu-arm
+              - platform: aarch64
+                executor: atom/build-ubuntu
           requires:
-            - build-atom-base-<< matrix.platform >>
+            - build-nucleus-<< matrix.platform >>
           filters:
             tags:
               only:
                 - /.*/
 
-      # Intel CV + graphics base
+      # Intel CV + graphics base atop CUDA
       - build-atom:
-          name: "build-<< matrix.variant >>-<< matrix.platform >>"
+          name: "build-atom-cuda-<< matrix.platform >>"
           variant: atom-base-cv-graphics
+          stock_image: nvcr.io/nvidia/cuda:11.3.0-cudnn8-runtime-ubuntu20.04
           matrix:
             parameters:
               platform: amd64
-          stock_image: nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04
           requires:
-            - build-atom-base-<< matrix.platform >>
+            - build-nucleus-<< matrix.platform >>
           filters:
             tags:
               only:
                 - /.*/
 
-      # ARM CV + graphics base
+      # ARM CV + graphics base atop CUDA
       - build-atom:
-          name: "build-<< matrix.variant >>-<< matrix.platform >>"
+          name: "build-atom-cuda-<< matrix.platform >>"
           variant: atom-base-cv-graphics
+          stock_image: nvcr.io/nvidia/cuda-arm64:11.3.0-cudnn8-runtime-ubuntu20.04
           matrix:
             parameters:
-              platform: amd64
+              platform: aarch64
           executor: atom/build-ubuntu-arm
-          stock_image: nvcr.io/nvidia/l4t-pytorch:r32.5.0-pth1.7-py3
           requires:
-            - build-atom-base-<< matrix.platform >>
+            - build-nucleus-<< matrix.platform >>
           filters:
             tags:
               only:
