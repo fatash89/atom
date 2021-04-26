@@ -56,6 +56,10 @@ aliases:
   - &atom_cuda_aarch64_image_repo nvcr.io/nvidia/cuda-arm64
   - &atom_cuda_image_tag 11.3.0-cudnn8-runtime-ubuntu20.04
 
+  # Executor sizes for builds
+  - &atom_amd64_build_executor atom/build-ubuntu-large
+  - &atom_aarch64_build_executor atom/build-ubuntu-arm-large
+
   # Typical params for building atom
   - &build_atom_shared_params
       variant:
@@ -84,7 +88,7 @@ aliases:
         default: true
       executor:
         type: executor
-        default: atom/build-ubuntu
+        default: *atom_amd64_build_executor
 
   - &build_atom_shared_params_passthrough
       variant: << parameters.variant >>
@@ -113,9 +117,9 @@ aliases:
         parameters:
           platform: [ aarch64, amd64 ]
           variant: [ atom-base, atom-base-cv, atom-base-cv-graphics ]
-      source_image: << pipeline.parameters.atom_repo_name >>
+      source_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
       source_tag: build-<< pipeline.number >>-atom
-      target_image: << pipeline.parameters.atom_repo_name >>
+      target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
 
   # Shared config around atom deployment logic
   - &nucleus_deploy_shared_params
@@ -123,9 +127,9 @@ aliases:
         parameters:
           platform: [ aarch64, amd64 ]
           variant: [ atom-base ]
-      source_image: << pipeline.parameters.nucleus_repo_name >>
+      source_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.nucleus_repo_name >>
       source_tag: build-<< pipeline.number >>-nucleus
-      target_image: << pipeline.parameters.nucleus_repo_name >>
+      target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.nucleus_repo_name >>
 
   #
   # Docs build shared info
@@ -413,7 +417,7 @@ workflows:
               platform: [ aarch64 ]
               stage: [ nucleus ]
               variant: [ atom-base ]
-          executor: atom/build-ubuntu-arm
+          executor: *atom_aarch64_build_executor
           filters:
             tags:
               only:
@@ -427,7 +431,7 @@ workflows:
               platform: [ aarch64 ]
               stage: [ atom ]
               variant: [ atom-base, atom-base-cv ]
-          executor: atom/build-ubuntu-arm
+          executor: *atom_aarch64_build_executor
           requires:
             - build-atom-base-<< matrix.platform >>-nucleus
           filters:
@@ -445,7 +449,7 @@ workflows:
               platform: [ aarch64 ]
               stage: [ atom ]
               variant: [ atom-base-cv-graphics ]
-          executor: atom/build-ubuntu-arm
+          executor: *atom_aarch64_build_executor
           requires:
             - build-atom-base-<< matrix.platform >>-nucleus
           filters:
@@ -462,7 +466,7 @@ workflows:
               platform: [ aarch64 ]
               stage: [ test ]
               variant: [ atom-base, atom-base-cv ]
-          executor: atom/build-ubuntu-arm
+          executor: *atom_aarch64_build_executor
           requires:
             - build-<< matrix.variant >>-<< matrix.platform >>-atom
           filters:
@@ -481,7 +485,7 @@ workflows:
               platform: [ aarch64 ]
               stage: [ test ]
               variant: [ atom-base-cv-graphics ]
-          executor: atom/build-ubuntu-arm
+          executor: *atom_aarch64_build_executor
           requires:
             - build-<< matrix.variant >>-<< matrix.platform >>-atom
           filters:
@@ -611,10 +615,10 @@ workflows:
           matrix:
             parameters:
               platform: [ amd64, aarch64 ]
-              executor: [ atom/build-ubuntu, atom/build-ubuntu-arm]
+              executor: [ atom/build-ubuntu, *atom_aarch64_build_executor]
             exclude:
               - platform: amd64
-                executor: atom/build-ubuntu-arm
+                executor: *atom_aarch64_build_executor
               - platform: aarch64
                 executor: atom/build-ubuntu
           file: metrics/Dockerfile
