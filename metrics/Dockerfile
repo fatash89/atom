@@ -15,8 +15,8 @@ ENV ATOM_METRICS_SOCKET "/shared/metrics.sock"
 ENV REDIS_CLI_BIN /usr/bin/redis-cli
 ENV PYTHONUNBUFFERED=TRUE
 
-# Install our rewuirements
-RUN apk update && apk add git go npm python3 py-pip redis
+# Install our requirements
+RUN apk update && apk add alpine-sdk git go npm python2 python3 py-pip redis
 
 # Install Mage
 RUN mkdir -p /root/go/bin && git clone https://github.com/magefile/mage && cd mage && go run bootstrap.go
