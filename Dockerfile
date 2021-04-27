@@ -145,7 +145,7 @@ FROM atom-base as atom-base-cv-build
 # Install pre-requisites
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     zlib1g-dev \
-    libjpeg62-turbo-dev \
+    libjpeg-turbo8-dev \
     libpng-dev \
     libtiff-dev \
     libopenexr-dev \
