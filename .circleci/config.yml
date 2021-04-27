@@ -99,7 +99,6 @@ aliases:
       stock_image_repo: << parameters.stock_image_repo >>
       stock_image_tag: << parameters.stock_image_tag >>
       build_args: << parameters.build_args >>
-      test_valgrind: << parameters.test_valgrind >>
       executor: << parameters.executor >>
 
   - &test_atom_default_params
