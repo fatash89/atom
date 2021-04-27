@@ -20,7 +20,7 @@ FROM $STOCK_IMAGE as atom-base
 #
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       apt-utils \
       git \
       autoconf \
@@ -143,7 +143,7 @@ WORKDIR /atom
 FROM atom-base as atom-base-cv-build
 
 # Install pre-requisites
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     zlib1g-dev \
     libjpeg62-turbo-dev \
     libpng-dev \
@@ -216,7 +216,7 @@ COPY --from=atom-base-cv-deps /opt/venv /opt/venv
 FROM atom-base-cv as atom-base-cv-graphics
 
 # Potentially install opengl
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
   --no-install-recommends \
   libglvnd0 \
   libgl1 \
@@ -229,7 +229,7 @@ ADD third-party/noVNC /opt/noVNC
 
 # Install graphics
 # Note: supervisor-stdout must be installed with pip2 and not pip3
-RUN apt-get install -y --no-install-recommends \
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       libgl1-mesa-dri \
       menu \
       net-tools \
@@ -359,7 +359,7 @@ ENV PYTHONUNBUFFERED=TRUE
 
 # Install python
 RUN apt-get update -y \
-   && apt-get install -y --no-install-recommends apt-utils \
+   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends apt-utils \
    curl \
    python3.8 \
    python3.8-venv \
@@ -421,7 +421,7 @@ COPY --from=atom-source /usr/local/bin/redis-server /usr/local/bin/redis-server
 COPY --from=atom-source /atom/third-party/RedisTimeSeries/bin/redistimeseries.so /etc/redis/redistimeseries.so
 
 # Add in supervisor and config files
-RUN apt-get install -y supervisor
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y supervisor
 ADD ./config/nucleus/supervisor /etc/supervisor
 ADD ./config/nucleus/redis /etc/redis
 RUN mkdir /metrics
@@ -445,7 +445,7 @@ FROM atom as test
 
 # Install googletest
 RUN apt-get update \
-   && apt-get install -y --no-install-recommends \
+   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
    libgtest-dev \
    cmake \
    build-essential \
@@ -456,7 +456,7 @@ RUN apt-get update \
    && cp *.a /usr/lib
 
 # Install valgrind
-RUN apt-get install -y --no-install-recommends valgrind
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends valgrind
 
 # Install pytest
 ADD ./languages/python/requirements-test.txt .
