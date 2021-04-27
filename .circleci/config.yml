@@ -236,7 +236,7 @@ commands:
       # Run unit tests
       - run:
           name: Python version
-          command: docker exec -it -w /atom/languages/python/tests << parameters.compose_container_name >> python -V 2>&1 | grep "3.7"
+          command: docker exec -it -w /atom/languages/python/tests << parameters.compose_container_name >> python -V 2>&1 | grep "3.8"
       - run:
           name: Python type check
           command: docker exec -it << parameters.compose_container_name >> bash -c "cd /atom/languages/python && pyright -p pyrightconfig-ci.json atom"
