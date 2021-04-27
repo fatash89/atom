@@ -57,8 +57,12 @@ aliases:
   - &atom_cuda_image_tag 11.3.0-cudnn8-runtime-ubuntu20.04
 
   # Executor sizes for builds
-  - &atom_amd64_build_executor atom/build-ubuntu
-  - &atom_aarch64_build_executor atom/build-ubuntu-arm
+  - &atom_amd64_build_executor atom/build-ubuntu-large
+  - &atom_aarch64_build_executor atom/build-ubuntu-arm-large
+
+  # Extra build args for the various platforms
+  - &atom_amd64_build_args ""
+  - &atom_aarch64_build_args --build-arg BLAS_TARGET_CPU=ARMV8 --build-arg PYARROW_EXTRA_CMAKE_ARGS=-DARROW_ARMV8_ARCH=armv8-a
 
   # Typical params for building atom
   - &build_atom_shared_params
@@ -82,10 +86,7 @@ aliases:
         default: *atom_base_image_tag
       build_args:
         type: string
-        default: ""
-      test_valgrind:
-        type: boolean
-        default: true
+        default: *atom_amd64_build_args
       executor:
         type: executor
         default: *atom_amd64_build_executor
@@ -418,6 +419,7 @@ workflows:
               stage: [ nucleus ]
               variant: [ atom-base ]
           executor: *atom_aarch64_build_executor
+          build_args: *atom_aarch64_build_args
           filters:
             tags:
               only:
@@ -432,6 +434,7 @@ workflows:
               stage: [ atom ]
               variant: [ atom-base, atom-base-cv ]
           executor: *atom_aarch64_build_executor
+          build_args: *atom_aarch64_build_args
           requires:
             - build-atom-base-<< matrix.platform >>-nucleus
           filters:
@@ -450,6 +453,7 @@ workflows:
               stage: [ atom ]
               variant: [ atom-base-cv-graphics ]
           executor: *atom_aarch64_build_executor
+          build_args: *atom_aarch64_build_args
           requires:
             - build-atom-base-<< matrix.platform >>-nucleus
           filters:
@@ -467,6 +471,7 @@ workflows:
               stage: [ test ]
               variant: [ atom-base, atom-base-cv ]
           executor: *atom_aarch64_build_executor
+          build_args: *atom_aarch64_build_args
           requires:
             - build-<< matrix.variant >>-<< matrix.platform >>-atom
           filters:
@@ -486,6 +491,7 @@ workflows:
               stage: [ test ]
               variant: [ atom-base-cv-graphics ]
           executor: *atom_aarch64_build_executor
+          build_args: *atom_aarch64_build_args
           requires:
             - build-<< matrix.variant >>-<< matrix.platform >>-atom
           filters:

@@ -83,8 +83,9 @@ RUN python3 setup.py build -j8 install
 
 # OpenBLAS
 ADD ./third-party/OpenBLAS /atom/third-party/OpenBLAS
+ARG BLAS_TARGET_CPU=""
 RUN cd /atom/third-party/OpenBLAS \
-  && make -j8 \
+  && make TARGET=${BLAS_TARGET_CPU} -j8 \
   && make PREFIX=/usr/local install
 
 # Numpy
@@ -110,8 +111,9 @@ RUN mkdir -p /atom/third-party/apache-arrow/cpp/build \
            .. \
   && make -j8 \
   && make install
+ARG PYARROW_EXTRA_CMAKE_ARGS=""
 RUN cd /atom/third-party/apache-arrow/python \
-  && ARROW_HOME=/usr/local SETUPTOOLS_SCM_PRETEND_VERSION="0.17.0" python3 setup.py build_ext -j 8 --build-type=release install
+  && ARROW_HOME=/usr/local SETUPTOOLS_SCM_PRETEND_VERSION="0.17.0" python3 setup.py build_ext -j 8 --build-type=release --extra-cmake-args=${PYARROW_EXTRA_CMAKE_ARGS} install
 
 #
 # Redis itself
