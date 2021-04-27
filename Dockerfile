@@ -453,7 +453,7 @@ RUN apt-get update \
    && cd /usr/src/gtest \
    && cmake CMakeLists.txt \
    && make -j8 \
-   && cp *.a /usr/lib
+   && cp lib/*.a /usr/lib
 
 # Install valgrind
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends valgrind
