@@ -212,7 +212,7 @@ commands:
       # Tag and push nucleus image
       - atom/push_image_variant:
           target_image: << pipeline.parameters.dockerhub_org >>/<< parameters.repo >>
-          target_tag: build-<< pipeline.number >>-<< parameters.stage >>
+          target_tag: build-<< pipeline.number >>-<< parameters.stage >>-<< parameters.stock_image_repo >>-<< parameters.stock_image_tag >>
           variant: << parameters.variant >>
           platform: << parameters.platform >>
 
