@@ -54,7 +54,7 @@ aliases:
   - &atom_base_image_tag focal-20210416
   - &atom_cuda_amd64_image_repo nvcr.io/nvidia/cuda
   - &atom_cuda_aarch64_image_repo nvcr.io/nvidia/cuda-arm64
-  - &atom_cuda_image_tag 11.3.0-cudnn8-runtime-ubuntu20.04
+  - &atom_cuda_image_tag 11.1.1-cudnn8-runtime
 
   # Executor sizes for builds
   - &atom_amd64_build_executor atom/build-ubuntu-large
@@ -66,18 +66,18 @@ aliases:
 
   # Typical params for building atom
   - &build_atom_shared_params
-      variant:
-        type: string
-        default: ""
-      platform:
-        type: string
-        default: amd64
       repo:
         type: string
         default: << pipeline.parameters.atom_repo_name >>
+      atom_type:
+        type: string
+        default: ""
       stage:
         type: string
         default: atom
+      base:
+        type: string
+        default: atom-base
       stock_image_repo:
         type: string
         default: *atom_base_image_repo
@@ -91,42 +91,18 @@ aliases:
         type: executor
         default: *atom_amd64_build_executor
 
-  - &build_atom_shared_params_passthrough
-      variant: << parameters.variant >>
-      platform: << parameters.platform >>
-      repo: << parameters.repo >>
-      stage: << parameters.stage >>
-      stock_image_repo: << parameters.stock_image_repo >>
-      stock_image_tag: << parameters.stock_image_tag >>
-      build_args: << parameters.build_args >>
-      executor: << parameters.executor >>
-
-  - &test_atom_default_params
-      nucleus_under_test: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.nucleus_repo_name >>:build-<< pipeline.number >>-nucleus-atom-base-<< matrix.platform >>
-      atom_under_test: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>:build-<< pipeline.number >>-test-<< matrix.variant >>-<< matrix.platform >>
-      compose_file: ./.circleci/docker-compose-circle.yml
-      compose_container_name: test_atom
-
   #
   # Deploy Configurations
   #
 
   # Shared config around atom deployment logic
   - &atom_deploy_shared_params
-      matrix:
-        parameters:
-          platform: [ aarch64, amd64 ]
-          variant: [ atom-base, atom-base-cv, atom-base-cv-graphics ]
       source_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
       source_tag: build-<< pipeline.number >>-atom
       target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
 
   # Shared config around atom deployment logic
   - &nucleus_deploy_shared_params
-      matrix:
-        parameters:
-          platform: [ aarch64, amd64 ]
-          variant: [ atom-base ]
       source_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.nucleus_repo_name >>
       source_tag: build-<< pipeline.number >>-nucleus
       target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.nucleus_repo_name >>
@@ -164,7 +140,7 @@ aliases:
 version: 2.1
 
 orbs:
-  atom:  elementaryrobotics/atom@0.2.0
+  atom:  elementaryrobotics/atom@dev:manifests
 
 commands:
 
@@ -194,27 +170,23 @@ commands:
       - atom/docker_login
 
       # Build nucleus
-      - atom/build_dockerfile_buildx:
+      - atom/build_dockerfile:
           stage: << parameters.stage >>
-          image_tag: build-<< pipeline.number >>-<< parameters.stage >>
+          image_tag: build-<< pipeline.number >>-<< parameters.atom_type >>
           image_name: << pipeline.parameters.dockerhub_org >>/<< parameters.repo >>
-          variant: << parameters.variant >>
-          platform: << parameters.platform >>
           build_args: >-
             --build-arg STOCK_IMAGE=<< parameters.stock_image_repo >>:<< parameters.stock_image_tag >>
-            --build-arg ATOM_BASE=<< parameters.variant >>
+            --build-arg ATOM_BASE=<< parameters.base >>
             << parameters.build_args >>
           # Always cache to atom -- will allow atom builds to leverage nucleus
           # build cache
           cache_repo: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
-          cache_tag: cache
+          cache_tag: cache-<< parameters.name >>
 
       # Tag and push nucleus image
       - atom/push_image_variant:
           target_image: << pipeline.parameters.dockerhub_org >>/<< parameters.repo >>
-          target_tag: build-<< pipeline.number >>-<< parameters.stage >>-<< parameters.stock_image_repo >>-<< parameters.stock_image_tag >>
-          variant: << parameters.variant >>
-          platform: << parameters.platform >>
+          target_tag: build-<< pipeline.number >>-<< parameters.atom_type >>
 
   test_atom:
     parameters:
@@ -270,28 +242,26 @@ jobs:
     executor: << parameters.executor >>
     steps:
       - build_atom:
-          << : *build_atom_shared_params_passthrough
+          repo: << parameters.repo >>
+          atom_type: << parameters.atom_type >>
+          stage: << parameters.stage >>
+          base: << parameters.base >>
+          stock_image_repo: << parameters.stock_image_repo >>
+          stock_image_tag: << parameters.stock_image_tag >>
+          build_args: << parameters.build_args >>
+          executor: << parameters.executor >>
 
-  build-dockerfile-and-test:
+  test-atom:
     parameters:
-      << : *build_atom_shared_params
-      nucleus_under_test:
-        type: string
-      atom_under_test:
-        type: string
-      compose_file:
-        type: string
-      compose_container_name:
+      atom_type:
         type: string
     executor: << parameters.executor >>
     steps:
-      - build_atom:
-          << : *build_atom_shared_params_passthrough
       - test_atom:
-          nucleus_under_test: << parameters.nucleus_under_test >>
-          atom_under_test: << parameters.atom_under_test >>
-          compose_file: << parameters.compose_file >>
-          compose_container_name: << parameters.compose_container_name >>
+          nucleus_under_test: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.nucleus_repo_name >>:build-<< pipeline.number >>-$(arch)
+          atom_under_test: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>:build-<< pipeline.number >>-<< parameters.atom_type >>-$(arch)
+          compose_file: ./.circleci/docker-compose-circle.yml
+          compose_container_name: test_atom
 
   deploy-docs-heroku:
     executor: atom/build-ubuntu
@@ -326,79 +296,73 @@ workflows:
 
       # Build nucleus
       - build-dockerfile:
-          name: "build-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>"
+          name: "build-<< matrix.stage >><< matrix.atom_type >>-<< matrix.executor >>"
           repo: << pipeline.parameters.nucleus_repo_name >>
           matrix:
             parameters:
-              platform: [ amd64 ]
               stage: [ nucleus ]
-              variant: [ atom-base ]
+              atom_type: [ "" ]
+              base: [ atom-base ]
+              stock_image_repo: [ *atom_base_image_repo ]
+              stock_image_tag: [ *atom_base_image_tag ]
+              executor: [ *atom_amd64_build_executor ]
           filters:
             tags:
               only:
                 - /.*/
 
-      # Build Stock + CV
+      # Build vanilla atom
       - build-dockerfile:
-          name: "build-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>"
+          name: "build-<< matrix.stage >><< matrix.atom_type >>-<< matrix.executor >>"
+          repo: << pipeline.parameters.atom_repo_name >>
           matrix:
             parameters:
-              platform: [ amd64 ]
-              stage: [ atom ]
-              variant: [ atom-base, atom-base-cv ]
+              stage: [ atom, test ]
+              atom_type: [ "" ]
+              base: [ atom-base ]
+              stock_image_repo: [ *atom_base_image_repo ]
+              stock_image_tag: [ *atom_base_image_tag ]
+              executor: [ *atom_amd64_build_executor ]
           requires:
-            - build-atom-base-<< matrix.platform >>-nucleus
+            - "build-nucleus-<< matrix.executor >>"
           filters:
             tags:
               only:
                 - /.*/
 
-      # Build CUDA
+      # Build CV flavor
       - build-dockerfile:
-          name: "build-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>"
-          stock_image_repo: *atom_cuda_amd64_image_repo
-          stock_image_tag: *atom_cuda_image_tag
+          name: "build-<< matrix.stage >><< matrix.atom_type >>-<< matrix.executor >>"
+          repo: << pipeline.parameters.atom_repo_name >>
           matrix:
             parameters:
-              platform: [ amd64 ]
-              stage: [ atom ]
-              variant: [ atom-base-cv-graphics ]
+              stage: [ atom, test ]
+              atom_type: [ "-cv" ]
+              base: [ atom-base-cv ]
+              stock_image_repo: [ *atom_base_image_repo ]
+              stock_image_tag: [ *atom_base_image_tag ]
+              executor: [ *atom_amd64_build_executor ]
           requires:
-            - build-atom-base-<< matrix.platform >>-nucleus
+            - "build-nucleus-<< matrix.executor >>"
           filters:
             tags:
               only:
                 - /.*/
 
-      # Test Stock + CV
-      - build-dockerfile-and-test:
-          name: "test-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>"
-          << : *test_atom_default_params
+      # Build CUDA flavor
+      - build-dockerfile:
+          name: "build-<< matrix.stage >><< matrix.atom_type >>-<< matrix.executor >>"
+          repo: << pipeline.parameters.atom_repo_name >>
           matrix:
             parameters:
-              platform: [ amd64 ]
-              stage: [ test ]
-              variant: [ atom-base, atom-base-cv ]
+              stage: [ atom, test ]
+              atom_type: [ "-cuda" ]
+              base: [ atom-base-cv ]
+              stock_image_repo: [ *atom_cuda_amd64_image_repo ]
+              stock_image_tag: [ *atom_cuda_image_tag ]
+              executor: [ *atom_amd64_build_executor ]
           requires:
-            - build-<< matrix.variant >>-<< matrix.platform >>-atom
-          filters:
-            tags:
-              only:
-                - /.*/
-
-      # Test CUDA
-      - build-dockerfile-and-test:
-          name: "test-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>"
-          stock_image_repo: *atom_cuda_amd64_image_repo
-          stock_image_tag: *atom_cuda_image_tag
-          << : *test_atom_default_params
-          matrix:
-            parameters:
-              platform: [ amd64 ]
-              stage: [ test ]
-              variant: [ atom-base-cv-graphics ]
-          requires:
-            - build-<< matrix.variant >>-<< matrix.platform >>-atom
+            - "build-nucleus-<< matrix.executor >>"
           filters:
             tags:
               only:
@@ -410,105 +374,122 @@ workflows:
 
       # Build nucleus
       - build-dockerfile:
-          name: "build-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>"
+          name: "build-<< matrix.stage >><< matrix.atom_type >>-<< matrix.executor >>"
           repo: << pipeline.parameters.nucleus_repo_name >>
           matrix:
             parameters:
-              platform: [ aarch64 ]
               stage: [ nucleus ]
-              variant: [ atom-base ]
-          executor: *atom_aarch64_build_executor
+              atom_type: [ "" ]
+              base: [ atom-base ]
+              stock_image_repo: [ *atom_base_image_repo ]
+              stock_image_tag: [ *atom_base_image_tag ]
+              executor: [ *atom_aarch64_build_executor ]
           build_args: *atom_aarch64_build_args
+          requires:
+            - "build-nucleus-<< matrix.executor >>"
           filters:
             tags:
               only:
                 - /.*/
 
-      # Build Stock + CV
+      # Build vanilla atom
       - build-dockerfile:
-          name: "build-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>"
+          name: "build-<< matrix.stage >><< matrix.atom_type >>-<< matrix.executor >>"
+          repo: << pipeline.parameters.atom_repo_name >>
           matrix:
             parameters:
-              platform: [ aarch64 ]
-              stage: [ atom ]
-              variant: [ atom-base, atom-base-cv ]
-          executor: *atom_aarch64_build_executor
+              stage: [ atom, test ]
+              atom_type: [ "" ]
+              base: [ atom-base ]
+              stock_image_repo: [ *atom_base_image_repo ]
+              stock_image_tag: [ *atom_base_image_tag ]
+              executor: [ *atom_aarch64_build_executor ]
           build_args: *atom_aarch64_build_args
           requires:
-            - build-atom-base-<< matrix.platform >>-nucleus
+            - "build-nucleus-<< matrix.executor >>"
           filters:
             tags:
               only:
                 - /.*/
 
-      # Build CUDA
+      # Build CV flavor
       - build-dockerfile:
-          name: "build-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>"
-          stock_image_repo: *atom_cuda_aarch64_image_repo
-          stock_image_tag: *atom_cuda_image_tag
+          name: "build-<< matrix.stage >><< matrix.atom_type >>-<< matrix.executor >>"
+          repo: << pipeline.parameters.atom_repo_name >>
           matrix:
             parameters:
-              platform: [ aarch64 ]
-              stage: [ atom ]
-              variant: [ atom-base-cv-graphics ]
-          executor: *atom_aarch64_build_executor
+              stage: [ atom, test ]
+              atom_type: [ "-cv" ]
+              base: [ atom-base-cv ]
+              stock_image_repo: [ *atom_base_image_repo ]
+              stock_image_tag: [ *atom_base_image_tag ]
+              executor: [ *atom_aarch64_build_executor ]
           build_args: *atom_aarch64_build_args
           requires:
-            - build-atom-base-<< matrix.platform >>-nucleus
+            - "build-nucleus-<< matrix.executor >>"
           filters:
             tags:
               only:
                 - /.*/
 
-      # Test Stock + CV
-      - build-dockerfile-and-test:
-          name: "test-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>"
-          << : *test_atom_default_params
+      # Build CUDA flavor
+      - build-dockerfile:
+          name: "build-<< matrix.stage >><< matrix.atom_type >>-<< matrix.executor >>"
+          repo: << pipeline.parameters.atom_repo_name >>
           matrix:
             parameters:
-              platform: [ aarch64 ]
-              stage: [ test ]
-              variant: [ atom-base, atom-base-cv ]
-          executor: *atom_aarch64_build_executor
+              stage: [ atom, test ]
+              atom_type: [ "-cuda" ]
+              base: [ atom-base-cv ]
+              stock_image_repo: [ *atom_cuda_aarch64_image_repo ]
+              stock_image_tag: [ *atom_cuda_image_tag ]
+              executor: [ *atom_aarch64_build_executor ]
           build_args: *atom_aarch64_build_args
           requires:
-            - build-<< matrix.variant >>-<< matrix.platform >>-atom
-          filters:
-            tags:
-              only:
-                - /.*/
-
-      # Test CUDA
-      - build-dockerfile-and-test:
-          name: "test-<< matrix.variant >>-<< matrix.platform >>-<< matrix.stage >>"
-          stock_image_repo: *atom_cuda_aarch64_image_repo
-          stock_image_tag: *atom_cuda_image_tag
-          << : *test_atom_default_params
-          matrix:
-            parameters:
-              platform: [ aarch64 ]
-              stage: [ test ]
-              variant: [ atom-base-cv-graphics ]
-          executor: *atom_aarch64_build_executor
-          build_args: *atom_aarch64_build_args
-          requires:
-            - build-<< matrix.variant >>-<< matrix.platform >>-atom
+            - "build-nucleus-<< matrix.executor >>"
           filters:
             tags:
               only:
                 - /.*/
 
       #
-      # Deploy Nucleus
+      # Test: All architectures in same place
+      #
+
+      # Test all flavors
+      - test-atom:
+          name: "test<< matrix.atom_type >>-<< matrix.executor >>"
+          matrix:
+            parameters:
+              atom_type: [ "", "-cv", "-cuda" ]
+              executor: [ *atom_amd64_build_executor, *atom_aarch64_build_executor ]
+          requires:
+            - build-test<< matrix.atom_type >>-<< matrix.executor >>
+          filters:
+            tags:
+              only:
+                - /.*/
+
+      #
+      # Deploy
       #
 
       # Deploy development
-      - atom/deploy:
-          name: "deploy-development-<< matrix.variant >>-<< matrix.platform >>-nucleus"
+      - deploy-atom:
+          name: "deploy-development-<< matrix.repo >>-<< matrix.atom_type >>"
           target_tag: development-<< pipeline.number >>
-          << : *nucleus_deploy_shared_params
+          matrix:
+            parameters:
+              stage: [ nucleus, atom ]
+              atom_type: ["", "-cv", "-cuda"]
+            exclude:
+              - repo: << pipeline.parameters.nucleus_repo_name >>
+                atom_type: "-cv"
+              - repo: << pipeline.parameters.nucleus_repo_name >>
+                atom_type: "-cuda"
           requires:
-            - build-<< matrix.variant >>-<< matrix.platform >>-nucleus
+            - build-<< matrix.stage >><< matrix.atom_type >>-<< matrix.executor >>
+            - build-<< matrix.stage >><< matrix.atom_type >>-<< matrix.executor >>
           filters:
             branches:
               ignore:

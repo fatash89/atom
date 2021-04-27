@@ -142,7 +142,6 @@ aliases:
       source_tag: << parameters.source_tag >>
       target_image: << parameters.target_image >>
       target_tag: << parameters.target_tag >>
-      target_tag_cmd: << parameters.target_tag_cmd >>
 
 #
 # Machines that can be used for build. Build-classic is typically
@@ -251,18 +250,6 @@ commands:
           name: Launch docker-compose
           command: << parameters.build_args >> docker-compose -f << parameters.file >> up -d
 
-  pull_image:
-    description: "Pull image for a particular platform"
-    parameters:
-      source_image:
-        type: string
-      source_tag:
-        type: string
-    steps:
-      - run:
-          name: Pull image  << parameters.source_image >>:<< parameters.source_tag >>
-          command: docker pull << parameters.source_image >>:<< parameters.source_tag >>-$(arch)
-
   push_image:
     description: "Deploy a Docker image for a particular platform"
     parameters:
@@ -271,40 +258,40 @@ commands:
       target_tag:
         type: string
     steps:
-      - push_image:
-          target_image: << parameters.target_image >>
-          target_tag: << parameters.target_tag >>-$(arch)
+      - run:
+          name: Push image << parameters.target_image >>:<< parameters.target_tag >>-$(arch)
+          command: docker push << parameters.target_image >>:<< parameters.target_tag >>-$(arch)
 
-  # Create and push image tag
-  tag_and_push_image:
-    description: "Tag the latest docker image and deploy it"
+  pull_image:
+    description: "Pull a docker image for a particular platform"
     parameters:
-      << : *deploy_shared_args
-      target_tag_cmd:
-        description: grep-like modification command to be run on the target tag. Useful for when you need to use CircleCI's matrix params to launch a job with a tag that's close but not identical to the one you want to deploy.
+      target_image:
         type: string
-        default: "grep '.*'"
+      target_tag:
+        type: string
     steps:
       - run:
-          name: Tag image source:<< parameters.source_image >>:<< parameters.source_tag >>-$(arch) target:<< parameters.target_image >>:<< parameters.target_tag >> tag_cmd:<< parameters.target_tag_cmd >>
-          command: docker tag << parameters.source_image >>:<< parameters.source_tag >>-$(arch) << parameters.target_image >>:$(echo << parameters.target_tag >> | << parameters.target_tag_cmd >>)
-      - run:
-          name: Push image target:<< parameters.target_image >>:<< parameters.target_tag >> tag_cmd:<< parameters.target_tag_cmd >>
-          command: docker push << parameters.target_image >>:$(echo << parameters.target_tag >> | << parameters.target_tag_cmd >>)
+          name: Pull image << parameters.target_image >>:<< parameters.target_tag >>-$(arch)
+          command: docker pull << parameters.target_image >>:<< parameters.target_tag >>-$(arch)
 
-  deploy_image:
+  create_manifest:
+    description: "Create a multi-arch manifest for an image across the specified platforms"
     parameters:
       << : *deploy_shared_args
-      target_tag_cmd:
-        type: string
-        default: grep ".*"
     steps:
-      - docker_login
-      - pull_image:
-          source_image: << parameters.source_image >>
-          source_tag: << parameters.source_tag >>
-      - tag_and_push_image:
-          << : *deploy_shared_args_mapping
+      - run:
+          name: Create manifest
+          command: |
+            manifest_str=docker manifest create << parameters.target_image >>:<< parameters.target_tag >>
+            for platform in << parameters.platforms >>; do
+              manifest_str+=--amend << parameters.source_image >>:<< parameters.source_tag >>-${platform}
+            done
+            echo "creating manifest with command ${manifest_str}"
+            docker manifest create ${manifest_str}
+      - run:
+          name: Push manifest
+          command: docker manifest push << parameters.target_image >>:<< parameters.target_tag >>
+
 
   # Prepare the machine for buildx based builds
   enable_buildx:
@@ -335,7 +322,7 @@ commands:
         type: string
     steps:
       - run:
-          name: "Build Dockerfile << parameters.file >> stage << parameters.stage >> using << parameters.build_invocation >>"
+          name: "Build Dockerfile << parameters.file >> stage << parameters.stage >>"
           working_directory: << parameters.working_directory >>
           command: >-
             docker buildx build
@@ -488,29 +475,7 @@ jobs:
     executor: docker-in-docker
     parameters:
       << : *deploy_shared_args
-      target_tag_cmd:
-        type: string
-        # By default, strip off "-stock" and "-amd64" tags so that builds
-        # show up with the legacy tags of development-YYY, latest-YYY, etc.
-        default: sed s/-stock//g | sed s/-amd64//g
     steps:
       - setup_remote_docker
-      - deploy_image:
-          << : *deploy_shared_args_mapping
-
-  # Special case: deploy release tags. Requires a different tag command
-  deploy_release:
-    executor: docker-in-docker
-    parameters:
-      << : *deploy_shared_args
-      target_tag_cmd:
-        type: string
-        # By default, we want -stock-amd64 to map to "latest", we want
-        # "-amd64" stripped off of all builds since it's implied/default
-        # and we want _-stock-aarch64 to be just "aarch64" for ease.
-        # This is a bit convoluted.
-        default: grep -oP "(?<=-).*" | sed s/stock/latest/g | sed s/-amd64//g | sed s/latest-aarch64/aarch64/g
-    steps:
-      - setup_remote_docker
-      - deploy_image:
+      - create_manifest:
           << : *deploy_shared_args_mapping
