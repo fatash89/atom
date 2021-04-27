@@ -9,7 +9,7 @@
 # ALL ARGS TO BE USED IN **ANY** FROM MUST OCCUR BEFORE THE **FIRST** FROM
 # https://docs.docker.com/engine/reference/builder/#understand-how-arg-and-from-interact
 #
-ARG STOCK_IMAGE=debian:buster-slim
+ARG STOCK_IMAGE=ubuntu:20.04
 ARG ATOM_BASE=atom-base
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -19,11 +19,6 @@ FROM $STOCK_IMAGE as atom-base
 # System-level installs
 #
 
-# If we're on an ubuntu-based build, need to add the deadsnakes repository.
-#   On debian:buster this will error out which is OK
-RUN apt-get update && apt-get -y install software-properties-common
-RUN add-apt-repository -y ppa:deadsnakes/ppa || exit 0
-
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       apt-utils \
@@ -32,17 +27,17 @@ RUN apt-get update \
       libtool \
       cmake \
       build-essential \
-      python3.7 \
-      python3.7-dev \
-      python3.7-venv \
+      python3.8 \
+      python3.8-dev \
+      python3.8-venv \
       python3-pip \
       flex \
       bison \
       curl \
       pkg-config
 
-# Set Python3.7 as the default if it's not already
-RUN ln -sf /usr/bin/python3.7 /usr/bin/python3
+# Set Python3.8 as the default if it's not already
+RUN ln -sf /usr/bin/python3.8 /usr/bin/python3
 
 # Install setuptools
 RUN pip3 install --no-cache-dir --upgrade pip setuptools
@@ -166,11 +161,11 @@ RUN mkdir -p build && cd build && cmake \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=/usr/local \
     -DPYTHON3_EXECUTABLE=/opt/venv/bin/python3 \
-    -DPYTHON_INCLUDE_DIR=/usr/include/python3.7m \
-    -DPYTHON_INCLUDE_DIR2=/usr/include/$(arch)-linux-gnu/python3.7m \
-    -DPYTHON_LIBRARY=/usr/lib/$(arch)-linux-gnu/libpython3.7m.so \
-    -DPYTHON3_NUMPY_INCLUDE_DIRS=/opt/venv/lib/python3.7/site-packages/numpy-1.18.3-py3.7-linux-$(arch).egg/numpy/core/include \
-    -DOPENCV_PYTHON3_INSTALL_PATH=/opt/venv/lib/python3.7/site-packages \
+    -DPYTHON_INCLUDE_DIR=/usr/include/python3.8m \
+    -DPYTHON_INCLUDE_DIR2=/usr/include/$(arch)-linux-gnu/python3.8m \
+    -DPYTHON_LIBRARY=/usr/lib/$(arch)-linux-gnu/libpython3.8m.so \
+    -DPYTHON3_NUMPY_INCLUDE_DIRS=/opt/venv/lib/python3.8/site-packages/numpy-1.18.3-py3.8-linux-$(arch).egg/numpy/core/include \
+    -DOPENCV_PYTHON3_INSTALL_PATH=/opt/venv/lib/python3.8/site-packages \
     ../ && \
     make -j8 && \
     make install
@@ -362,22 +357,17 @@ ENV ATOM_LOG_DIR "/var/log/atom/"
 ENV ATOM_LOG_FILE_SIZE 2000
 ENV PYTHONUNBUFFERED=TRUE
 
-# Pick up the deadsnakes repo to get python3.7 for some builds. This is not
-#   necessary on debian but necessary on ubuntu builds
-RUN apt-get update && apt-get -y install software-properties-common
-RUN add-apt-repository -y ppa:deadsnakes/ppa || exit 0
-
 # Install python
 RUN apt-get update -y \
    && apt-get install -y --no-install-recommends apt-utils \
    curl \
-   python3.7 \
-   python3.7-venv \
+   python3.8 \
+   python3.8-venv \
    python3-pip \
    libatomic1
 
-# Set Python3.7 as the default if it's not already
-RUN ln -sf /usr/bin/python3.7 /usr/bin/python3
+# Set Python3.8 as the default if it's not already
+RUN ln -sf /usr/bin/python3.8 /usr/bin/python3
 
 
 # Copy contents of python virtualenv and activate

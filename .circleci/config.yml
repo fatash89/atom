@@ -50,8 +50,8 @@ aliases:
   #
 
   # Base image versions and files
-  - &atom_base_image_repo debian
-  - &atom_base_image_tag buster-20210408-slim
+  - &atom_base_image_repo ubuntu
+  - &atom_base_image_tag focal-20210416
   - &atom_cuda_amd64_image_repo nvcr.io/nvidia/cuda
   - &atom_cuda_aarch64_image_repo nvcr.io/nvidia/cuda-arm64
   - &atom_cuda_image_tag 11.3.0-cudnn8-runtime-ubuntu20.04
