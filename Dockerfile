@@ -19,10 +19,10 @@ FROM $STOCK_IMAGE as atom-base
 # System-level installs
 #
 
-# If we're on an ubuntu-based build, need to add the universe repository.
+# If we're on an ubuntu-based build, need to add the deadsnakes repository.
 #   On debian:buster this will error out which is OK
 RUN apt-get update && apt-get -y install software-properties-common
-RUN add-apt-repository universe || exit 0
+RUN add-apt-repository -y ppa:deadsnakes/ppa || exit 0
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
@@ -360,10 +360,10 @@ ENV ATOM_LOG_DIR "/var/log/atom/"
 ENV ATOM_LOG_FILE_SIZE 2000
 ENV PYTHONUNBUFFERED=TRUE
 
-# Pick up the universe repo to get python3.7 for some builds. This is not
+# Pick up the deadsnakes repo to get python3.7 for some builds. This is not
 #   necessary on debian but necessary on ubuntu builds
 RUN apt-get update && apt-get -y install software-properties-common
-RUN add-apt-repository universe || exit 0
+RUN add-apt-repository -y ppa:deadsnakes/ppa || exit 0
 
 # Install python
 RUN apt-get update -y \
