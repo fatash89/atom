@@ -161,9 +161,9 @@ RUN mkdir -p build && cd build && cmake \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=/usr/local \
     -DPYTHON3_EXECUTABLE=/opt/venv/bin/python3 \
-    -DPYTHON_INCLUDE_DIR=/usr/include/python3.8m \
-    -DPYTHON_INCLUDE_DIR2=/usr/include/$(arch)-linux-gnu/python3.8m \
-    -DPYTHON_LIBRARY=/usr/lib/$(arch)-linux-gnu/libpython3.8m.so \
+    -DPYTHON_INCLUDE_DIR=/usr/include/python3.8 \
+    -DPYTHON_INCLUDE_DIR2=/usr/include/$(arch)-linux-gnu/python3.8 \
+    -DPYTHON_LIBRARY=/usr/lib/$(arch)-linux-gnu/libpython3.8.so \
     -DPYTHON3_NUMPY_INCLUDE_DIRS=/opt/venv/lib/python3.8/site-packages/numpy-1.18.3-py3.8-linux-$(arch).egg/numpy/core/include \
     -DOPENCV_PYTHON3_INSTALL_PATH=/opt/venv/lib/python3.8/site-packages \
     ../ && \
