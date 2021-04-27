@@ -22,6 +22,7 @@ import redis
 from atom.config import (
     ACK_TIMEOUT,
     ATOM_CALLBACK_FAILED,
+    ATOM_CALLBACK_TIMED_OUT,
     ATOM_COMMAND_NO_ACK,
     ATOM_COMMAND_NO_RESPONSE,
     ATOM_COMMAND_UNSUPPORTED,
@@ -72,6 +73,7 @@ from atom.messages import (
     StreamHandler,
     format_redis_py,
 )
+from atom.timeout import TimedOutException, exec_with_deadline
 from redis.client import Pipeline
 from redistimeseries.client import Client as RedisTimeSeries
 from redistimeseries.client import Pipeline as RedisTimeSeriesPipeline
@@ -1500,8 +1502,29 @@ class Element:
                         else:
                             serialization = self.handler_map[cmd_name]["serialization"]
                         data = atom_ser.deserialize(data, method=serialization)
+                        f: Callable = self.handler_map[cmd_name]["handler"]
+                        timeout: float = self.timeouts[cmd_name]
                         try:
-                            response = self.handler_map[cmd_name]["handler"](data)
+                            response = exec_with_deadline(f, timeout=timeout)(data)
+
+                        except TimedOutException:
+                            self.logger.error(
+                                f"Time out during execution of command: {cmd_name}"
+                            )
+                            response = Response(
+                                err_code=ATOM_CALLBACK_TIMED_OUT,
+                                err_str=f"Failed to execute command '{cmd_name}' within {timeout} seconds.",
+                            )
+                            self.metrics_add(
+                                self._command_loop_metrics[worker_num]["timed_out"],
+                                1,
+                                pipeline=pipeline,
+                            )
+                            self.metrics_add(
+                                self._command_metrics[cmd_name]["timed_out"],
+                                1,
+                                pipeline=pipeline,
+                            )
 
                         except Exception:
                             self.logger.error(
