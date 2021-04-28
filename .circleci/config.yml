@@ -140,7 +140,7 @@ aliases:
 version: 2.1
 
 orbs:
-  atom:  elementaryrobotics/atom@dev:manifests
+  atom:  elementaryrobotics/atom@dev:manifests-1
 
 commands:
 
@@ -471,122 +471,29 @@ workflows:
                 - /.*/
 
       #
-      # Deploy
+      # TODO: Deploy
       #
 
       # Deploy development
-      - deploy-atom:
-          name: "deploy-development-<< matrix.repo >>-<< matrix.atom_type >>"
-          target_tag: development-<< pipeline.number >>
-          matrix:
-            parameters:
-              stage: [ nucleus, atom ]
-              atom_type: ["", "-cv", "-cuda"]
-            exclude:
-              - repo: << pipeline.parameters.nucleus_repo_name >>
-                atom_type: "-cv"
-              - repo: << pipeline.parameters.nucleus_repo_name >>
-                atom_type: "-cuda"
-          requires:
-            - build-<< matrix.stage >><< matrix.atom_type >>-<< matrix.executor >>
-            - build-<< matrix.stage >><< matrix.atom_type >>-<< matrix.executor >>
-          filters:
-            branches:
-              ignore:
-                - latest
-
-      # Deploy latest
-      - atom/deploy:
-          name: "deploy-latest-<< matrix.variant >>-<< matrix.platform >>-nucleus"
-          target_tag: latest-<< pipeline.number >>
-          << : *nucleus_deploy_shared_params
-          requires:
-            - build-<< matrix.variant >>-<< matrix.platform >>-nucleus
-          filters:
-            branches:
-              only:
-                - latest
-
-      # Deploy release
-      - atom/deploy_release:
-          name: "deploy-release-<< matrix.variant >>-<< matrix.platform >>-nucleus"
-          target_tag: ""
-          << : *nucleus_deploy_shared_params
-          requires:
-            - build-<< matrix.variant >>-<< matrix.platform >>-nucleus
-          filters:
-            branches:
-              only:
-                - latest
-
-      # Deploy tag
-      - atom/deploy:
-          name: "deploy-tag-<< matrix.variant >>-<< matrix.platform >>-nucleus"
-          target_tag: ${CIRCLE_TAG}
-          << : *nucleus_deploy_shared_params
-          requires:
-            - build-<< matrix.variant >>-<< matrix.platform >>-nucleus
-          filters:
-            branches:
-              ignore:
-                - /.*/
-            tags:
-              only: /.*/
-
-      #
-      # Deploy Atom
-      #
-
-      # Deploy development
-      - atom/deploy:
-          name: "deploy-development-<< matrix.variant >>-<< matrix.platform >>-atom"
-          target_tag: development-<< pipeline.number >>
-          << : *atom_deploy_shared_params
-          requires:
-            - build-<< matrix.variant >>-<< matrix.platform >>-atom
-          filters:
-            branches:
-              ignore:
-                - latest
-
-      # Deploy latest
-      - atom/deploy:
-          name: "deploy-latest-<< matrix.variant >>-<< matrix.platform >>-atom"
-          target_tag: latest-<< pipeline.number >>
-          << : *atom_deploy_shared_params
-          requires:
-            - build-<< matrix.variant >>-<< matrix.platform >>-atom
-          filters:
-            branches:
-              only:
-                - latest
-
-      # Deploy release
-      - atom/deploy_release:
-          name: "deploy-release-<< matrix.variant >>-<< matrix.platform >>-atom"
-          target_tag: ""
-          << : *atom_deploy_shared_params
-          requires:
-            - build-<< matrix.variant >>-<< matrix.platform >>-atom
-          filters:
-            branches:
-              only:
-                - latest
-
-      # Deploy tag
-      - atom/deploy:
-          name: "deploy-tag-<< matrix.variant >>-<< matrix.platform >>-atom"
-          target_tag: ${CIRCLE_TAG}
-          << : *atom_deploy_shared_params
-          requires:
-            - build-<< matrix.variant >>-<< matrix.platform >>-atom
-          filters:
-            branches:
-              ignore:
-                - /.*/
-            tags:
-              only: /.*/
-
+      # - deploy-atom:
+      #     name: "deploy-development-<< matrix.repo >>-<< matrix.atom_type >>"
+      #     target_tag: development-<< pipeline.number >>
+      #     matrix:
+      #       parameters:
+      #         stage: [ nucleus, atom ]
+      #         atom_type: ["", "-cv", "-cuda"]
+      #       exclude:
+      #         - repo: << pipeline.parameters.nucleus_repo_name >>
+      #           atom_type: "-cv"
+      #         - repo: << pipeline.parameters.nucleus_repo_name >>
+      #           atom_type: "-cuda"
+      #     requires:
+      #       - build-<< matrix.stage >><< matrix.atom_type >>-<< matrix.executor >>
+      #       - build-<< matrix.stage >><< matrix.atom_type >>-<< matrix.executor >>
+      #     filters:
+      #       branches:
+      #         ignore:
+      #           - latest
 
   #
   # Build and deploy the metrics/grafana container

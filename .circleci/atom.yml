@@ -309,15 +309,9 @@ commands:
   run_dockerfile_build:
     parameters:
       << : *build_args
-      cache_to:
-        type: string
-        default: ""
       build_context:
         type: string
         default: "."
-      exit_override:
-        type: string
-        default: ""
       atom_base_arg:
         type: string
     steps:
@@ -329,7 +323,7 @@ commands:
             --progress plain
             --load
             --cache-from=type=registry,ref=<< parameters.cache_repo >>:<< parameters.cache_tag >>-$(arch)
-            << parameters.cache_to >>
+            --cache-to=type=registry,ref=<< parameters.cache_repo >>:<< parameters.cache_tag >>-$(arch),mode=max
             --label "com.elementaryrobotics.tag=${CIRCLE_TAG}"
             --label "com.elementaryrobotics.branch=${CIRCLE_BRANCH}"
             --label "com.elementaryrobotics.repo=${CIRCLE_PROJECT_REPONAME}"
@@ -344,7 +338,6 @@ commands:
             --target=<< parameters.stage >>
             --pull
             << parameters.build_context >>
-            << parameters.exit_override >>
           no_output_timeout: << parameters.no_output_timeout >>
 
   # Build a Dockerfile using docker buildx build
@@ -356,23 +349,13 @@ commands:
         type: string
         default: ""
     steps:
+
+      # Enable the buildx builder
       - enable_buildx
 
-      # Run the actual build. Due to a bug in the buildx cache pushing
-      # in that it's failing intermittently we don't set the
-      # --cache-to field when doing this
+      # Run the actual build.
       - run_dockerfile_build:
           << : *build_args_mapping
-          atom_base_arg: << parameters.atom_base_arg >>
-
-      # Run the build again. This should add a small overhead but everything
-      # should be in cache locally. As such, the point of this one is just
-      # to push the cache out. We're also OK if this fails. Override the context
-      # field to add one more thing in easily
-      - run_dockerfile_build:
-          << : *build_args_mapping
-          exit_override: "|| exit 0"
-          cache_to: --cache-to=type=registry,ref=<< parameters.cache_repo >>:<< parameters.cache_tag >>-$(arch),mode=max
           atom_base_arg: << parameters.atom_base_arg >>
 
   run_test:
