@@ -305,7 +305,7 @@ jobs:
       - image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.formatter_repo_name >>:build-<< pipeline.number >>-x86_64
     resource_class: small
     steps:
-      - shared_setup
+      - checkout
       - run:
           name: Check Formatting
           description: Run formatting checks
