@@ -279,6 +279,7 @@ commands:
     parameters:
       << : *deploy_shared_args
     steps:
+      - docker_login
       - run:
           name: Create manifest
           command: |
