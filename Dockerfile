@@ -389,8 +389,7 @@ RUN cd /usr/src/gtest \
    && cmake CMakeLists.txt \
    && make -j8 \
    && set -x \
-   && { cp lib/*.a /usr/lib || exit 0; } \
-   && { cp *.a /usr/lib || exit 0; } \
+   && { cp lib/*.a /usr/lib || cp *.a /usr/lib; } \
    && set +x
 
 # Install valgrind
