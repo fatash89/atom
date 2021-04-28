@@ -57,6 +57,9 @@ aliases:
   - &atom_cuda_image_tag 11.1.1-cudnn8-runtime
 
   # Executor sizes for builds
+  # NOTE: if you change this, you MUST ALSO CHANGE the atom_deploy_shared
+  # config where we also have these strings hardcoded. There doesn't seem to be
+  # a way around it.
   - &atom_amd64_build_executor atom/build-ubuntu-large
   - &atom_aarch64_build_executor atom/build-ubuntu-arm-large
 
