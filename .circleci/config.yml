@@ -326,7 +326,7 @@ jobs:
           source_image: << pipeline.parameters.dockerhub_org >>/<< parameters.repo >>
           source_tag: build-<< pipeline.number >><< parameters.atom_type >>
           target_image: << pipeline.parameters.dockerhub_org >>/<< parameters.repo >>
-          target_tag: << parameters.target_tag >>
+          target_tag: << parameters.target_tag >><< parameters.atom_type >>
           platforms: *atom_deploy_platforms
 
 workflows:
