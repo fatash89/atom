@@ -114,8 +114,8 @@ aliases:
       name: "build-docs"
       working_directory: doc
       file: Dockerfile
-      image_name: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.docs_repo_name >>
-      image_tag: build-<< pipeline.number >>
+      target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.docs_repo_name >>
+      target_tag: build-<< pipeline.number >>
       cache_repo: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.docs_repo_name >>
       cache_tag: cache-docs
 
@@ -172,8 +172,8 @@ commands:
       # Build nucleus
       - atom/build_dockerfile:
           stage: << parameters.stage >>
-          image_tag: build-<< pipeline.number >>-<< parameters.atom_type >>
-          image_name: << pipeline.parameters.dockerhub_org >>/<< parameters.repo >>
+          target_image: << pipeline.parameters.dockerhub_org >>/<< parameters.repo >>
+          target_tag: build-<< pipeline.number >>-<< parameters.atom_type >>
           build_args: >-
             --build-arg STOCK_IMAGE=<< parameters.stock_image_repo >>:<< parameters.stock_image_tag >>
             --build-arg ATOM_BASE=<< parameters.base >>
@@ -181,10 +181,10 @@ commands:
           # Always cache to atom -- will allow atom builds to leverage nucleus
           # build cache
           cache_repo: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
-          cache_tag: cache-<< parameters.name >>
+          cache_tag: cache-<< parameters.atom_type >>
 
       # Tag and push nucleus image
-      - atom/push_image_variant:
+      - atom/push_image:
           target_image: << pipeline.parameters.dockerhub_org >>/<< parameters.repo >>
           target_tag: build-<< pipeline.number >>-<< parameters.atom_type >>
 
@@ -255,6 +255,8 @@ jobs:
     parameters:
       atom_type:
         type: string
+      executor:
+        type: executor
     executor: << parameters.executor >>
     steps:
       - test_atom:
@@ -385,8 +387,6 @@ workflows:
               stock_image_tag: [ *atom_base_image_tag ]
               executor: [ *atom_aarch64_build_executor ]
           build_args: *atom_aarch64_build_args
-          requires:
-            - "build-nucleus-<< matrix.executor >>"
           filters:
             tags:
               only:
@@ -503,87 +503,85 @@ workflows:
 
 
       # Build for Intel + ARM
-      - atom/build_buildx:
-          name: "build-metrics-<< matrix.platform >>"
+      - atom/build_image:
+          name: "build-metrics-<< matrix.executor >>"
           matrix:
             parameters:
-              platform: [ amd64, aarch64 ]
-              executor: [ atom/build-ubuntu, *atom_aarch64_build_executor]
-            exclude:
-              - platform: amd64
-                executor: *atom_aarch64_build_executor
-              - platform: aarch64
-                executor: atom/build-ubuntu
+              executor: [ *atom_amd64_build_executor, *atom_aarch64_build_executor ]
           file: metrics/Dockerfile
-          image_name: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
-          image_tag: build-<< pipeline.number >>
+          target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
+          target_tag: build-<< pipeline.number >>
           cache_repo: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
           cache_tag: cache
           filters:
             tags:
               only: /.*/
 
+      #
+      # TODO: deploy
+      #
+
       # Deploy development
-      - atom/deploy:
-          name: "deploy-metrics-development-<< matrix.platform >>"
-          << : *deploy_metrics_shared
-          target_tag: development-<< pipeline.number >>
-          matrix:
-            parameters:
-              platform: [ amd64, aarch64 ]
-          requires:
-            - "build-metrics-<< matrix.platform >>"
-          filters:
-            branches:
-              ignore:
-                - latest
+      # - atom/deploy:
+      #     name: "deploy-metrics-development-<< matrix.executor >>"
+      #     << : *deploy_metrics_shared
+      #     target_tag: development-<< pipeline.number >>
+      #     matrix:
+      #       parameters:
+      #         platform: [ amd64, aarch64 ]
+      #     requires:
+      #       - "build-metrics-<< matrix.executor >>"
+      #     filters:
+      #       branches:
+      #         ignore:
+      #           - latest
 
-      # Deploy latest
-      - atom/deploy:
-          name: "deploy-metrics-latest-<< matrix.platform >>"
-          << : *deploy_metrics_shared
-          target_tag: latest-<< pipeline.number >>
-          matrix:
-            parameters:
-              platform: [ amd64, aarch64 ]
-          requires:
-            - "build-metrics-<< matrix.platform >>"
-          filters:
-            branches:
-              only:
-                - latest
+      # # Deploy latest
+      # - atom/deploy:
+      #     name: "deploy-metrics-latest-<< matrix.executor >>"
+      #     << : *deploy_metrics_shared
+      #     target_tag: latest-<< pipeline.number >>
+      #     matrix:
+      #       parameters:
+      #         platform: [ amd64, aarch64 ]
+      #     requires:
+      #       - "build-metrics-<< matrix.executor >>"
+      #     filters:
+      #       branches:
+      #         only:
+      #           - latest
 
-      # Deploy release
-      - atom/deploy_release:
-          name: "deploy-metrics-release-<< matrix.platform >>"
-          << : *deploy_metrics_shared
-          target_tag: ""
-          matrix:
-            parameters:
-              platform: [ amd64, aarch64 ]
-          requires:
-            - "build-metrics-<< matrix.platform >>"
-          filters:
-            branches:
-              only:
-                - latest
+      # # Deploy release
+      # - atom/deploy_release:
+      #     name: "deploy-metrics-release-<< matrix.executor >>"
+      #     << : *deploy_metrics_shared
+      #     target_tag: ""
+      #     matrix:
+      #       parameters:
+      #         platform: [ amd64, aarch64 ]
+      #     requires:
+      #       - "build-metrics-<< matrix.executor >>"
+      #     filters:
+      #       branches:
+      #         only:
+      #           - latest
 
-      # Deploy tag
-      - atom/deploy:
-          name: "deploy-metrics-tag-<< matrix.platform >>"
-          << : *deploy_metrics_shared
-          target_tag: ${CIRCLE_TAG}
-          matrix:
-            parameters:
-              platform: [ amd64, aarch64 ]
-          requires:
-            - "build-metrics-<< matrix.platform >>"
-          filters:
-            branches:
-              ignore:
-                - /.*/
-            tags:
-              only: /.*/
+      # # Deploy tag
+      # - atom/deploy:
+      #     name: "deploy-metrics-tag-<< matrix.executor >>"
+      #     << : *deploy_metrics_shared
+      #     target_tag: ${CIRCLE_TAG}
+      #     matrix:
+      #       parameters:
+      #         platform: [ amd64, aarch64 ]
+      #     requires:
+      #       - "build-metrics-<< matrix.executor >>"
+      #     filters:
+      #       branches:
+      #         ignore:
+      #           - /.*/
+      #       tags:
+      #         only: /.*/
 
   #
   # Build the formatter, deploy the formatter, check formatting
@@ -592,12 +590,12 @@ workflows:
     jobs:
 
      # Build for intel
-      - atom/build_buildx:
+      - atom/build_image:
           name: "build-formatter"
           working_directory: utilities/formatting
           file: Dockerfile
-          image_name: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.formatter_repo_name >>
-          image_tag: build-<< pipeline.number >>
+          target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.formatter_repo_name >>
+          target_tag: build-<< pipeline.number >>
           cache_repo: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.formatter_repo_name >>
           cache_tag: cache
           filters:
@@ -609,55 +607,59 @@ workflows:
           requires:
             - "build-formatter"
 
-      # Deploy development
-      - atom/deploy:
-          name: "deploy-formatter-development"
-          << : *deploy_formatter_shared
-          target_tag: development-<< pipeline.number >>
-          requires:
-            - "build-formatter"
-          filters:
-            branches:
-              ignore:
-                - latest
+      #
+      # TODO: deploy
+      #
 
-      # Deploy latest
-      - atom/deploy:
-          name: "deploy-formatter-latest"
-          << : *deploy_formatter_shared
-          target_tag: latest-<< pipeline.number >>
-          requires:
-            - "build-formatter"
-          filters:
-            branches:
-              only:
-                - latest
+      # # Deploy development
+      # - atom/deploy:
+      #     name: "deploy-formatter-development"
+      #     << : *deploy_formatter_shared
+      #     target_tag: development-<< pipeline.number >>
+      #     requires:
+      #       - "build-formatter"
+      #     filters:
+      #       branches:
+      #         ignore:
+      #           - latest
 
-      # Deploy release
-      - atom/deploy_release:
-          name: "deploy-formatter-release"
-          << : *deploy_formatter_shared
-          target_tag: ""
-          requires:
-            - "build-formatter"
-          filters:
-            branches:
-              only:
-                - latest
+      # # Deploy latest
+      # - atom/deploy:
+      #     name: "deploy-formatter-latest"
+      #     << : *deploy_formatter_shared
+      #     target_tag: latest-<< pipeline.number >>
+      #     requires:
+      #       - "build-formatter"
+      #     filters:
+      #       branches:
+      #         only:
+      #           - latest
 
-      # Deploy tag
-      - atom/deploy:
-          name: "deploy-formatter-tag"
-          << : *deploy_formatter_shared
-          target_tag: ${CIRCLE_TAG}
-          requires:
-            - "build-formatter"
-          filters:
-            branches:
-              ignore:
-                - /.*/
-            tags:
-              only: /.*/
+      # # Deploy release
+      # - atom/deploy_release:
+      #     name: "deploy-formatter-release"
+      #     << : *deploy_formatter_shared
+      #     target_tag: ""
+      #     requires:
+      #       - "build-formatter"
+      #     filters:
+      #       branches:
+      #         only:
+      #           - latest
+
+      # # Deploy tag
+      # - atom/deploy:
+      #     name: "deploy-formatter-tag"
+      #     << : *deploy_formatter_shared
+      #     target_tag: ${CIRCLE_TAG}
+      #     requires:
+      #       - "build-formatter"
+      #     filters:
+      #       branches:
+      #         ignore:
+      #           - /.*/
+      #       tags:
+      #         only: /.*/
 
   #
   # Build and deploy the docs
@@ -666,7 +668,7 @@ workflows:
     jobs:
 
       # Build the docs themselves
-      - atom/build_buildx:
+      - atom/build_image:
           << : *docs_build_shared_config
           filters:
             tags:
@@ -675,39 +677,58 @@ workflows:
               ignore:
                 - /.*-build-base.*/
 
-      # Builds of dev branches, deploy development-X
-      - atom/deploy:
-          name: "deploy-docs-dev"
-          << : *deploy_docs_shared
-          target_tag: development-<< pipeline.number >>
-          requires:
-            - build-docs
-          filters:
-            branches:
-              ignore:
-                - latest
+      #
+      # TODO: deploy
+      #
 
-      # Builds of latest branches. Deploy latest, latest-Y and Heroku
-      - atom/deploy:
-          name: "deploy-docs-latest-latest"
-          << : *deploy_docs_shared
-          target_tag: latest
-          requires:
-            - build-docs
-          filters:
-            branches:
-              only:
-                - latest
-      - atom/deploy:
-          name: "deploy-docs-latest-num"
-          << : *deploy_docs_shared
-          target_tag: latest-<< pipeline.number >>
-          requires:
-            - build-docs
-          filters:
-            branches:
-              only:
-                - latest
+      # # Builds of dev branches, deploy development-X
+      # - atom/deploy:
+      #     name: "deploy-docs-dev"
+      #     << : *deploy_docs_shared
+      #     target_tag: development-<< pipeline.number >>
+      #     requires:
+      #       - build-docs
+      #     filters:
+      #       branches:
+      #         ignore:
+      #           - latest
+
+      # # Builds of latest branches. Deploy latest, latest-Y and Heroku
+      # - atom/deploy:
+      #     name: "deploy-docs-latest-latest"
+      #     << : *deploy_docs_shared
+      #     target_tag: latest
+      #     requires:
+      #       - build-docs
+      #     filters:
+      #       branches:
+      #         only:
+      #           - latest
+      # - atom/deploy:
+      #     name: "deploy-docs-latest-num"
+      #     << : *deploy_docs_shared
+      #     target_tag: latest-<< pipeline.number >>
+      #     requires:
+      #       - build-docs
+      #     filters:
+      #       branches:
+      #         only:
+      #           - latest
+      #
+      # # Builds of tag branches, deploy tag
+      # - atom/deploy:
+      #     name: "deploy-docs-tag"
+      #     << : *deploy_docs_shared
+      #     target_tag: ${CIRCLE_TAG}
+      #     requires:
+      #       - build-docs
+      #     filters:
+      #       branches:
+      #         ignore:
+      #           - /.*/
+      #       tags:
+      #         only: /.*/
+
       - deploy-docs-heroku:
           name: "deploy-docs-latest-heroku"
           requires:
@@ -716,20 +737,6 @@ workflows:
             branches:
               only:
                 - latest
-
-      # Builds of tag branches, deploy tag
-      - atom/deploy:
-          name: "deploy-docs-tag"
-          << : *deploy_docs_shared
-          target_tag: ${CIRCLE_TAG}
-          requires:
-            - build-docs
-          filters:
-            branches:
-              ignore:
-                - /.*/
-            tags:
-              only: /.*/
 
 
   #
@@ -744,16 +751,16 @@ workflows:
               only:
                 - latest
     jobs:
-      - atom/build_buildx:
+      - atom/build_image:
           << : *docs_build_shared_config
 
-      - atom/deploy:
-          name: "deploy-docs"
-          << : *deploy_docs_shared
-          target_tag: development-<< pipeline.number >>
-          requires:
-            - "build-docs"
-          filters:
-            branches:
-              ignore:
-                - latest
+      # - atom/deploy:
+      #     name: "deploy-docs"
+      #     << : *deploy_docs_shared
+      #     target_tag: development-<< pipeline.number >>
+      #     requires:
+      #       - "build-docs"
+      #     filters:
+      #       branches:
+      #         ignore:
+      #           - latest
