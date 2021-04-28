@@ -26,7 +26,7 @@ parameters:
     default: ${DOCKERHUB_USER}
   dockerhub_password:
     type: string
-    default: ${DOCKEHUB_PASSWORD}
+    default: ${DOCKERHUB_PASSWORD}
 
   # Docs parameters
   docs_repo_name:
