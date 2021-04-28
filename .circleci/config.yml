@@ -8,36 +8,36 @@ parameters:
   # Atom parameters
   dockerhub_org:
     type: string
-    default: ${DOCKERHUB_ORG}
+    default: elementaryrobotics
   atom_repo_name:
     type: string
-    default: ${DOCKERHUB_ATOM_REPO}
+    default: atom
   nucleus_repo_name:
     type: string
-    default: ${DOCKERHUB_NUCLEUS_REPO}
+    default: nucleus
   metrics_repo_name:
     type: string
-    default: ${DOCKERHUB_METRICS_REPO}
+    default: metrics
   formatter_repo_name:
     type: string
-    default: ${DOCKERHUB_FORMATTER_REPO}
+    default: formatter
   cache_repo:
     type: string
-    default: ${DOCKERHUB_ORG}/${DOCKERHUB_CACHE_REPO}
+    default: elementaryrobotics/atom
   dockerhub_user:
     type: string
     default: ${DOCKERHUB_USER}
   dockerhub_password:
     type: string
-    default: ${DOCKEHUB_PASSWORD}
+    default: ${DOCKERHUB_PASSWORD}
 
   # Docs parameters
   docs_repo:
     type: string
-    default: ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}
+    default: elementaryrobotics/atom-doc
   docs_cache_repo:
     type: string
-    default: ${DOCKERHUB_ORG}/${DOCKERHUB_DOCS_REPO}
+    default: elementaryrobotics/atom-doc
   heroku_api_key:
     type: string
     default: ${HEROKU_API_KEY}
