@@ -60,8 +60,8 @@ aliases:
   # NOTE: if you change this, you MUST ALSO CHANGE the atom_deploy_shared
   # config where we also have these strings hardcoded. There doesn't seem to be
   # a way around it.
-  - &atom_amd64_build_executor atom/build-ubuntu-large
-  - &atom_aarch64_build_executor atom/build-ubuntu-arm-large
+  - &atom_amd64_build_executor atom/build-ubuntu
+  - &atom_aarch64_build_executor atom/build-ubuntu-arm
 
   # Extra build args for the various platforms
   - &atom_amd64_build_args ""
@@ -109,8 +109,8 @@ aliases:
           - repo: << pipeline.parameters.nucleus_repo_name >>
             atom_type: "-cuda"
       requires:
-        - build-<< matrix.repo>><< matrix.atom_type >>-atom/build-ubuntu-large
-        - build-<< matrix.repo>><< matrix.atom_type >>-atom/build-ubuntu-arm-large
+        - build-<< matrix.repo>><< matrix.atom_type >>-atom/build-ubuntu
+        - build-<< matrix.repo>><< matrix.atom_type >>-atom/build-ubuntu-arm
 
   #
   # Docs build shared info
