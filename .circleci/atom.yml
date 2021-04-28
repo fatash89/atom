@@ -195,6 +195,8 @@ executors:
   docker-in-docker:
     docker:
       - image: cimg/base:2020.01
+    environment:
+      DOCKER_CLI_EXPERIMENTAL: enabled
     resource_class: small
 
 #
@@ -283,9 +285,9 @@ commands:
       - run:
           name: Create manifest
           command: |
-            manifest_str=docker manifest create << parameters.target_image >>:<< parameters.target_tag >>
-            for platform in << parameters.platforms >>; do
-              manifest_str+=--amend << parameters.source_image >>:<< parameters.source_tag >>-${platform}
+            manifest_str="docker manifest create elementaryrobotics/atom:development-2164"
+            for platform in x86_64 aarch64; do
+              manifest_str="${manifest_str} --amend elementaryrobotics/atom:build-2164-${platform}"
             done
             echo "creating manifest with command ${manifest_str}"
             docker manifest create ${manifest_str}
