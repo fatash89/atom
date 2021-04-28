@@ -286,7 +286,7 @@ commands:
           name: Create manifest
           command: |
             set -x
-            manifest_str="docker manifest create << parameters.target_image >>:<< parameters.target_tag >>"
+            manifest_str="<< parameters.target_image >>:<< parameters.target_tag >>"
             for platform in << parameters.platforms >>; do
               manifest_str="${manifest_str} --amend << parameters.source_image >>:<< parameters.source_tag >>-${platform}"
             done
