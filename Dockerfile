@@ -382,7 +382,7 @@ RUN apt-get update \
    libgtest-dev \
    cmake \
    build-essential \
-   python3-pip \
+   python3-pip
 
 # Build and install googletest
 RUN cd /usr/src/gtest \

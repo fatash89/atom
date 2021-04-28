@@ -131,9 +131,9 @@ aliases:
         type: string
       target_tag:
         type: string
-        default: ""
       platforms:
         type: string
+        default: "x86_64"
 
   # Deploy argument mapping
   - &deploy_shared_args_mapping
