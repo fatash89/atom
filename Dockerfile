@@ -376,17 +376,19 @@ FROM atom as test
 # Install test dependencies
 #
 
-# Install googletest
+# Install dependencies
 RUN apt-get update \
    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
    libgtest-dev \
    cmake \
    build-essential \
    python3-pip \
-   && cd /usr/src/gtest \
+
+# Build and install googletest
+RUN cd /usr/src/gtest \
    && cmake CMakeLists.txt \
    && make -j8 \
-   && cp lib/*.a /usr/lib
+   && make install
 
 # Install valgrind
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends valgrind
@@ -401,7 +403,6 @@ RUN curl -sL https://deb.nodesource.com/setup_12.x | bash -
 RUN apt install -y nodejs && npm install -g pyright
 # Copy in pyright config for running pyright on atom source code
 ADD ./languages/python/pyrightconfig-ci.json /atom/languages/python/pyrightconfig-ci.json
-
 
 # Copy source code
 COPY ./languages/c/ /atom/languages/c
