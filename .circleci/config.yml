@@ -145,7 +145,7 @@ aliases:
 version: 2.1
 
 orbs:
-  atom:  elementaryrobotics/atom@dev:manifests-3
+  atom:  elementaryrobotics/atom@dev:manifests-5
 
 commands:
 
