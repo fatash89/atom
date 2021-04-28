@@ -95,17 +95,19 @@ aliases:
   # Deploy Configurations
   #
 
-  # Shared config around atom deployment logic
-  - &atom_deploy_shared_params
-      source_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
-      source_tag: build-<< pipeline.number >>-atom
-      target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
-
-  # Shared config around atom deployment logic
-  - &nucleus_deploy_shared_params
-      source_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.nucleus_repo_name >>
-      source_tag: build-<< pipeline.number >>-nucleus
-      target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.nucleus_repo_name >>
+  - &atom_deploy_shared
+      matrix:
+        parameters:
+          repo: [ << pipeline.parameters.nucleus_repo_name >>, << pipeline.parameters.atom_repo_name >> ]
+          atom_type: ["", "-cv", "-cuda"]
+        exclude:
+          - repo: << pipeline.parameters.nucleus_repo_name >>
+            atom_type: "-cv"
+          - repo: << pipeline.parameters.nucleus_repo_name >>
+            atom_type: "-cuda"
+      requires:
+        - build-<< matrix.repo>><< matrix.atom_type >>-atom/build-ubuntu-large
+        - build-<< matrix.repo>><< matrix.atom_type >>-atom/build-ubuntu-arm-large
 
   #
   # Docs build shared info
@@ -173,7 +175,7 @@ commands:
       - atom/build_dockerfile:
           stage: << parameters.stage >>
           target_image: << pipeline.parameters.dockerhub_org >>/<< parameters.repo >>
-          target_tag: build-<< pipeline.number >>-<< parameters.atom_type >>
+          target_tag: build-<< pipeline.number >><< parameters.atom_type >>
           build_args: >-
             --build-arg STOCK_IMAGE=<< parameters.stock_image_repo >>:<< parameters.stock_image_tag >>
             --build-arg ATOM_BASE=<< parameters.base >>
@@ -181,12 +183,12 @@ commands:
           # Always cache to atom -- will allow atom builds to leverage nucleus
           # build cache
           cache_repo: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
-          cache_tag: cache-<< parameters.atom_type >>
+          cache_tag: cache<< parameters.atom_type >>
 
       # Tag and push nucleus image
       - atom/push_image:
           target_image: << pipeline.parameters.dockerhub_org >>/<< parameters.repo >>
-          target_tag: build-<< pipeline.number >>-<< parameters.atom_type >>
+          target_tag: build-<< pipeline.number >><< parameters.atom_type >>
 
   test_atom:
     parameters:
@@ -261,7 +263,7 @@ jobs:
     steps:
       - test_atom:
           nucleus_under_test: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.nucleus_repo_name >>:build-<< pipeline.number >>-$(arch)
-          atom_under_test: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>:build-<< pipeline.number >>-<< parameters.atom_type >>-$(arch)
+          atom_under_test: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>:build-<< pipeline.number >><< parameters.atom_type >>-$(arch)
           compose_file: ./.circleci/docker-compose-circle.yml
           compose_container_name: test_atom
 
@@ -282,6 +284,23 @@ jobs:
           name: Check Formatting
           description: Run formatting checks
           command: CODE_DIR=/root/project /usr/local/bin/run.sh
+
+  deploy-atom:
+    parameters:
+      target_tag:
+        type: string
+      repo:
+        type: string
+      atom_type:
+        type: string
+    executor: atom/build-ubuntu
+    steps:
+      - atom/create_manifest:
+          source_image: << pipeline.parameters.dockerhub_org >>/<< parameters.repo >>
+          source_tag: build-<< pipeline.number >><< parameters.atom_type >>
+          target_image: << pipeline.parameters.dockerhub_org >>/<< parameters.repo >>
+          target_tag: << parameters.target_tag >>
+          platforms: "x86_64 aarch64"
 
 workflows:
   version: 2
@@ -475,25 +494,36 @@ workflows:
       #
 
       # Deploy development
-      # - deploy-atom:
-      #     name: "deploy-development-<< matrix.repo >>-<< matrix.atom_type >>"
-      #     target_tag: development-<< pipeline.number >>
-      #     matrix:
-      #       parameters:
-      #         stage: [ nucleus, atom ]
-      #         atom_type: ["", "-cv", "-cuda"]
-      #       exclude:
-      #         - repo: << pipeline.parameters.nucleus_repo_name >>
-      #           atom_type: "-cv"
-      #         - repo: << pipeline.parameters.nucleus_repo_name >>
-      #           atom_type: "-cuda"
-      #     requires:
-      #       - build-<< matrix.stage >><< matrix.atom_type >>-<< matrix.executor >>
-      #       - build-<< matrix.stage >><< matrix.atom_type >>-<< matrix.executor >>
-      #     filters:
-      #       branches:
-      #         ignore:
-      #           - latest
+      - deploy-atom:
+          name: "deploy-development-<< matrix.repo >><< matrix.atom_type >>"
+          target_tag: development-<< pipeline.number >>
+          << : *atom_deploy_shared
+          filters:
+            branches:
+              ignore:
+                - latest
+
+      # Deploy latest
+      - deploy-atom:
+          name: "deploy-latest-<< matrix.repo >><< matrix.atom_type >>"
+          target_tag: latest-<< pipeline.number >>
+          << : *atom_deploy_shared
+          filters:
+            branches:
+              only:
+                - latest
+
+      # Deploy tag
+      - deploy-atom:
+          name: "deploy-tag-<< matrix.repo >><< matrix.atom_type >>"
+          target_tag: ${CIRCLE_TAG}
+          << : *atom_deploy_shared
+          filters:
+            branches:
+              ignore:
+                - /.*/
+            tags:
+              only: /.*/
 
   #
   # Build and deploy the metrics/grafana container
