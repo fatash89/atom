@@ -77,8 +77,9 @@ aliases:
       nucleus_repo:
         type: string
         default: elementaryrobotics/nucleus
-      atom_type:
+      atom_tag:
         type: string
+        default: << pipeline.parameters.atom_tag >>
       test_image:
         type: string
         default: << pipeline.parameters.dockerhub_repo >>
@@ -108,7 +109,7 @@ aliases:
 
   - &test_shared_args_mapping
       nucleus_repo: << parameters.nucleus_repo >>
-      atom_type: << parameters.atom_type >>
+      atom_tag: << parameters.atom_tag >>
       test_image: << parameters.test_image >>
       test_tag: << parameters.test_tag >>
       compose_file: << parameters.compose_file >>
@@ -388,7 +389,7 @@ commands:
       - enable_buildx
       - run_compose:
           file: << parameters.compose_file >>
-          build_args: << parameters.compose_addl_args >> NUCLEUS_IMAGE=<< parameters.nucleus_repo >>:<< parameters.atom_type >>-stock-$(arch) TEST_IMAGE=<< parameters.test_image >>:<< parameters.test_tag >>-$(arch)
+          build_args: << parameters.compose_addl_args >> NUCLEUS_IMAGE=<< parameters.nucleus_repo >>:<< parameters.atom_tag >> TEST_IMAGE=<< parameters.test_image >>:<< parameters.test_tag >>
       - run:
           name: Run Tests
           command: docker exec -it -w << parameters.container_test_dir >> << parameters.container_name >> << parameters.test_cmd >>
@@ -503,19 +504,19 @@ jobs:
           stage: prod
           target_tag: << parameters.target_tag >>-prod
           atom_base_arg: *atom_build_base_arg
-      - push_image:
-          target_image: << parameters.target_image >>
-          target_tag: << parameters.target_tag >>-prod
+      # - push_image:
+      #     target_image: << parameters.target_image >>
+      #     target_tag: << parameters.target_tag >>-prod
 
-      # Build + push test
-      - build_dockerfile:
-          << : *build_args_mapping
-          stage: test
-          target_tag: << parameters.target_tag >>-test
-          atom_base_arg: *atom_build_base_arg
-      - push_image:
-          target_image: << parameters.target_image >>
-          target_tag: << parameters.target_tag >>-test
+      # # Build + push test
+      # - build_dockerfile:
+      #     << : *build_args_mapping
+      #     stage: test
+      #     target_tag: << parameters.target_tag >>-test
+      #     atom_base_arg: *atom_build_base_arg
+      # - push_image:
+      #     target_image: << parameters.target_image >>
+      #     target_tag: << parameters.target_tag >>-test
 
   test:
     parameters:
