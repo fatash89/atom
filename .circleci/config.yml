@@ -474,10 +474,20 @@ workflows:
               ignore:
                 - latest
 
-      # Deploy latest
+      # Deploy versioned latest
+      - deploy-atom:
+          name: "deploy-versioned-latest-<< matrix.repo >><< matrix.atom_type >>"
+          target_tag: latest-<< pipeline.number >>
+          << : *atom_deploy_shared
+          filters:
+            branches:
+              only:
+                - latest
+
+      # Deploy  latest
       - deploy-atom:
           name: "deploy-latest-<< matrix.repo >><< matrix.atom_type >>"
-          target_tag: latest-<< pipeline.number >>
+          target_tag: latest
           << : *atom_deploy_shared
           filters:
             branches:
@@ -528,10 +538,20 @@ workflows:
               ignore:
                 - latest
 
+      # Deploy versioned latest
+      - atom/deploy:
+          name: "deploy-metrics-versioned-latest"
+          target_tag: latest-<< pipeline.number >>
+          << : *metrics_deploy_shared
+          filters:
+            branches:
+              only:
+                - latest
+
       # Deploy latest
       - atom/deploy:
           name: "deploy-metrics-latest"
-          target_tag: latest-<< pipeline.number >>
+          target_tag: latest
           << : *metrics_deploy_shared
           filters:
             branches:
@@ -584,10 +604,20 @@ workflows:
               ignore:
                 - latest
 
+      # Deploy versioned latest
+      - atom/deploy:
+          name: "deploy-formatter-versioned-latest"
+          target_tag: latest-<< pipeline.number >>
+          << : *formatter_deploy_shared
+          filters:
+            branches:
+              only:
+                - latest
+
       # Deploy latest
       - atom/deploy:
           name: "deploy-formatter-latest"
-          target_tag: latest-<< pipeline.number >>
+          target_tag: latest
           << : *formatter_deploy_shared
           filters:
             branches:
@@ -637,10 +667,20 @@ workflows:
               ignore:
                 - latest
 
+      # Deploy versioned latest
+      - atom/deploy:
+          name: "deploy-docs-versioned-latest"
+          target_tag: latest-<< pipeline.number >>
+          << : *docs_deploy_shared
+          filters:
+            branches:
+              only:
+                - latest
+
       # Deploy latest
       - atom/deploy:
           name: "deploy-docs-latest"
-          target_tag: latest-<< pipeline.number >>
+          target_tag: latest
           << : *docs_deploy_shared
           filters:
             branches:
