@@ -24,11 +24,7 @@ aliases:
         default: Dockerfile
       target_image:
         type: string
-      target_tag:
-        type: string
-      stage:
-        type: string
-        default: ""
+        default: << pipeline.parameters.dockerhub_repo >>
       build_args:
         type: string
         default: ""
@@ -40,10 +36,10 @@ aliases:
         default: false
       cache_repo:
         type: string
-        default: ""
+        default: << pipeline.parameters.dockerhub_repo >>
       cache_tag:
         type: string
-        default: ""
+        default: build-cache
       executor:
         type: executor
         default: build-ubuntu
@@ -53,8 +49,6 @@ aliases:
       working_directory: << parameters.working_directory >>
       file: << parameters.file >>
       target_image: << parameters.target_image >>
-      target_tag: << parameters.target_tag >>
-      stage: << parameters.stage >>
       build_args: << parameters.build_args >>
       no_output_timeout: << parameters.no_output_timeout >>
       use_git_lfs: << parameters.use_git_lfs >>
@@ -68,8 +62,12 @@ aliases:
         default: elementaryrobotics/atom
       atom_tag:
         type: string
-      atom_version:
+        default: << pipeline.parameters.atom_tag >>
+      atom_type:
         type: string
+        default: << pipeline.parameters.atom_type >>
+
+  - &atom_build_base_arg --build-arg ATOM_IMAGE=<< parameters.atom_repo >>:<< parameters.atom_tag >><< parameters.atom_type >>
 
   #
   # Test
@@ -79,22 +77,26 @@ aliases:
       nucleus_repo:
         type: string
         default: elementaryrobotics/nucleus
-      atom_version:
+      atom_type:
         type: string
       test_image:
         type: string
+        default: << pipeline.parameters.dockerhub_repo >>
       test_tag:
         type: string
+        default: build-<< pipeline.number >>-test
       compose_file:
         type: string
+        default: .circleci/docker-compose.yml
       compose_addl_args:
         type: string
         default: ""
       container_name:
         type: string
+        default: test-container
       container_test_dir:
         type: string
-        default: "."
+        default: /code
       test_cmd:
         type: string
       use_git_lfs:
@@ -106,7 +108,7 @@ aliases:
 
   - &test_shared_args_mapping
       nucleus_repo: << parameters.nucleus_repo >>
-      atom_version: << parameters.atom_version >>
+      atom_type: << parameters.atom_type >>
       test_image: << parameters.test_image >>
       test_tag: << parameters.test_tag >>
       compose_file: << parameters.compose_file >>
@@ -125,10 +127,13 @@ aliases:
   - &deploy_shared_args
       source_image:
         type: string
+        default: << pipeline.parameters.dockerhub_repo >>
       source_tag:
         type: string
+        default: build-<< pipeline.number >>-prod
       target_image:
         type: string
+        default: << pipeline.parameters.dockerhub_repo >>
       target_tag:
         type: string
       platforms:
@@ -313,6 +318,12 @@ commands:
   run_dockerfile_build:
     parameters:
       << : *build_args
+      target_tag:
+        type: string
+        default: build-<< pipeline.number >>-prod
+      stage:
+        type: string
+        default: ""
       build_context:
         type: string
         default: "."
@@ -349,6 +360,12 @@ commands:
     description: "Build and tag a Dockerfile using buildx"
     parameters:
       << : *build_args
+      target_tag:
+        type: string
+        default: build-<< pipeline.number >>-prod
+      stage:
+        type: string
+        default: ""
       atom_base_arg:
         type: string
         default: ""
@@ -360,6 +377,8 @@ commands:
       # Run the actual build.
       - run_dockerfile_build:
           << : *build_args_mapping
+          target_tag: << parameters.target_tag >>
+          stage: << parameters.stage >>
           atom_base_arg: << parameters.atom_base_arg >>
 
   run_test:
@@ -369,10 +388,23 @@ commands:
       - enable_buildx
       - run_compose:
           file: << parameters.compose_file >>
-          build_args: << parameters.compose_addl_args >> NUCLEUS_IMAGE=<< parameters.nucleus_repo >>:<< parameters.atom_version >>-stock-$(arch) TEST_IMAGE=<< parameters.test_image >>:<< parameters.test_tag >>-$(arch)
+          build_args: << parameters.compose_addl_args >> NUCLEUS_IMAGE=<< parameters.nucleus_repo >>:<< parameters.atom_type >>-stock-$(arch) TEST_IMAGE=<< parameters.test_image >>:<< parameters.test_tag >>-$(arch)
       - run:
           name: Run Tests
           command: docker exec -it -w << parameters.container_test_dir >> << parameters.container_name >> << parameters.test_cmd >>
+
+  build_shared_setup:
+    parameters:
+      use_git_lfs:
+        type: boolean
+    steps:
+      - when:
+          condition: << parameters.use_git_lfs >>
+          steps:
+            - install_git_lfs
+      - checkout
+      - update_submodules
+      - docker_login
 
 #
 # Jobs that are nice to be able to share between elements
@@ -408,17 +440,22 @@ jobs:
   build_image:
     parameters:
       << : *build_args
+      target_tag:
+        type: string
+        default: build-<< pipeline.number >>-prod
+      stage:
+        type: string
+        default: ""
     executor: << parameters.executor >>
     steps:
-      - when:
-          condition: << parameters.use_git_lfs >>
-          steps:
-            - install_git_lfs
-      - checkout
-      - update_submodules
-      - docker_login
+      - build_shared_setup:
+          use_git_lfs: << parameters.use_git_lfs >>
+
+      # Build + push user-specified Dockerfile
       - build_dockerfile:
           << : *build_args_mapping
+          target_tag: << parameters.target_tag >>
+          stage: << parameters.stage >>
       - push_image:
           target_image: << parameters.target_image >>
           target_tag: << parameters.target_tag >>
@@ -427,33 +464,66 @@ jobs:
     parameters:
       << : *build_args
       << : *atom_build_args
+      target_tag:
+        type: string
+        default: build-<< pipeline.number >>-prod
+      stage:
+        type: string
+        default: ""
     executor: << parameters.executor >>
     steps:
-      - when:
-          condition: << parameters.use_git_lfs >>
-          steps:
-            - install_git_lfs
-      - checkout
-      - update_submodules
-      - docker_login
+      - build_shared_setup:
+          use_git_lfs: << parameters.use_git_lfs >>
+
+      # Build + push user-specified element at stage
       - build_dockerfile:
           << : *build_args_mapping
-          atom_base_arg: --build-arg ATOM_IMAGE=<< parameters.atom_repo >>:<< parameters.atom_tag >>-<< parameters.atom_version >>
+          stage: << parameters.stage >>
+          target_tag: << parameters.target_tag >>
+          atom_base_arg: *atom_build_base_arg
       - push_image:
           target_image: << parameters.target_image >>
           target_tag: << parameters.target_tag >>
+
+  build_element_prod_and_test:
+    parameters:
+      << : *build_args
+      << : *atom_build_args
+      target_tag:
+        type: string
+        default: build-<< pipeline.number >>
+    executor: << parameters.executor >>
+    steps:
+      - build_shared_setup:
+          use_git_lfs: << parameters.use_git_lfs >>
+
+      # Build + push prod
+      - build_dockerfile:
+          << : *build_args_mapping
+          stage: prod
+          target_tag: << parameters.target_tag >>-prod
+          atom_base_arg: *atom_build_base_arg
+      - push_image:
+          target_image: << parameters.target_image >>
+          target_tag: << parameters.target_tag >>-prod
+
+      # Build + push test
+      - build_dockerfile:
+          << : *build_args_mapping
+          stage: test
+          target_tag: << parameters.target_tag >>-test
+          atom_base_arg: *atom_build_base_arg
+      - push_image:
+          target_image: << parameters.target_image >>
+          target_tag: << parameters.target_tag >>-test
 
   test:
     parameters:
       << : *test_shared_args
     executor: << parameters.executor >>
     steps:
-      - when:
-          condition: << parameters.use_git_lfs >>
-          steps:
-            - install_git_lfs
-      - checkout
-      - docker_login
+      - build_shared_setup:
+          use_git_lfs: << parameters.use_git_lfs >>
       - run_test:
           << : *test_shared_args_mapping
 
