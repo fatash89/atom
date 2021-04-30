@@ -24,7 +24,6 @@ aliases:
         default: Dockerfile
       target_image:
         type: string
-        default: << pipeline.parameters.dockerhub_repo >>
       build_args:
         type: string
         default: ""
@@ -36,7 +35,6 @@ aliases:
         default: false
       cache_repo:
         type: string
-        default: << pipeline.parameters.dockerhub_repo >>
       cache_tag:
         type: string
         default: build-cache
@@ -62,10 +60,8 @@ aliases:
         default: elementaryrobotics/atom
       atom_tag:
         type: string
-        default: << pipeline.parameters.atom_tag >>
       atom_type:
         type: string
-        default: << pipeline.parameters.atom_type >>
 
   - &atom_build_base_arg --build-arg ATOM_IMAGE=<< parameters.atom_repo >>:<< parameters.atom_tag >><< parameters.atom_type >>
 
@@ -79,13 +75,10 @@ aliases:
         default: elementaryrobotics/nucleus
       atom_tag:
         type: string
-        default: << pipeline.parameters.atom_tag >>
       test_image:
         type: string
-        default: << pipeline.parameters.dockerhub_repo >>
       test_tag:
         type: string
-        default: build-<< pipeline.number >>-test
       compose_file:
         type: string
         default: .circleci/docker-compose.yml
@@ -128,13 +121,10 @@ aliases:
   - &deploy_shared_args
       source_image:
         type: string
-        default: << pipeline.parameters.dockerhub_repo >>
       source_tag:
         type: string
-        default: build-<< pipeline.number >>-prod
       target_image:
         type: string
-        default: << pipeline.parameters.dockerhub_repo >>
       target_tag:
         type: string
       platforms:
@@ -321,7 +311,6 @@ commands:
       << : *build_args
       target_tag:
         type: string
-        default: build-<< pipeline.number >>-prod
       stage:
         type: string
         default: ""
@@ -363,7 +352,6 @@ commands:
       << : *build_args
       target_tag:
         type: string
-        default: build-<< pipeline.number >>-prod
       stage:
         type: string
         default: ""
@@ -443,7 +431,6 @@ jobs:
       << : *build_args
       target_tag:
         type: string
-        default: build-<< pipeline.number >>-prod
       stage:
         type: string
         default: ""
@@ -467,7 +454,6 @@ jobs:
       << : *atom_build_args
       target_tag:
         type: string
-        default: build-<< pipeline.number >>-prod
       stage:
         type: string
         default: ""
@@ -492,7 +478,6 @@ jobs:
       << : *atom_build_args
       target_tag:
         type: string
-        default: build-<< pipeline.number >>
     executor: << parameters.executor >>
     steps:
       - build_shared_setup:
@@ -504,19 +489,19 @@ jobs:
           stage: prod
           target_tag: << parameters.target_tag >>-prod
           atom_base_arg: *atom_build_base_arg
-      # - push_image:
-      #     target_image: << parameters.target_image >>
-      #     target_tag: << parameters.target_tag >>-prod
+      - push_image:
+          target_image: << parameters.target_image >>
+          target_tag: << parameters.target_tag >>-prod
 
-      # # Build + push test
-      # - build_dockerfile:
-      #     << : *build_args_mapping
-      #     stage: test
-      #     target_tag: << parameters.target_tag >>-test
-      #     atom_base_arg: *atom_build_base_arg
-      # - push_image:
-      #     target_image: << parameters.target_image >>
-      #     target_tag: << parameters.target_tag >>-test
+      # Build + push test
+      - build_dockerfile:
+          << : *build_args_mapping
+          stage: test
+          target_tag: << parameters.target_tag >>-test
+          atom_base_arg: *atom_build_base_arg
+      - push_image:
+          target_image: << parameters.target_image >>
+          target_tag: << parameters.target_tag >>-test
 
   test:
     parameters:
