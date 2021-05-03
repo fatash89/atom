@@ -377,7 +377,7 @@ commands:
       - enable_buildx
       - run_compose:
           file: << parameters.compose_file >>
-          build_args: << parameters.compose_addl_args >> NUCLEUS_IMAGE=<< parameters.nucleus_repo >>:<< parameters.atom_tag >> TEST_IMAGE=<< parameters.test_image >>:<< parameters.test_tag >>
+          build_args: << parameters.compose_addl_args >> NUCLEUS_IMAGE=<< parameters.nucleus_repo >>:<< parameters.atom_tag >> TEST_IMAGE=<< parameters.test_image >>:<< parameters.test_tag >>-$(arch)
       - run:
           name: Run Tests
           command: docker exec -it -w << parameters.container_test_dir >> << parameters.container_name >> << parameters.test_cmd >>
