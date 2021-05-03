@@ -154,7 +154,7 @@ aliases:
 version: 2.1
 
 orbs:
-  atom:  elementaryrobotics/atom@dev:manifests-7
+  atom:  elementaryrobotics/atom@dev:manifests-12
 
 commands:
 
@@ -220,6 +220,8 @@ commands:
         type: string
       compose_container_name:
         type: string
+      atom_type:
+        type: string
     steps:
 
       # Launch containers for testing
@@ -227,25 +229,40 @@ commands:
           file: << parameters.compose_file >>
           build_args: "NUCLEUS_IMAGE=<< parameters.nucleus_under_test >> ATOM_IMAGE=<< parameters.atom_under_test >>"
 
-      # Run unit tests
+      #
+      # Python tests
+      #
       - run:
           name: Python version
-          command: docker exec -it -w /atom/languages/python/tests << parameters.compose_container_name >> python -V 2>&1 | grep "3.8"
+          command: docker exec -w /atom/languages/python/tests << parameters.compose_container_name >> python -V 2>&1 | grep "3.8"
       - run:
           name: Python type check
-          command: docker exec -it << parameters.compose_container_name >> bash -c "cd /atom/languages/python && pyright -p pyrightconfig-ci.json atom"
+          command: docker exec << parameters.compose_container_name >> bash -c "cd /atom/languages/python && pyright -p pyrightconfig-ci.json atom"
       - run:
           name: Python tests
-          command: docker exec -it -w /atom/languages/python/tests << parameters.compose_container_name >> pytest -vv --durations=0 --capture=tee-sys
+          command: docker exec -w /atom/languages/python/tests << parameters.compose_container_name >> pytest -vv --durations=0 --capture=tee-sys
+      - when:
+          condition:
+            or:
+              - equal: [ << parameters.atom_type >>, *atom_type_cv ]
+              - equal: [ << parameters.atom_type >>, *atom_type_cuda ]
+          steps:
+            - run:
+                name: Python check opencv install and make sure all deps present
+                command: docker exec << parameters.compose_container_name >> python3 -c "import cv2"
+
+      #
+      # C / C++ tests
+      #
       - run:
           name: C tests
-          command:  docker exec -it -w /atom/languages/c << parameters.compose_container_name >> make test
+          command:  docker exec -w /atom/languages/c << parameters.compose_container_name >> make test
       - run:
           name: C++ tests
-          command:  docker exec -it -w /atom/languages/cpp << parameters.compose_container_name >> make test
+          command:  docker exec -w /atom/languages/cpp << parameters.compose_container_name >> make test
       - run:
           name: C++ valgrind check
-          command: docker exec -it -w /atom/languages/cpp << parameters.compose_container_name >> valgrind -v --tool=memcheck --leak-check=full --num-callers=40 --log-file=valgrind.log --error-exitcode=1 test/build/test_atom_cpp
+          command: docker exec -w /atom/languages/cpp << parameters.compose_container_name >> valgrind -v --tool=memcheck --leak-check=full --num-callers=40 --log-file=valgrind.log --error-exitcode=1 test/build/test_atom_cpp
           environment:
             G_SLICE: always-malloc
             G_DEBUG: gc-friendly
@@ -291,6 +308,7 @@ jobs:
     steps:
       - shared_setup
       - test_atom:
+          atom_type: << parameters.atom_type >>
           nucleus_under_test: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.nucleus_repo_name >>:build-<< pipeline.number >>-$(arch)
           atom_under_test: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>:build-<< pipeline.number >><< parameters.atom_type >>-$(arch)
           compose_file: .circleci/docker-compose-circle.yml
