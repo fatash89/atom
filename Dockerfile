@@ -181,7 +181,7 @@ RUN ldd /usr/local/lib/libopencv* | grep "=> /" | awk '{print $3}' | sort -u > /
 # Determine libraries we'll ship with in production so we can see what's
 #   missing
 #
-FROM atom-base as no-deps
+FROM $STOCK_IMAGE as no-deps
 
 RUN ls /lib/$(arch)-linux-gnu/*.so* > /tmp/existing_libs.txt && \
     ls /usr/lib/$(arch)-linux-gnu/*.so* >> /tmp/existing_libs.txt
