@@ -60,6 +60,8 @@ aliases:
   - &atom_type_base ""
   - &atom_type_cv "-cv"
   - &atom_type_cuda "-cuda"
+  - &atom_type_vnc "-vnc"
+  - &all_atom_types [ *atom_type_base, *atom_type_cv, *atom_type_cuda, *atom_type_vnc ]
 
   # Executor sizes for builds
   # NOTE: if you change this, you MUST ALSO CHANGE the atom_deploy_shared
@@ -67,6 +69,7 @@ aliases:
   # a way around it.
   - &atom_amd64_build_executor atom/build-ubuntu
   - &atom_aarch64_build_executor atom/build-ubuntu-arm
+  - &all_atom_executors [ *atom_amd64_build_executor, *atom_aarch64_build_executor ]
 
   # Extra build args for the various platforms
   - &atom_amd64_build_args ""
@@ -115,12 +118,14 @@ aliases:
       matrix:
         parameters:
           repo: [ << pipeline.parameters.nucleus_repo_name >>, << pipeline.parameters.atom_repo_name >> ]
-          atom_type: [*atom_type_base, *atom_type_cv, *atom_type_cuda]
+          atom_type: *all_atom_types
         exclude:
           - repo: << pipeline.parameters.nucleus_repo_name >>
             atom_type: *atom_type_cv
           - repo: << pipeline.parameters.nucleus_repo_name >>
             atom_type: *atom_type_cuda
+          - repo: << pipeline.parameters.nucleus_repo_name >>
+            atom_type: *atom_type_vnc
       requires:
         - build<< matrix.atom_type >>-atom/build-ubuntu
         - build<< matrix.atom_type >>-atom/build-ubuntu-arm
@@ -393,6 +398,21 @@ workflows:
               only:
                 - /.*/
 
+      # Build VNC
+      - build-atom:
+          name: *atom_build_name
+          base: atom-base-vnc
+          stock_image_repo: *atom_base_image_repo
+          stock_image_tag: *atom_base_image_tag
+          matrix:
+            parameters:
+              executor: [ *atom_amd64_build_executor ]
+              atom_type: [ *atom_type_vnc ]
+          filters:
+            tags:
+              only:
+                - /.*/
+
       # Build CUDA
       - build-atom:
           name: *atom_build_name
@@ -444,6 +464,22 @@ workflows:
               only:
                 - /.*/
 
+      # Build VNC atom
+      - build-atom:
+          name: *atom_build_name
+          base: atom-base-vnc
+          stock_image_repo: *atom_base_image_repo
+          stock_image_tag: *atom_base_image_tag
+          build_args: *atom_aarch64_build_args
+          matrix:
+            parameters:
+              executor: [ *atom_aarch64_build_executor ]
+              atom_type: [ *atom_type_vnc ]
+          filters:
+            tags:
+              only:
+                - /.*/
+
       # Build CUDA atom
       - build-atom:
           name: *atom_build_name
@@ -469,8 +505,8 @@ workflows:
           name: "test<< matrix.atom_type >>-<< matrix.executor >>"
           matrix:
             parameters:
-              atom_type: [ *atom_type_base, *atom_type_cv, *atom_type_cuda ]
-              executor: [ *atom_amd64_build_executor, *atom_aarch64_build_executor ]
+              atom_type: *all_atom_types
+              executor: *all_atom_executors
           requires:
             - *atom_build_name
           filters:
@@ -536,7 +572,7 @@ workflows:
           name: "build-metrics-<< matrix.executor >>"
           matrix:
             parameters:
-              executor: [ *atom_amd64_build_executor, *atom_aarch64_build_executor ]
+              executor: *all_atom_executors
           file: metrics/Dockerfile
           target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
           target_tag: build-<< pipeline.number >>

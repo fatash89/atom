@@ -209,6 +209,58 @@ COPY --from=atom-base-cv-deps /opt/venv /opt/venv
 
 ################################################################################
 #
+# Base image: atom + CV tools + VNC
+#
+################################################################################
+FROM atom-base-cv as atom-base-vnc
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Install dependencies
+RUN apt-get install -y --no-install-recommends \
+      libgl1-mesa-dri \
+      menu \
+      net-tools \
+      openbox \
+      supervisor \
+      tint2 \
+      x11-xserver-utils \
+      x11vnc \
+      xinit \
+      xserver-xorg-video-dummy \
+      xserver-xorg-input-void \
+      websockify \
+      sudo \
+ && rm -f /usr/share/applications/x11vnc.desktop
+
+# Add in noVNC to /opt/noVNC
+ADD third-party/noVNC /opt/noVNC
+
+RUN cd /opt/noVNC \
+ && ln -s vnc_auto.html index.html \
+ && pip3 install --no-cache-dir setuptools \
+ && pip3 install --no-cache-dir supervisor-stdout \
+ && apt-get -y autoremove \
+ && apt-get -y clean \
+ && rm -rf /var/lib/apt/lists/*
+
+# noVNC (http server) is on 6080, and the VNC server is on 5900
+EXPOSE 6080 5900
+COPY third-party/docker-opengl/etc/skel/.xinitrc /etc/skel/.xinitrc
+
+RUN useradd -m -s /bin/bash user
+USER user
+RUN cp /etc/skel/.xinitrc /home/user/
+USER root
+RUN echo "user ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/user
+
+COPY third-party/docker-opengl/etc /etc
+COPY third-party/docker-opengl/usr /usr
+
+ENV DISPLAY :0
+
+################################################################################
+#
 # Atom: Built atop any of the bases
 #
 ################################################################################
