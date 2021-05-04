@@ -27,11 +27,50 @@ COPY --from=$dockerhub_org/$dockerhub_repo /code/README.md /elements_docs/$uniqu
 
 Please help us keep the documentation up-to-date and accurate! You'll find a [`docker-compose`](doc/docker-compose.yml) file in the `doc` folder that will build and launch a local copy of the docs server that can be used to develop and test documentation updates. Once launched, the server can be accessed at [`localhost:4567`](http://localhost:4567).
 
+## Using Atom
+
+It's quite easy to get up and running and using Atom! Atom ships pre-built Docker images with all of the language clients pre-installed.
+
+### Releases + Repos
+
+Production builds are pushed to Dockerhub repositories to match the releases pushed on this repo, i.e. if there's release `vX.Y.Z` there will be tags on **all** of the following repositories:
+
+| Repository | Description |
+|------------|-------------|
+| [`elementaryrobotics/atom`](https://hub.docker.com/r/elementaryrobotics/atom) | Atom images to build elements atop |
+| [`elementaryrobotics/nucleus`](https://hub.docker.com/r/elementaryrobotics/nucleus) | Nucleus images to use as the core of Atom |
+| [`elementaryrobotics/atom-doc`](https://hub.docker.com/r/elementaryrobotics/atom-doc) | Documentation repo which spins up a webserver with the docs |
+| [`elementaryrobotics/metrics`](https://hub.docker.com/r/elementaryrobotics/metrics) | Metrics image which contains Grafana and runs the Atom dashboards |
+| [`elementaryrobotics/formatter`](https://hub.docker.com/r/elementaryrobotics/formatter) | General-purpose style formatter containing `black`, `flake8`, `isort`, and others |
+
+### Intel + ARM
+
+Atom is built for both 64-bit intel and 64-bit ARM. All docker tags on the following repositories: are multi-arch manifests which are built for both `linux/amd64` and `linux/arm64`:
+
+- [`elementaryrobotics/atom`](https://hub.docker.com/r/elementaryrobotics/atom)
+- [`elementaryrobotics/nucleus`](https://hub.docker.com/r/elementaryrobotics/nucleus)
+- [`elementaryrobotics/metrics`](https://hub.docker.com/r/elementaryrobotics/metrics)
+
+### Atom Types
+
+The following types/flavors of atom are built with each release and are pushed to **atom** and **nucleus**
+
+| Tag | Description |
+|-----|-------------|
+| `vX.Y.Z` | Base atom. Atom + all dependencies |
+| `vX.Y.Z-cv` | Adds in openCV + other CV libraries atop base Atom. |
+| `vX.Y.Z-cuda` | Adds in CUDA support atop CV Atom |
+| `vX.Y.Z-vnc` | Adds in VNC support atop CV Atom |
+
+### Building your first element
+
+Check out the [Atom Walkthrough](https://atomdocs.io/#atom-walkthrough) in the docs!
+
 ## Redis Talks and Slides
 
 Please see the [Redis Talks and Slides](https://github.com/elementary-robotics/atom/wiki/Redis-Talks-and-Slides) page of the wiki for video and slides from the talks that have been given on Atom at various Redis conferences.
 
-## Development
+## Developing for Atom
 
 ### Quickstart
 
@@ -75,111 +114,6 @@ to check out the [guide to making your first element](ELEMENT_DEVELOPMENT.md)
 
 Contributions of issues and pull requests are welcome!
 
-### Formatting + Linting
-
-Formatting + Linting checks are run in our CI/CD pipeline. Code will not be able
-to be merged into `latest` without passing.
-
-#### Python
-
-To set up type checking and code completion in your text editor, [see the wiki](https://github.com/elementary-robotics/wiki/wiki/Python-Code-Completion-and-Type-Checking-in-Text-Editors).
-
-##### Formatting for Atom
-
-Atom utilizes the following formatting guidelines:
-
-1. Use [`black`](https://github.com/psf/black) for formatting. All code must
-    pass `black --check`.
-2. Atop black, follow the Elementary Robotics [company-wide `.flake8`](
-    utilities/formatting/.flake8). This is more strict than black and catches
-    more things than black can/will catch since black only deals with stylistic
-    errors and not the full set of errors that can be caught with good linting.
-
-We have created a [Docker container](utilities/formatting/Dockerfile) that comes
-preinstalled with `.flake8` and `black`.
-
-To check your formatting:
-```
-docker-compose -f docker-compose-dev.yml run formatting
-```
-
-This, by default, will:
-1. Build the formatting container (if not already built)
-2. Launch the formatting container
-3. Run `black --check` and `flake8`
-4. Return an exit code of 0 if all code passes, else an exit code of 1 if
-    anything failed
-
-If you'd like to configure the formatter to auto-format and then do the `.flake8`
-check you can do so by adding `-e DO_FORMAT=y` to the command:
-
-```
-docker-compose -f docker-compose-dev.yml run -e DO_FORMAT=y formatting
-```
-
-This will add a step to call `black` between steps (2) and (3) of the above list
-but otherwise run the same process.
-
-##### General-purpose Formatting
-
-This repo contains a [Dockerfile](utilities/formatting/Dockerfile) and builds a general-purpose formatter image that can be used to apply the style formatting/checks in this repo anywhere you write code.
-
-To check your code:
-```
-docker run -e BLACK_EXCLUDE="" -e FLAKE8_EXCLUDE="" --mount src=$(pwd),target=/code,type=bind elementaryrobotics/formatter
-```
-
-After running this, check the return code with `echo $?` to see if the checks passed. If the return code is 0, then the checks passed, if nonzero then there were formatting inconsistencies. The logs will also be indicative.
-
-To reformat your code:
-```
-docker run -e DO_FORMAT=y -e BLACK_EXCLUDE="" -e FLAKE8_EXCLUDE="" --mount src=$(pwd),target=/code,type=bind elementaryrobotics/formatter
-```
-
-Build checks are set up s.t. the formatter must pass for code to be merged in.
-
-The formatter exposes the following command-line options which are used in the [run script](utilities/formatting/run.sh)
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `DO_FORMAT` | "" | If non-empty, i.e. not "", run the auto-formatter before running the formatting check. Default is to not run the auto-formatter |
-| `FORMAT_BLACK` | "y" | Use Black as the auto-formatter of choice. This is default, but we may add other auto-formatters in the future. Set to empty to not use black. |
-| `DO_CHECK` | "y" | If non-empty, i.e. not "", run the formatting/linting check automatically. This is the default. |
-| `DO_HANG` | "" | If non-empty, instead of returning when finished, hang the container. This is nice if you want to then shell in to the container and play around with the formatter, but otherwise not that useful |
-
-##### Bumping version
-
-Update the version manually in the following files:
-
-- `languages/python/setup.py`
-- `languages/python/setup_local.py`
-- `languages/python/atom/config.py`
-- `docker-compose-dev.yml`
-
-##### Publishing on PyPI
-
-__All of the following should be done on the host, not in the Docker container__.
-
-We use `twine` to package Atom to upload it to PyPI. Make sure you have `twine` installed on your host: `pip install twine`.
-
-First `cd languages/python`. If you have a `dist` folder in there from a previous install, remove its contents with `rm dist/*`.
-
-Then `python setup.py sdist && twine upload -r pypi dist/*`.
-
-You'll need a username/password to upload the package to PyPI; get these from Dan/Kyle.
-
-#### C
-
-No formatting enforced
-
-#### C++
-
-No formatting enforced
-
-#### Shell
-
-No formatting enforced
-
 ## Building Docker Images
 
 ### Update Submodules
@@ -193,24 +127,13 @@ git submodule update --init --recursive
 
 This will pull all of the proper dependencies.
 
-### Atom and Nucleus
-
-If you'd prefer to develop by building the atom Docker containers, this
-can be done fairly easily as well by using the [`docker-compose-dev.yml`](docker-compose-dev.yml)
-compose file.
-
-#### Default Build
+### Default Build
 
 ```
 $ docker-compose -f docker-compose-dev.yml build
 ```
 
-Everything is the same as in the quickstart, except for a few things:
-1. The `atom` container will have testing dependencies installed in order to
-run `pytest` `googletest`, etc.
-2. The `atom` container will be built from the atom client source in this repo.
-
-#### Build Arguments
+### Build Arguments
 
 You can pass the following build arguments to the build as well. To do this,
 simply edit the `args` section of the `docker-compose-dev.yml` to include/update
@@ -218,10 +141,20 @@ variables of your choice:
 
 | Arg | Default | Description |
 |-----|---------|-------------|
-| `BASE_IMAGE` | elementaryrobotics/atom:base | Which base atom image to build atop. See [Base Images](#base-images) for choices |
-| `PRODUCTION_IMAGE` | debian:buster-slim | Which image to use for the slimmed, production stage. Typically best to use the `BASE_IMAGE` that was used when building the `base` that you chose to use. |
+| `STOCK_IMAGE` | `ubuntu:focal-20210416` | Which image to build from. Should work with most things debian-based |
+| `ATOM_BASE` | `atom-base` | Which stage of the [Dockerfile](Dockerfile) to use as the "base" for Atom. Should be an option from the [Bases Table](#Bases) table. Docker will build this stage and than put the `atom` stage atop it for the final image |
 
-#### Build Targets
+#### Bases
+
+Atom has the following bases available
+
+| Name | Description |
+|------|-------------|
+| `atom-base` | Bare minimum requirements for Atom |
+| `atom-base-cv` | Adds in openCV and other CV processing libraries atop `atom-base` |
+| `atom-base-vnc` | Adds in NoVNC atop `atom-base-cv` |
+
+### Build Targets
 
 You can choose to build multiple targets from the `Dockerfile`. Each possible target is explained
 below. Modify the `target` section in `docker-compose-dev.yml` to switch.
@@ -233,65 +166,10 @@ below. Modify the `target` section in `docker-compose-dev.yml` to switch.
 | `atom-source` | Pre-production build. Contains everything in production and all source used to build it |
 | `test` | Production build of atom plus test dependencies/utilities |
 
-### Atom Base
+### Using `buildx`
 
-The Atom docker images are built atop a base, where the base contains the
-parts of the build that typically don't change frequently and are long/expensive
-to rebuild. Occasionally we'd like to add something new to the base and will
-need to rebuild the base as well. To do so:
+While not required, using `buildx` will significantly improve the build experience. In particular, `buildx` supports the ability to **skip unused stages in a multi-stage dockerfile** where the normal docker builder does not.
 
-```
-$ docker build -f Dockerfile-base -t elementaryrobotics/atom:base .
-```
-
-In addition to the vanilla base that can be built with Dockerfile-base, you
-can take the build product of Dockerfile-base and pass it through any of the
-additional Dockerfiles in the [Variants](#variants) section below.
-
-#### Build Arguments
-
-There are a few build arguments when building the base:
-
-| Arg | Default | Description |
-|-----|---------|-------------|
-| `BASE_IMAGE` | debian:buster-slim | Which base docker image to build atom atop. Can be anything ubuntu/debian |
-| `BLAS_TARGET_CPU` | "" | Optional target CPU for which to compile the BLAS library. See [choices here](third-party/OpenBLAS/TargetList.txt) |
-| `PYARROW_EXTRA_CMAKE_ARGS` | "" | CMAKE arguments to be sent to the PyArrow build. Useful when x-compiling |
-
-#### Building a base with variants
-
-To build with a variant
-
-```
-$ docker build -f <Dockerfile-variant> BASE_IMAGE=<previous-built-base> -t elementaryrobotics/atom:base-variant .
-```
-
-where `Dockerfile-variant` is an entry from the table above and `previous-built-base` is the image from a previous base built. In this fashion you can use these additional Dockerfiles to add many different things onto the atom base to suit your needs.
-
-#### Rebuilding Atom on New Base
-
-After rebuilding the base, you can rebuild the atom/nucleus images
-atop your new base with:
-
-```
-$ docker-compose -f docker-compose-dev.yml build
-```
-
-In order to get the new base deployed and into production, please see the
-section about [Updating a Base Image](#updating-a-base-image) below. The base
-images are fully managed by CircleCI and generally you check in your desired
-changes and push them to a branch with a special name to get them built and used
-in production.
-
-### ARM Images
-
-Atom works cross-platform on ARM by compiling the same Dockerfiles. In order
-to build and test for ARM a few additional steps are needed.
-
-
-#### Set up buildx
-
-This requires `buildx`, the new Docker builder that comes with Docker 19.03+.
 Begin by installing Docker version 19.03+ on your machine. Once this is done,
 proceed to the next steps.
 
@@ -346,69 +224,9 @@ default     docker
   default   default                     running linux/amd64, linux/386
 ```
 
-#### Atom Image for ARM
-
-An example command to build the atom image for ARM can be seen below:
-
+Finally, to set up an alias to make `buildx` your default builder, run
 ```
-$ docker buildx build \
-    --platform=linux/aarch64 \
-    --progress plain \
-    --load \
-    -f Dockerfile \
-    -t elementaryrobotics/atom:aarch64 \
-    --target=test \
-    --build-arg BASE_IMAGE=elementaryrobotics/atom:base-aarch64 \
-    --build-arg PRODUCTION_IMAGE=debian:buster-slim \
-    --pull \
-    .
-```
-
-It's likely always easiest to use the most recent pre-built base image for
-your desired image base (see [Base Images](#base-images)).
-
-You can also choose to build the base image yourself if you wish but note it
-will take approximately 2-4 hours on a reasonable intel-based developer machine.
-
-#### Nucleus Image for ARM
-
-An example command to build the nucleus image for ARM can be seen below:
-
-```
-$ docker buildx build \
-    --platform=linux/aarch64 \
-    --progress plain \
-    --load \
-    -f Dockerfile \
-    -t elementaryrobotics/nucleus:aarch64 \
-    --target=nucleus \
-    --build-arg BASE_IMAGE=elementaryrobotics/atom:base-aarch64 \
-    --build-arg PRODUCTION_IMAGE=debian:buster-slim \
-    --pull \
-    .
-```
-
-Generally the same command as building the Atom image, but with a different
-target in the multi-stage Dockerfile.
-
-#### Base Image for ARM
-
-It's not recommended to do this often, but the base image can be rebuilt
-with the following command:
-
-```
-$ docker buildx build \
-    --platform=linux/aarch64 \
-    --progress plain \
-    --load \
-    -f Dockerfile-base \
-    -t elementaryrobotics/atom:base-aarch64 \
-    --target=base \
-    --build-arg BASE_IMAGE=debian:buster-slim \
-    --build-arg BLAS_TARGET_CPU=ARMV8 \
-    --build-arg PYARROW_EXTRA_CMAKE_ARGS=-DARROW_ARMV8_ARCH=armv8-a \
-    --pull \
-    .
+docker buildx install
 ```
 
 ## Testing
@@ -424,265 +242,82 @@ can run the following tests:
 | C++ Unit Tests | `/atom/languages/cpp` | `make -j8 test` |
 | C++ Memory Check | `/atom/languages/cpp` | `valgrind -v --tool=memcheck --leak-check=full --num-callers=40 --log-file=valgrind.log --error-exitcode=1 test/build/test_atom_cpp` |
 
-### Testing Atom Builds
+## Formatting + Linting
 
-In order to build and test your code in an environment identical to production,
-it's recommended that you run the following initial steps:
-(example shown for Python)
+Formatting + Linting checks are run in our CI/CD pipeline. Code will not be able
+to be merged into `latest` without passing.
 
+### Python
+
+To set up type checking and code completion in your text editor, [see the wiki](https://github.com/elementary-robotics/wiki/wiki/Python-Code-Completion-and-Type-Checking-in-Text-Editors).
+
+#### Formatting for Atom
+
+Atom utilizes the following formatting guidelines:
+
+1. Use [`black`](https://github.com/psf/black) for formatting. All code must
+    pass `black --check`.
+2. Atop black, follow the Elementary Robotics [company-wide `.flake8`](
+    utilities/formatting/.flake8). This is more strict than black and catches
+    more things than black can/will catch since black only deals with stylistic
+    errors and not the full set of errors that can be caught with good linting.
+
+We have created a [Docker container](utilities/formatting/Dockerfile) that comes
+preinstalled with `.flake8` and `black`.
+
+To check your formatting:
 ```
-$ docker-compose -f docker-compose-dev.yml build
-$ docker-compose -f docker-compose-dev.yml up -d
-$ docker exec -it atom bash
-# cd /atom/languages/python/tests
-# pytest
-```
-
-You should see all tests pass.
-
-### Testing ARM Builds
-
-Similarly, you can test your ARM builds even from an Intel-based laptop!
-
-Follow, the steps to build the atom + nucleus stages for ARM as covered
-in the docs above, then:
-
-```
-$ docker-compose -f docker-compose-arm.yml up -d
-$ docker exec -it atom-arm bash
-# cd /atom/languages/python/tests
-# pytest
+docker-compose -f docker-compose-dev.yml run formatting
 ```
 
-You should see all tests pass. Also interesting to note/confirm is that
-if you run the command below while in the Docker container for the ARM atom
-image:
+This, by default, will:
+1. Build the formatting container (if not already built)
+2. Launch the formatting container
+3. Run `black --check` and `flake8`
+4. Return an exit code of 0 if all code passes, else an exit code of 1 if
+    anything failed
+
+If you'd like to configure the formatter to auto-format and then do the `.flake8`
+check you can do so by adding `-e DO_FORMAT=y` to the command:
 
 ```
-# uname -a
-Linux 2b4919a2e614 4.15.0-96-generic #97~16.04.1-Ubuntu SMP Wed Apr 1 03:03:31 UTC 2020 aarch64 GNU/Linux
+docker-compose -f docker-compose-dev.yml run -e DO_FORMAT=y formatting
 ```
 
-Note that this is indeed an `aarch64` build of linux being run on an intel
-PC through the QEMU simulator.
+This will add a step to call `black` between steps (2) and (3) of the above list
+but otherwise run the same process.
 
-## Docker Images
+#### General-purpose Formatting
 
-Docker images are built from the [`Dockerfile`](Dockerfile) in this repo.
+This repo contains a [Dockerfile](utilities/formatting/Dockerfile) and builds a general-purpose formatter image that can be used to apply the style formatting/checks in this repo anywhere you write code.
 
-This project integrates tightly with CI and CD in order to produce ready-to-go
-Docker containers that should suit most users' needs for dependencies. Then,
-when you build your elements, they should be `FROM` one of these pre-built
-containers in order to eliminate the hassle of building/installing `atom` in
-multiple places.
-
-The following images/tags are regularly maintained and built with each merge
-to `latest` in this repo.
-
-### Variants
-
-Atom ships with many dependencies pre-compiled and pre-installed in the
-container to make development more consistent across platforms and codebases.
-You are always welcome to remove/override/reinstall any dependency as what you do
-in your Docker container won't affect any other element in the system.
-
-In order to track groups of dependencies we use the term `variant`, where the
-default `variant` is `stock`, i.e. no additional dependencies beyond what's
-needed to run Atom. In the tables below you'll find a description of the
-different variants of Atom and what they come with pre-installed. Note some
-release of Atoms are the combination of multiple variants -- these will
-come with all dependencies installed from all variants in the tag.
-
-#### `stock`
-
-The `stock` variant is built using [`Dockerfile-base`](Dockerfile-base)
-
-| Dependency | Version | Description |
-|------------|---------|-------------|
-| [`hiredis`](languages/c/third-party/hiredis/hiredis) | `v0.13.3` | C redis client library |
-| [`msgpack-c`](languages/c/third-party/msgpack-c/msgpack-c) | `3.2.1` | C/C++ msgpack library |
-| [`cython`](languages/python/third-party/cython) | `0.29.16` | Python<>C optimization tool |
-| [`OpenBLAS`](third-party/OpenBLAS) | `v0.3.9` | Linear Algebra library |
-| [`numpy`](languages/python/third-party/numpy) | `v1.18.3` | Python linear algebra library |
-| [`arrow`](third-party/apache-arrow) | `0.17.0` | Apache arrow serialization library (C/C++/Python) |
-| [`redis-py`](languages/python/third-party) | `3.4.1` | Python redis client |
-| [`redis`](third-party/redis) | `6.0-rc4` | Redis itself |
-
-#### `opencv`
-
-The `opencv` variant is built using [`Dockerfile-opencv`](Dockerfile-opencv)
-
-| Dependency | Version | Description |
-|------------|---------|-------------|
-| [`opencv`](third-party/opencv) | `4.3.0` | Computer Vision Libraries (C/C++/Python) |
-| [`pillow`](languages/python/third-party/Pillow) | `7.1.2` | Python image processing library |
-
-##### Dockerfile-opencv build arguments
-
-| Arg | Default | Description |
-|-----|---------|-------------|
-| `BASE_IMAGE` | N/A | Which image we should build from to install opencv into |
-| `PRODUCTION_IMAGE` | N/A | Image that this version of atom will eventually ship in, i.e. `debian:buster-slim`. This is needed to determine which libraries to package up |
-| `ARCH` | `x86_64` | Architecture we're building for. Pass `aarch64` for ARM |
-
-#### `opengl`
-
-The `opengl` variant is built using either [`Dockerfile-opengl`](Dockerfile-opengl) or
-using a BASE_IMAGE like `nvidia/opengl` that includes it. As such, the version
-of openGL installed can vary.
-
-##### Dockerfile-opengl build arguments
-
-| Arg | Default | Description |
-|-----|---------|-------------|
-| `BASE_IMAGE` | N/A | Which image we should build from to install opengl into |
-
-#### `cuda`
-
-The `cuda` variant is based off of an NVIDIA image and includes
-
-| Dependency | Version | Description |
-|------------|---------|-------------|
-| CUDA | `10.2` | NVIDIA graphics card accelerated math library |
-| CUDNN | `7.6` | NVIDIA graphics card accelerated machine learning library |
-
-#### `vnc`
-
-The `vnc` variant adds the ability to render graphics to an in-container display server that can
-be accessed through an internet browser, typically at port `6080`. This is nice
-since it allows users on mac/windows to be able to see and interact with graphical
-components built on atom without having to change the code. You write your code
-once, for linux, and the graphics can be used via the VNC over the internet and on
-all operating systems.
-
-The VNC variant is built using software from the following tools:
-- [`NoVNC`](third-party/noVNC)
-- [`docker-opengl`](third-party/docker-opengl)
-
-##### Dockerfile-vnc build arguments
-
-| Arg | Default | Description |
-|-----|---------|-------------|
-| `BASE_IMAGE` | N/A | Which image we should build from to install the VNC into |
-
-### Images
-
-#### elementaryrobotics/atom
-
-The Docker Hub repo for Atom images. Should be used as a `FROM` in your
-Dockerfile when creating elements. Please migrate to using the tags in the
-table below. For legacy purposes, we do support older variants of tags
-as well but they're not recommended for use and not documented here.
-
-All base images are prepended by an Atom tag, i.e. `v1.4.1-`. The remainder of
-the tag can be found in the table below
-
-| Tag  | Base OS | Arch | Description |
-|------|---------|------|-------------|
-| `stock-amd64` | `debian:buster-slim` | `amd64` | Atom + all dependencies |
-| `opencv-amd64` | `debian:buster-slim` | `amd64` | Atom + OpenCV + all dependencies |
-| `cuda-amd64` | `nvidia/cuda` | `amd64` | Atom + all dependencies + CUDA + CuDNN |
-| `opengl-cuda-amd64` | `nvidia/cuda` | `amd64` | Atom + all dependencies + OpenGL + CUDA + CuDNN |
-| `opengl-cuda-vnc-amd64` | `nvidia/cuda` | `amd64` | Atom + all dependencies + OpenGL + CUDA + CuDNN + VNC for graphics |
-| `opengl-amd64` | `nvidia/opengl` | `amd64` | Atom + all dependencies + OpenGL |
-| `opengl-vnc-amd64` | `nvidia/opengl` | `amd64` | Atom + all dependencies + OpenGL + VNC for graphics |
-| `stock-aarch64` | `debian:buster-slim` | `aarch64` | Atom + all dependencies cross-comiled for aarch64/ARMv8 |
-| `opencv-aarch64` | `debian:buster-slim` | `aarch64` | Atom + all dependencies + OpenCV cross-comiled for aarch64/ARMv8 |
-
-#### elementaryrobotics/nucleus
-
-The Docker Hub repo for the Nucleus image. Should be used when running Atom.
-
-| Tag  | Base OS | Arch | Description |
-|------|---------|------|-------------|
-| none/`latest` | `debian:buster-slim` | `amd64` | Nucleus + all dependencies |
-| `aarch64` | `debian:buster-slim` | `aarch64` | Nucleus + all dependencies cross-comiled for aarch64/ARMv8 |
-
-## Base Images
-
-The Docker images from above are built with the most recent Atom source
-atop prebuilt base images. The base images are built from the [`Dockerfile-base`](Dockerfile-base)
-in this repo. The base image contains dependencies that change infrequently
-and take a long time to build from source and/or install.
-
-### Images
-
-All base images are prepended by an Atom tag, i.e. `v1.4.1-`. The remainder of
-the tag can be found in the table below
-
-| Tag  | Base OS | Arch | Description |
-|------|---------|------|-------------|
-| `base-stock-amd64` | `debian:buster-slim` | `amd64` | Build dependencies for Atom |
-| `base-opencv-amd64` | `debian:buster-slim` | `amd64` | Build dependencies for Atom + OpenCV |
-| `base-cuda-amd64` | `nvidia/cuda` | `amd64` | Build dependencies for Atom + CUDA + CuDNN |
-| `base-opengl-cuda-amd64` | `nvidia/cuda` | `amd64` | Build dependencies for Atom + CUDA + CuDNN |
-| `base-opengl-cuda-vnc-amd64` | `nvidia/cuda` | `amd64` | Build dependencies for Atom + CUDA + CuDNN + VNC |
-| `base-opengl-amd64` | `nvidia/opengl` | `amd64` | Build dependencies for Atom + OpenGL |
-| `base-opengl-amd64` | `nvidia/opengl` | `amd64` | Build dependencies for Atom + OpenGL + VNC |
-| `base-stock-aarch64` | `debian:buster-slim` | `aarch64` | Build dependencies for Atom cross-comiled for aarch64/ARMv8 |
-| `base-opencv-aarch64` | `debian:buster-slim` | `aarch64` | Build dependencies for Atom + OpenCV cross-comiled for aarch64/ARMv8 |
-
-### Updating a Base Image
-
-Base images are also built via our CI/CD integrations, though only on specific
-branches. In order to get a change to a base image into production, the steps
-are:
-1. Make changes to `Dockerfile-base`, any additional dockerfile for bases, or to the CI/CD configuration
-2. Test locally (these builds are long/expensive in CI/CD, especially for `aarch64`)
-3. Push a branch with an appropriate name to this repo (see table below)
-4. Wait for the CI/CD builds to pass/complete. This will build and push a new base
-with a new tag, `base-XXX-YYY` to the appropriate DockerHub repo. `XXX` will be
-the base tag and `YYY` will be the CircleCI build number.
-5. Update the [aliases section of the CircleCI config](.circleci/config.yml) to use the new base
-6. Check in the results from (5) and merge the branch into latest. The new base tag will be auto-pushed to the generic base tag `base-XXX` upon merge into latest.
-
-#### Updating Base Dockerfiles
-
-The base dockerfile is not used in the production images in order to reduce image size. Instead, everything from the following directories is coped over:
-
-- `/usr/local/lib`
-- `/usr/local/include`
-- `/opt/venv`
-
-If you're adding something to the base (new library, etc.) ensure it is installed in `/usr/local`. One trick to doing this with complex library dependencies (some installed by apt-get) can be seen in the [OpenCV base Dockerfile](Dockerfile-opencv):
-
+To check your code:
 ```
-FROM ${BASE_IMAGE} as with-opencv
-
-... install things with apt-get ...
-... build opencv ...
-
-# Last thing to do: figure out what OpenCV needs to run
-RUN ldd /usr/local/lib/libopencv* | grep "=> /" | awk '{print $3}' | sort -u > /tmp/required_libs.txt
-
-#
-# Determine libraries we'll ship with in production so we can see what's
-#   missing
-#
-FROM ${PRODUCTION_IMAGE} as no-deps
-
-ARG ARCH=x86_64
-
-RUN ls /lib/${ARCH}-linux-gnu/*.so* > /tmp/existing_libs.txt && \
-    ls /usr/lib/${ARCH}-linux-gnu/*.so* >> /tmp/existing_libs.txt
-
-#
-# Copy missing libraries from production into /usr/local/lib
-#
-FROM with-opencv as opencv-deps
-
-COPY --from=no-deps /tmp/existing_libs.txt /tmp/existing_libs.txt
-RUN diff --new-line-format="" --unchanged-line-format=""  /tmp/required_libs.txt /tmp/existing_libs.txt | grep -v /usr/local/lib > /tmp/libs_to_copy.txt
-RUN xargs -a /tmp/libs_to_copy.txt cp -L -t /usr/local/lib
+docker run -e BLACK_EXCLUDE="" -e FLAKE8_EXCLUDE="" --mount src=$(pwd),target=/code,type=bind elementaryrobotics/formatter
 ```
 
-OpenCV depends on a bit of a laundry list of things that we install with apt-get. If we just copy over `/usr/local/lib`, where we install OpenCV, we will get a littany of "cannot find shared library" errors when we go to launch anything that uses OpenCV. As such, in the final step of building OpenCV we use `ldd` to determine what shared libraries OpenCV needs to link against in production and put the info in `required_libs.txt`. We then make a stage FROM the eventual production image and see which libraries it comes with and put that info in `existing_libs.txt`. Finally, we copy the set of libraries that are in `required_libs.txt` and not in `existing_libs.txt` into `/usr/local/lib` before finishing the build. We use the `LD_LIBRARY_PATH` environment variable (set in all Atom images) to let the linker to look first in `/usr/local/lib` for any libraries it needs.
+After running this, check the return code with `echo $?` to see if the checks passed. If the return code is 0, then the checks passed, if nonzero then there were formatting inconsistencies. The logs will also be indicative.
 
-#### Special Branches
+To reformat your code:
+```
+docker run -e DO_FORMAT=y -e BLACK_EXCLUDE="" -e FLAKE8_EXCLUDE="" --mount src=$(pwd),target=/code,type=bind elementaryrobotics/formatter
+```
 
-Branches ending in some variant of `-build-base` will cause base builds
-instead of the typical Atom workflow. Please push to these branches sparingly
-and only when needed as these types of builds are usually, long, compute-intensive
-and expensive (especially aarch-64). This section will become stale quickly
-if we document the branch names here -- please consult the [CircleCI Config](.circleci/config.yml)
-in the Base Build section for exact branch names and what they do.
+Build checks are set up s.t. the formatter must pass for code to be merged in.
+
+The formatter exposes the following command-line options which are used in the [run script](utilities/formatting/run.sh)
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `DO_FORMAT` | "" | If non-empty, i.e. not "", run the auto-formatter before running the formatting check. Default is to not run the auto-formatter |
+| `FORMAT_BLACK` | "y" | Use Black as the auto-formatter of choice. This is default, but we may add other auto-formatters in the future. Set to empty to not use black. |
+| `DO_CHECK` | "y" | If non-empty, i.e. not "", run the formatting/linting check automatically. This is the default. |
+| `DO_HANG` | "" | If non-empty, instead of returning when finished, hang the container. This is nice if you want to then shell in to the container and play around with the formatter, but otherwise not that useful |
+
+## Language-Specific Docs
+
+Please see the READMEs in the individual language folders for more information about the language clients.
+
+- [Python](languages/python)
+- [C++](languages/cpp)
+- [C](languages/c)
