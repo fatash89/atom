@@ -67,8 +67,8 @@ aliases:
   # NOTE: if you change this, you MUST ALSO CHANGE the atom_deploy_shared
   # config where we also have these strings hardcoded. There doesn't seem to be
   # a way around it.
-  - &atom_amd64_build_executor atom/build-ubuntu
-  - &atom_aarch64_build_executor atom/build-ubuntu-arm
+  - &atom_amd64_build_executor atom/build-ubuntu-large
+  - &atom_aarch64_build_executor atom/build-ubuntu-arm-large
   - &all_atom_executors [ *atom_amd64_build_executor, *atom_aarch64_build_executor ]
 
   # Extra build args for the various platforms
@@ -127,8 +127,8 @@ aliases:
           - repo: << pipeline.parameters.nucleus_repo_name >>
             atom_type: *atom_type_vnc
       requires:
-        - build<< matrix.atom_type >>-atom/build-ubuntu
-        - build<< matrix.atom_type >>-atom/build-ubuntu-arm
+        - build<< matrix.atom_type >>-atom/build-ubuntu-large
+        - build<< matrix.atom_type >>-atom/build-ubuntu-arm-large
 
   - &metrics_deploy_shared
       source_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
@@ -136,8 +136,8 @@ aliases:
       target_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.metrics_repo_name >>
       platforms: *atom_deploy_platforms
       requires:
-        - build-metrics-atom/build-ubuntu
-        - build-metrics-atom/build-ubuntu-arm
+        - build-metrics-atom/build-ubuntu-large
+        - build-metrics-atom/build-ubuntu-arm-large
 
   - &docs_deploy_shared
       source_image: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.docs_repo_name >>
