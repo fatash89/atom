@@ -153,6 +153,7 @@ Atom has the following bases available
 | `atom-base` | Bare minimum requirements for Atom |
 | `atom-base-cv` | Adds in openCV and other CV processing libraries atop `atom-base` |
 | `atom-base-vnc` | Adds in NoVNC atop `atom-base-cv` |
+| `atom-base-cuda` | Adds in additional CUDA dependencies atop `atom-base-cv` |
 
 ### Build Targets
 

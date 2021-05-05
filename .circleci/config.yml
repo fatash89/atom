@@ -54,7 +54,7 @@ aliases:
   - &atom_base_image_tag focal-20210416
   - &atom_cuda_amd64_image_repo nvcr.io/nvidia/cuda
   - &atom_cuda_aarch64_image_repo nvcr.io/nvidia/cuda-arm64
-  - &atom_cuda_image_tag 11.1.1-cudnn8-runtime
+  - &atom_cuda_image_tag 11.1.1-cudnn8-devel
 
   # Atom types
   - &atom_type_base ""
@@ -416,7 +416,7 @@ workflows:
       # Build CUDA
       - build-atom:
           name: *atom_build_name
-          base: atom-base-cv
+          base: atom-base-cuda
           stock_image_repo: *atom_cuda_amd64_image_repo
           stock_image_tag: *atom_cuda_image_tag
           matrix:
@@ -483,7 +483,7 @@ workflows:
       # Build CUDA atom
       - build-atom:
           name: *atom_build_name
-          base: atom-base-cv
+          base: atom-base-cuda
           stock_image_repo: *atom_cuda_aarch64_image_repo
           stock_image_tag: *atom_cuda_image_tag
           build_args: *atom_aarch64_build_args
