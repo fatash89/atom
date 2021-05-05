@@ -9,7 +9,7 @@
 # ALL ARGS TO BE USED IN **ANY** FROM MUST OCCUR BEFORE THE **FIRST** FROM
 # https://docs.docker.com/engine/reference/builder/#understand-how-arg-and-from-interact
 #
-ARG STOCK_IMAGE=ubuntu:20.04
+ARG STOCK_IMAGE=ubuntu:focal-20210416
 ARG ATOM_BASE=atom-base
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -119,8 +119,7 @@ ADD ./third-party/redis /atom/third-party/redis
 RUN cd /atom/third-party/redis && make -j8 && make PREFIX=/usr/local install
 
 #
-# Redis time series module. Should eventually make its way
-#   into the base, but for now can live in here
+# Redis time series module.
 #
 ADD ./third-party/RedisTimeSeries /atom/third-party/RedisTimeSeries
 WORKDIR /atom/third-party/RedisTimeSeries
