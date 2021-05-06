@@ -1,8 +1,8 @@
 version: 2.1
 
 aliases:
-  - &intel_build_executor atom/build-ubuntu-large
-  - &arm_build_executor atom/build-ubuntu-arm-large
+  - &intel_build_executor atom/build-ubuntu
+  - &arm_build_executor atom/build-ubuntu-arm
   - &build_args
       target_image: << pipeline.parameters.dockerhub_repo >>
       target_tag: build-<< pipeline.number >>
