@@ -17,6 +17,7 @@ aliases:
       source_image: << pipeline.parameters.dockerhub_repo >>
       source_tag: build-<< pipeline.number >>-prod
       target_image: << pipeline.parameters.dockerhub_repo >>
+      platforms: "x86_64 aarch64"
       requires:
         - *intel_build_executor
         - *arm_build_executor
