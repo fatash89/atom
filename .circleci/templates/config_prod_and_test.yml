@@ -34,7 +34,7 @@ parameters:
     default: #TODO: add in atom type from ["", "-cv", "-cuda", "-vnc"]
 
 orbs:
-  atom: elementaryrobotics/atom@0.3.0
+  atom: elementaryrobotics/atom@0.3.1
 
 workflows:
   version: 2
