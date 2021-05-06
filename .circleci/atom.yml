@@ -99,6 +99,9 @@ aliases:
       executor:
         type: executor
         default: build-ubuntu
+      stage:
+        type: string
+        default: ""
 
   - &test_shared_args_mapping
       nucleus_repo: << parameters.nucleus_repo >>
@@ -111,6 +114,7 @@ aliases:
       container_test_dir: << parameters.container_test_dir >>
       test_cmd: << parameters.test_cmd >>
       use_git_lfs: << parameters.use_git_lfs >>
+      stage: << parameters.stage >>
 
   #
   # Deployment
@@ -130,6 +134,9 @@ aliases:
       platforms:
         type: string
         default: "x86_64"
+      stage:
+        type: string
+        default: ""
 
   # Deploy argument mapping
   - &deploy_shared_args_mapping
@@ -138,6 +145,7 @@ aliases:
       source_tag: << parameters.source_tag >>
       target_image: << parameters.target_image >>
       target_tag: << parameters.target_tag >>
+      stage: << parameters.stage >>
 
 #
 # Machines that can be used for build. Build-classic is typically
