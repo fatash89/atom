@@ -125,7 +125,17 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 
 ### Release Notes
 
-#### [v0.3.0](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.2.0)
+#### [v0.3.1](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.3.1)
+
+##### New Features
+
+- Adds in `stage` argument for test + deploy. This argument is unused in the commands and the command functionality remains unchanged, but it's useful for configuring build matrices to ship different stages to different places.
+
+##### Upgrade Steps
+
+None required
+
+#### [v0.3.0](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.3.0)
 
 ##### New Features
 
