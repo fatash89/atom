@@ -173,8 +173,8 @@ commands:
       - run:
           command: |
             docker login --username=_ --password=<< pipeline.parameters.heroku_api_key >> registry.heroku.com
-            docker pull << parameters.source_image >>:<< parameters.source_tag >>-stock-amd64
-            docker tag << parameters.source_image >>:<< parameters.source_tag >>-stock-amd64 registry.heroku.com/${HEROKU_APP_NAME}/web
+            docker pull << parameters.source_image >>:<< parameters.source_tag >>-$(arch)
+            docker tag << parameters.source_image >>:<< parameters.source_tag >>-$(arch) registry.heroku.com/${HEROKU_APP_NAME}/web
             docker push registry.heroku.com/${HEROKU_APP_NAME}/web
             heroku container:release -a << pipeline.parameters.heroku_app_name >> web
 
