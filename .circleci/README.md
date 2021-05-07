@@ -125,6 +125,49 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 
 ### Release Notes
 
+#### [v0.3.1](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.3.1)
+
+##### New Features
+
+- Adds in `stage` argument for test + deploy. This argument is unused in the commands and the command functionality remains unchanged, but it's useful for configuring build matrices to ship different stages to different places.
+
+##### Upgrade Steps
+
+None required
+
+#### [v0.3.0](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.3.0)
+
+##### New Features
+
+** MAJOR CHANGES **
+
+- Updates atom orb with significant changes to leverage new ARM executors in CircleCI as the primary/only executor type. Cross-compiling ARM images on intel machines is no longer supported. This effectively deprecates the need for the `platform` argument that was previously prevalent in the build, as we will determine our build platform from the instance type we're running on, intel or ARM. As such, major rework was done to the orb to remove the `platform` parameter.
+- Brings in for the first time multi-arch deploys. The deploy stage will now be able to wait for both intel + arm builds to complete and then push both images under a single tag to Dockerhub. This means that you can use the same tags in intel + ARM, and docker will auto-pull the correct one for your platform.
+- Deprecates the need for the `variant` concept in the orb. Instead of pushing intermediate/build tags with `-<< variant>>-<< platform >>`, intermediate tags are now just `-$(arch)` where `$(arch)` is either `x86_64` or `aarch64` depending on the platform. This obfuscates the tagging a bit less and makes the intermediate tags more understandable on most repos which didn't need/use the variant concept.
+- Removes the double-build of dockerfiles that was added to protect against intermediate cache push failures. The cache push failures seem to be resolved/less prevalent, and the double-build was potentially exacerbating an issue where we would drop layers in docker images randomly.
+- Orb has been restructured/simplified to remove the multiple build paths. All build paths now go through `buildx` and original/legacy docker building is not supported.
+
+##### Upgrade Steps
+
+Because of the changes, it's easiest to just make a wholesale change to a new template. From this release on, we'll now have templates in the [templates folder](templates) of this repo. There are two templates in this release:
+
+| Template Name | Description |
+|---------------|-------------|
+| `config_basic.yml` | Basic element template for elements with a single-stage Dockerfile |
+| `config_prod_and_test.yml` | Advanced element template for elements with `prod` and `test` stages in their dockerfile. It's recommended to upgrade to this template and update your element's dockerfile to have a `prod` stage which is what should ship and a `test` stage which includes test dependencies |
+
+All templates can be used by just implementing the commented TODOs. This is typically just three pipeline variables:
+
+| Variable Name | Description |
+|---------------|-------------|
+| `dockerhub_repo` | Full path to dockerhub repo (including organization) that we should be pushing builds to |
+| `atom_tag` | Tagged atom release we should be feeding into the Dockerfile, such as `v1.2.3` |
+| `atom_type` | One of ["", "-cv", "-cuda", "-vnc"] to indicate which atom build we want to be working atop |
+
+To upgrade, you need only pick your template to work off of and use it as a basis. For simple elements, it should be able to fully replace the existing config file. For more complicated elements, use it as a guide.
+
+When using templates the goal is to only need to have the user modify the **parameters** section. The aliases section should typically be left as-is and is part of the template.
+
 #### [v0.2.0](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.2.0)
 
 ##### New Features
