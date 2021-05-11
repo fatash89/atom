@@ -39,6 +39,11 @@ parameters:
     type: string
     default: ${HEROKU_APP_NAME}
 
+  # Build cache
+  use_cache:
+    type: boolean
+    default: true
+
 
 #
 # Section for setting repeatedly used yaml anchors/aliases
@@ -159,7 +164,7 @@ aliases:
 version: 2.1
 
 orbs:
-  atom:  elementaryrobotics/atom@0.3.0
+  atom:  elementaryrobotics/atom@0.3.3
 
 commands:
 
@@ -209,6 +214,7 @@ commands:
           # build cache
           cache_repo: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
           cache_tag: cache<< parameters.atom_type >>
+          use_cache: << pipeline.parameters.use_cache >>
 
       # Tag and push nucleus image
       - atom/push_image:
