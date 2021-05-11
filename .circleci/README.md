@@ -125,6 +125,13 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 
 ### Release Notes
 
+#### [v0.3.2](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.3.2)
+
+##### New Features
+
+- Upgrades buildkit to v0.8.3 and makes buildkit version independent from CircleCI machine image version.
+- Hopefully fixes missing layer bug with the buildkit upgrade.
+
 #### [v0.3.1](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.3.1)
 
 ##### New Features

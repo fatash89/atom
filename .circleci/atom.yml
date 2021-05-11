@@ -304,10 +304,17 @@ commands:
   # Prepare the machine for buildx based builds
   enable_buildx:
     description: "Prepare the CircleCI machine for using buildx"
+    parameters:
+      buildkit_version:
+        type: string
+        default: v0.8.3
     steps:
       - run:
-          name: Switch to the multi-arch builder
-          command: docker buildx ls | grep "build-buildx" || docker buildx create --use --name build-buildx
+          name: Create builder with buildkit << parameters.buildkit_version >>
+          command: docker buildx ls | grep "build-<< parameters.buildkit_version >>" || docker buildx create --name build-<< parameters.buildkit_version >> --driver docker-container --driver-opt image=moby/buildkit:<< parameters.buildkit_version >>,network=host
+      - run:
+          name: Set builder
+          command: docker buildx use --default build-<< parameters.buildkit_version >>
       - run:
           name: Start up buildx and inspect
           command: docker buildx inspect --bootstrap
