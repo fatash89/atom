@@ -125,6 +125,39 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 
 ### Release Notes
 
+#### [v0.3.3](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.3.3)
+
+##### New Features
+
+- Adds `use_cache` arg to build steps (default true) which indicates whether or not to use the buildkit --cache-from statement when starting a job. It's sometimes useful to turn this off in the presence of build errors due to buildkit caching. Ideally this will never need to be used, but it can help get out of a pinch with a corrupted build.
+- Updates the templates to populate the `use_cache` orb arg with a pipeline parameter so that we can launch jobs from the CLI to do rebuilds with caching off.
+
+Once you've upgraded to this orb/config template, you can launch a job for a full rebuild without caching using the CircleCI API using the steps below:
+
+1. Get a [token](https://circleci.com/docs/2.0/managing-api-tokens/)
+2. Launch job (choose either branch or tag, not both)
+```
+curl -u ${CIRCLECI_TOKEN}: -X POST --header "Content-Type: application/json" -d '{
+  "branch": "<branch_name>",
+  "tag": "<tag_name>",
+  "parameters": {
+    "use_cache": false
+  }
+}' https://circleci.com/api/v2/project/github/<github_org>/<github_repo>/pipeline
+```
+3. Leave the password blank
+
+##### Upgrade Steps
+
+None required, default behavior will be to use the cache. To expose/enable this variable (recommended), add `use_cache` changes found in template in both `parameters` and `aliases` sections.
+
+#### [v0.3.2](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.3.2)
+
+##### New Features
+
+- Upgrades buildkit to v0.8.3 and makes buildkit version independent from CircleCI machine image version.
+- Hopefully fixes missing layer bug with the buildkit upgrade.
+
 #### [v0.3.1](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.3.1)
 
 ##### New Features

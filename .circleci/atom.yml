@@ -33,6 +33,9 @@ aliases:
       use_git_lfs:
         type: boolean
         default: false
+      use_cache:
+        type: boolean
+        default: true
       cache_repo:
         type: string
       cache_tag:
@@ -50,6 +53,7 @@ aliases:
       build_args: << parameters.build_args >>
       no_output_timeout: << parameters.no_output_timeout >>
       use_git_lfs: << parameters.use_git_lfs >>
+      use_cache: << parameters.use_cache >>
       cache_repo: << parameters.cache_repo >>
       cache_tag: << parameters.cache_tag >>
 
@@ -304,10 +308,17 @@ commands:
   # Prepare the machine for buildx based builds
   enable_buildx:
     description: "Prepare the CircleCI machine for using buildx"
+    parameters:
+      buildkit_version:
+        type: string
+        default: v0.8.3
     steps:
       - run:
-          name: Switch to the multi-arch builder
-          command: docker buildx ls | grep "build-buildx" || docker buildx create --use --name build-buildx
+          name: Create builder with buildkit << parameters.buildkit_version >>
+          command: docker buildx ls | grep "build-<< parameters.buildkit_version >>" || docker buildx create --name build-<< parameters.buildkit_version >> --driver docker-container --driver-opt image=moby/buildkit:<< parameters.buildkit_version >>,network=host
+      - run:
+          name: Set builder
+          command: docker buildx use --default build-<< parameters.buildkit_version >>
       - run:
           name: Start up buildx and inspect
           command: docker buildx inspect --bootstrap
@@ -328,14 +339,27 @@ commands:
       atom_base_arg:
         type: string
     steps:
+      - when:
+          condition: << parameters.use_cache >>
+          steps:
+            - run:
+                name: Set Input Cache
+                command: echo 'export INPUT_CACHE_ARGS="--cache-from=type=registry,ref=<< parameters.cache_repo >>:<< parameters.cache_tag >>-$(arch)"' >> ${BASH_ENV}
+      - unless:
+          condition: << parameters.use_cache >>
+          steps:
+            - run:
+                name: Skip Input Cache
+                command: echo 'export INPUT_CACHE_ARGS=""' >> ${BASH_ENV}
       - run:
           name: "Build Dockerfile << parameters.file >> stage << parameters.stage >>"
           working_directory: << parameters.working_directory >>
           command: >-
+            set -x;
             docker buildx build
             --progress plain
             --load
-            --cache-from=type=registry,ref=<< parameters.cache_repo >>:<< parameters.cache_tag >>-$(arch)
+            ${INPUT_CACHE_ARGS}
             --cache-to=type=registry,ref=<< parameters.cache_repo >>:<< parameters.cache_tag >>-$(arch),mode=max
             --label "com.elementaryrobotics.tag=${CIRCLE_TAG}"
             --label "com.elementaryrobotics.branch=${CIRCLE_BRANCH}"
