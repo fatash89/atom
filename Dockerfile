@@ -12,9 +12,11 @@
 ARG STOCK_IMAGE=ubuntu:focal-20210416
 ARG ATOM_BASE=atom-base
 ARG DEBIAN_FRONTEND=noninteractive
-ARG PYTHON_VERSION=3.8.10
 
 FROM $STOCK_IMAGE as atom-base
+
+# Which version of Python we should build/install
+ARG PYTHON_VERSION=3.8.10
 
 #
 # System-level installs
@@ -29,22 +31,31 @@ RUN apt-get update \
       cmake \
       build-essential \
       zlib1g-dev \
+      libssl-dev \
+      libbz2-dev \
       wget \
       flex \
       bison \
       curl \
       pkg-config
 
+# Set up the ability to run things with libraries in /usr/local/lib
+ENV LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
+
 # Install Python PYTHON_VERSION from source and set as the default Python version
-RUN mkdir /tmp/python && \
+RUN set +x; mkdir /tmp/python && \
   cd /tmp/python && \
   wget --no-check-certificate https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz && \
   tar -xzvf Python-${PYTHON_VERSION}.tgz && \
-  cd Python-${PYTHON_VERSION}.tgz && \
+  cd Python-${PYTHON_VERSION} && \
   ./configure --enable-optimizations --enable-shared && \
   make -j8 install && \
   ln -sf /usr/local/bin/python3.8 /usr/bin/python3 && \
   rm -rf /tmp/python
+
+# Switch over to the venv
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
 # Install setuptools
 RUN pip3 install --no-cache-dir --upgrade pip setuptools
@@ -61,11 +72,6 @@ RUN cd /atom/languages/c/third-party && make
 #
 # Python deps
 #
-
-# Create and activate python virtualenv
-RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-ENV LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
 
 # Install custom third-party deps. We need to build
 # some of these separately as opposed to installing
@@ -367,29 +373,22 @@ ENV PYTHONUNBUFFERED=TRUE
 RUN apt-get update -y \
    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends apt-utils \
    curl \
-   python3.8 \
-   python3.8-venv \
-   python3-pip \
    libatomic1
-
-# Set Python3.8 as the default if it's not already
-RUN ln -sf /usr/bin/python3.8 /usr/bin/python3
-
 
 # Copy contents of python virtualenv and activate
 COPY --from=atom-source /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Copy C builds
+# Copy /usr/local
 COPY --from=atom-source /usr/local/lib /usr/local/lib
 COPY --from=atom-source /usr/local/include /usr/local/include
+COPY --from=atom-source /usr/local/bin /usr/local/bin
 ENV LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
 
-# Copy atom-cli
-COPY --from=atom-source /usr/local/bin/atom-cli /usr/local/bin/atom-cli
+# Set Python3.8 as the default if it's not already
+RUN ln -sf /usr/local/bin/python3.8 /usr/bin/python3
 
-# Copy redis-cli
-COPY --from=atom-source /usr/local/bin/redis-cli /usr/local/bin/redis-cli
+# Set the Redis CLI binary
 ENV REDIS_CLI_BIN /usr/local/bin/redis-cli
 
 # Add .circleci for docs build
