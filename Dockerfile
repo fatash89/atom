@@ -174,9 +174,13 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     libwebp-dev
 
 # Install openCV + python3 bindings
+ENV CFLAGS="-I /usr/local/include -I /usr/local/include/python3.8 -L /usr/local/lib ${CFLAGS}"
+ENV CXXFLAGS="-I /usr/local/include -I /usr/local/include/python3.8 -L /usr/local/lib ${CXXFLAGS}"
 COPY ./third-party/opencv /atom/third-party/opencv
 WORKDIR /atom/third-party/opencv
-RUN mkdir -p build && cd build && cmake \
+RUN mkdir -p build && cd build && \
+    cmake \
+    --verbose \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=/usr/local \
     -DPYTHON3_EXECUTABLE=/opt/venv/bin/python3 \
