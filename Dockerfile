@@ -12,6 +12,7 @@
 ARG STOCK_IMAGE=ubuntu:focal-20210416
 ARG ATOM_BASE=atom-base
 ARG DEBIAN_FRONTEND=noninteractive
+ARG PYTHON_VERSION=3.8.10
 
 FROM $STOCK_IMAGE as atom-base
 
@@ -27,17 +28,23 @@ RUN apt-get update \
       libtool \
       cmake \
       build-essential \
-      python3.8 \
-      python3.8-dev \
-      python3.8-venv \
-      python3-pip \
+      zlib1g-dev \
+      wget \
       flex \
       bison \
       curl \
       pkg-config
 
-# Set Python3.8 as the default if it's not already
-RUN ln -sf /usr/bin/python3.8 /usr/bin/python3
+# Install Python PYTHON_VERSION from source and set as the default Python version
+RUN mkdir /tmp/python && \
+  cd /tmp/python && \
+  wget --no-check-certificate https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz && \
+  tar -xzvf Python-${PYTHON_VERSION}.tgz && \
+  cd Python-${PYTHON_VERSION}.tgz && \
+  ./configure --enable-optimizations --enable-shared && \
+  make -j8 install && \
+  ln -sf /usr/local/bin/python3.8 /usr/bin/python3 && \
+  rm -rf /tmp/python
 
 # Install setuptools
 RUN pip3 install --no-cache-dir --upgrade pip setuptools
