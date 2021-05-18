@@ -9,10 +9,10 @@
 	url = https://github.com/apache/arrow
 [submodule "languages/python/third-party/numpy"]
 	path = languages/python/third-party/numpy
-	url = git@github.com:numpy/numpy.git
+	url = https://github.com/numpy/numpy.git
 [submodule "languages/python/third-party/cython"]
 	path = languages/python/third-party/cython
-	url = git@github.com:cython/cython.git
+	url = https://github.com/cython/cython.git
 [submodule "third-party/noVNC"]
 	path = third-party/noVNC
 	url = https://github.com/kanaka/noVNC.git
@@ -21,16 +21,16 @@
 	url = https://github.com/msgpack/msgpack-c.git
 [submodule "third-party/OpenBLAS"]
 	path = third-party/OpenBLAS
-	url = git@github.com:xianyi/OpenBLAS.git
+	url = https://github.com/xianyi/OpenBLAS.git
 [submodule "third-party/redis"]
 	path = third-party/redis
-	url = git@github.com:antirez/redis.git
+	url = https://github.com/antirez/redis.git
 [submodule "third-party/opencv"]
 	path = third-party/opencv
-	url = git@github.com:opencv/opencv.git
+	url = https://github.com/opencv/opencv.git
 [submodule "languages/python/third-party/Pillow"]
 	path = languages/python/third-party/Pillow
-	url = git@github.com:python-pillow/Pillow.git
+	url = https://github.com/python-pillow/Pillow.git
 [submodule "third-party/RedisTimeSeries"]
 	path = third-party/RedisTimeSeries
 	url = https://github.com/RedisTimeSeries/RedisTimeSeries
