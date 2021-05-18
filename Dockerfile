@@ -33,6 +33,12 @@ RUN apt-get update \
       zlib1g-dev \
       libssl-dev \
       libbz2-dev \
+      libffi-dev \
+      libncursesw5-dev \
+      libgdbm-dev \
+      libsqlite3-dev \
+      libc6-dev \
+      tk-dev \
       wget \
       flex \
       bison \
@@ -176,7 +182,7 @@ RUN mkdir -p build && cd build && cmake \
     -DPYTHON_INCLUDE_DIR=/usr/include/python3.8 \
     -DPYTHON_INCLUDE_DIR2=/usr/include/$(arch)-linux-gnu/python3.8 \
     -DPYTHON_LIBRARY=/usr/lib/$(arch)-linux-gnu/libpython3.8.so \
-    -DPYTHON3_NUMPY_INCLUDE_DIRS=/opt/venv/lib/python3.8/site-packages/numpy-1.18.3-py3.8-linux-$(arch).egg/numpy/core/include \
+    -DPYTHON3_NUMPY_INCLUDE_DIRS=/opt/venv/lib/python3.8/site-packages/numpy-1.20.3-py3.8-linux-$(arch).egg/numpy/core/include \
     -DOPENCV_PYTHON3_INSTALL_PATH=/opt/venv/lib/python3.8/site-packages \
     ../ && \
     make -j8 && \
