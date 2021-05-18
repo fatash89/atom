@@ -140,6 +140,7 @@ RUN cd /atom/third-party/redis && make -j8 && make PREFIX=/usr/local install
 #
 # Redis time series module.
 #
+RUN apt-get install -y ca-certificates
 ADD ./third-party/RedisTimeSeries /atom/third-party/RedisTimeSeries
 WORKDIR /atom/third-party/RedisTimeSeries
 RUN python3 system-setup.py
