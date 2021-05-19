@@ -186,9 +186,13 @@ commands:
 
   shared_setup:
     steps:
+      - atom/install_git_lfs
       - checkout
       - atom/update_submodules
       - atom/docker_login
+      - run:
+          name: Pull Python aarch64 Jetson Wheels
+          command: git lfs pull --include="*" --exclude=""
       - run:
           name: Log into Nvidia Container Registry
           command: echo ${NGC_PASSWORD} | docker login nvcr.io -u ${NGC_USER} --password-stdin
@@ -294,17 +298,18 @@ jobs:
     steps:
       - shared_setup
 
+      # TODO: come back to this
       # Need to pull Python wheels for CUDA if building
-      - when:
-          condition:
-            and:
-              - equal: [ << parameters.atom_type >>, *atom_type_cuda ]
-              - equal: [ << parameters.executor >>, *atom_aarch64_build_executor ]
-          steps:
-            - atom/install_git_lfs
-            - run:
-                name: Pull Python aarch64 Jetson Wheels
-                command: git lfs pull --include="*" --exclude=""
+      # - when:
+      #     condition:
+      #       and:
+      #         - equal: [ << parameters.atom_type >>, *atom_type_cuda ]
+      #         - equal: [ << parameters.executor >>, *atom_aarch64_build_executor ]
+      #     steps:
+      #       - atom/install_git_lfs
+      #       - run:
+      #           name: Pull Python aarch64 Jetson Wheels
+      #           command: git lfs pull --include="*" --exclude=""
 
       # Build nucleus, then atom, then test. Most time will be
       # spent in the nucleus stage as test + atom are just minor variants
