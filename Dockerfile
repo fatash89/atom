@@ -290,13 +290,11 @@ ENV DISPLAY :0
 ################################################################################
 FROM atom-base-cv as atom-base-cuda
 
-ARG CUPY_NUM_NVCC_THREADS=8
-ARG CUPY_NUM_BUILD_JOBS=8
-
-# Build CuPy from source: https://docs.cupy.dev/en/stable/install.html#install-cupy-from-source
-ADD ./languages/python/third-party/cupy /atom/languages/python/third-party/cupy
-WORKDIR /atom/languages/python/third-party/cupy
-RUN pip3 install .
+WORKDIR /atom/languages/python
+ADD ./languages/python/requirements-cuda.txt .
+ADD ./languages/python/install_cuda_requirements.sh .
+ADD ./languages/python/third-party/wheels ./third-party
+RUN ./install_cuda_requirements.txt
 
 ################################################################################
 #
