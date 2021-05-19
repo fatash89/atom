@@ -34,6 +34,7 @@ RUN apt-get update \
       libssl-dev \
       libbz2-dev \
       libffi-dev \
+      liblzma-dev \
       libncursesw5-dev \
       libgdbm-dev \
       libsqlite3-dev \
