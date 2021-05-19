@@ -37,6 +37,3 @@
 [submodule "metrics/grafana-redis-datasource"]
 	path = metrics/grafana-redis-datasource
 	url = https://github.com/RedisTimeSeries/grafana-redis-datasource
-[submodule "languages/python/third-party/cupy"]
-	path = languages/python/third-party/cupy
-	url = https://github.com/cupy/cupy.git
