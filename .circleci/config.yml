@@ -294,6 +294,18 @@ jobs:
     steps:
       - shared_setup
 
+      # Need to pull Python wheels for CUDA if building
+      - when:
+          condition:
+            and:
+              - equal: [ << parameters.atom_type >>, *atom_type_cuda ]
+              - equal: [ << parameters.executor >>, *atom_aarch64_build_executor ]
+          steps:
+            - atom/install_git_lfs
+            - run:
+                name: Pull Python aarch64 Jetson Wheels
+                command: git lfs pull --include="*" --exclude=""
+
       # Build nucleus, then atom, then test. Most time will be
       # spent in the nucleus stage as test + atom are just minor variants
       # on it
