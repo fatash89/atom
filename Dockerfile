@@ -296,7 +296,7 @@ FROM atom-base-cv as atom-base-cuda
 WORKDIR /atom/languages/python
 ADD ./languages/python/requirements-cuda.txt .
 ADD ./languages/python/install_cuda_requirements.sh .
-ADD ./languages/python/third-party/wheels ./third-party
+ADD ./languages/python/third-party/wheels ./third-party/wheels
 RUN ./install_cuda_requirements.sh
 
 ################################################################################
