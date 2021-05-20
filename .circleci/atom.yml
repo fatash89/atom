@@ -358,7 +358,7 @@ commands:
             set -x;
             docker buildx build
             --progress plain
-            --load
+            --push
             ${INPUT_CACHE_ARGS}
             --cache-to=type=registry,ref=<< parameters.cache_repo >>:<< parameters.cache_tag >>-$(arch),mode=max
             --label "com.elementaryrobotics.tag=${CIRCLE_TAG}"
@@ -476,9 +476,6 @@ jobs:
           << : *build_args_mapping
           target_tag: << parameters.target_tag >>
           stage: << parameters.stage >>
-      - push_image:
-          target_image: << parameters.target_image >>
-          target_tag: << parameters.target_tag >>
 
   build_element:
     parameters:
@@ -500,9 +497,6 @@ jobs:
           stage: << parameters.stage >>
           target_tag: << parameters.target_tag >>
           atom_base_arg: *atom_build_base_arg
-      - push_image:
-          target_image: << parameters.target_image >>
-          target_tag: << parameters.target_tag >>
 
   build_element_prod_and_test:
     parameters:
@@ -521,9 +515,6 @@ jobs:
           stage: prod
           target_tag: << parameters.target_tag >>-prod
           atom_base_arg: *atom_build_base_arg
-      - push_image:
-          target_image: << parameters.target_image >>
-          target_tag: << parameters.target_tag >>-prod
 
       # Build + push test
       - build_dockerfile:
@@ -531,9 +522,6 @@ jobs:
           stage: test
           target_tag: << parameters.target_tag >>-test
           atom_base_arg: *atom_build_base_arg
-      - push_image:
-          target_image: << parameters.target_image >>
-          target_tag: << parameters.target_tag >>-test
 
   test:
     parameters:
