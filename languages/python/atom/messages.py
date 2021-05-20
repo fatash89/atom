@@ -99,6 +99,18 @@ class Response:
         self.err_code = err_code
         self.err_str = err_str
 
+    def __str__(self) -> str:
+        return f"""err_code: {self.err_code}
+err_str: {self.err_str}
+ser: {self.ser}
+data: {atom_ser.deserialize(self.data, method=self.ser)}"""
+
+    def __repr__(self) -> str:
+        return f"atom.messages.Response(data={atom_ser.deserialize(self.data, method=self.ser).__repr__()}, " \
+            f"err_code={self.err_code.__repr__()}, " \
+            f"err_str={self.err_str.__repr__()}, " \
+            f"serialization={self.ser.__repr__()})"
+
 
 class Entry:
     def __init__(self, field_data_map: dict[str, Any]):
