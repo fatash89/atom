@@ -125,6 +125,12 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 
 ### Release Notes
 
+#### [v0.3.4](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.3.4)
+
+##### New Features
+
+Significant build speed improvements. Can take large images built off of CUDA from 20m down to 1m by not loading the output image into docker and instead just pushing directly to Docker Hub.
+
 #### [v0.3.3](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.3.3)
 
 ##### New Features

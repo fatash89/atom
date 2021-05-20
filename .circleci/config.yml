@@ -165,7 +165,7 @@ aliases:
 version: 2.1
 
 orbs:
-  atom:  elementaryrobotics/atom@0.3.3
+  atom:  elementaryrobotics/atom@0.3.4
 
 commands:
 
@@ -220,11 +220,6 @@ commands:
           cache_repo: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
           cache_tag: cache<< parameters.atom_type >>
           use_cache: << pipeline.parameters.use_cache >>
-
-      # Tag and push nucleus image
-      - atom/push_image:
-          target_image: << pipeline.parameters.dockerhub_org >>/<< parameters.repo >>
-          target_tag: build-<< pipeline.number >><< parameters.atom_type >>
 
   test_atom:
     parameters:
