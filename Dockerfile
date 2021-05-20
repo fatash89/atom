@@ -216,8 +216,11 @@ RUN ls /lib/$(arch)-linux-gnu/*.so* > /tmp/existing_libs.txt && \
 FROM atom-base-cv-build as atom-base-cv-deps
 
 COPY --from=no-deps /tmp/existing_libs.txt /tmp/existing_libs.txt
-RUN diff --new-line-format="" --unchanged-line-format=""  /tmp/required_libs.txt /tmp/existing_libs.txt | grep -v /usr/local/lib > /tmp/libs_to_copy.txt
-RUN xargs -a /tmp/libs_to_copy.txt cp -L -t /usr/local/lib
+
+# Diff the libs to see what we should copy over. If nothing to copy over,
+#  just exit out
+RUN diff --new-line-format="" --unchanged-line-format="" /tmp/required_libs.txt /tmp/existing_libs.txt | grep -v /usr/local/lib > /tmp/libs_to_copy.txt && xargs -a /tmp/libs_to_copy.txt cp -L -t /usr/local/lib || exit 0
+
 
 #
 # Clean up and only ship the following folders:
@@ -294,7 +297,7 @@ WORKDIR /atom/languages/python
 ADD ./languages/python/requirements-cuda.txt .
 ADD ./languages/python/install_cuda_requirements.sh .
 ADD ./languages/python/third-party/wheels ./third-party
-RUN ./install_cuda_requirements.txt
+RUN ./install_cuda_requirements.sh
 
 ################################################################################
 #
