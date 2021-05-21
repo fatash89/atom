@@ -486,6 +486,7 @@ RUN pip3 install --no-cache-dir -r requirements-test.txt
 
 # Install pyright
 RUN apt install -y curl
+RUN if ! lsb_release; then apt-get install -y lsb-release && sed -i 's/python3/python3.6/g' /usr/bin/lsb_release; fi
 RUN curl -sL https://deb.nodesource.com/setup_12.x | bash -
 RUN apt install -y nodejs && npm install -g pyright
 # Copy in pyright config for running pyright on atom source code
