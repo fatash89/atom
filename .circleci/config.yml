@@ -209,6 +209,9 @@ commands:
 
       - atom/update_submodules
       - atom/docker_login
+      - run:
+          name: Log into Nvidia Container Registry
+          command: echo ${NGC_PASSWORD} | docker login nvcr.io -u ${NGC_USER} --password-stdin
 
   build_atom:
     parameters:
