@@ -185,17 +185,30 @@ commands:
             heroku container:release -a << pipeline.parameters.heroku_app_name >> web
 
   shared_setup:
+    parameters:
+      atom_type:
+        type: string
+        default: ""
+      is_build:
+        type: boolean
+        default: false
     steps:
-      - atom/install_git_lfs
       - checkout
+
+      # Need to pull Python wheels for CUDA if building.
+      - when:
+          condition:
+            and:
+              - << parameters.is_build >>
+              - equal: [ << parameters.atom_type >>, *atom_type_cuda ]
+          steps:
+            - atom/install_git_lfs
+            - run:
+                name: Pull Python aarch64 Jetson Wheels
+                command: if [ "$(arch)" = "aarch64" ]; then git lfs pull --include="*" --exclude=""; else echo "Not ARM, skipping!"; fi
+
       - atom/update_submodules
       - atom/docker_login
-      - run:
-          name: Pull Python aarch64 Jetson Wheels
-          command: git lfs pull --include="*" --exclude=""
-      - run:
-          name: Log into Nvidia Container Registry
-          command: echo ${NGC_PASSWORD} | docker login nvcr.io -u ${NGC_USER} --password-stdin
 
   build_atom:
     parameters:
@@ -291,20 +304,9 @@ jobs:
       << : *build_atom_shared_params
     executor: << parameters.executor >>
     steps:
-      - shared_setup
-
-      # TODO: come back to this
-      # Need to pull Python wheels for CUDA if building
-      # - when:
-      #     condition:
-      #       and:
-      #         - equal: [ << parameters.atom_type >>, *atom_type_cuda ]
-      #         - equal: [ << parameters.executor >>, *atom_aarch64_build_executor ]
-      #     steps:
-      #       - atom/install_git_lfs
-      #       - run:
-      #           name: Pull Python aarch64 Jetson Wheels
-      #           command: git lfs pull --include="*" --exclude=""
+      - shared_setup:
+          atom_type: << parameters.atom_type >>
+          is_build: true
 
       # Build nucleus, then atom, then test. Most time will be
       # spent in the nucleus stage as test + atom are just minor variants
