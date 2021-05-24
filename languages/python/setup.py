@@ -14,7 +14,7 @@ setuptools.setup(
     license="Apache License",
     install_requires=[
         "msgpack==0.6.2",
-        "numpy==1.18.3",
+        "numpy==1.20.3",
         "redis==3.5.3",
         "redistimeseries==1.4.3",
     ],

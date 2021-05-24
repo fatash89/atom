@@ -56,10 +56,11 @@ aliases:
 
   # Base image versions and files
   - &atom_base_image_repo ubuntu
-  - &atom_base_image_tag focal-20210416
+  - &atom_base_image_tag bionic-20210416
   - &atom_cuda_amd64_image_repo nvcr.io/nvidia/cuda
-  - &atom_cuda_aarch64_image_repo nvcr.io/nvidia/cuda-arm64
-  - &atom_cuda_image_tag 11.1.1-cudnn8-devel
+  - &atom_cuda_amd64_image_tag 10.2-cudnn8-devel-ubuntu18.04
+  - &atom_cuda_aarch64_image_repo nvcr.io/nvidia/l4t-base
+  - &atom_cuda_aarch64_image_tag r32.5.0
 
   # Atom types
   - &atom_type_base ""
@@ -184,8 +185,28 @@ commands:
             heroku container:release -a << pipeline.parameters.heroku_app_name >> web
 
   shared_setup:
+    parameters:
+      atom_type:
+        type: string
+        default: ""
+      is_build:
+        type: boolean
+        default: false
     steps:
       - checkout
+
+      # Need to pull Python wheels for CUDA if building.
+      - when:
+          condition:
+            and:
+              - << parameters.is_build >>
+              - equal: [ << parameters.atom_type >>, *atom_type_cuda ]
+          steps:
+            - atom/install_git_lfs
+            - run:
+                name: Pull Python aarch64 Jetson Wheels
+                command: if [ "$(arch)" = "aarch64" ]; then git lfs pull --include="*" --exclude=""; else echo "Not ARM, skipping!"; fi
+
       - atom/update_submodules
       - atom/docker_login
       - run:
@@ -286,7 +307,9 @@ jobs:
       << : *build_atom_shared_params
     executor: << parameters.executor >>
     steps:
-      - shared_setup
+      - shared_setup:
+          atom_type: << parameters.atom_type >>
+          is_build: true
 
       # Build nucleus, then atom, then test. Most time will be
       # spent in the nucleus stage as test + atom are just minor variants
@@ -419,7 +442,7 @@ workflows:
           name: *atom_build_name
           base: atom-base-cuda
           stock_image_repo: *atom_cuda_amd64_image_repo
-          stock_image_tag: *atom_cuda_image_tag
+          stock_image_tag: *atom_cuda_amd64_image_tag
           matrix:
             parameters:
               executor: [ *atom_amd64_build_executor ]
@@ -486,7 +509,7 @@ workflows:
           name: *atom_build_name
           base: atom-base-cuda
           stock_image_repo: *atom_cuda_aarch64_image_repo
-          stock_image_tag: *atom_cuda_image_tag
+          stock_image_tag: *atom_cuda_aarch64_image_tag
           build_args: *atom_aarch64_build_args
           matrix:
             parameters:
