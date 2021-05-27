@@ -165,7 +165,7 @@ aliases:
 version: 2.1
 
 orbs:
-  atom:  elementaryrobotics/atom@0.3.4
+  atom:  elementaryrobotics/atom@dev:squash
 
 commands:
 
@@ -236,6 +236,7 @@ commands:
           cache_repo: << pipeline.parameters.dockerhub_org >>/<< pipeline.parameters.atom_repo_name >>
           cache_tag: cache<< parameters.atom_type >>
           use_cache: << pipeline.parameters.use_cache >>
+          squash: true
 
   test_atom:
     parameters:
