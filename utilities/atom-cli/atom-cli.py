@@ -190,7 +190,7 @@ class AtomCLI:
             return
         if len(args) > 1 and mode == "elements":
             print(usage)
-            print(f"\nInvalid number of arguments for command 'list elements'.")
+            print("\nInvalid number of arguments for command 'list elements'.")
             return
         if len(args) > 2:
             print(usage)

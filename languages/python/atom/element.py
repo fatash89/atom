@@ -1400,7 +1400,7 @@ class Element:
                     )
                 except redis.exceptions.ResponseError:
                     self.logger.error(
-                        f"Recieved redis ResponseError.  Possible attempted "
+                        "Recieved redis ResponseError.  Possible attempted "
                         "XREADGROUP on closed stream %s (is shutdown: %s).  "
                         "Please ensure you have performed the command_loop_shutdown"
                         " command on the object running command_loop."
