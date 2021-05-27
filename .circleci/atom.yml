@@ -44,6 +44,9 @@ aliases:
       executor:
         type: executor
         default: build-ubuntu
+      squash:
+        type: boolean
+        default: false
 
   # Mapping to pass build args through without modification
   - &build_args_mapping
@@ -56,6 +59,7 @@ aliases:
       use_cache: << parameters.use_cache >>
       cache_repo: << parameters.cache_repo >>
       cache_tag: << parameters.cache_tag >>
+      squash: << parameters.squash >>
 
   # Atom build arguments
   - &atom_build_args
@@ -339,6 +343,8 @@ commands:
       atom_base_arg:
         type: string
     steps:
+
+      # Caching args
       - when:
           condition: << parameters.use_cache >>
           steps:
@@ -351,6 +357,22 @@ commands:
             - run:
                 name: Skip Input Cache
                 command: echo 'export INPUT_CACHE_ARGS=""' >> ${BASH_ENV}
+
+      # Squashing args
+      - when:
+          condition: << parameters.squash >>
+          steps:
+            - run:
+                name: Set Squash Arg
+                command: echo 'export SQUASH_ARGS="--squash"' >> ${BASH_ENV}
+      - unless:
+          condition: << parameters.squash >>
+          steps:
+            - run:
+                name: Skip Squash
+                command: echo 'export SQUASH_ARGS=""' >> ${BASH_ENV}
+
+
       - run:
           name: "Build Dockerfile << parameters.file >> stage << parameters.stage >>"
           working_directory: << parameters.working_directory >>
@@ -374,6 +396,7 @@ commands:
             << parameters.build_args >>
             --target=<< parameters.stage >>
             --pull
+            ${SQUASH_ARGS}
             << parameters.build_context >>
           no_output_timeout: << parameters.no_output_timeout >>
 
