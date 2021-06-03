@@ -885,12 +885,12 @@ class Element:
 
         return matches
 
-    def parameter_list(self, pattern) -> list[str]:
+    def parameter_list(self, pattern="*") -> list[str]:
         """
         Lists all parameters with names matching a given pattern. 
 
         Args: 
-            pattern: Match pattern used to filter parameters
+            pattern: Match pattern used to filter parameters, defaults to '*'
 
         Returns: 
             List of parameter keys

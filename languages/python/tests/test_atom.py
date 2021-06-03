@@ -1150,7 +1150,7 @@ class TestAtom:
         success = caller.parameter_delete(key)
         assert success == True
 
-    def test_parameter_write_override_false_allows_new_key(sef, caller):
+    def test_parameter_write_override_false_allows_new_key(self, caller):
         """
         Writes parameter with override not allowed. Tries adding new field
         to parameter and verifies new field was successfully added.
@@ -1278,12 +1278,33 @@ class TestAtom:
         data = {b"my_str": b"hello, world!"}
         key = "my_param"
         _ = caller.parameter_write(key, data, timeout_ms=0)
-        success = caller.parameter_delete(key)
+        success = caller.parameter_delete(key)        
         assert success == True
         del_data = caller.parameter_read(key)
         assert del_data is None
         success = caller.parameter_delete(key)
         assert success == False
+
+    def test_parameter_list(self, caller):
+        caller, caller_name = caller
+        assert len(caller.parameter_list()) == 0
+        keys = ["str1", "str2", "other"]
+        _ = caller.parameter_write(keys[0], {b"k1": b"hello, world"}, serialization="msgpack")
+        assert set([keys[0]]) == set(caller.parameter_list())
+        assert [] == caller.parameter_list("str2")
+
+        _ = caller.parameter_write(keys[1], {b"k1": b"hello, world!", b"str2": b"goodbye"}, serialization="msgpack")
+        assert set(keys[0:2]) == set(caller.parameter_list())
+        assert set(keys[0:2]) == set(caller.parameter_list("str*"))
+        assert [] == caller.parameter_list(b"other")
+
+        _ = caller.parameter_write(keys[2], {b"k3": b"hello"})
+        assert set(keys) == set(caller.parameter_list())
+        assert set(keys[0:2]) == set(caller.parameter_list("str*"))
+        assert [] == caller.parameter_list("str")
+
+        for key in keys:
+            caller.parameter_delete(key)
 
     def test_reference_basic(self, caller):
         caller, caller_name = caller
