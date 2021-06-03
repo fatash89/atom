@@ -81,6 +81,7 @@ from atom.messages import (
 DuplicatePolicy = Literal["block", "first", "last", "min", "max"]
 CommandHandler = Callable[..., Response]
 
+
 class ResponseDict(TypedDict):
     """
     What we get from converting response object to dict with `vars`.
@@ -888,18 +889,19 @@ class Element:
 
     def parameter_list(self, pattern="*") -> list[str]:
         """
-        Lists all parameters with names matching a given pattern.
+                Lists all parameters with names matching a given pattern.
 
-        Args:
-            pattern: Match pattern used to filter parameters, defaults to '*'
+                Args:
+                    pattern: Match pattern used to filter parameters,
+                        defaults to '*'
 
-<<<<<<< HEAD
-        Returns:
-=======
+        <<<<<<< HEAD
+                Returns:
+        =======
 
-        Returns: 
->>>>>>> 3e9f071096352d3a1b20a1f5f4aba7e4da305273
-            List of parameter keys
+                Returns:
+        >>>>>>> 3e9f071096352d3a1b20a1f5f4aba7e4da305273
+                    List of parameter keys
         """
         matches = self._redis_scan_keys(self._make_parameter_key(pattern))
         return [x.split(":")[-1] for x in matches]
