@@ -17,13 +17,8 @@ from queue import LifoQueue, Queue
 from traceback import format_exc
 from typing import Any, Callable, Dict, Optional, Sequence, Union, cast
 
-import redis
-from redis.client import Pipeline
-from redistimeseries.client import Client as RedisTimeSeries
-from redistimeseries.client import Pipeline as RedisTimeSeriesPipeline
-from typing_extensions import Literal, TypedDict
-
 import atom.serialization as atom_ser
+import redis
 from atom.config import (
     ACK_TIMEOUT,
     ATOM_CALLBACK_FAILED,
@@ -77,6 +72,10 @@ from atom.messages import (
     StreamHandler,
     format_redis_py,
 )
+from redis.client import Pipeline
+from redistimeseries.client import Client as RedisTimeSeries
+from redistimeseries.client import Pipeline as RedisTimeSeriesPipeline
+from typing_extensions import Literal, TypedDict
 
 DuplicatePolicy = Literal["block", "first", "last", "min", "max"]
 CommandHandler = Callable[..., Response]
