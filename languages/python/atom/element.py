@@ -893,7 +893,12 @@ class Element:
         Args:
             pattern: Match pattern used to filter parameters, defaults to '*'
 
+<<<<<<< HEAD
         Returns:
+=======
+
+        Returns: 
+>>>>>>> 3e9f071096352d3a1b20a1f5f4aba7e4da305273
             List of parameter keys
         """
         matches = self._redis_scan_keys(self._make_parameter_key(pattern))
