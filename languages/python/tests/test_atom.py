@@ -1131,7 +1131,7 @@ class TestAtom:
         success = caller.parameter_delete(key)
         assert success == True
 
-    def test_parameter_write_override_false(sef, caller):
+    def test_parameter_write_override_false(self, caller):
         """
         Writes parmaeter with override not allowed. Tries updating
         existing field and verifies that exception is raised. Reads
@@ -1769,7 +1769,7 @@ class TestAtom:
             e = self._element_create(
                 "timeout-element-1", host="10.255.255.1", conn_timeout_ms=2000
             )
-            assert e._redis_connetion_timeout == 2.0
+            assert e._redis_connection_timeout == 2.0
             e._rclient.keys()
 
         now = time.time()

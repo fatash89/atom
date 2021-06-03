@@ -80,7 +80,6 @@ from typing_extensions import Literal, TypedDict
 DuplicatePolicy = Literal["block", "first", "last", "min", "max"]
 CommandHandler = Callable[..., Response]
 
-
 class ResponseDict(TypedDict):
     """
     What we get from converting response object to dict with `vars`.
@@ -885,6 +884,19 @@ class Element:
                 break
 
         return matches
+
+    def parameter_list(self, pattern) -> list[str]:
+        """
+        Lists all parameters with names matching a given pattern. 
+
+        Args: 
+            pattern: Match pattern used to filter parameters
+
+        Returns: 
+            List of parameter keys
+        """
+        matches = self._redis_scan_keys(self._make_parameter_key(pattern))
+        return [x.split(":")[-1] for x in matches]
 
     def get_all_elements(self) -> list[str]:
         """
