@@ -6,8 +6,6 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 import redis
-from redistimeseries.client import Client as RedisTimeSeries
-
 from atom import Element
 from atom.config import (
     DEFAULT_METRICS_SOCKET,
@@ -15,6 +13,7 @@ from atom.config import (
     METRICS_QUEUE_SHARED_KEYS,
 )
 from atom.queue import AtomFIFOQueue, AtomPrioQueue, AtomQueueTypes
+from redistimeseries.client import Client as RedisTimeSeries
 
 QUEUE_TYPES = [AtomQueueTypes.FIFO, AtomQueueTypes.PRIO]
 
