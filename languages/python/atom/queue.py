@@ -7,6 +7,8 @@ from multiprocessing import Queue
 from queue import Empty as QueueEmpty
 from typing import Generic, Optional, TypeVar
 
+from typing_extensions import Literal
+
 from atom import AtomError, LogLevel
 from atom.config import (
     FIFO_QUEUE_DEFAULT_MAX_LEN,
@@ -29,7 +31,6 @@ from atom.config import (
 )
 from atom.element import Element, MetricsPipeline, SetEmptyError
 from atom.metrics import MetricsHelper, MetricsTimingCall
-from typing_extensions import Literal
 
 T = TypeVar("T")
 

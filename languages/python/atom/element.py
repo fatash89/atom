@@ -17,8 +17,13 @@ from queue import LifoQueue, Queue
 from traceback import format_exc
 from typing import Any, Callable, Dict, Optional, Sequence, Union, cast
 
-import atom.serialization as atom_ser
 import redis
+from redis.client import Pipeline
+from redistimeseries.client import Client as RedisTimeSeries
+from redistimeseries.client import Pipeline as RedisTimeSeriesPipeline
+from typing_extensions import Literal, TypedDict
+
+import atom.serialization as atom_ser
 from atom.config import (
     ACK_TIMEOUT,
     ATOM_CALLBACK_FAILED,
@@ -72,10 +77,6 @@ from atom.messages import (
     StreamHandler,
     format_redis_py,
 )
-from redis.client import Pipeline
-from redistimeseries.client import Client as RedisTimeSeries
-from redistimeseries.client import Pipeline as RedisTimeSeriesPipeline
-from typing_extensions import Literal, TypedDict
 
 DuplicatePolicy = Literal["block", "first", "last", "min", "max"]
 CommandHandler = Callable[..., Response]
@@ -887,12 +888,12 @@ class Element:
 
     def parameter_list(self, pattern="*") -> list[str]:
         """
-        Lists all parameters with names matching a given pattern. 
+        Lists all parameters with names matching a given pattern.
 
-        Args: 
+        Args:
             pattern: Match pattern used to filter parameters, defaults to '*'
 
-        Returns: 
+        Returns:
             List of parameter keys
         """
         matches = self._redis_scan_keys(self._make_parameter_key(pattern))

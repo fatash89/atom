@@ -9,6 +9,9 @@ from threading import Thread
 import numpy as np
 import pytest
 import redis
+from msgpack import unpackb
+from redistimeseries.client import Client as RedisTimeSeries
+
 from atom import AtomError, Element, MetricsLevel, SetEmptyError
 from atom.config import (
     ATOM_CALLBACK_FAILED,
@@ -29,8 +32,6 @@ from atom.config import (
 )
 from atom.element import ElementConnectionTimeoutError
 from atom.messages import Response, StreamHandler
-from msgpack import unpackb
-from redistimeseries.client import Client as RedisTimeSeries
 
 pytest.caller_incrementor = 0
 pytest.responder_incrementor = 0
@@ -1278,7 +1279,7 @@ class TestAtom:
         data = {b"my_str": b"hello, world!"}
         key = "my_param"
         _ = caller.parameter_write(key, data, timeout_ms=0)
-        success = caller.parameter_delete(key)        
+        success = caller.parameter_delete(key)
         assert success == True
         del_data = caller.parameter_read(key)
         assert del_data is None
@@ -1289,11 +1290,17 @@ class TestAtom:
         caller, caller_name = caller
         assert len(caller.parameter_list()) == 0
         keys = ["str1", "str2", "other"]
-        _ = caller.parameter_write(keys[0], {b"k1": b"hello, world"}, serialization="msgpack")
+        _ = caller.parameter_write(
+            keys[0], {b"k1": b"hello, world"}, serialization="msgpack"
+        )
         assert set([keys[0]]) == set(caller.parameter_list())
         assert [] == caller.parameter_list("str2")
 
-        _ = caller.parameter_write(keys[1], {b"k1": b"hello, world!", b"str2": b"goodbye"}, serialization="msgpack")
+        _ = caller.parameter_write(
+            keys[1],
+            {b"k1": b"hello, world!", b"str2": b"goodbye"},
+            serialization="msgpack",
+        )
         assert set(keys[0:2]) == set(caller.parameter_list())
         assert set(keys[0:2]) == set(caller.parameter_list("str*"))
         assert [] == caller.parameter_list(b"other")

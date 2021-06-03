@@ -3,6 +3,9 @@ from __future__ import annotations
 import time
 from typing import Optional, cast
 
+from redis.client import Pipeline
+from redistimeseries.client import Pipeline as RedisTimeSeriesPipeline
+
 from atom.config import (
     METRICS_LEVEL_LABEL,
     METRICS_SUBTYPE_LABEL,
@@ -10,8 +13,6 @@ from atom.config import (
     MetricsLevel,
 )
 from atom.element import Element
-from redis.client import Pipeline
-from redistimeseries.client import Pipeline as RedisTimeSeriesPipeline
 
 
 class MetricsTimingCall(object):
