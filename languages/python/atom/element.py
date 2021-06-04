@@ -893,7 +893,7 @@ class Element:
         Args:
             pattern: Match pattern used to filter parameters,
                 defaults to '*'
-        Returns: 
+        Returns:
             List of parameters that match the given pattern.
         """
         pattern = "*" if pattern is None else pattern
