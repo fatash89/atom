@@ -1286,31 +1286,70 @@ class TestAtom:
         assert success == False
 
     def test_parameter_list(self, caller):
+        """
+        Writes parameters, verifies that parameter_list lists exactly
+        the parameters that exist at any point in time, and then cleans
+        up written parameters
+        """
         caller, caller_name = caller
         assert len(caller.parameter_list()) == 0
         keys = ["str1", "str2", "other"]
-        _ = caller.parameter_write(
-            keys[0], {b"k1": b"hello, world"}, serialization="msgpack"
-        )
+        data = [
+            {b"k1": b"hello, world"},
+            {b"k1": b"hello, world!", b"str2": b"goodbye"},
+            {b"k3": b"hello"},
+        ]
+        _ = caller.parameter_write(keys[0], data[0], serialization="msgpack")
         assert set([keys[0]]) == set(caller.parameter_list())
         assert [] == caller.parameter_list("str2")
+        assert [] == caller.parameter_list("other")
 
         _ = caller.parameter_write(
             keys[1],
-            {b"k1": b"hello, world!", b"str2": b"goodbye"},
+            data[1],
             serialization="msgpack",
         )
         assert set(keys[0:2]) == set(caller.parameter_list())
-        assert set(keys[0:2]) == set(caller.parameter_list("str*"))
-        assert [] == caller.parameter_list(b"other")
+        assert [] == caller.parameter_list("other")
 
-        _ = caller.parameter_write(keys[2], {b"k3": b"hello"})
+        _ = caller.parameter_write(keys[2], data[2], serialization="msgpack")
+
+        for i, key in enumerate(keys):
+            success = caller.parameter_delete(key)
+            assert success == True
+            assert set(keys[i + 1 :]) == set(caller.parameter_list())
+
+    def test_parameter_list_pattern_matching(self, caller):
+        """
+        Writes 3 parameters, tests that parameter_list can correctly
+        return parameters matching a few patterns, as described in
+        https://redis.io/commands/KEYS, then deletes the parameters.
+        """
+        caller, caller_name = caller
+        keys = ["str1", "str2", "spr2", "sppr2"]
+        data = [
+            {b"k1": b"hello, world"},
+            {b"k1": b"hello, world!", b"str2": b"goodbye"},
+            {b"k3": b"hello"},
+            {b"k1": b"hello, world!", b"str2": b"goodbye"},
+        ]
+        for i, key in enumerate(keys):
+            _ = caller.parameter_write(key, data[i], serialization="msgpack")
+
         assert set(keys) == set(caller.parameter_list())
         assert set(keys[0:2]) == set(caller.parameter_list("str*"))
+        assert ["spr2"] == caller.parameter_list("spr2")
+        assert ["str1"] == caller.parameter_list("str1")
+        assert ["str2"] == caller.parameter_list("str2")
         assert [] == caller.parameter_list("str")
+        assert set(["str2", "spr2"]) == set(caller.parameter_list("s?r2"))
+        assert set(["str2", "spr2", "sppr2"]) == set(caller.parameter_list("s*r2"))
+        assert ["str1"] == caller.parameter_list("str[^2]")
+        assert [] == caller.parameter_list("str[4-9]")
 
         for key in keys:
-            caller.parameter_delete(key)
+            success = caller.parameter_delete(key)
+            assert success == True
 
     def test_reference_basic(self, caller):
         caller, caller_name = caller
