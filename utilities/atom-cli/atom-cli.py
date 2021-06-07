@@ -257,7 +257,6 @@ class AtomCLI:
 
         # Deserialize
         for key, msgs in stream_entries:
-            print("stream entry key:", key)
             key = key.decode()
             for uid, entry in msgs:
                 entry = self.element._decode_entry(entry)
@@ -282,7 +281,6 @@ class AtomCLI:
                     finally:
                         entry[entry_key] = entry_value
                 entry["type"], entry["element"] = str(key).split(":")
-                print("Final print:", entry["type"], entry["element"])
         return sorted(entries, key=lambda x: (x["id"], x["type"]))
 
     def cmd_command(self, *args):
