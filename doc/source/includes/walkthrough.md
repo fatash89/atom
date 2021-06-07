@@ -373,12 +373,6 @@ $ docker exec -it atombot atom-cli
 > records cmdres atombot
 ```
 
-> <button class="copy-button" onclick='copyText(this, "records log")'>Copy</button> (CLI) See all log messages
-
-```shell_session
-> records log
-```
-
 > <button class="copy-button" onclick='copyText(this, "exit")'>Copy</button> (CLI) Exit CLI
 
 ```shell_session
@@ -425,8 +419,6 @@ Now that our atombot element is running, let's interact with it using `atom-cli`
     - Do `serialization arrow` to use Apache Arrow serialization
 - We can see the history of our commands by using the `records` command
     - `records cmdres atombot`
-- We can also see all of the logs that have been written so far
-    - `records log`
 - You can exit atom-cli by either
     - `exit`
     - CTRL+D
