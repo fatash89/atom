@@ -26,7 +26,7 @@ class AtomCLI:
         )
         self.session = PromptSession(style=self.style)
         self.print_atom_os_logo()
-        self.serialization : ser.SerializationMethod = "msgpack"
+        self.serialization: ser.SerializationMethod = "msgpack"
         self.cmd_map = {
             "help": self.cmd_help,
             "list": self.cmd_list,
@@ -237,9 +237,9 @@ class AtomCLI:
             print("No records.")
             return
         for record in records:
-            print(self.format_record(record))    
+            print(self.format_record(record))
 
-    def mode_cmdres(self, start_time : str, elements : "set[str]"):
+    def mode_cmdres(self, start_time: str, elements: "set[str]"):
         """
         Reads the command and response records from the provided elements.
         Args:
@@ -247,14 +247,14 @@ class AtomCLI:
             elements (list): The elements to get the command and response
                 records from.
         """
-        streams, records, entries = {}, [], []
+        streams, entries = {}, []
         for element in elements:
             streams[self.element._make_response_id(element)] = start_time
             streams[self.element._make_command_id(element)] = start_time
-       
+
         # Read data
         stream_entries = self.element._rclient.xread(streams)
-        
+
         # Deserialize
         for key, msgs in stream_entries:
             print("stream entry key:", key)
@@ -262,7 +262,8 @@ class AtomCLI:
             for uid, entry in msgs:
                 entry = self.element._decode_entry(entry)
                 serialization = self.element._get_serialization_method(
-                    entry, None, False)                        
+                    entry, None, False
+                )
                 entry = self.element._deserialize_entry(entry, method=serialization)
                 entry["id"] = uid.decode()
                 entries.append(entry)
@@ -273,11 +274,13 @@ class AtomCLI:
                             entry_value = entry_value.decode()
                     except Exception:
                         try:
-                            entry_value = ser.deserialize(entry_value, method=self.serialization)
+                            entry_value = ser.deserialize(
+                                entry_value, method=self.serialization
+                            )
                         except Exception:
                             pass
                     finally:
-                        entry[entry_key] = entry_value                    
+                        entry[entry_key] = entry_value
                 entry["type"], entry["element"] = str(key).split(":")
                 print("Final print:", entry["type"], entry["element"])
         return sorted(entries, key=lambda x: (x["id"], x["type"]))
