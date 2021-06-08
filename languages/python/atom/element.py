@@ -641,10 +641,7 @@ class Element:
             element_name: Name of the element to generate the id for.
             stream_name: Name of element_name's stream to generate the id for.
         """
-        if element_name is None:
-            return stream_name
-        else:
-            return f"stream:{element_name}:{stream_name}"
+        return f"stream:{element_name}:{stream_name}"
 
     def _make_metric_id(self, element_name: str, m_type: str, *m_subtypes: str) -> str:
         """

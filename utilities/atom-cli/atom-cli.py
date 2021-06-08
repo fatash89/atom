@@ -26,7 +26,7 @@ class AtomCLI:
         )
         self.session = PromptSession(style=self.style)
         self.print_atom_os_logo()
-        self.serialization = "msgpack"
+        self.serialization: ser.SerializationMethod = "msgpack"
         self.cmd_map = {
             "help": self.cmd_help,
             "list": self.cmd_list,
@@ -60,7 +60,6 @@ class AtomCLI:
                 Can filter records from the last N seconds or from certain elements.
 
                 Usage:
-                  records log [<last_N_seconds>] [<element>...]
                   records cmdres [<last_N_seconds>] <element>..."""
             ),
             "cmd_command": cleandoc(
@@ -221,9 +220,7 @@ class AtomCLI:
             start_time = "0"
             elements = set(args[1:])
 
-        if mode == "log":
-            records = self.mode_log(start_time, elements)
-        elif mode == "cmdres":
+        if mode == "cmdres":
             if not elements:
                 print(usage)
                 print(
@@ -242,28 +239,7 @@ class AtomCLI:
         for record in records:
             print(self.format_record(record))
 
-    def mode_log(self, start_time, elements):
-        """
-        Reads the logs from Atom's log stream.
-
-        Args:
-            start_time (str): The time from which to start reading logs.
-            elements (list): The elements on which to filter the logs for.
-        """
-        records = []
-        all_records = self.element.entry_read_since(
-            None, "log", start_time, serialization=None
-        )
-        for record in all_records:
-            if not elements or record["element"].decode() in elements:
-                record = {
-                    key: (value if isinstance(value, str) else value.decode())
-                    for key, value in record.items()
-                }  # Decode strings only which are required to
-                records.append(record)
-        return records
-
-    def mode_cmdres(self, start_time, elements):
+    def mode_cmdres(self, start_time: str, elements: "set[str]"):
         """
         Reads the command and response records from the provided elements.
         Args:
@@ -271,30 +247,41 @@ class AtomCLI:
             elements (list): The elements to get the command and response
                 records from.
         """
-        streams, records = [], []
+        streams, entries = {}, []
         for element in elements:
-            streams.append(self.element._make_response_id(element))
-            streams.append(self.element._make_command_id(element))
-        for stream in streams:
-            cur_records = self.element.entry_read_since(
-                None, stream, start_time, serialization=None
-            )
-            for record in cur_records:
-                for key, value in record.items():
+            streams[self.element._make_response_id(element)] = start_time
+            streams[self.element._make_command_id(element)] = start_time
+
+        # Read data
+        stream_entries = self.element._rclient.xread(streams)
+
+        # Deserialize
+        for key, msgs in stream_entries:
+            key = key.decode()
+            for uid, entry in msgs:
+                entry = self.element._decode_entry(entry)
+                serialization = self.element._get_serialization_method(
+                    entry, None, False
+                )
+                entry = self.element._deserialize_entry(entry, method=serialization)
+                entry["id"] = uid.decode()
+                entries.append(entry)
+
+                for entry_key, entry_value in entry.items():
                     try:
-                        if not isinstance(value, str):
-                            value = value.decode()
+                        if not isinstance(entry_value, str):
+                            entry_value = entry_value.decode()
                     except Exception:
                         try:
-                            value = ser.deserialize(value, method=self.serialization)
+                            entry_value = ser.deserialize(
+                                entry_value, method=self.serialization
+                            )
                         except Exception:
                             pass
-
                     finally:
-                        record[key] = value
-                record["type"], record["element"] = stream.split(":")
-                records.append(record)
-        return sorted(records, key=lambda x: (x["id"], x["type"]))
+                        entry[entry_key] = entry_value
+                entry["type"], entry["element"] = str(key).split(":")
+        return sorted(entries, key=lambda x: (x["id"], x["type"]))
 
     def cmd_command(self, *args):
         usage = self.usage["cmd_command"]
