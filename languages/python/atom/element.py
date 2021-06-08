@@ -886,6 +886,20 @@ class Element:
 
         return matches
 
+    def parameter_list(self, pattern: Optional[str] = None) -> list[str]:
+        """
+        Lists all parameters with names matching a given pattern.
+
+        Args:
+            pattern: Match pattern used to filter parameters,
+                defaults to '*'
+        Returns:
+            List of parameters that match the given pattern.
+        """
+        pattern = "*" if pattern is None else pattern
+        matches = self._redis_scan_keys(self._make_parameter_key(pattern))
+        return [x.split(":")[-1] for x in matches]
+
     def get_all_elements(self) -> list[str]:
         """
         Gets the names of all the elements connected to the Redis server.
