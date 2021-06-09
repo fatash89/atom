@@ -65,7 +65,7 @@
         "targets": [
           {
             "aggregation": "sum",
-            "bucket": "{{ bucket }}",
+            "bucket": {{ bucket }},
             "command": "ts.mrange",
             "filter": "element=monitor type=net subtype0=io subtype2=(bytes_sent,bytes_recv) agg={{ agg_label }}",
             "legend": "subtype1",
@@ -165,7 +165,7 @@
         "targets": [
           {
             "aggregation": "avg",
-            "bucket": "{{ bucket }}",
+            "bucket": {{ bucket }},
             "command": "ts.mrange",
             "filter": "element=monitor type=net subtype0=remote",
             "legend": "subtype1",
@@ -265,7 +265,7 @@
         "targets": [
           {
             "aggregation": "avg",
-            "bucket": "{{ bucket }}",
+            "bucket": {{ bucket }},
             "command": "ts.mrange",
             "filter": "element=monitor type=net subtype0=process",
             "legend": "subtype1",
@@ -365,7 +365,7 @@
         "targets": [
           {
             "aggregation": "avg",
-            "bucket": "{{ bucket }}",
+            "bucket": {{ bucket }},
             "command": "ts.mrange",
             "filter": "element=monitor type=net subtype0=kind",
             "legend": "subtype1",
