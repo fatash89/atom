@@ -99,6 +99,31 @@ class Response:
         self.err_code = err_code
         self.err_str = err_str
 
+    def __str__(self) -> str:
+        return (
+            f"err_code: {self.err_code}\nerr_str: {self.err_str}\nser: {self.ser}"
+            f"data: {self._get_data_str_or_type()}"
+        )
+
+    def __repr__(self) -> str:
+        return (
+            f"atom.messages.Response(data={self._get_data_str_or_type()}, "
+            f"err_code={self.err_code.__repr__()}, "
+            f"err_str={self.err_str.__repr__()}, "
+            f"serialization={self.ser.__repr__()})"
+        )
+
+    def _get_data_str_or_type(self) -> type | str:
+        """
+        Returns the data representation to be used by __str__ and __repr__. If
+        the serialization is None or arrow, return the type of the data.
+        Otherwise, return the __repr__ string of the deserialized data.
+        """
+        if self.ser in [None, "arrow"]:
+            return type(self.data)
+
+        return atom_ser.deserialize(self.data, method=self.ser).__repr__()
+
 
 class Entry:
     def __init__(self, field_data_map: dict[str, Any]):
