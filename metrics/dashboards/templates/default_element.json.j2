@@ -68,7 +68,7 @@
                 "targets": [
                     {
                         "aggregation": "count",
-                        "bucket": "{{ bucket }}",
+                        "bucket": {{ bucket }},
                         "command": "ts.mrange",
                         "fill": true,
                         "filter": "element={{ element }} type=atom:command_send agg={{ agg_label }} subtype0=runtime",
@@ -170,7 +170,7 @@
                 "targets": [
                     {
                         "aggregation": "avg",
-                        "bucket": "{{ bucket }}",
+                        "bucket": {{ bucket }},
                         "command": "ts.mrange",
                         "fill": true,
                         "filter": "element={{ element }} type=atom:command_send agg={{ agg_label }} subtype0=runtime",
@@ -272,7 +272,7 @@
                 "targets": [
                     {
                         "aggregation": "count",
-                        "bucket": "{{ bucket }}",
+                        "bucket": {{ bucket }},
                         "command": "ts.mrange",
                         "fill": true,
                         "filter": "element={{ element }} type=atom:command agg={{ agg_label }} subtype0=runtime",
@@ -374,7 +374,7 @@
                 "targets": [
                     {
                         "aggregation": "avg",
-                        "bucket": "{{ bucket }}",
+                        "bucket": {{ bucket }},
                         "command": "ts.mrange",
                         "fill": false,
                         "filter": "element={{ element }} type=atom:command agg={{ agg_label }} level=TIMING",
@@ -476,7 +476,7 @@
                 "targets": [
                     {
                         "aggregation": "count",
-                        "bucket": "{{ bucket }}",
+                        "bucket": {{ bucket }},
                         "command": "ts.mrange",
                         "fill": true,
                         "filter": "element={{ element }} type=atom:entry_write agg={{ agg_label }} subtype0=data",
@@ -578,7 +578,7 @@
                 "targets": [
                     {
                         "aggregation": "avg",
-                        "bucket": "{{ bucket }}",
+                        "bucket": {{ bucket }},
                         "command": "ts.mrange",
                         "fill": true,
                         "filter": "element={{ element }} type=atom:entry_write agg={{ agg_label }} level=TIMING",
@@ -680,7 +680,7 @@
                 "targets": [
                     {
                         "aggregation": "count",
-                        "bucket": "{{ bucket }}",
+                        "bucket": {{ bucket }},
                         "command": "ts.mrange",
                         "fill": true,
                         "filter": "element={{ element }} type=(atom:entry_read_n,atom:entry_read_since) agg={{ agg_label }} subtype0=data",
@@ -782,7 +782,7 @@
                 "targets": [
                     {
                         "aggregation": "avg",
-                        "bucket": "{{ bucket }}",
+                        "bucket": {{ bucket }},
                         "command": "ts.mrange",
                         "fill": false,
                         "filter": "element={{ element }} type=(atom:entry_read_n,atom:entry_read_since) agg={{ agg_label }} level=TIMING",
@@ -883,7 +883,7 @@
                 "targets": [
                     {
                         "aggregation": "count",
-                        "bucket": "{{ bucket }}",
+                        "bucket": {{ bucket }},
                         "command": "ts.mrange",
                         "fill": true,
                         "filter": "element={{ element }} type=atom:reference_create subtype0=data agg={{ agg_label }}",
@@ -984,7 +984,7 @@
                 "targets": [
                     {
                         "aggregation": "avg",
-                        "bucket": "{{ bucket }}",
+                        "bucket": {{ bucket }},
                         "command": "ts.mrange",
                         "filter": "element={{ element }} type=atom:reference_create agg={{ agg_label }} level=TIMING",
                         "legend": "element",
@@ -1086,7 +1086,7 @@
                 "targets": [
                     {
                         "aggregation": "count",
-                        "bucket": "{{ bucket }}",
+                        "bucket": {{ bucket }},
                         "command": "ts.mrange",
                         "fill": true,
                         "filter": "element={{ element }} type=atom:reference_get subtype0=data agg={{ agg_label }}",
@@ -1187,7 +1187,7 @@
                 "targets": [
                     {
                         "aggregation": "avg",
-                        "bucket": "{{ bucket }}",
+                        "bucket": {{ bucket }},
                         "command": "ts.mrange",
                         "filter": "element={{ element }} type=atom:reference_get agg={{ agg_label }} level=TIMING",
                         "legend": "element",
@@ -1287,7 +1287,7 @@
                 "targets": [
                     {
                         "aggregation": "sum",
-                        "bucket": "{{ bucket }}",
+                        "bucket": {{ bucket }},
                         "command": "ts.mrange",
                         "fill": true,
                         "filter": "element={{ element }} type=atom:reference_delete subtype0=count agg={{ agg_label }}",
@@ -1390,7 +1390,7 @@
                 "targets": [
                     {
                         "aggregation": "count",
-                        "bucket": "{{ bucket }}",
+                        "bucket": {{ bucket }},
                         "command": "ts.mrange",
                         "fill": true,
                         "filter": "element={{ element }} type=atom:reference_delete subtype0=delete agg={{ agg_label }}",
@@ -1493,7 +1493,7 @@
                 "targets": [
                     {
                         "aggregation": "avg",
-                        "bucket": "{{ bucket }}",
+                        "bucket": {{ bucket }},
                         "command": "ts.mrange",
                         "filter": "element={{ element }} type=atom:reference_delete subtype0=delete agg={{ agg_label }} level=TIMING",
                         "legend": "element",
@@ -1595,7 +1595,7 @@
                 "targets": [
                     {
                         "aggregation": "avg",
-                        "bucket": "{{ bucket }}",
+                        "bucket": {{ bucket }},
                         "command": "ts.mrange",
                         "fill": false,
                         "filter": "element={{ element }} type=atom:counter subtype1=value agg={{ agg_label }}",
@@ -1698,7 +1698,7 @@
                 "targets": [
                     {
                         "aggregation": "count",
-                        "bucket": "{{ bucket }}",
+                        "bucket": {{ bucket }},
                         "command": "ts.mrange",
                         "fill": true,
                         "filter": "element={{ element }} type=atom:counter subtype1=(set,update,get,delete) agg={{ agg_label }}",
@@ -1801,7 +1801,7 @@
                 "targets": [
                     {
                         "aggregation": "avg",
-                        "bucket": "{{ bucket }}",
+                        "bucket": {{ bucket }},
                         "command": "ts.mrange",
                         "fill": true,
                         "filter": "element={{ element }} type=atom:counter subtype1=(set,update,get,delete) agg={{ agg_label }}",
@@ -1904,7 +1904,7 @@
                 "targets": [
                     {
                         "aggregation": "count",
-                        "bucket": "{{ bucket }}",
+                        "bucket": {{ bucket }},
                         "command": "ts.mrange",
                         "fill": true,
                         "filter": "element={{ element }} type=atom:parameter agg={{ agg_label }}",
@@ -2007,7 +2007,7 @@
                 "targets": [
                     {
                         "aggregation": "avg",
-                        "bucket": "{{ bucket }}",
+                        "bucket": {{ bucket }},
                         "command": "ts.mrange",
                         "fill": true,
                         "filter": "element={{ element }} type=atom:parameter agg={{ agg_label }}",

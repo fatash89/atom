@@ -65,7 +65,7 @@
         "targets": [
           {
             "aggregation": "avg",
-            "bucket": "{{ bucket }}",
+            "bucket": {{ bucket }},
             "command": "ts.mrange",
             "filter": "element=monitor type=memory subtype0=virt subtype1=(total,used,free,active,inactive,available,buffers,cached,shared,slab) agg={{ agg_label }}",
             "legend": "subtype1",
@@ -165,7 +165,7 @@
         "targets": [
           {
             "aggregation": "avg",
-            "bucket": "{{ bucket }}",
+            "bucket": {{ bucket }},
             "command": "ts.mrange",
             "filter": "element=monitor type=process subtype1=mem_rss",
             "legend": "subtype0",
@@ -265,7 +265,7 @@
         "targets": [
           {
             "aggregation": "avg",
-            "bucket": "{{ bucket }}",
+            "bucket": {{ bucket }},
             "command": "ts.mrange",
             "filter": "element=monitor type=memory subtype0=swap subtype1=(total,used,free,sin,sout) agg={{ agg_label }}",
             "legend": "subtype1",
@@ -365,7 +365,7 @@
         "targets": [
           {
             "aggregation": "avg",
-            "bucket": "{{ bucket }}",
+            "bucket": {{ bucket }},
             "command": "ts.mrange",
             "filter": "element=monitor type=process subtype1=mem_vms",
             "legend": "subtype0",

@@ -65,7 +65,7 @@
         "targets": [
           {
             "aggregation": "avg",
-            "bucket": "{{ bucket }}",
+            "bucket": {{ bucket }},
             "command": "ts.mrange",
             "filter": "element=monitor type=process subtype1=cpu_system",
             "legend": "subtype0",
@@ -163,7 +163,7 @@
         "targets": [
           {
             "aggregation": "avg",
-            "bucket": "{{ bucket }}",
+            "bucket": {{ bucket }},
             "command": "ts.mrange",
             "filter": "element=monitor type=process subtype1=cpu_user",
             "legend": "subtype0",
@@ -261,7 +261,7 @@
         "targets": [
           {
             "aggregation": "avg",
-            "bucket": "{{ bucket }}",
+            "bucket": {{ bucket }},
             "command": "ts.mrange",
             "filter": "element=monitor type=process subtype1=cpu_iowait",
             "legend": "subtype0",
@@ -360,7 +360,7 @@
         "targets": [
           {
             "aggregation": "avg",
-            "bucket": "{{ bucket }}",
+            "bucket": {{ bucket }},
             "command": "ts.mrange",
             "filter": "element=monitor type=cpu subtype0=pct agg={{ agg_label }}",
             "legend": "subtype1",
@@ -459,7 +459,7 @@
         "targets": [
           {
             "aggregation": "sum",
-            "bucket": "{{ bucket }}",
+            "bucket": {{ bucket }},
             "command": "ts.mrange",
             "filter": "element=monitor type=sensor agg={{ agg_label }}",
             "legend": "subtype1",
@@ -559,7 +559,7 @@
         "targets": [
           {
             "aggregation": "avg",
-            "bucket": "{{ bucket }}",
+            "bucket": {{ bucket }},
             "command": "ts.mrange",
             "filter": "element=monitor type=cpu subtype0=freq agg={{ agg_label }}",
             "legend": "subtype1",

@@ -1,4 +1,4 @@
-FROM grafana/grafana
+FROM grafana/grafana:7.5.7
 
 # Use root user -- easier/better able to store configs locally.
 # THIS SHOULD NOT BE USED FOR NON-LOCAL SETUPS
@@ -34,7 +34,7 @@ WORKDIR /tmp/grafana-redis-datasource
 RUN npm install yarn -g && yarn install && yarn build
 
 # Build and install plugin
-RUN mage -v
+RUN set -x; mage -v build:linux$(arch | sed 's/x86_64//g' | sed 's/aarch64/ARM64/g')
 RUN mv dist/ /var/lib/grafana/plugins/redis-datasource
 
 # Add in our grafana config file
