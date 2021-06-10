@@ -1,0 +1,127 @@
+version: 2.1
+
+aliases:
+  - &intel_build_executor atom/build-ubuntu
+  - &arm_build_executor atom/build-ubuntu-arm
+  - &build_args
+      target_image: << pipeline.parameters.dockerhub_repo >>
+      target_tag: build-<< pipeline.number >>
+      cache_repo: << pipeline.parameters.dockerhub_repo >>
+      atom_tag: << pipeline.parameters.atom_tag >>
+      atom_type: << pipeline.parameters.atom_type >>
+      use_cache: << pipeline.parameters.use_cache >>
+  - &test_args
+      test_image: << pipeline.parameters.dockerhub_repo >>
+      atom_tag: << pipeline.parameters.atom_tag >>
+      test_tag: build-<< pipeline.number >>
+  - &deploy_args
+      source_image: << pipeline.parameters.dockerhub_repo >>
+      source_tag: build-<< pipeline.number >>
+      target_image: << pipeline.parameters.dockerhub_repo >>
+      platforms: "x86_64 aarch64"
+      requires:
+        - *intel_build_executor
+        - *arm_build_executor
+
+parameters:
+  dockerhub_repo:
+    type: string
+    default: #TODO: add in dockerhub repo
+  atom_tag:
+    type: string
+    default: #TODO: add in atom version
+  atom_type:
+    type: string
+    default: #TODO: add in atom type from ["", "-cv", "-cuda", "-vnc"]
+  use_cache:
+    type: boolean
+    default: true
+
+orbs:
+  atom: elementaryrobotics/atom@0.3.4
+
+workflows:
+  version: 2
+  build-all:
+    jobs:
+
+      #
+      # Build
+      #
+      - atom/build_element:
+          name: "<< matrix.executor >>"
+          << : *build_args
+          matrix:
+            parameters:
+              executor: [ *intel_build_executor, *arm_build_executor]
+          filters:
+            tags:
+              only: /.*/
+
+      #
+      # Test
+      #
+
+      # Formatting check
+      - atom/check_formatting
+
+      # Test
+      - atom/test:
+          name: "test-<< matrix.test_cmd >>-<< matrix.executor >>"
+          << : *test_args
+          matrix:
+            parameters:
+              executor: [ *intel_build_executor, *arm_build_executor ]
+              test_cmd:
+                - echo "write some tests!"
+          requires:
+            - << matrix.executor >>
+          filters:
+            tags:
+              only: /.*/
+
+      #
+      # Deploy
+      #
+
+      # Deploy development
+      - atom/deploy:
+          name: "deploy-development"
+          << : *deploy_args
+          target_tag: development-<< pipeline.number >>
+          filters:
+            branches:
+              ignore:
+                - latest
+
+      # Deploy versioned latest
+      - atom/deploy:
+          name: "deploy-versioned-latest"
+          << : *deploy_args
+          target_tag: latest-<< pipeline.number >>
+          filters:
+            branches:
+              only:
+                - latest
+
+      # Deploy  latest
+      - atom/deploy:
+          name: "deploy-latest"
+          << : *deploy_args
+          target_tag: latest
+          filters:
+            branches:
+              only:
+                - latest
+
+      # Deploy tag
+      - atom/deploy:
+          name: "deploy-tag"
+          << : *deploy_args
+          target_tag: ${CIRCLE_TAG}
+          filters:
+            branches:
+              ignore:
+                - /.*/
+            tags:
+              only: /.*/

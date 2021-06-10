@@ -142,7 +142,7 @@ class TestQueue(object):
         keys = set(METRICS_QUEUE_SHARED_KEYS)
 
         # Make sure all of the metrics keys are created
-        metrics_keys = set(metrics_redis.redis.keys(f"queue:*"))
+        metrics_keys = set(metrics_redis.redis.keys("queue:*"))
         expected_keys = set(
             [self._make_metrics_key(test_q, queue_type, x) for x in keys]
         )

@@ -1,4 +1,4 @@
-FROM alpine/flake8:3.7.0
+FROM alpine/flake8:3.8.4
 
 ADD ./requirements.txt .
 

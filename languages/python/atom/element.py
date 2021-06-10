@@ -643,10 +643,7 @@ class Element:
             element_name: Name of the element to generate the id for.
             stream_name: Name of element_name's stream to generate the id for.
         """
-        if element_name is None:
-            return stream_name
-        else:
-            return f"stream:{element_name}:{stream_name}"
+        return f"stream:{element_name}:{stream_name}"
 
     def _make_metric_id(self, element_name: str, m_type: str, *m_subtypes: str) -> str:
         """
@@ -887,6 +884,20 @@ class Element:
                 break
 
         return matches
+
+    def parameter_list(self, pattern: Optional[str] = None) -> list[str]:
+        """
+        Lists all parameters with names matching a given pattern.
+
+        Args:
+            pattern: Match pattern used to filter parameters,
+                defaults to '*'
+        Returns:
+            List of parameters that match the given pattern.
+        """
+        pattern = "*" if pattern is None else pattern
+        matches = self._redis_scan_keys(self._make_parameter_key(pattern))
+        return [x.split(":")[-1] for x in matches]
 
     def get_all_elements(self) -> list[str]:
         """
@@ -1402,7 +1413,7 @@ class Element:
                     )
                 except redis.exceptions.ResponseError:
                     self.logger.error(
-                        f"Recieved redis ResponseError.  Possible attempted "
+                        "Recieved redis ResponseError.  Possible attempted "
                         "XREADGROUP on closed stream %s (is shutdown: %s).  "
                         "Please ensure you have performed the command_loop_shutdown"
                         " command on the object running command_loop."

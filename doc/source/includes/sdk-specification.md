@@ -1860,6 +1860,44 @@ PERSIST $key
 PEXPIRE $key $timeout_ms
 ```
 
+## List Parameters
+
+```python
+keys = ["str11", "str2", "spr2"]
+data = [
+    {b"k1": b"hello, world"},
+    {b"k1": b"hello, world!", b"str2": b"goodbye"},
+    {b"k3": b"hello"}
+]
+caller.parameter_write(keys[0], data[0])
+caller.parameter_write(keys[1], data[1])
+caller.parameter_write(keys[2], data[2])
+
+all_parameters = my_element.parameter_list()
+# all_parameters should be a list containing 'str11', 'str2', 'spr2'
+
+str_parameters = my_element.parameter_list('str*')
+# str_parameters should be a list containing 'str11', 'str2'
+
+matched_parameters = my_element.parameter_list('s?r2')
+# matched_parameters should be a list containing 'str2', 'spr2'
+```
+
+Returns a list of parameter keys currently stored by redis. With no arguments this returns the keys for all parameters. A string argument can be used to filter the keys listed using the pattern matching features detailed in the Redis documentation for [KEYS](https://redis.io/commands/KEYS). The default behavior with no string argument is identical to having passed in the argument `'*'`.
+### API
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `pattern` | str  | Pattern used to filter the parameter keys listed. Defaults to `None`, which corresponds to no filter being applied, and all keys being listed. |
+
+### Return Value
+
+List of parameter keys matching the pattern argument if one is provided, or all parameter keys if no pattern is given.
+
+### Spec
+
+Repeatedly call SCAN with a match pattern `pat` to iterate through all keys where `pat = parameter:pattern` for the given argument `pattern`.
+
 ## Set Counter
 
 ```python

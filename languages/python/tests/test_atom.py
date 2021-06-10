@@ -1131,7 +1131,7 @@ class TestAtom:
         success = caller.parameter_delete(key)
         assert success == True
 
-    def test_parameter_write_override_false(sef, caller):
+    def test_parameter_write_override_false(self, caller):
         """
         Writes parmaeter with override not allowed. Tries updating
         existing field and verifies that exception is raised. Reads
@@ -1150,7 +1150,7 @@ class TestAtom:
         success = caller.parameter_delete(key)
         assert success == True
 
-    def test_parameter_write_override_false_allows_new_key(sef, caller):
+    def test_parameter_write_override_false_allows_new_key(self, caller):
         """
         Writes parameter with override not allowed. Tries adding new field
         to parameter and verifies new field was successfully added.
@@ -1284,6 +1284,74 @@ class TestAtom:
         assert del_data is None
         success = caller.parameter_delete(key)
         assert success == False
+
+    def test_parameter_list(self, caller):
+        """
+        Writes parameters, verifies that parameter_list lists exactly
+        the parameters that exist at any point in time, and then cleans
+        up written parameters
+        """
+        caller, caller_name = caller
+        assert len(caller.parameter_list()) == 0
+        keys = ["str1", "str2", "other"]
+        data = [
+            {b"k1": b"hello, world"},
+            {b"k1": b"hello, world!", b"str2": b"goodbye"},
+            {b"k3": b"hello"},
+        ]
+        _ = caller.parameter_write(keys[0], data[0], serialization="msgpack")
+        assert set([keys[0]]) == set(caller.parameter_list())
+        assert [] == caller.parameter_list("str2")
+        assert [] == caller.parameter_list("other")
+
+        _ = caller.parameter_write(
+            keys[1],
+            data[1],
+            serialization="msgpack",
+        )
+        assert set(keys[0:2]) == set(caller.parameter_list())
+        assert [] == caller.parameter_list("other")
+
+        _ = caller.parameter_write(keys[2], data[2], serialization="msgpack")
+
+        assert set(keys) == set(caller.parameter_list())
+
+        for i, key in enumerate(keys):
+            success = caller.parameter_delete(key)
+            assert success == True
+            assert set(keys[i + 1 :]) == set(caller.parameter_list())
+
+    def test_parameter_list_pattern_matching(self, caller):
+        """
+        Writes 3 parameters, tests that parameter_list can correctly
+        return parameters matching a few patterns, as described in
+        https://redis.io/commands/KEYS, then deletes the parameters.
+        """
+        caller, caller_name = caller
+        keys = ["str1", "str2", "spr2", "sppr2"]
+        data = [
+            {b"k1": b"hello, world"},
+            {b"k1": b"hello, world!", b"str2": b"goodbye"},
+            {b"k3": b"hello"},
+            {b"k1": b"hello, world!", b"str2": b"goodbye"},
+        ]
+        for i, key in enumerate(keys):
+            _ = caller.parameter_write(key, data[i], serialization="msgpack")
+
+        assert set(keys) == set(caller.parameter_list())
+        assert set(keys[0:2]) == set(caller.parameter_list("str*"))
+        assert ["spr2"] == caller.parameter_list("spr2")
+        assert ["str1"] == caller.parameter_list("str1")
+        assert ["str2"] == caller.parameter_list("str2")
+        assert [] == caller.parameter_list("str")
+        assert set(["str2", "spr2"]) == set(caller.parameter_list("s?r2"))
+        assert set(["str2", "spr2", "sppr2"]) == set(caller.parameter_list("s*r2"))
+        assert ["str1"] == caller.parameter_list("str[^2]")
+        assert [] == caller.parameter_list("str[4-9]")
+
+        for key in keys:
+            success = caller.parameter_delete(key)
+            assert success == True
 
     def test_reference_basic(self, caller):
         caller, caller_name = caller
@@ -1769,7 +1837,7 @@ class TestAtom:
             e = self._element_create(
                 "timeout-element-1", host="10.255.255.1", conn_timeout_ms=2000
             )
-            assert e._redis_connetion_timeout == 2.0
+            assert e._redis_connection_timeout == 2.0
             e._rclient.keys()
 
         now = time.time()
