@@ -125,6 +125,15 @@ circleci orb publish promote elementaryrobotics/atom@dev:some-tag patch
 
 ### Release Notes
 
+#### [v0.3.5](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.3.5)
+
+##### New Features
+
+Minor change to formatting check.
+
+- Optional argument `update_submodules` which will do a submodule clone before formatting check. This is useful for isort. Default false, won't break anything as such on upgrade.
+- Additional `isort_exclude` argument
+
 #### [v0.3.4](https://circleci.com/orbs/registry/orb/elementaryrobotics/atom?version=0.3.4)
 
 ##### New Features
