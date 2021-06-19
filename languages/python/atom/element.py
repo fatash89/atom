@@ -2276,6 +2276,7 @@ class Element:
         self,
         stream_name: str,
         field_data_map: dict[str, Any],
+        element_name: str = None,
         maxlen: int = STREAM_LEN,
         serialization: Optional[atom_ser.SerializationMethod] = None,
         serialize: Optional[bool] = None,
@@ -2288,6 +2289,8 @@ class Element:
             stream_name: The stream to add the data to.
             field_data_map: Dict which creates the Entry. See messages. Entry
                 for more usage.
+            element_name: str name of element to make stream ID for, will
+                default to this element's name if not specified
             maxlen: The maximum number of data to keep in the stream.
             serialization: Method of serialization to use; defaults to None.
 
@@ -2327,11 +2330,16 @@ class Element:
             entry = Entry(ser_field_data_map)
             self.metrics_timing_end(metrics["serialize"], pipeline=pipeline)
 
+            # Assign default element name if not specified
+            element_name = element_name if element_name else self.name
+
             # Write Data
             self.metrics_timing_start(metrics["data"])
             _pipe = self._rpipeline_pool.get()
             _pipe.xadd(
-                self._make_stream_id(self.name, stream_name), vars(entry), maxlen=maxlen
+                self._make_stream_id(element_name, stream_name),
+                vars(entry),
+                maxlen=maxlen,
             )
             ret = _pipe.execute()
             _pipe = self._release_pipeline(_pipe)
