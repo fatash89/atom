@@ -241,6 +241,27 @@ class TestAtom:
         assert entries[0]["data"] == b"9"
         assert entries[-1]["data"] == b"5"
 
+    def test_add_entry_with_override_element_name(self, caller, responder):
+        """
+        Adds an entry to the responder stream with a fake element name and
+        makes sure that entry is on correct stream.
+        """
+        caller, caller_name = caller
+        responder, responder_name = responder
+
+        responder.entry_write(
+            "test_stream", {"data": "fake"}, element_name="fake_element"
+        )
+
+        # assert that entries are on override element stream
+        entries = caller.entry_read_since("fake_element", "test_stream", last_id=0)
+        assert len(entries) == 1
+        assert entries[0]["data"] == b"fake"
+
+        # assert that writing element stream is empty
+        entries = caller.entry_read_since(responder_name, "test_stream", last_id=0)
+        assert len(entries) == 0
+
     def test_add_entry_and_get_n_most_recent_legacy_serialize(self, caller, responder):
         """
         Adds 10 entries to the responder's stream with legacy serialization
