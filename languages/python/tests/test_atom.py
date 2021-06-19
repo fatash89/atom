@@ -262,6 +262,9 @@ class TestAtom:
         entries = caller.entry_read_since(responder_name, "test_stream", last_id=0)
         assert len(entries) == 0
 
+        # clean up stream (necessary since it doesn't belong to a real element)
+        caller._rclient.unlink("stream:fake_element:test_stream")
+
     def test_add_entry_and_get_n_most_recent_legacy_serialize(self, caller, responder):
         """
         Adds 10 entries to the responder's stream with legacy serialization
