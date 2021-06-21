@@ -501,20 +501,31 @@ class Element:
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"
 
-    def clean_up_stream(self, stream: str) -> None:
+    def clean_up_stream(self, stream: str, element_name: str = None) -> None:
         """
         Deletes the specified stream.
 
         Args:
             stream: The stream to delete.
+            element_name: (optional) Name of element to make stream ID from.
+                If not specified, will use this element's name and check that
+                stream exists on this element.
         """
-        if stream not in self.streams:
-            raise RuntimeError(
-                "Stream '%s' is not present in Element "
-                "streams (element: %s)" % (stream, self.name),
-            )
-        self._rclient.unlink(self._make_stream_id(self.name, stream))
-        self.streams.remove(stream)
+        # Set default element name
+        if not element_name:
+            element_name = self.name
+
+        if element_name == self.name:
+            # check that stream exists before removing it from this element
+            if stream not in self.streams:
+                raise RuntimeError(
+                    "Stream '%s' is not present in Element "
+                    "streams (element: %s)" % (stream, element_name),
+                )
+
+            self.streams.remove(stream)
+
+        self._rclient.unlink(self._make_stream_id(element_name, stream))
 
     def _clean_up(self) -> None:
         """Clean up everything for the element"""
@@ -2308,7 +2319,12 @@ class Element:
         # Get a metrics pipeline
         with MetricsPipeline(self) as pipeline:
 
-            self.streams.add(stream_name)
+            # Assign default element name if not specified
+            element_name = element_name if element_name else self.name
+
+            if element_name == self.name:
+                self.streams.add(stream_name)
+
             field_data_map = format_redis_py(field_data_map)
 
             if serialize is not None:  # check for deprecated legacy mode
@@ -2329,9 +2345,6 @@ class Element:
             )
             entry = Entry(ser_field_data_map)
             self.metrics_timing_end(metrics["serialize"], pipeline=pipeline)
-
-            # Assign default element name if not specified
-            element_name = element_name if element_name else self.name
 
             # Write Data
             self.metrics_timing_start(metrics["data"])

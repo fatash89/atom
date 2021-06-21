@@ -392,6 +392,20 @@ class TestAtom:
         assert "clean_me" not in responder.streams
         self._assert_cleaned_up(responder)
 
+    def test_clean_up_stream_element_name(self, caller, responder):
+        """
+        Ensures an element can clean up a stream with a different element
+        name.
+        """
+        responder, responder_name = responder
+        responder.entry_write("clean_me", {"data": 0}, element_name="fake")
+
+        # have responder element clean up stream with fake element name
+        responder.clean_up_stream("clean_me", element_name="fake")
+
+        stream_exists = responder._rclient.exists("stream:clean_me:fake")
+        assert not stream_exists
+
     def test_clean_up(self, responder):
         """
         Ensures that a responder can be removed from Redis
