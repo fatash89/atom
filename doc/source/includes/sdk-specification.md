@@ -165,6 +165,10 @@ my_element.entry_write("my_stream", field_data_map, maxlen=512)
 # A "ser" key will be added to the entry with the serialization method used to serialize ("none" if not serialized).
 field_data_map = {"hello": 0, "atom": ["a", "t", "o", "m"]}
 my_element.entry_write("my_stream", field_data_map, maxlen=512, serialization="msgpack")
+
+# It is also possible to write to a stream that belongs to an element other than the calling element. For example, "my_element"
+# can write to a stream associated with "another_element".
+my_element.entry_write("my_stream", field_data_map, element_name="another_element")
 ```
 
 Publish a piece of data to a stream.
@@ -175,6 +179,7 @@ Publish a piece of data to a stream.
 |-----------|------|-------------|
 | `name` | string | Stream name |
 | `data` | map | key:value pairs of data to publish |
+| `element_name` | string | Optional: name of element stream belongs to. Defaults to calling element |
 | `maxlen` | int | Maximum length of stream. Optional. Default 1024 |
 | `serialization` | string | Type of serialization to use when publishing the entry |
 

@@ -241,6 +241,30 @@ class TestAtom:
         assert entries[0]["data"] == b"9"
         assert entries[-1]["data"] == b"5"
 
+    def test_add_entry_with_override_element_name(self, caller, responder):
+        """
+        Adds an entry to the responder stream with a fake element name and
+        makes sure that entry is on correct stream.
+        """
+        caller, caller_name = caller
+        responder, responder_name = responder
+
+        responder.entry_write(
+            "test_stream", {"data": "fake"}, element_name="fake_element"
+        )
+
+        # assert that entries are on override element stream
+        entries = caller.entry_read_since("fake_element", "test_stream", last_id=0)
+        assert len(entries) == 1
+        assert entries[0]["data"] == b"fake"
+
+        # assert that writing element stream is empty
+        entries = caller.entry_read_since(responder_name, "test_stream", last_id=0)
+        assert len(entries) == 0
+
+        # clean up stream (necessary since it doesn't belong to a real element)
+        caller._rclient.unlink("stream:fake_element:test_stream")
+
     def test_add_entry_and_get_n_most_recent_legacy_serialize(self, caller, responder):
         """
         Adds 10 entries to the responder's stream with legacy serialization
@@ -367,6 +391,20 @@ class TestAtom:
         )
         assert "clean_me" not in responder.streams
         self._assert_cleaned_up(responder)
+
+    def test_clean_up_stream_element_name(self, caller, responder):
+        """
+        Ensures an element can clean up a stream with a different element
+        name.
+        """
+        responder, responder_name = responder
+        responder.entry_write("clean_me", {"data": 0}, element_name="fake")
+
+        # have responder element clean up stream with fake element name
+        responder.clean_up_stream("clean_me", element_name="fake")
+
+        stream_exists = responder._rclient.exists("stream:clean_me:fake")
+        assert not stream_exists
 
     def test_clean_up(self, responder):
         """
