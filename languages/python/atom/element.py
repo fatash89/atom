@@ -42,7 +42,6 @@ from atom.config import (
     METRICS_AGGREGATION_LABEL,
     METRICS_AGGREGATION_TYPE_LABEL,
     METRICS_ATOM_VERSION_LABEL,
-    METRICS_DEFAULT_AGG_TIMING,
     METRICS_DEFAULT_RETENTION,
     METRICS_DEVICE_LABEL,
     METRICS_ELEMENT_LABEL,
@@ -4215,7 +4214,7 @@ class Element:
         *m_subtypes: str,
         retention: int = METRICS_DEFAULT_RETENTION,
         labels: Optional[dict] = None,
-        agg_timing: list[tuple[int, int]] = METRICS_DEFAULT_AGG_TIMING,
+        agg_timing: Optional[list[tuple[int, int]]] = None,
         agg_types: Optional[list[str]] = None,
         duplicate_policy: DuplicatePolicy = "last",
     ) -> Optional[str]:
@@ -4293,7 +4292,7 @@ class Element:
         #   over the time buckets and apply the aggregation types requested
         _rules = {}
 
-        if self._metrics_use_aggregation:
+        if self._metrics_use_aggregation and agg_timing is not None:
             for agg in agg_types:
                 for timing in agg_timing:
                     _rule_key = self._make_metric_id(
