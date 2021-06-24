@@ -107,7 +107,7 @@ class AtomPrioQueue(AtomQueue, Generic[T]):
                 any valid element, won't be remembered or used again outside of
                 this call.
             max_highest_prio: Default False. If False, the minimum value in the
-                queue is considered to be the highest priority. If False, the
+                queue is considered to be the highest priority. If True, the
                 maximum is considered to be the highest priority. We can support
                 either.
             max_len: Maximum length of the queue. If this number is exceeded in

@@ -321,7 +321,7 @@ Labels can be seen using `docker image inspect` on any image.
 Basic config, added to workflow as above will run `black` and `flake8` checks on the entire repository with no exclusions. To customize exclusions (see flake8/black docs for string syntax):
 
 ```
-  - atom/check_formatting
+  - atom/check_formatting:
       flake8_exclude: "dir1,dir2"
       black_exclude: "dir1|dir2"
 
@@ -329,7 +329,7 @@ Basic config, added to workflow as above will run `black` and `flake8` checks on
 
 To turn off `black` and only check `flake8`:
 ```
-  - atom/check_formatting
+  - atom/check_formatting:
       use_black: ""
 ```
 
