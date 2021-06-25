@@ -48,6 +48,12 @@ METRICS_AGGREGATION_LABEL = "agg"
 METRICS_AGGREGATION_TYPE_LABEL = "agg_type"
 # Metrics default retention -- 10 minutes of raw data
 METRICS_DEFAULT_RETENTION = 600000
+# Metrics default chunk size. Minimum amount of memory allocated
+#   to each stream. RTS default is 4000. Should be smaller since we make
+#   a lot of streams that don't necessarily have a ton of data
+#
+# https://oss.redislabs.com/redistimeseries/commands/
+METRICS_DEFAULT_CHUNK_SIZE = 1000
 
 # Queue metrics
 METRICS_QUEUE_TYPE = "queue"
