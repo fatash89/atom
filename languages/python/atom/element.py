@@ -42,6 +42,7 @@ from atom.config import (
     METRICS_AGGREGATION_LABEL,
     METRICS_AGGREGATION_TYPE_LABEL,
     METRICS_ATOM_VERSION_LABEL,
+    METRICS_DEFAULT_CHUNK_SIZE,
     METRICS_DEFAULT_RETENTION,
     METRICS_DEVICE_LABEL,
     METRICS_ELEMENT_LABEL,
@@ -4124,6 +4125,7 @@ class Element:
                 retention_msecs=retention,
                 labels=_labels,
                 duplicate_policy=duplicate_policy,
+                chunk_size=METRICS_DEFAULT_CHUNK_SIZE,
             )
         # Key already exists
         except redis.exceptions.ResponseError:
@@ -4189,6 +4191,7 @@ class Element:
                         retention_msecs=rules[rule][2],
                         labels=_rule_labels,
                         duplicate_policy=duplicate_policy,
+                        chunk_size=METRICS_DEFAULT_CHUNK_SIZE,
                     )
                 except redis.exceptions.ResponseError:
                     pass
