@@ -1,31 +1,15 @@
-version: "2.3"
+version: "3.4"
 
 services:
 
   nucleus:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: nucleus
-      args:
-        STOCK_IMAGE: ubuntu:focal-20210416
-        ATOM_BASE: atom-base
-
-  metrics:
-    build:
-      context: .
-      dockerfile: metrics/Dockerfile
+    image: elementaryrobotics/nucleus:local-dev
 
   atom:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: test
-      args:
-        STOCK_IMAGE: ubuntu:focal-20210416
-        ATOM_BASE: atom-base
+    image: elementaryrobotics/atom:local-dev
+
+  metrics:
+    image: elementaryrobotics/metrics:local-dev
 
   formatting:
-    build:
-      context: ./utilities/formatting
-      dockerfile: Dockerfile
+    image: elementaryrobotics/formatter:local-dev
