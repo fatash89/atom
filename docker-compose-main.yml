@@ -1,16 +1,9 @@
-version: "2.3"
+version: "3.4"
 
 services:
 
   nucleus:
     container_name: nucleus
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: nucleus
-      args:
-        STOCK_IMAGE: ubuntu:focal-20210416
-        ATOM_BASE: atom-base
     volumes:
       - type: volume
         source: shared
@@ -37,9 +30,6 @@ services:
 
   metrics:
     container_name: metrics
-    build:
-      context: .
-      dockerfile: metrics/Dockerfile
     volumes:
       - type: volume
         source: shared
@@ -56,13 +46,6 @@ services:
 
   atom:
     container_name: atom
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: test
-      args:
-        STOCK_IMAGE: ubuntu:focal-20210416
-        ATOM_BASE: atom-base
     volumes:
       - type: volume
         source: shared
@@ -80,9 +63,6 @@ services:
 
   formatting:
     container_name: formatting
-    build:
-      context: ./utilities/formatting
-      dockerfile: Dockerfile
     volumes:
       - ".:/code"
       - "./utilities/formatting/run.sh:/usr/local/bin/run.sh"

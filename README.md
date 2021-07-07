@@ -72,37 +72,48 @@ Please see the [Redis Talks and Slides](https://github.com/elementary-robotics/a
 
 ## Developing for Atom
 
-### Quickstart
+### Update Submodules
 
-After cloning the repo, clone all submodules with
+It's always a good idea to ensure your submodules are up-to-date. Run this command after cloning the repo and/or updating your branch
+
 ```
 git submodule update --init --recursive
 ```
 
-It's best to do all developmental testing and building within
-the docker containers. The easiest way to do this is to mount the
-current directory into the latest atom image that's been built and
-develop from there.
+### Quickstart
 
-This is done automatically in the [`docker-compose.yml`](docker-compose.yml)
-supplied in this repo through code similar to the below.
+There are two ways to develop for Atom:
+1. Link your python application-level code into a prebuilt Atom docker image
+2. Re-build the Atom docker image
 
-```yaml
-    volumes:
-      - ".:/atom"
-```
+Most client-level changes should be able to use path #1. It's significantly easier, and the test/build process is simpler. The quickstart section here will cover path #1, see the [Building Docker Images](#Building-Docker-Images) section for more detail on how to rebuild the container.
 
-The recommended workflow for development is then to execute:
+To launch the latest production Atom images with the code from your local repos linked in for quick development, run:
 
 ```
-$ docker-compose pull
-$ docker-compose up -d
-$ docker exec -it atom bash
+docker-compose -f docker-compose-main.yml -f docker-compose-run.yml up -d
 ```
 
-This will open up a shell within the most recent build of atom. This repo
-will be mounted into the container at `/atom` and from there you can test
-changes to the code.
+You can then run
+
+```
+docker exec -it atom bash
+```
+
+To pull up a shell in the atom docker image and go ahead developing from there for your language of choice. The code from this local repository will be linked into the container at `/atom`, so you can do things (within the container) like:
+
+```
+cd /atom/languages/python && python setup.py install && pytest
+```
+```
+cd /atom/languages/cpp && make install && make test
+```
+
+To stop the containers
+
+```
+docker-compose -f docker-compose-main.yml -f docker-compose-run.yml down -t0
+```
 
 ### Next Steps
 
@@ -127,26 +138,44 @@ git submodule update --init --recursive
 
 This will pull all of the proper dependencies.
 
-### Default Build
+### Set up buildx
+
+We want to use the buildkit/buildx frontend for Docker, as this gives us some nifty features we rely on for the atom build.
+
+We first want to enable using the buildx builder
 
 ```
-$ docker-compose -f docker-compose-dev.yml build
+export DOCKER_CLI_EXPERIMENTAL=enabled
 ```
 
-### Build Arguments
+The commands below will install the expected version (0.8.3) and set it as the default buildx version
 
-You can pass the following build arguments to the build as well. To do this,
-simply edit the `args` section of the `docker-compose-dev.yml` to include/update
-variables of your choice:
+```
+docker buildx ls | grep "build-v0.8.3" || docker buildx create --name build-v0.8.3 --driver docker-container --driver-opt image=moby/buildkit:v0.8.3,network=host
+docker buildx use --default build-v0.8.3
+docker buildx inspect --bootstrap
+```
 
-| Arg | Default | Description |
-|-----|---------|-------------|
-| `STOCK_IMAGE` | `ubuntu:focal-20210416` | Which image to build from. Should work with most things debian-based |
-| `ATOM_BASE` | `atom-base` | Which stage of the [Dockerfile](Dockerfile) to use as the "base" for Atom. Should be an option from the [Bases Table](#Bases) table. Docker will build this stage and than put the `atom` stage atop it for the final image |
+### Building all docker images
 
-#### Bases
+There are four docker images to build for this repository:
+- `atom`
+- `nucleus`
+- `metrics`
+- `formatter`
 
-Atom has the following bases available
+If we look at [`docker-compose-build.yml`](docker-compose-build.yml), it expects us to have a version of each image tagged `local-dev`. The commands in this section will allow you to build all of these `local-dev` images.
+
+We do not use `docker-compose build` here, and instead build each of the tags directly. This is because `docker-compose build` does not have good support for the `buildx` frontend and all of its options as of yet.
+
+The primary docker images built in this repo are `atom` and `nucleus`. `metrics` and `formatter` are helper images that serve minor roles. As such, more info/documentation is needed for the `atom` and `nucleus` builds, so the following sections below apply only to the `atom` and `nucleus` builds:
+
+- Docker Image Bases
+- Build Argumens
+
+### Docker Image Bases
+
+Atom has the following bases available. A base is a stage in the multi-stage [Dockerfile](Dockerfile) which we then add the atom application-level code atom to create the output image. With the new `buildx` frontend, we can selectively apply the final `atom` stage of the multi-stage Dockerfile atop any other build stage in the Dockerfile which is pretty nifty. The table below describes the base stages which can be used
 
 | Name | Description |
 |------|-------------|
@@ -155,10 +184,23 @@ Atom has the following bases available
 | `atom-base-vnc` | Adds in NoVNC atop `atom-base-cv` |
 | `atom-base-cuda` | Adds in additional CUDA dependencies atop `atom-base-cv` |
 
+### Build Arguments
+
+You can pass the following build arguments to the build. You'll see them in each of the pre-compiled build commands below and you can override/edit as you'd like.
+
+The build arguments primarily control which docker image we should begin our atom build with, and which base from the table above we should build before putting the application-level Atom code atop it.
+
+| Arg | Default | Description |
+|-----|---------|-------------|
+| `STOCK_IMAGE` | `ubuntu:bionic-20210416` | Which image to build from. Should work with most things debian-based |
+| `ATOM_BASE` | `atom-base` | Which stage of the [Dockerfile](Dockerfile) to use as the "base" for Atom. Should be an option from the [Bases Table](#Bases) table. Docker will build this stage and than put the `atom` stage atop it for the final image |
+
 ### Build Targets
 
 You can choose to build multiple targets from the `Dockerfile`. Each possible target is explained
-below. Modify the `target` section in `docker-compose-dev.yml` to switch.
+below.
+
+We default to the "test" stage for atom in the below build command to add in test dependencies. If you want to change to a production version, you can change the target to "atom".
 
 | Target | Description |
 |--------|-------------|
@@ -167,68 +209,148 @@ below. Modify the `target` section in `docker-compose-dev.yml` to switch.
 | `atom-source` | Pre-production build. Contains everything in production and all source used to build it |
 | `test` | Production build of atom plus test dependencies/utilities |
 
-### Using `buildx`
+### Building `nucleus`
 
-While not required, using `buildx` will significantly improve the build experience. In particular, `buildx` supports the ability to **skip unused stages in a multi-stage dockerfile** where the normal docker builder does not.
-
-Begin by installing Docker version 19.03+ on your machine. Once this is done,
-proceed to the next steps.
-
-Next, we need to enable the experimental Docker CLI:
+Run the command below to build the nucleus. It will leverage/pull the most recent build cache which will likely save you some time
 
 ```
-$ export DOCKER_CLI_EXPERIMENTAL=enabled
+docker buildx build \
+    -f Dockerfile \
+    -t elementaryrobotics/nucleus:local-dev \
+    --pull \
+    --cache-from type=registry,ref=elementaryrobotics/atom:cache-x86_64 \
+    --build-arg STOCK_IMAGE=ubuntu:bionic-20210416 \
+    --build-arg ATOM_BASE=atom-base \
+    --load \
+    --progress=plain \
+    --target=nucleus \
+    .
 ```
 
-And confirm we have `buildx` set up
+At the end of this command you shold have a local image, `elementaryrobotics/nucleus:local-dev` you can see from running `docker image ls`
+
+### Building `atom`
+
+The below command will build the base atom and tag it as `elementaryrobotics/atom:local-dev`. See the subsections below for the commands/modifications to build either the CV or CUDA atom variants.
 
 ```
-$ docker buildx version
-github.com/docker/buildx v0.3.1-tp-docker 6db68d029599c6710a32aa7adcba8e5a344795a7
+docker buildx build \
+    -f Dockerfile \
+    -t elementaryrobotics/atom:local-dev \
+    --pull \
+    --cache-from type=registry,ref=elementaryrobotics/atom:cache-x86_64 \
+    --build-arg STOCK_IMAGE=ubuntu:bionic-20210416 \
+    --build-arg ATOM_BASE=atom-base \
+    --load \
+    --progress=plain \
+    --target=test \
+    .
 ```
 
-Next, we need to enable `binfmt_misc` in order to run non-native Docker
-images. This will set up `qemu` to run any `arm64` binary through the
-`qemu_user_static` simulator so that it can be run on your intel-based machine.
+#### Building CV `atom`
 
 ```
-docker run --rm --privileged docker/binfmt:66f9012c56a8316f9244ffd7622d7c21c1f6f28d
+docker buildx build \
+    -f Dockerfile \
+    -t elementaryrobotics/atom:local-dev \
+    --pull \
+    --cache-from type=registry,ref=elementaryrobotics/atom:cache-cv-x86_64 \
+    --build-arg STOCK_IMAGE=ubuntu:bionic-20210416 \
+    --build-arg ATOM_BASE=atom-base-cv \
+    --load \
+    --progress=plain \
+    --target=test \
+    .
 ```
 
-You should then be able to verify that everything is set up correctly:
+#### Building VNC `atom`
 
 ```
-$ cat /proc/sys/fs/binfmt_misc/qemu-aarch64
-enabled
-interpreter /usr/bin/qemu-aarch64
-flags: OCF
-offset 0
-magic 7f454c460201010000000000000000000200b7
-mask ffffffffffffff00fffffffffffffffffeffff
+docker buildx build \
+    -f Dockerfile \
+    -t elementaryrobotics/atom:local-dev \
+    --pull \
+    --cache-from type=registry,ref=elementaryrobotics/atom:cache-vnc-x86_64 \
+    --build-arg STOCK_IMAGE=ubuntu:bionic-20210416 \
+    --build-arg ATOM_BASE=atom-base-vnc \
+    --load \
+    --progress=plain \
+    --target=test \
+    .
 ```
 
-Finally, set up Docker to use the `buildx` builder as opposed to the
-normal Docker builder:
+#### Building CUDA `atom`
 
 ```
-$ docker buildx create --use --name atombuilder
+docker buildx build \
+    -f Dockerfile \
+    -t elementaryrobotics/atom:local-dev \
+    --pull \
+    --cache-from type=registry,ref=elementaryrobotics/atom:cache-cuda-x86_64 \
+    --build-arg STOCK_IMAGE=nvcr.io/nvidia/cuda:10.2-cudnn8-devel-ubuntu18.04 \
+    --build-arg ATOM_BASE=atom-base-cuda \
+    --load \
+    --progress=plain \
+    --target=test \
+    .
 ```
 
-And we should be able to verify that our builder is in use
+### Building `metrics`
 
 ```
-$ docker buildx ls
-NAME/NODE   DRIVER/ENDPOINT             STATUS  PLATFORMS
-atombuilder *  docker-container
-  atombuilder0 unix:///var/run/docker.sock running linux/amd64, linux/386, linux/arm64, linux/ppc64le, linux/s390x, linux/arm/v7, linux/arm/v6
-default     docker
-  default   default                     running linux/amd64, linux/386
+docker buildx build \
+    -f metrics/Dockerfile \
+    -t elementaryrobotics/metrics:local-dev \
+    --pull \
+    --load \
+    --cache-from type=registry,ref=elementaryrobotics/metrics:cache-x86_64 \
+    --progress plain \
+    .
 ```
 
-Finally, to set up an alias to make `buildx` your default builder, run
+### Building `formatter`
+
 ```
-docker buildx install
+cd utilities/formatting && docker buildx build \
+    -f Dockerfile \
+    -t elementaryrobotics/formatter:local-dev \
+    --pull \
+    --load \
+    --cache-from type=registry,ref=elementaryrobotics/formatter:cache-x86_64 \
+    --progress plain \
+    .
 ```
+
+### Launching built containers
+
+Now that we've built all of our images, we can run them with
+
+```
+docker-compose -f docker-compose-main.yml -f docker-compose-build.yml up -d
+```
+
+You should see everything launch/run normally. If you see any errors similar to:
+```
+ERROR: manifest for elementaryrobotics/metrics:local-dev not found: manifest unknown: manifest unknown
+```
+
+It means you don't have the locally built version to launch with. Please see
+the section for building that image and re-run the command. It may never
+have been run before or the image may have been deleted.
+
+### Stopping containers
+
+```
+docker-compose -f docker-compose-main.yml -f docker-compose-build.yml down -t0
+```
+
+### Rebuilds
+
+If you want to rebuild, your flow should be
+
+1. Stop containers
+2. Rebuild image of interest with command from above (atom/nucleus/metrics/formatter)
+3. Re-launch containers
 
 ## Testing
 

@@ -1,0 +1,15 @@
+version: "3.4"
+
+services:
+
+  nucleus:
+    image: elementaryrobotics/nucleus:local-dev
+
+  atom:
+    image: elementaryrobotics/atom:local-dev
+
+  metrics:
+    image: elementaryrobotics/metrics:local-dev
+
+  formatting:
+    image: elementaryrobotics/formatter:local-dev
