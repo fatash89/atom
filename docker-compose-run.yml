@@ -1,0 +1,15 @@
+version: "2.3"
+
+services:
+
+  nucleus:
+    image: elementaryrobotics/nucleus:latest
+
+  metrics:
+    image: elementaryrobotics/metrics:latest
+
+  atom:
+    image: elementaryrobotics/atom:latest
+
+  formatting:
+    image: elementaryrobotics/formatter:latest

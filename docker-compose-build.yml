@@ -1,0 +1,31 @@
+version: "2.3"
+
+services:
+
+  nucleus:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: nucleus
+      args:
+        STOCK_IMAGE: ubuntu:focal-20210416
+        ATOM_BASE: atom-base
+
+  metrics:
+    build:
+      context: .
+      dockerfile: metrics/Dockerfile
+
+  atom:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: test
+      args:
+        STOCK_IMAGE: ubuntu:focal-20210416
+        ATOM_BASE: atom-base
+
+  formatting:
+    build:
+      context: ./utilities/formatting
+      dockerfile: Dockerfile
