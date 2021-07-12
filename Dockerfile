@@ -144,8 +144,17 @@ RUN cd /atom/third-party/redis && make -j8 && make PREFIX=/usr/local install
 RUN apt-get install -y ca-certificates
 ADD ./third-party/RedisTimeSeries /atom/third-party/RedisTimeSeries
 WORKDIR /atom/third-party/RedisTimeSeries
-RUN python3 system-setup.py
-RUN make build MK.pyver=3
+
+# Need to make a separate virtualenv for the build since it installs
+# a bunch of python cruft we don't need in our production env. Make the
+# env, use it for the build, and then re-source the original
+# environment.
+RUN python3 -m venv env && \
+  . env/bin/activate && \
+  python3 system-setup.py && \
+  make build MK.pyver=3 && \
+  . /opt/venv/bin/activate && \
+  rm -rf env
 
 #
 # Finish up
