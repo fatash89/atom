@@ -1138,11 +1138,11 @@ class Element:
 
     def command_loop(
         self,
-        n_procs: int = 1,
-        use_procs: bool = True,
+        n_workers: int = 1,
         block: bool = True,
         read_block_ms: int = 1000,
         join_timeout: Optional[float] = None,
+        use_procs: bool = True,
     ) -> None:
         """
         Main command execution event loop
@@ -1153,26 +1153,26 @@ class Element:
         - Returns Response with processed data to caller
 
         Args:
-            n_procs: Number of worker processes.  Each worker process will pull
+            n_workers: Number of worker processes/threads. Each worker pulls
                 work from the Element's shared command consumer group (defaults
                 to 1).
-            use_procs: If True, use procs for running multiple command loops
-                concurrently; else use threads.
             block: Wait for the response before returning from the function
             read_block_ms: Number of milliseconds to block for during a stream
                 read insde of a command loop.
             join_timeout: If block=True, how long to wait while joining threads
                 at the end of the command loop before raising an exception
+            use_procs: If True, use procs for running multiple workers
+                concurrently; else use threads.
         """
         # update self._pid in case e.g. we were constructed in a parent thread
         #   but `command_loop` was explicitly called as a sub-process
         self._pid = os.getpid()
-        n_procs = int(n_procs)
-        if n_procs <= 0:
-            raise ValueError("n_procs must be a positive integer")
+        n_workers = int(n_workers)
+        if n_workers <= 0:
+            raise ValueError("n_workers must be a positive integer")
 
         self.processes = []
-        for i in range(n_procs):
+        for i in range(n_workers):
             Cls = Process if use_procs else Thread
             p = Cls(
                 target=self._command_loop,
