@@ -14,6 +14,7 @@ from multiprocessing import Process
 from os import uname
 from queue import Empty as QueueEmpty
 from queue import LifoQueue, Queue
+from threading import Thread
 from traceback import format_exc
 from typing import Any, Callable, Dict, Optional, Sequence, Union, cast
 
@@ -250,7 +251,7 @@ class Element:
         self._timed_out = False
         self._pid = os.getpid()
         self._cleaned_up = False
-        self.processes: list[Process] = []
+        self.processes: list[Union[Process, Thread]] = []
         self._redis_connected = False
 
         #
@@ -1138,6 +1139,7 @@ class Element:
     def command_loop(
         self,
         n_procs: int = 1,
+        use_procs: bool = True,
         block: bool = True,
         read_block_ms: int = 1000,
         join_timeout: Optional[float] = None,
@@ -1154,6 +1156,8 @@ class Element:
             n_procs: Number of worker processes.  Each worker process will pull
                 work from the Element's shared command consumer group (defaults
                 to 1).
+            use_procs: If True, use procs for running multiple command loops
+                concurrently; else use threads.
             block: Wait for the response before returning from the function
             read_block_ms: Number of milliseconds to block for during a stream
                 read insde of a command loop.
@@ -1167,33 +1171,18 @@ class Element:
         if n_procs <= 0:
             raise ValueError("n_procs must be a positive integer")
 
-        # note: This warning is emitted in situations where the calling process
-        #   has more than one active thread.  When the command_loop children
-        #   processes are forked they will only copy the thread state of the
-        #   active thread which invoked the fork.  Other active thread state
-        #   will *not* be copied to these descendent processes.  This may cause
-        #   some problems with proper execution of the Element's command_loop
-        #   if the command depends on this thread state being available on the
-        #   descendent processes. Please see the following Stack Overflow link
-        #   for more context:
-        #       https://stackoverflow.com/questions/39890363/what-happens-when-a-thread-forks # noqa W505
-        thread_count = threading.active_count()
-        if thread_count > 1:
-            self.logger.warning(
-                f"[element:{self.name}] Active thread count is currently {thread_count}.  Child command_loop "
-                "processes will only copy one active thread's state and therefore may not "
-                "work properly."
-            )
-
         self.processes = []
         for i in range(n_procs):
-            p = Process(
+            Cls = Process if use_procs else Thread
+            p = Cls(
                 target=self._command_loop,
                 args=(
                     self._command_loop_shutdown,
                     i,
                 ),
                 kwargs={"read_block_ms": read_block_ms},
+                # Make sure program can exit even if some thread still running
+                daemon=not use_procs,
             )
             p.start()
             self.processes.append(p)
@@ -1422,7 +1411,7 @@ class Element:
                     )
                 except redis.exceptions.ResponseError:
                     self.logger.error(
-                        "Recieved redis ResponseError.  Possible attempted "
+                        "Received redis ResponseError.  Possible attempted "
                         "XREADGROUP on closed stream %s (is shutdown: %s).  "
                         "Please ensure you have performed the command_loop_shutdown"
                         " command on the object running command_loop."
