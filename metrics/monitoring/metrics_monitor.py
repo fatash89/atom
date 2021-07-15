@@ -8,6 +8,7 @@ import time
 from collections import defaultdict
 
 import psutil
+import py3nvml.py3nvml as nvml
 from atom import Element, MetricsLevel
 
 # Which /proc/ to read to get stats. Will default to the /proc/ but this
@@ -46,6 +47,11 @@ network_metrics_status_keys = defaultdict(lambda: {})
 # Sensor dictionaries
 sensors_metrics_status_keys = defaultdict(lambda: {})
 
+# GPU dictionaries
+gpu_mem_metrics_keys = {}
+gpu_temp_metrics_keys = {}
+gpu_util_metrics_keys = {}
+
 #
 # Label/Key Strings
 #
@@ -82,6 +88,12 @@ NETWORK_REMOTE_PREFIX = "remote"
 # Sensor strings
 SENSOR_PREFIX = "sensor"
 SENSOR_TEMP_PREFIX = "temp"
+
+# GPU strings
+GPU_PREFIX = "gpu"
+GPU_MEM_PREFIX = "mem"
+GPU_TEMP_PREFIX = "temp" 
+GPU_UTIL_PREFIX = "util"
 
 # Process strings
 PROCESS_PREFIX = "process"
@@ -833,6 +845,79 @@ def process_metrics_update(element, pipeline):
     thread_times_user_last = thread_times_user
     thread_times_system_last = thread_times_system
 
+def gpu_metrics_init(element):
+    """
+    Initialize all of the GPU metrics we'll be tracking
+    """
+
+    def gpu_metrics_create_gpu_mem(*keys):
+        for key in keys:
+            gpu_mem_metrics_keys[key] = element.metrics_create(
+                MetricsLevel.INFO, GPU_PREFIX, GPU_MEM_PREFIX, key
+            )
+    
+    def gpu_metrics_create_gpu_temp(*keys):
+        for key in keys:
+            gpu_temp_metrics_keys[key] = element.metrics_create(
+                MetricsLevel.INFO, GPU_PREFIX, GPU_TEMP_PREFIX, key
+            )
+
+    def gpu_metrics_create_gpu_util(*keys):
+        for key in keys:
+            gpu_util_metrics_keys[key] = element.metrics_create(
+                MetricsLevel.INFO, GPU_PREFIX, GPU_UTIL_PREFIX, key
+            )
+
+    #
+    # Metrics from py3nvml
+    #
+    gpu_count = nvml.nvmlDeviceGetCount()
+    for gpu in range(gpu_count):
+        gpu_metrics_create_gpu_mem(str(gpu) + "-used")
+        gpu_metrics_create_gpu_mem(str(gpu) + "-total")
+        gpu_metrics_create_gpu_temp(str(gpu))
+        gpu_metrics_create_gpu_util(str(gpu))
+
+def gpu_metrics_update(element, pipeline):
+    """
+    Update the GPU metrics on the pipeline
+    """
+    def try_get_info(f, h, default='N/A'):
+        try:
+            v = f(h)
+        except nvml.NVMLError_NotSupported:
+            v = default
+        return v
+
+    gpu_count = nvml.nvmlDeviceGetCount()
+    for gpu in range(gpu_count):
+        try:
+            h = nvml.nvmlDeviceGetHandleByIndex(gpu)
+        except:
+            continue
+
+        temp = try_get_info(lambda h: nvml.nvmlDeviceGetTemperature(h, nvml.NVML_TEMPERATURE_GPU), h, -1)
+        
+        mem_info = try_get_info(nvml.nvmlDeviceGetMemoryInfo, h)
+        if mem_info != 'N/A':
+            used = mem_info.used >> 20
+            total = mem_info.total >> 20
+        else:
+            used = 0
+            total = 0
+
+        util = try_get_info(nvml.nvmlDeviceGetUtilizationRates, h)
+        if util != 'N/A':
+            gpu_util = util.gpu
+        else:
+            gpu_util = 0
+
+        element.metrics_add(gpu_mem_metrics_keys[str(gpu) + "-used"], used, pipeline=pipeline)
+        element.metrics_add(gpu_mem_metrics_keys[str(gpu) + "-total"], total, pipeline=pipeline)
+
+        element.metrics_add(gpu_temp_metrics_keys[str(gpu)], temp, pipeline=pipeline)
+        element.metrics_add(gpu_util_metrics_keys[str(gpu)], gpu_util, pipeline=pipeline)
+
 
 # Mainloop
 if __name__ == "__main__":
@@ -852,6 +937,9 @@ if __name__ == "__main__":
         print("Failed to create element! Waiting 10s")
         time.sleep(10)
 
+    # Initialize py3nvml for gpu metric collection
+    nvml.nvmlInit()
+
     # Initialize all of the timing metrics
     timing_metrics = {}
     initialize_timing_metric("cpu")
@@ -859,6 +947,7 @@ if __name__ == "__main__":
     initialize_timing_metric("disk")
     initialize_timing_metric("network")
     initialize_timing_metric("sensors")
+    initialize_timing_metric("gpu")
     initialize_timing_metric("processes")
     initialize_timing_metric("redis")
 
@@ -868,6 +957,7 @@ if __name__ == "__main__":
     disk_metrics_init(element)
     network_metrics_init(element)
     sensors_metrics_init(element)
+    gpu_metrics_init(element)
     processes_metrics_init(element)
 
     print("Monitor ready and beginning!")
@@ -893,5 +983,8 @@ if __name__ == "__main__":
         element.metrics_timing_start(timing_metrics["sensors"])
         sensors_metrics_update(element, None)
         element.metrics_timing_end(timing_metrics["sensors"])
+        element.metrics_timing_start(timing_metrics['gpu'])
+        gpu_metrics_update(element, None)
+        element.metrics_timing_end(timing_metrics['gpu'])
         element.metrics_timing_start(timing_metrics["processes"])
         process_metrics_update(element, None)

@@ -1,2 +1,3 @@
 atom
 psutil
+py3nvml
