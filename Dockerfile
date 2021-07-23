@@ -300,7 +300,7 @@ ENV DISPLAY :0
 # Base image: atom + CV tools + CUDA tools
 #
 ################################################################################
-FROM atom-base-cv as atom-base-cuda
+FROM atom-base-vnc as atom-base-cuda
 
 WORKDIR /atom/languages/python
 ADD ./languages/python/requirements-cuda.txt .
