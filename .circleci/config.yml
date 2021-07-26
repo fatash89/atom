@@ -58,7 +58,7 @@ aliases:
   - &atom_base_image_repo ubuntu
   - &atom_base_image_tag bionic-20210416
   - &atom_cuda_amd64_image_repo nvcr.io/nvidia/cuda
-  - &atom_cuda_amd64_image_tag 10.2-cudnn8-devel-ubuntu18.04
+  - &atom_cuda_amd64_image_tag 11.2-cudnn8-devel-ubuntu18.04
   - &atom_cuda_aarch64_image_repo nvcr.io/nvidia/l4t-base
   - &atom_cuda_aarch64_image_tag r32.5.0
 
