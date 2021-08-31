@@ -2280,6 +2280,7 @@ class Element:
         maxlen: int = STREAM_LEN,
         serialization: Optional[atom_ser.SerializationMethod] = None,
         serialize: Optional[bool] = None,
+        id: str = "*",
     ) -> str:
         """
         Creates element's stream if it does not exist. Adds the fields and data
@@ -2293,6 +2294,7 @@ class Element:
                 default to this element's name if not specified
             maxlen: The maximum number of data to keep in the stream.
             serialization: Method of serialization to use; defaults to None.
+            id: Let client specify own stream id, else Redis generates it.
 
             Deprecated:
             serialize: Whether or not to serialize the entry using msgpack;
@@ -2341,6 +2343,7 @@ class Element:
             _pipe.xadd(
                 self._make_stream_id(element_name, stream_name),
                 vars(entry),
+                id=id,
                 maxlen=maxlen,
             )
             ret = _pipe.execute()
