@@ -375,7 +375,7 @@ commands:
             --target=<< parameters.stage >>
             --pull
             << parameters.build_context >>
-          no_output_timeout: << parameters.no_output_timeout >>
+          no_output_timeout: 1h
 
   # Build a Dockerfile using docker buildx build
   build_dockerfile:
