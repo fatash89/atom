@@ -44,7 +44,8 @@ RUN apt-get update \
       flex \
       bison \
       curl \
-      pkg-config
+      pkg-config \
+      ca-certificates
 
 # Set up the ability to run things with libraries in /usr/local/lib
 ENV LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
@@ -141,7 +142,6 @@ RUN cd /atom/third-party/redis && make -j8 && make PREFIX=/usr/local install
 #
 # Redis time series module.
 #
-RUN apt-get install -y ca-certificates
 ADD ./third-party/RedisTimeSeries /atom/third-party/RedisTimeSeries
 WORKDIR /atom/third-party/RedisTimeSeries
 
