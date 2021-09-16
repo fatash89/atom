@@ -7,3 +7,8 @@ dist/
 poetry.lock
 .python-version
 pyrightconfig.json
+
+GPATH
+GRTAGS
+GTAGS
+gtags.files
