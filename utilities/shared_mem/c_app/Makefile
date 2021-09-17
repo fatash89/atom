@@ -7,7 +7,7 @@ APP_NAME=test_c_app
 
 CFLAGS= -I../lib
 
-LDFLAGS= -L../lib -lershmem
+LDFLAGS= -L../lib -lershmem -lrt -lboost_date_time
 
 all: $(C_OBJS)
 	$(CC) -o $(APP_NAME) $(C_OBJS) $(LDFLAGS)

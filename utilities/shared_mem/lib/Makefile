@@ -11,7 +11,7 @@ CPP_OBJS=$(patsubst %.cpp,%.o, $(wildcard *.cpp))
 TARGET_LIB_SONAME   = lib$(LIB_NAME).so.$(MAJOR_VER)
 TARGET_PYLIB_SONAME = libpy$(LIB_NAME).so.$(MAJOR_VER)
 
-CXXFLAGS = -fPIC -c
+CXXFLAGS = -std=c++11 -fPIC -c
 
 ifeq ($(DEBUG), on)
 	CXXFLAGS += -g
