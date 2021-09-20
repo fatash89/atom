@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include <er_shmem.h>
+#include "er_shmem.h"
 
 #define SHMEM_SIZE 4096
 #define BUFF_SIZE 1024
