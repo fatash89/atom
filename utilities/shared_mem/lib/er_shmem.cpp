@@ -45,7 +45,7 @@ int64_t er_shmem_alloc(int size)
     return -1;
 }
 
-int er_shmem_init(int64_t handle, void* data, int data_size)
+int er_shmem_init(int64_t handle, char* data, int data_size)
 {
     if (ptr_shmem != nullptr) {
         boost_ipc::managed_shared_memory::handle_t tmp_handle = handle;
@@ -58,11 +58,10 @@ int er_shmem_init(int64_t handle, void* data, int data_size)
     return -1;
 }
 
-void* er_shmem_get(int64_t handle)
+char* er_shmem_get(int64_t handle)
 {
     if (ptr_shmem != nullptr) {
-        boost_ipc::managed_shared_memory::handle_t tmp_handle = handle;
-        return ptr_shmem->get_address_from_handle(handle);
+        return static_cast<char*>(ptr_shmem->get_address_from_handle(handle));
     }
     return nullptr;
 }
@@ -70,7 +69,6 @@ void* er_shmem_get(int64_t handle)
 int er_shmem_delete(int64_t handle)
 {
     if (ptr_shmem != nullptr) {
-        boost_ipc::managed_shared_memory::handle_t tmp_handle = handle;
         void* addr = ptr_shmem->get_address_from_handle(handle);
         if (addr != nullptr) {
             ptr_shmem->deallocate(addr);

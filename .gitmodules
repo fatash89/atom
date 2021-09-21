@@ -37,3 +37,7 @@
 [submodule "metrics/grafana-redis-datasource"]
 	path = metrics/grafana-redis-datasource
 	url = https://github.com/RedisTimeSeries/grafana-redis-datasource
+[submodule "utilities/shared_mem/lib/pybind11"]
+	path = utilities/shared_mem/lib/pybind11
+	url = https://github.com/pybind/pybind11
+	branch = stable

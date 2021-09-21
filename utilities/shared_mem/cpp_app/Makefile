@@ -7,13 +7,13 @@ APP_NAME=test_cpp_app
 
 CXXFLAGS= -std=c++11 -I../lib
 
-LDFLAGS= -L../lib -lershmem -lrt -lboost_date_time
+LDFLAGS= -L../lib -lershmem 
 
 all: $(CPP_OBJS)
 	$(CXX) -o $(APP_NAME) $(CPP_OBJS) $(LDFLAGS)
 
 %.o:%.cpp
-	$(CXX) $(CXXFLAGS) -c $? -o $@
+	$(CXX) $(CXXFLAGS) -DER_C_LINKAGE -c $? -o $@
 
 .PHONY: clean
 clean:

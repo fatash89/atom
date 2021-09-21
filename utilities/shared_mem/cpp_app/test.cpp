@@ -17,7 +17,7 @@ int main(int argc, char* argv[])
 
         handle = er_shmem_alloc(BUFF_SIZE);
         std::cout << "handle = " << handle << std::endl;
-        er_shmem_init(handle,(void*)buff,strlen(buff)+1);
+        er_shmem_init(handle,(char*)buff,strlen(buff)+1);
 
         std::cout << "Hit any key to exit" << std::endl;
         std::cin.get();
