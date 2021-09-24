@@ -6,18 +6,17 @@
 #include "er_shmem.h"
 
 #define SHMEM_SIZE 4096
-#define BUFF_SIZE 1024
 
 int main(int argc, char* argv[])
 {
     int64_t handle;
-    const char* buff = "Hello From C test app";
+    const unsigned char buff[] = {11,22,33,44};
     if (argc == 2) {
         er_shmem_create(argv[1],SHMEM_SIZE);
 
-        handle = er_shmem_alloc(BUFF_SIZE);
+        handle = er_shmem_alloc(sizeof(buff));
         printf("handle = %ld\n",handle);
-        er_shmem_init(handle,(void*)buff,strlen(buff)+1);
+        er_shmem_init(handle,(const char*)buff,sizeof(buff));
 
         printf("Hit any key to exit");
         getchar();
@@ -26,9 +25,14 @@ int main(int argc, char* argv[])
     } else if (argc == 3){
         er_shmem_open(argv[1]);
         handle = atol(argv[2]);
-        char* tmp = (char*)er_shmem_get(handle);
+        unsigned char* tmp = er_shmem_get(handle);
+        int64_t size = er_shmem_get_size(handle);
 
-        printf("read: %s\n",tmp);
+        printf("Read: ");
+        for (int i=0;i<size;i++) {
+            printf("%d ",tmp[i]);
+        }
+        printf("\n");
 
         er_shmem_delete(handle);
     } else
