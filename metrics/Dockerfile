@@ -1,4 +1,4 @@
-FROM grafana/grafana:7.5.7
+FROM grafana/grafana:8.1.5
 
 # Use root user -- easier/better able to store configs locally.
 # THIS SHOULD NOT BE USED FOR NON-LOCAL SETUPS
@@ -16,7 +16,7 @@ ENV REDIS_CLI_BIN /usr/bin/redis-cli
 ENV PYTHONUNBUFFERED=TRUE
 
 # Install our requirements
-RUN apk update && apk add alpine-sdk git go npm python2 python3 py-pip redis
+RUN apk update && apk upgrade && apk add alpine-sdk git go npm python2 python3 py-pip redis
 
 # Install Mage
 RUN mkdir -p /root/go/bin && git clone https://github.com/magefile/mage && cd mage && go run bootstrap.go
