@@ -22,7 +22,7 @@ ARG PYTHON_VERSION=3.8.10
 # System-level installs
 #
 
-RUN apt-get update \
+RUN apt-get update && apt-get -y upgrade \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       apt-utils \
       git \
@@ -172,7 +172,7 @@ WORKDIR /atom
 FROM atom-base as atom-base-cv-build
 
 # Install pre-requisites
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+RUN apt-get update && apt-get -y upgrade && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     zlib1g-dev \
     libjpeg-turbo8-dev \
     libpng-dev \
@@ -392,7 +392,7 @@ ENV ATOM_LOG_FILE_SIZE 2000
 ENV PYTHONUNBUFFERED=TRUE
 
 # Install python
-RUN apt-get update -y \
+RUN apt-get update -y && apt-get -y upgrade \
    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends apt-utils \
    curl \
    libatomic1
@@ -471,7 +471,7 @@ FROM atom as test
 #
 
 # Install dependencies
-RUN apt-get update \
+RUN apt-get update && apt-get -y upgrade \
    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
    libgtest-dev \
    cmake \
