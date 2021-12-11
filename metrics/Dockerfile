@@ -1,4 +1,4 @@
-FROM grafana/grafana:7.5.7
+FROM grafana/grafana:7.5.12
 
 # Use root user -- easier/better able to store configs locally.
 # THIS SHOULD NOT BE USED FOR NON-LOCAL SETUPS
