@@ -9,7 +9,7 @@
 # ALL ARGS TO BE USED IN **ANY** FROM MUST OCCUR BEFORE THE **FIRST** FROM
 # https://docs.docker.com/engine/reference/builder/#understand-how-arg-and-from-interact
 #
-ARG STOCK_IMAGE=ubuntu:focal-20210416
+ARG STOCK_IMAGE=ubuntu:latest
 ARG ATOM_BASE=atom-base
 ARG DEBIAN_FRONTEND=noninteractive
 
